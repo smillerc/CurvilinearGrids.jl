@@ -1,6 +1,6 @@
 using CurvilinearGrids
 using Test
+using TestItemRunner
+using TestItems
 
-@testset "CurvilinearGrids.jl" begin
-    # Write your tests here.
-end
+@run_package_tests
