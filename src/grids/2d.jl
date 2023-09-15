@@ -76,13 +76,42 @@ function _setup_jacobian_func(x, y)
   return jacobian_matrix
 end
 
+# Get the grid metrics for a static grid
 function _get_metrics(_jacobian_matrix::SMatrix{2,2,T}) where {T}
-  J = det(_jacobian_matrix)
+  inv_jacobian_matrix = inv(_jacobian_matrix)
+  J⁻¹ = det(inv_jacobian_matrix)
 
-  ∂x∂ξ = _jacobian_matrix[1, 1]
-  ∂x∂η = _jacobian_matrix[1, 2]
-  ∂y∂ξ = _jacobian_matrix[2, 1]
-  ∂y∂η = _jacobian_matrix[2, 2]
+  ξx = inv_jacobian_matrix[1, 1]
+  ξy = inv_jacobian_matrix[1, 2]
+  ηx = inv_jacobian_matrix[2, 1]
+  ηy = inv_jacobian_matrix[2, 2]
 
-  return (ξ̂x=J * ∂y∂η, ξ̂y=-J * ∂x∂η, η̂x=-J * ∂y∂ξ, η̂y=J * ∂x∂ξ)
+  ξ̂x = J⁻¹ * ξx
+  ξ̂y = -J⁻¹ * ξy
+  η̂x = -J⁻¹ * ηx
+  η̂y = J⁻¹ * ηy
+
+  return (ξ̂x=ξ̂x, ξ̂y=ξ̂y, η̂x=η̂x, η̂y=η̂y)
+end
+
+# Get the grid metrics for a dynamic grid -- grid velocities (vx,vy,vz) must be provided
+function _get_metrics(_jacobian_matrix::SMatrix{2,2,T}, (vx, vy)) where {T}
+  inv_jacobian_matrix = inv(_jacobian_matrix)
+  J⁻¹ = det(inv_jacobian_matrix)
+
+  ξx = inv_jacobian_matrix[1, 1]
+  ξy = inv_jacobian_matrix[1, 2]
+  ηx = inv_jacobian_matrix[2, 1]
+  ηy = inv_jacobian_matrix[2, 2]
+
+  ξ̂x = J⁻¹ * ξx
+  ξ̂y = -J⁻¹ * ξy
+  η̂x = -J⁻¹ * ηx
+  η̂y = J⁻¹ * ηy
+
+  # temporal metrics
+  ξt = -(vx * ξx + vy * ξy)
+  ηt = -(vx * ηx + vy * ηy)
+
+  return (ξ̂x=ξ̂x, ξ̂y=ξ̂y, η̂x=η̂x, η̂y=η̂y, ξt=ξt, ηt=ηt)
 end

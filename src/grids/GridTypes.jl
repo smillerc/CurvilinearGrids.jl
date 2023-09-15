@@ -44,7 +44,10 @@ jacobian(mesh::CurvilinearMesh3D, i, j, k) = det(jacobian_matrix(mesh, i, j, k))
 jacobian(mesh::CurvilinearMesh2D, i, j) = det(jacobian_matrix(mesh, i, j))
 
 metrics(mesh, CI::CartesianIndex) = metrics(mesh, CI.I...)
+metrics(mesh, CI::CartesianIndex, v⃗_grid) = metrics(mesh, CI.I..., v⃗_grid)
+
 metrics(mesh, idx) = metrics(mesh, idx...)
+metrics(mesh, idx, v⃗_grid) = metrics(mesh, idx..., v⃗_grid)
 
 function metrics(m::CurvilinearMesh3D, i, j, k)
   jacobi = m.jacobian_matrix_func(i, j, k)
@@ -54,6 +57,16 @@ end
 function metrics(m::CurvilinearMesh2D, i, j)
   jacobi = m.jacobian_matrix_func(i, j)
   return _get_metrics(jacobi)
+end
+
+function metrics(m::CurvilinearMesh3D, i, j, k, v⃗_grid)
+  jacobi = m.jacobian_matrix_func(i, j, k)
+  return _get_metrics(jacobi, v⃗_grid)
+end
+
+function metrics(m::CurvilinearMesh2D, i, j, v⃗_grid)
+  jacobi = m.jacobian_matrix_func(i, j)
+  return _get_metrics(jacobi, v⃗_grid)
 end
 
 end
