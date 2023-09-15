@@ -1,2 +1,4 @@
 using CurvilinearGrids
+using StaticArrays
 using Test
+using BenchmarkTools
