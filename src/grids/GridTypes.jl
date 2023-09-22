@@ -25,7 +25,7 @@ Metrics2D{T} = NamedTuple{(:ξ̂x, :η̂x, :ζ̂x, :ξ̂y, :η̂y, :ζ̂y),NTupl
 Metrics3D{T} =
   NamedTuple{(:ξ̂x, :η̂x, :ζ̂x, :ξ̂y, :η̂y, :ζ̂y, :ξ̂z, :η̂z, :ζ̂z),NTuple{9,T}} where {T}
 
-function empty_metrics((ni, nj)::NTuple{2,Int}, T=Float64)
+function _make_empty_metric_array((ni, nj)::NTuple{2,Int}, T=Float64)
   M = Array{Metrics2D{Float64},2}(undef, ni, nj)
 
   @inbounds for i in eachindex(M)
@@ -35,7 +35,7 @@ function empty_metrics((ni, nj)::NTuple{2,Int}, T=Float64)
   return M
 end
 
-function empty_metrics((ni, nj, nk)::NTuple{3,Int}, T=Float64)
+function _make_empty_metric_array((ni, nj, nk)::NTuple{3,Int}, T=Float64)
   M = Array{Metrics3D{Float64},3}(undef, ni, nj, nk)
 
   @inbounds for i in eachindex(M)
@@ -99,6 +99,12 @@ jacobian(mesh, idx) = det(jacobian_matrix(mesh, idx))
 jacobian(mesh::CurvilinearMesh3D, i, j, k) = det(jacobian_matrix(mesh, i, j, k))
 jacobian(mesh::CurvilinearMesh2D, i, j) = det(jacobian_matrix(mesh, i, j))
 
+"""
+Query the mesh metrics at a particular index
+
+**Note**: The mesh stores these in `mesh.cell_center_metrics` and `mesh.edge_metrics`
+
+"""
 metrics(mesh, CI::CartesianIndex) = metrics(mesh, CI.I...)
 metrics(mesh, CI::CartesianIndex, v⃗_grid) = metrics(mesh, CI.I..., v⃗_grid)
 

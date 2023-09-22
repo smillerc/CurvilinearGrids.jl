@@ -35,11 +35,13 @@ function CurvilinearMesh3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n
     ilo=lo, ihi=ni_cells - nhalo, jlo=lo, jhi=nj_cells - nhalo, klo=lo, khi=nk_cells - nhalo
   )
 
-  cell_center_metrics = empty_metrics(cell_dims)
+  cell_center_metrics = _make_empty_metric_array(cell_dims)
 
   # metric terms for the {i,j,k}±1/2 edges
   edge_metrics = (
-    ξ=empty_metrics(cell_dims), η=empty_metrics(cell_dims), ζ=empty_metrics(cell_dims)
+    ξ=_make_empty_metric_array(cell_dims),
+    η=_make_empty_metric_array(cell_dims),
+    ζ=_make_empty_metric_array(cell_dims),
   )
 
   J = zeros(cell_dims)
@@ -273,7 +275,12 @@ function _setup_conservative_metrics_func(x, y, z)
 
   # Get all the matrices at once
   function conserv_metric_matricies(ξ, η, ζ)
-    return (grady_z_jacobian(ξ, η, ζ), gradz_x_jacobian(ξ, η, ζ), gradx_y_jacobian(ξ, η, ζ))
+    # checkeps just zeros out terms that are less than ϵ
+    return (
+      checkeps(grady_z_jacobian(ξ, η, ζ)),
+      checkeps(gradz_x_jacobian(ξ, η, ζ)),
+      checkeps(gradx_y_jacobian(ξ, η, ζ)),
+    )
   end
 
   # M1 = ∇y_z_jacobian(ξ, η, ζ)
