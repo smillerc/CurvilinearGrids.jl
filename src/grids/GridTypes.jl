@@ -2,7 +2,7 @@ module GridTypes
 
 using LinearAlgebra
 using StaticArrays
-using ForwardDiff: derivative, gradient
+using ForwardDiff
 
 export AbstractCurvilinearMesh
 export CurvilinearMesh2D, CurvilinearMesh3D
@@ -12,8 +12,64 @@ export metrics, jacobian, jacobian_matrix
 
 abstract type AbstractCurvilinearMesh end
 
+# Helper functions to eliminate floating point values below ϵ; these
+# are used to "clean" the jacobian matrices, so we don't get 
+# numbers like 1e-18, when in reality they should be 0.0
+# @inline checkeps(M) = M # non-Float version 
+@inline function checkeps(M::AbstractArray{T,N}) where {T,N<:AbstractFloat}
+  return @. M * abs(M >= eps(T))
+end
+
+# metric types, e.g. named tuples
+Metrics2D{T} = NamedTuple{(:ξ̂x, :η̂x, :ζ̂x, :ξ̂y, :η̂y, :ζ̂y),NTuple{6,T}} where {T}
+Metrics3D{T} =
+  NamedTuple{(:ξ̂x, :η̂x, :ζ̂x, :ξ̂y, :η̂y, :ζ̂y, :ξ̂z, :η̂z, :ζ̂z),NTuple{9,T}} where {T}
+
+function empty_metrics((ni, nj)::NTuple{2,Int}, T=Float64)
+  M = Array{Metrics2D{Float64},2}(undef, ni, nj)
+
+  @inbounds for i in eachindex(M)
+    M[i] = (ξ̂x=zero(T), η̂x=zero(T), ζ̂x=zero(T), ξ̂y=zero(T), η̂y=zero(T), ζ̂y=zero(T))
+  end
+
+  return M
+end
+
+function empty_metrics((ni, nj, nk)::NTuple{3,Int}, T=Float64)
+  M = Array{Metrics3D{Float64},3}(undef, ni, nj, nk)
+
+  @inbounds for i in eachindex(M)
+    M[i] = (
+      ξ̂x=zero(T),
+      η̂x=zero(T),
+      ζ̂x=zero(T),
+      ξ̂y=zero(T),
+      η̂y=zero(T),
+      ζ̂y=zero(T),
+      ξ̂z=zero(T),
+      η̂z=zero(T),
+      ζ̂z=zero(T),
+    )
+  end
+
+  return M
+end
+
 include("2d.jl")
 include("3d.jl")
+
+function update(m::AbstractCurvilinearMesh)
+  #TODO: make these GPU/CPU agnostic
+  update_metrics(m)
+
+  @inbounds for I in CartesianIndices(m.J)
+    _jacobian_matrix = jacobian_matrix(m, I)
+    m.J[I] = det(_jacobian_matrix)
+    # m.J⁻¹[I] = det(inv(_jacobian_matrix))
+  end
+
+  return nothing
+end
 
 coord(mesh, CI::CartesianIndex) = coord(mesh, CI.I...)
 coord(m::CurvilinearMesh2D, i, j) = @SVector [m.x(i, j), m.y(i, j)]
