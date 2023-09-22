@@ -263,28 +263,18 @@ function _get_metrics(_jacobian_matrix::SMatrix{3,3,T}, (vx, vy, vz)) where {T}
 end
 
 function _setup_conservative_metrics_func(x, y, z)
-  @inline gradx(ξ, η, ζ) = ForwardDiff.gradient(x, @SVector [ξ, η, ζ]) # ∂x∂ξ, ∂x∂η, ∂x∂ζ
-  @inline grady(ξ, η, ζ) = ForwardDiff.gradient(y, @SVector [ξ, η, ζ]) # ∂z∂ξ, ∂z∂η, ∂z∂ζ
-  @inline gradz(ξ, η, ζ) = ForwardDiff.gradient(z, @SVector [ξ, η, ζ]) # ∂y∂ξ, ∂y∂η, ∂y∂ζ
+  gradx_y((ξ, η, ζ)) = ForwardDiff.gradient(x, @SVector [ξ, η, ζ]) * y(ξ, η, ζ)
+  grady_z((ξ, η, ζ)) = ForwardDiff.gradient(y, @SVector [ξ, η, ζ]) * z(ξ, η, ζ)
+  gradz_x((ξ, η, ζ)) = ForwardDiff.gradient(z, @SVector [ξ, η, ζ]) * x(ξ, η, ζ)
 
-  @inline gradx_y(ξ, η, ζ) = gradx(ξ, η, ζ) * y(ξ, η, ζ)
-  @inline grady_z(ξ, η, ζ) = grady(ξ, η, ζ) * z(ξ, η, ζ)
-  @inline gradz_x(ξ, η, ζ) = gradz(ξ, η, ζ) * x(ξ, η, ζ)
-
-  # these are needed to evaluate as "f(x)", with a single argument
-  @inline gradx_y((ξ, η, ζ)) = gradx_y(ξ, η, ζ)
-  @inline grady_z((ξ, η, ζ)) = grady_z(ξ, η, ζ)
-  @inline gradz_x((ξ, η, ζ)) = gradz_x(ξ, η, ζ)
-
-  @inline grady_z_jacobian(ξ, η, ζ) = ForwardDiff.jacobian(grady_z, @SVector [ξ, η, ζ])
-  @inline gradz_x_jacobian(ξ, η, ζ) = ForwardDiff.jacobian(gradz_x, @SVector [ξ, η, ζ])
-  @inline gradx_y_jacobian(ξ, η, ζ) = ForwardDiff.jacobian(gradx_y, @SVector [ξ, η, ζ])
+  grady_z_jacobian(ξ, η, ζ) = ForwardDiff.jacobian(grady_z, @SVector [ξ, η, ζ])
+  gradz_x_jacobian(ξ, η, ζ) = ForwardDiff.jacobian(gradz_x, @SVector [ξ, η, ζ])
+  gradx_y_jacobian(ξ, η, ζ) = ForwardDiff.jacobian(gradx_y, @SVector [ξ, η, ζ])
 
   # Get all the matrices at once
-  @inline function conserv_metric_matricies(ξ, η, ζ)
+  function conserv_metric_matricies(ξ, η, ζ)
     return (grady_z_jacobian(ξ, η, ζ), gradz_x_jacobian(ξ, η, ζ), gradx_y_jacobian(ξ, η, ζ))
   end
-  conserv_metric_matricies((ξ, η, ζ)) = conserv_metric_matricies(ξ, η, ζ)
 
   # M1 = ∇y_z_jacobian(ξ, η, ζ)
   # M1 = [(z y_ξ)_ξ (z y_ξ)_η (z y_ξ)_ζ
