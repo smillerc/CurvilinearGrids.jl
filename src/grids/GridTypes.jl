@@ -16,7 +16,7 @@ abstract type AbstractCurvilinearMesh end
 # are used to "clean" the jacobian matrices, so we don't get 
 # numbers like 1e-18, when in reality they should be 0.0
 # @inline checkeps(M) = M # non-Float version 
-@inline function checkeps(M::AbstractArray{T,N}) where {T,N<:AbstractFloat}
+@inline function checkeps(M::AbstractArray{T,N}) where {T<:AbstractFloat,N}
   return @. M * abs(M >= eps(T))
 end
 

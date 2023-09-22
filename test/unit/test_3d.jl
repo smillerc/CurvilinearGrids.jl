@@ -1,5 +1,5 @@
 
-@testitem "3D Mesh - Rectlinear Mesh" begin
+@testitem "3D Mesh - Rectangular Mesh" begin
   include("common.jl")
 
   function rect_grid(nx, ny, nz)

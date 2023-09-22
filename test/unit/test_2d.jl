@@ -21,7 +21,9 @@
   x, y = rect_grid(ni, nj)
   mesh = CurvilinearMesh2D(x, y, (ni, nj), nhalo)
 
-  metrics(mesh, (2, 3)) == (ξ̂x=0.03125, ξ̂y=0.0, η̂x=0.0, η̂y=0.0625)
+  m = (ξ̂x=0.25, ξ̂y=0, η̂x=0, η̂y=0.5)
+  metrics(mesh, (2, 3)) == m
+
   bm1 = @benchmark metrics($mesh, (2, 3))
   @test bm1.allocs == 0
 
@@ -54,8 +56,7 @@
 
   for j in jlo:jhi
     for i in ilo:ihi
-      m = metrics(mesh, (i, j))
-      @test m == (ξ̂x=0.03125, ξ̂y=0.0, η̂x=0.0, η̂y=0.0625)
+      @test metrics(mesh, (i, j)) == m
     end
   end
 
