@@ -4,9 +4,8 @@
 
 
 `CurvilinearGrids.jl` is a Julia package that provides utilities for working with non-uniform curvilinear grids. The core function takes a grid and transforms it from $(x,y,z) \rightarrow (\xi,\eta,\zeta)$, where the transformed grid contains elements of unit length in each dimension. A common example of this is to use a body-fit mesh, e.g. a mesh around a wing, and transform it so that it becomes a uniform grid in $(\xi,\eta,\zeta)$. Then standard finite-difference stencils can be used on the uniform transformed grid. Below is an example of a cylindrical mesh in $(x,y)$ coordinates and the corresponding logical grid in $(\xi,\eta)$.
+
 ![Alt text](docs/image.png)
-
-
 
 `CurvilinearGrids.jl` currently defines the `CurvilinearMesh2D` and `CurvilinearMesh3D` types. To constructe these, you need to provide the functional form of the grid, e.g. `x(i,j), y(i,j)` for a 2D mesh. 
 
@@ -47,7 +46,6 @@ x, y, z = sphere_grid(ni, nj, nk)
 # Create the mesh
 mesh = CurvilinearMesh3D(x, y, z, (ni, nj, nk), nhalo)
 ```
-
 ## Exported Functions
 
 The API is still a work-in-progress, but for the moment, these functions are exported:
@@ -62,11 +60,11 @@ Here `idx` can be a `Tuple` or `CartesianIndex`, and mesh is an `AbstractCurvili
 - `jacobian(mesh, idx)`: 
 - `jacobian_matrix(mesh, idx)`: 
 
-
 ## Grid Metrics
 
-When solving equations such as the Navier-Stokes in transformed form (in $(\xi,\eta,\zeta)$), you need to include the grid metric terms. Providing these for the grid is the primary objective of `CurvilinearGrids.jl`. These conservative grid metrics ($\hat{\xi}_{(x,y,z,t)},\hat{\eta}_{(x,y,z,t)},\hat{\zeta}_{(x,y,z,t)}$) to satisfy the Geometric Conservation Law [(Thomas & Lombard 1979)](https://doi.org/10.2514/3.61273)
+When solving equations such as the Navier-Stokes in transformed form (in $\xi,\eta,\zeta$), you need to include the grid metric terms. Providing these for the grid is the primary objective of `CurvilinearGrids.jl`. These conservative grid metrics satisfy the Geometric Conservation Law [(Thomas & Lombard 1979)](https://doi.org/10.2514/3.61273)
 
+<!-- 
 $$
 \hat{\xi}_x = (y_\eta z)_\zeta − (y_\zeta z)_\eta\\
 \hat{\xi}_y = (z_\eta x)_\zeta − (z_\zeta x)_\eta\\
@@ -74,8 +72,6 @@ $$
 $$
 
 The subscript denotes a partial derivative, so $\xi_x = \partial \xi / \partial x$. 
-
-<!-- 
 Jacobian matrices of transformation
 Inverse transformation $T^{-1}$: $(\xi,\eta,\zeta) \rightarrow (x,y,z)$: $
 \begin{bmatrix}
