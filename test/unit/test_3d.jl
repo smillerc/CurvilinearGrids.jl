@@ -25,7 +25,7 @@
   ni, nj, nk = (5, 9, 13)
   nhalo = 0
   x, y, z = rect_grid(ni, nj, nk)
-  mesh = CurvilinearMesh3D(x, y, z, (ni, nj, nk), nhalo)
+  mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 
   bm0 = @benchmark CurvilinearGrids.GridTypes.update(mesh)
   @test bm0.allocs == 0
@@ -113,5 +113,5 @@ end
   ni, nj, nk = (5, 9, 11)
   nhalo = 0
   x, y, z = sphere_grid(ni, nj, nk)
-  @test_nowarn CurvilinearMesh3D(x, y, z, (ni, nj, nk), nhalo)
+  @test_nowarn CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 end

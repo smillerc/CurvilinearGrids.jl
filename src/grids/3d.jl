@@ -1,5 +1,5 @@
 
-struct CurvilinearMesh3D{T,T1,T2,T3,T4,T5} <: AbstractCurvilinearMesh
+struct CurvilinearGrid3D{T,T1,T2,T3,T4,T5} <: AbstractCurvilinearGrid
   x::T1 # x(ξ,η,ζ)
   y::T2 # y(ξ,η,ζ)
   z::T3 # z(ξ,η,ζ)
@@ -21,7 +21,7 @@ struct CurvilinearMesh3D{T,T1,T2,T3,T4,T5} <: AbstractCurvilinearMesh
   # J⁻¹::Array{T,3} # cell-centered inverse Jacobian J⁻¹
 end
 
-function CurvilinearMesh3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n_ζ), nhalo)
+function CurvilinearGrid3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n_ζ), nhalo)
   jacobian_matrix_func = _setup_jacobian_func(x, y, z)
   cons_metric_func = _setup_conservative_metrics_func(x, y, z)
   nnodes = (n_ξ, n_η, n_ζ)
@@ -46,7 +46,7 @@ function CurvilinearMesh3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n
 
   J = zeros(cell_dims)
   # J⁻¹ = zeros(cell_dims)
-  m = CurvilinearMesh3D(
+  m = CurvilinearGrid3D(
     x,
     y,
     z,
@@ -67,7 +67,7 @@ function CurvilinearMesh3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n
   return m
 end
 
-function coords(m::CurvilinearMesh3D)
+function coords(m::CurvilinearGrid3D)
   dims = m.nnodes
   xyz = zeros(3, dims...)
   @inbounds for I in CartesianIndices(dims)
@@ -80,7 +80,7 @@ function coords(m::CurvilinearMesh3D)
   return xyz
 end
 
-function centroids(m::CurvilinearMesh3D)
+function centroids(m::CurvilinearGrid3D)
   dims = (m.nnodes .- 1)
   xyz = zeros(3, dims...)
   @inbounds for I in CartesianIndices(dims)
@@ -94,12 +94,12 @@ function centroids(m::CurvilinearMesh3D)
 end
 
 """
-    update_metrics(m::CurvilinearMesh3D)
+    update_metrics(m::CurvilinearGrid3D)
 
 Update the conservative grid metrics (ξ̂x, ξ̂y, ...). This only needs to be called once for a 
 static mesh. In a dynamic mesh, this needs to be called each time the mesh moves.
 """
-function update_metrics(m::CurvilinearMesh3D)
+function update_metrics(m::CurvilinearGrid3D)
   # cell-centered metrics
   @inline for I in CartesianIndices(m.cell_center_metrics)
     ξ, η, ζ = Tuple(I)
@@ -117,7 +117,7 @@ function update_metrics(m::CurvilinearMesh3D)
   return nothing
 end
 
-@inline function _get_metric_terms(m::CurvilinearMesh3D, (ξ, η, ζ))
+@inline function _get_metric_terms(m::CurvilinearGrid3D, (ξ, η, ζ))
   M1, M2, M3 = m.conserv_metric_func(ξ, η, ζ) # get the matrices 
 
   yξzη = M1[1, 2] # ∂(z ∂y/∂ξ)/∂η
@@ -151,6 +151,9 @@ end
     ξ̂z=xηyζ - xζyη,
     η̂z=xζyξ - xξyζ,
     ζ̂z=xξyη - xηyξ,
+    ξt=0.0,
+    ηt=0.0,
+    ζt=0.0,
   )
 end
 

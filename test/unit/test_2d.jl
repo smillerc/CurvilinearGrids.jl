@@ -19,7 +19,7 @@
   ni, nj = (5, 9)
   nhalo = 0
   x, y = rect_grid(ni, nj)
-  mesh = CurvilinearMesh2D(x, y, (ni, nj), nhalo)
+  mesh = CurvilinearGrid2D(x, y, (ni, nj), nhalo)
 
   m = (ξ̂x=0.25, ξ̂y=0, η̂x=0, η̂y=0.5)
   metrics(mesh, (2, 3)) == m

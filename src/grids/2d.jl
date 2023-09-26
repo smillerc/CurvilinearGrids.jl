@@ -1,5 +1,5 @@
 
-struct CurvilinearMesh2D{T,T1,T2,T3} <: AbstractCurvilinearMesh
+struct CurvilinearGrid2D{T,T1,T2,T3} <: AbstractCurvilinearGrid
   x::T1
   y::T2
   jacobian_matrix_func::T3
@@ -19,7 +19,7 @@ struct CurvilinearMesh2D{T,T1,T2,T3} <: AbstractCurvilinearMesh
   # J⁻¹::Array{T,2} # cell-centered inverse Jacobian J⁻¹
 end
 
-function CurvilinearMesh2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
+function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
   jacobian_matrix_func = _setup_jacobian_func(x, y)
   nnodes = (n_ξ, n_η)
   ni_cells = n_ξ - 1
@@ -38,12 +38,12 @@ function CurvilinearMesh2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
 
   J = zeros(cell_dims)
 
-  return CurvilinearMesh2D(
+  return CurvilinearGrid2D(
     x, y, jacobian_matrix_func, nhalo, nnodes, limits, cell_center_metrics, edge_metrics, J
   )
 end
 
-function coords(m::CurvilinearMesh2D)
+function coords(m::CurvilinearGrid2D)
   xy = zeros(2, m.nnodes...)
   for j in axes(xy, 3)
     for i in axes(xy, 2)
@@ -55,7 +55,7 @@ function coords(m::CurvilinearMesh2D)
   return xy
 end
 
-function centroids(m::CurvilinearMesh2D)
+function centroids(m::CurvilinearGrid2D)
   xy = zeros(2, (m.nnodes .- 1)...)
   for j in axes(xy, 3)
     for i in axes(xy, 2)
@@ -68,12 +68,12 @@ function centroids(m::CurvilinearMesh2D)
 end
 
 """
-    update_metrics(m::CurvilinearMesh3D)
+    update_metrics(m::CurvilinearGrid3D)
 
 Update the conservative grid metrics (ξ̂x, ξ̂y, ...). This only needs to be called once for a 
 static mesh. In a dynamic mesh, this needs to be called each time the mesh moves.
 """
-function update_metrics(m::CurvilinearMesh2D)
+function update_metrics(m::CurvilinearGrid2D)
   # cell-centered metrics
   @inline for I in CartesianIndices(m.cell_center_metrics)
     ξ, η = Tuple(I)

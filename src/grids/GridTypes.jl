@@ -4,32 +4,45 @@ using LinearAlgebra
 using StaticArrays
 using ForwardDiff
 
-export AbstractCurvilinearMesh
-export CurvilinearMesh2D, CurvilinearMesh3D
+export AbstractCurvilinearGrid
+export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
 export coord, coords
 export centroid, centroids
 export metrics, jacobian, jacobian_matrix
 
-abstract type AbstractCurvilinearMesh end
+abstract type AbstractCurvilinearGrid end
 
 # Helper functions to eliminate floating point values below ϵ; these
 # are used to "clean" the jacobian matrices, so we don't get 
 # numbers like 1e-18, when in reality they should be 0.0
 # @inline checkeps(M) = M # non-Float version 
-@inline function checkeps(M::AbstractArray{T,N}) where {T<:AbstractFloat,N}
+@inline function checkeps(M::AbstractArray{T}) where {T<:AbstractFloat}
   return @. M * abs(M >= eps(T))
 end
+@inline checkeps(M) = M
 
 # metric types, e.g. named tuples
-Metrics2D{T} = NamedTuple{(:ξ̂x, :η̂x, :ζ̂x, :ξ̂y, :η̂y, :ζ̂y),NTuple{6,T}} where {T}
-Metrics3D{T} =
-  NamedTuple{(:ξ̂x, :η̂x, :ζ̂x, :ξ̂y, :η̂y, :ζ̂y, :ξ̂z, :η̂z, :ζ̂z),NTuple{9,T}} where {T}
+Metrics1D{T} = NamedTuple{(:ξ̂x, :ξt),NTuple{2,T}} where {T}
+Metrics2D{T} = NamedTuple{(:ξ̂x, :η̂x, :ξ̂y, :η̂y, :ξt, :ηt),NTuple{6,T}} where {T}
+Metrics3D{T} = NamedTuple{
+  (:ξ̂x, :η̂x, :ζ̂x, :ξ̂y, :η̂y, :ζ̂y, :ξ̂z, :η̂z, :ζ̂z, :ξt, :ηt, :ζt),NTuple{12,T}
+} where {T}
+
+function _make_empty_metric_array((ni,)::NTuple{1,Int}, T=Float64)
+  M = Vector{Metrics1D{T}}(undef, ni)
+
+  @inbounds for i in eachindex(M)
+    M[i] = (ξ̂x=zero(T), ξt=zero(T))
+  end
+
+  return M
+end
 
 function _make_empty_metric_array((ni, nj)::NTuple{2,Int}, T=Float64)
   M = Array{Metrics2D{Float64},2}(undef, ni, nj)
 
   @inbounds for i in eachindex(M)
-    M[i] = (ξ̂x=zero(T), η̂x=zero(T), ζ̂x=zero(T), ξ̂y=zero(T), η̂y=zero(T), ζ̂y=zero(T))
+    M[i] = (ξ̂x=zero(T), η̂x=zero(T), ξ̂y=zero(T), η̂y=zero(T), ξt=zero(T), ηt=zero(T))
   end
 
   return M
@@ -49,39 +62,44 @@ function _make_empty_metric_array((ni, nj, nk)::NTuple{3,Int}, T=Float64)
       ξ̂z=zero(T),
       η̂z=zero(T),
       ζ̂z=zero(T),
+      ξt=zero(T),
+      ηt=zero(T),
+      ζt=zero(T),
     )
   end
 
   return M
 end
 
+include("1d.jl")
 include("2d.jl")
 include("3d.jl")
 
-function update(m::AbstractCurvilinearMesh)
+function update(m::AbstractCurvilinearGrid)
   #TODO: make these GPU/CPU agnostic
   update_metrics(m)
 
   @inbounds for I in CartesianIndices(m.J)
     _jacobian_matrix = jacobian_matrix(m, I)
     m.J[I] = det(_jacobian_matrix)
-    # m.J⁻¹[I] = det(inv(_jacobian_matrix))
   end
 
   return nothing
 end
 
 coord(mesh, CI::CartesianIndex) = coord(mesh, CI.I...)
-coord(m::CurvilinearMesh2D, i, j) = @SVector [m.x(i, j), m.y(i, j)]
-coord(m::CurvilinearMesh3D, i, j, k) = @SVector [m.x(i, j, k), m.y(i, j, k), m.z(i, j, k)]
+coord(m::CurvilinearGrid1D, i) = m.x(i)
+coord(m::CurvilinearGrid2D, i, j) = @SVector [m.x(i, j), m.y(i, j)]
+coord(m::CurvilinearGrid3D, i, j, k) = @SVector [m.x(i, j, k), m.y(i, j, k), m.z(i, j, k)]
 
 centroid(mesh, CI::CartesianIndex) = centroid(mesh, CI.I...)
+centroid(m::CurvilinearGrid1D, i) = m.x(i + 0.5)
 
-function centroid(m::CurvilinearMesh2D, i, j)
+function centroid(m::CurvilinearGrid2D, i, j)
   @SVector [m.x(i + 0.5, j + 0.5), m.y(i + 0.5, j + 0.5)]
 end
 
-function centroid(m::CurvilinearMesh3D, i, j, k)
+function centroid(m::CurvilinearGrid3D, i, j, k)
   @SVector [
     m.x(i + 0.5, j + 0.5, k + 0.5),
     m.y(i + 0.5, j + 0.5, k + 0.5),
@@ -96,8 +114,8 @@ jacobian_matrix(mesh, i, j) = mesh.jacobian_matrix_func(i, j)
 
 jacobian(mesh, CI::CartesianIndex) = det(jacobian_matrix(mesh, CI))
 jacobian(mesh, idx) = det(jacobian_matrix(mesh, idx))
-jacobian(mesh::CurvilinearMesh3D, i, j, k) = det(jacobian_matrix(mesh, i, j, k))
-jacobian(mesh::CurvilinearMesh2D, i, j) = det(jacobian_matrix(mesh, i, j))
+jacobian(mesh::CurvilinearGrid3D, i, j, k) = det(jacobian_matrix(mesh, i, j, k))
+jacobian(mesh::CurvilinearGrid2D, i, j) = det(jacobian_matrix(mesh, i, j))
 
 """
 Query the mesh metrics at a particular index
@@ -111,22 +129,22 @@ metrics(mesh, CI::CartesianIndex, v⃗_grid) = metrics(mesh, CI.I..., v⃗_grid)
 metrics(mesh, idx) = metrics(mesh, idx...)
 metrics(mesh, idx, v⃗_grid) = metrics(mesh, idx..., v⃗_grid)
 
-function metrics(m::CurvilinearMesh3D, i, j, k)
+function metrics(m::CurvilinearGrid3D, i, j, k)
   jacobi = m.jacobian_matrix_func(i, j, k)
   return _get_metrics(jacobi)
 end
 
-function metrics(m::CurvilinearMesh2D, i, j)
+function metrics(m::CurvilinearGrid2D, i, j)
   jacobi = m.jacobian_matrix_func(i, j)
   return _get_metrics(jacobi)
 end
 
-function metrics(m::CurvilinearMesh3D, i, j, k, v⃗_grid)
+function metrics(m::CurvilinearGrid3D, i, j, k, v⃗_grid)
   jacobi = m.jacobian_matrix_func(i, j, k)
   return _get_metrics(jacobi, v⃗_grid)
 end
 
-function metrics(m::CurvilinearMesh2D, i, j, v⃗_grid)
+function metrics(m::CurvilinearGrid2D, i, j, v⃗_grid)
   jacobi = m.jacobian_matrix_func(i, j)
   return _get_metrics(jacobi, v⃗_grid)
 end

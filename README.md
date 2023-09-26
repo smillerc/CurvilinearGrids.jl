@@ -7,7 +7,7 @@
 
 ![Alt text](docs/image.png)
 
-`CurvilinearGrids.jl` currently defines the `CurvilinearMesh2D` and `CurvilinearMesh3D` types. To constructe these, you need to provide the functional form of the grid, e.g. `x(i,j), y(i,j)` for a 2D mesh. 
+`CurvilinearGrids.jl` currently defines the `CurvilinearGrid2D` and `CurvilinearGrid3D` types. To constructe these, you need to provide the functional form of the grid, e.g. `x(i,j), y(i,j)` for a 2D mesh. 
 
 ### Example
 ```julia
@@ -44,13 +44,13 @@ nhalo = 2 # halo cells needed for stencils (can be set to 0)
 x, y, z = sphere_grid(ni, nj, nk)
 
 # Create the mesh
-mesh = CurvilinearMesh3D(x, y, z, (ni, nj, nk), nhalo)
+mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 ```
 ## Exported Functions
 
 The API is still a work-in-progress, but for the moment, these functions are exported:
 
-Here `idx` can be a `Tuple` or `CartesianIndex`, and mesh is an `AbstractCurvilinearMesh`.
+Here `idx` can be a `Tuple` or `CartesianIndex`, and mesh is an `AbstractCurvilinearGrid`.
 
 - `coord(mesh, idx)`: Get the $(x,y,z)$ coordinates at index `idx`. This can be 1, 2, or 3D.
 - `centroid(mesh, idx)`:  Get the $(x,y,z)$ coordinates of the cell centroid at cell index `idx`. This can be 1, 2, or 3D.
