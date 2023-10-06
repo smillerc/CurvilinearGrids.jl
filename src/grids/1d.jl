@@ -53,3 +53,21 @@ function update(m::CurvilinearGrid1D)
 
   return nothing
 end
+
+function centroids(m::CurvilinearGrid1D)
+  x = zeros(m.nnodes .- 1)
+  for i in axes(x, 1)
+    x[i] = m.x(i + 0.5)
+  end
+
+  return x
+end
+
+function coords(m::CurvilinearGrid1D)
+  x = zeros(m.nnodes)
+  for i in axes(x, 1)
+    x[i] = m.x(i)
+  end
+
+  return x
+end
