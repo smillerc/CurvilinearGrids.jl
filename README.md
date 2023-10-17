@@ -7,7 +7,7 @@
 
 ![Alt text](docs/image.png)
 
-`CurvilinearGrids.jl` currently defines the `CurvilinearGrid2D` and `CurvilinearGrid3D` types. To constructe these, you need to provide the functional form of the grid, e.g. `x(i,j), y(i,j)` for a 2D mesh. 
+`CurvilinearGrids.jl` currently defines the `CurvilinearGrid2D` and `CurvilinearGrid3D` types. To construct these, you need to provide the functional form of the grid, e.g. `x(i,j), y(i,j)` for a 2D mesh. 
 
 ### Example
 ```julia
