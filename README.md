@@ -69,9 +69,9 @@ When solving equations such as the Navier-Stokes in transformed form (in $\xi,\e
 
 
 $$
-\hat{\xi}_x = (y_\eta z)_\zeta − (y_\zeta z)_\eta\\
-\hat{\xi}_y = (z_\eta x)_\zeta − (z_\zeta x)_\eta\\
-\hat{\xi}_z = (x_\eta y)_\zeta − (x_\zeta y)_\eta\\
+\hat{\xi}_x = (y_\eta z)_\zeta − (y_\zeta z)_\eta \\
+\hat{\xi}_y = (z_\eta x)_\zeta − (z_\zeta x)_\eta \\
+\hat{\xi}_z = (x_\eta y)_\zeta − (x_\zeta y)_\eta \\
 $$
 
 The subscript denotes a partial derivative, so $\xi_x = \partial \xi / \partial x$. 
@@ -91,11 +91,13 @@ x_\eta & y_\eta & z_\eta \\
 x_\zeta & y_\zeta & z_\zeta
 \end{bmatrix}
 $$
+
 $$
 J = \det [\textbf{J}^{-1}]
 $$
 
 Inverse transformation $T^{-1}$: $(x,y,z) \rightarrow (\xi,\eta,\zeta)$ : 
+
 $$
 \textbf{J}^{-1} = 
 \begin{bmatrix}
@@ -104,6 +106,7 @@ $$
 \xi_z & \eta_z & \zeta_z
 \end{bmatrix}
 $$
+
 $$
 J^{-1} = \det [\textbf{J}]
 $$
