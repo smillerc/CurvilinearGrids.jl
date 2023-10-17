@@ -90,7 +90,7 @@ x_\zeta & y_\zeta & z_\zeta
 $$
 
 $$
-J = \det [\textbf{J}^{-1}]
+J = \det [\textbf{J}]
 $$
 
 Inverse transformation $T^{-1}$: $(x,y,z) \rightarrow (\xi,\eta,\zeta)$ : 
@@ -105,5 +105,5 @@ $$
 $$
 
 $$
-J^{-1} = \det [\textbf{J}]
+J^{-1} = \det [\textbf{J}^{-1}]
 $$
