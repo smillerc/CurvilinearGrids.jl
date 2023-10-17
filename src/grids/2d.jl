@@ -68,8 +68,8 @@ function _setup_jacobian_func(x, y)
 end
 
 # Get the conservative metrics, e.g. normalized by the Jacobian
-function conservative_metrics(m::CurvilinearGrid2D, (i, j))
-  _jacobian_matrix = m.jacobian_matrix_func(i, j)
+@inline function conservative_metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer})
+  _jacobian_matrix = m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo)
   inv_jacobian_matrix = inv(_jacobian_matrix)
   J = det(_jacobian_matrix)
 
@@ -88,8 +88,20 @@ function conservative_metrics(m::CurvilinearGrid2D, (i, j))
   )
 end
 
-function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer})
-  _jacobian_matrix = m.jacobian_matrix_func(i, j) # -> SMatrix{2,2,T}
+@inline function conservative_metrics(
+  m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer}, (vx, vy)
+)
+  static = conservative_metrics(m, (i, j))
+  @unpack ξ̂x, ξ̂y, ξ̂z, η̂x, η̂y, η̂z = static
+
+  return merge(static, (
+    ξt=-(vx * ξ̂x + vy * ξ̂y), # dynamic / moving mesh terms
+    ηt=-(vx * η̂x + vy * η̂y), # dynamic / moving mesh terms
+  ))
+end
+
+@inline function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer})
+  _jacobian_matrix = m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo) # -> SMatrix{2,2,T}
   inv_jacobian_matrix = inv(_jacobian_matrix)
 
   return (
@@ -102,11 +114,14 @@ function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer})
   )
 end
 
-function metrics(m::CurvilinearGrid2D, (i, j), (vx, vy))
+@inline function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer}, (vx, vy))
   static = metrics(m, (i, j))
   @unpack ξx, ξy, ηx, ηy = static
 
-  return merge(static, (ξt=-(vx * ξx + vy * ξy), ηt=-(vx * ηx + vy * ηy)))
+  return merge(static, (
+    ξt=-(vx * ξx + vy * ξy), # dynamic / moving mesh terms 
+    ηt=-(vx * ηx + vy * ηy), # dynamic / moving mesh terms
+  ))
 end
 
 """

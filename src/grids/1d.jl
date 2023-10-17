@@ -43,18 +43,24 @@ end
   return (ξ̂x=1 / (ξx * ξx), ξt=zero(eltype(ξx)))
 end
 
+@inline function conservative_metrics(m::CurvilinearGrid1D, i, vx)
+  # don't use (i - m.nhalo), since the static metrics() does it already
+  static_metrics = conservative_metrics(m::CurvilinearGrid1D, i)
+  return merge(static_metrics, (ξt=-(vx * ξx),))
+end
+
 @inline function metrics(m::CurvilinearGrid1D, i)
   ξx = m.∂x∂ξ(i - m.nhalo)
   return (ξx=1 / ξx, ξt=zero(eltype(ξx)))
 end
 
-function metrics(m::CurvilinearGrid1D, i, vx)
+@inline function metrics(m::CurvilinearGrid1D, i, vx)
   # don't use (i - m.nhalo), since the static metrics() does it already
   static_metrics = metrics(m, i)
   return merge(static_metrics, (ξt=-(vx * ξx),))
 end
 
-function jacobian_matrix(m::CurvilinearGrid1D, i)
+@inline function jacobian_matrix(m::CurvilinearGrid1D, i)
   return SMatrix{1,1}(m.∂x∂ξ(i - m.nhalo))
 end
 

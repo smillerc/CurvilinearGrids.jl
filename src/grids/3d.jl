@@ -1,24 +1,26 @@
 
-struct CurvilinearGrid3D{T,T1,T2,T3,T4,T5} <: AbstractCurvilinearGrid
-  x::T1 # x(ξ,η,ζ)
-  y::T2 # y(ξ,η,ζ)
-  z::T3 # z(ξ,η,ζ)
-  jacobian_matrix_func::T4 # jacobian_matrix(ξ,η,ζ)
-  conserv_metric_func::T5 # f(ξ,η,ζ) to get ξ̂x, ξ̂y, ...
+"""
+CurvilinearGrid3D
+
+# Fields
+ - `x`: Node function; e.g., x(i,j,k)
+ - `y`: Node function; e.g., y(i,j,k)
+ - `z`: Node function; e.g., z(i,j,k)
+ - `jacobian_matrix_func`: Function to compute the jacobian matrix, e.g., J(i,j,k)
+ - `conserv_metric_func`: Function to compute the conservative metrics
+ - `nhalo`: Number of halo cells for all dims
+ - `nnodes`: Number of nodes/vertices
+ - `limits`: Cell loop limits based on halo cells
+"""
+struct CurvilinearGrid3D{F1,F2,F3,F4,F5} <: AbstractCurvilinearGrid
+  x::F1 # x(ξ,η,ζ)
+  y::F2 # y(ξ,η,ζ)
+  z::F3 # z(ξ,η,ζ)
+  jacobian_matrix_func::F4 # jacobian_matrix(ξ,η,ζ)
+  conserv_metric_func::F5 # f(ξ,η,ζ) to get ξ̂x, ξ̂y, ...
   nhalo::Int # number of halo cells (for all dimensions)
   nnodes::NTuple{3,Int}
   limits::NamedTuple{(:ilo, :ihi, :jlo, :jhi, :klo, :khi),NTuple{6,Int}}
-  cell_center_metrics::Array{Metrics3D{T},3}
-  edge_metrics::NamedTuple{
-    (:ξ, :η, :ζ), # one for each edge direction
-    NTuple{
-      3, # (ξ,η,ζ)
-      Array{Metrics3D{T},3}, # an array to hold the 3d metrics
-    },
-  }
-
-  J::Array{T,3} # cell-centered Jacobian J
-  # J⁻¹::Array{T,3} # cell-centered inverse Jacobian J⁻¹
 end
 
 function CurvilinearGrid3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n_ζ), nhalo)
@@ -29,96 +31,18 @@ function CurvilinearGrid3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n
   nj_cells = n_η - 1
   nk_cells = n_ζ - 1
   lo = nhalo + 1
-  cell_dims = (ni_cells, nj_cells, nk_cells)
 
   limits = (
     ilo=lo, ihi=ni_cells - nhalo, jlo=lo, jhi=nj_cells - nhalo, klo=lo, khi=nk_cells - nhalo
   )
 
-  cell_center_metrics = _make_empty_metric_array(cell_dims)
-
-  # metric terms for the {i,j,k}±1/2 edges
-  edge_metrics = (
-    ξ=_make_empty_metric_array(cell_dims),
-    η=_make_empty_metric_array(cell_dims),
-    ζ=_make_empty_metric_array(cell_dims),
+  return CurvilinearGrid3D(
+    x, y, z, jacobian_matrix_func, cons_metric_func, nhalo, nnodes, limits
   )
-
-  J = zeros(cell_dims)
-  # J⁻¹ = zeros(cell_dims)
-  m = CurvilinearGrid3D(
-    x,
-    y,
-    z,
-    jacobian_matrix_func,
-    cons_metric_func,
-    nhalo,
-    nnodes,
-    limits,
-    cell_center_metrics,
-    edge_metrics,
-    J,
-    # J⁻¹,
-  )
-
-  # initialize the metric terms
-  update(m)
-
-  return m
 end
 
-function coords(m::CurvilinearGrid3D)
-  dims = m.nnodes
-  xyz = zeros(3, dims...)
-  @inbounds for I in CartesianIndices(dims)
-    i, j, k = Tuple(I)
-    xyz[1, i, j, k] = m.x(i, j, k)
-    xyz[2, i, j, k] = m.y(i, j, k)
-    xyz[3, i, j, k] = m.z(i, j, k)
-  end
-
-  return xyz
-end
-
-function centroids(m::CurvilinearGrid3D)
-  dims = (m.nnodes .- 1)
-  xyz = zeros(3, dims...)
-  @inbounds for I in CartesianIndices(dims)
-    i, j, k = Tuple(I)
-    xyz[1, i, j, k] = m.x(i + 0.5, j + 0.5, k + 0.5)
-    xyz[2, i, j, k] = m.y(i + 0.5, j + 0.5, k + 0.5)
-    xyz[3, i, j, k] = m.z(i + 0.5, j + 0.5, k + 0.5)
-  end
-
-  return xyz
-end
-
-"""
-    update_metrics(m::CurvilinearGrid3D)
-
-Update the conservative grid metrics (ξ̂x, ξ̂y, ...). This only needs to be called once for a 
-static mesh. In a dynamic mesh, this needs to be called each time the mesh moves.
-"""
-function update_metrics(m::CurvilinearGrid3D)
-  # cell-centered metrics
-  @inline for I in CartesianIndices(m.cell_center_metrics)
-    ξ, η, ζ = Tuple(I)
-    m.cell_center_metrics[I] = _get_metric_terms(m, (ξ, η, ζ))
-  end
-
-  # edge metric terms
-  @inline for I in CartesianIndices(m.cell_center_metrics)
-    ξ, η, ζ = Tuple(I)
-    m.edge_metrics.ξ[I] = _get_metric_terms(m, (ξ + 0.5, η, ζ))
-    m.edge_metrics.η[I] = _get_metric_terms(m, (ξ, η + 0.5, ζ))
-    m.edge_metrics.ζ[I] = _get_metric_terms(m, (ξ, η, ζ + 0.5))
-  end
-
-  return nothing
-end
-
-@inline function _get_metric_terms(m::CurvilinearGrid3D, (ξ, η, ζ))
-  M1, M2, M3 = m.conserv_metric_func(ξ, η, ζ) # get the matrices 
+@inline function conservative_metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Integer})
+  M1, M2, M3 = m.conserv_metric_func(i - m.nhalo, j - m.nhalo, k - m.nhalo) # get the matrices 
 
   yξzη = M1[1, 2] # ∂(z ∂y/∂ξ)/∂η
   yξzζ = M1[1, 3] # ∂(z ∂y/∂ξ)/∂ζ
@@ -143,17 +67,68 @@ end
 
   return (
     ξ̂x=yηzζ - yζzη,
-    η̂x=yζzξ - yξzζ,
-    ζ̂x=yξzη - yηzξ,
     ξ̂y=zηxζ - zζxη,
-    η̂y=zζxξ - zξxζ,
-    ζ̂y=zξxη - zηxξ,
     ξ̂z=xηyζ - xζyη,
+    η̂x=yζzξ - yξzζ,
+    η̂y=zζxξ - zξxζ,
     η̂z=xζyξ - xξyζ,
+    ζ̂x=yξzη - yηzξ,
+    ζ̂y=zξxη - zηxξ,
     ζ̂z=xξyη - xηyξ,
-    ξt=0.0,
-    ηt=0.0,
-    ζt=0.0,
+    ξt=zero(eltype(M1)),
+    ηt=zero(eltype(M1)),
+    ζt=zero(eltype(M1)),
+  )
+end
+
+@inline function conservative_metrics(
+  m::CurvilinearGrid2D, (i, j, k)::NTuple{3,Integer}, (vx, vy, vz)
+)
+  static = conservative_metrics(m, (i, j, k))
+  @unpack ξ̂x, ξ̂y, ξ̂z, η̂x, η̂y, η̂z, ζ̂x, ζ̂y, ζ̂z = static
+
+  return merge(
+    static,
+    (
+      ξt=-(vx * ξ̂x + vy * ξ̂y + vz * ξ̂z), # dynamic / moving mesh terms
+      ηt=-(vx * η̂x + vy * η̂y + vz * η̂z), # dynamic / moving mesh terms
+      ζt=-(vx * ζ̂x + vy * ζ̂y + vz * ζ̂z), # dynamic / moving mesh terms
+    ),
+  )
+end
+
+# Get the grid metrics for a static grid
+@inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Integer})
+  _jacobian_matrix = m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo)
+  inv_jacobian_matrix = inv(_jacobian_matrix)
+
+  return (
+    ξx=inv_jacobian_matrix[1, 1],
+    ξy=inv_jacobian_matrix[1, 2],
+    ξz=inv_jacobian_matrix[1, 3],
+    ηx=inv_jacobian_matrix[2, 1],
+    ηy=inv_jacobian_matrix[2, 2],
+    ηz=inv_jacobian_matrix[2, 3],
+    ζx=inv_jacobian_matrix[3, 1],
+    ζy=inv_jacobian_matrix[3, 2],
+    ζz=inv_jacobian_matrix[3, 3],
+    ξt=zero(eltype(_jacobian_matrix)),
+    ηt=zero(eltype(_jacobian_matrix)),
+    ζt=zero(eltype(_jacobian_matrix)),
+  )
+end
+
+@inline function metrics(m::CurvilinearGrid2D, (i, j, k)::NTuple{3,Integer}, (vx, vy, vz))
+  static = metrics(m, (i, j))
+  @unpack ξx, ξy, ξz, ηx, ηy, ηz, ζx, ζy, ζz = static
+
+  return merge(
+    static,
+    (
+      ξt=-(vx * ξx + vy * ξy + vz * ξz), # dynamic / moving mesh terms
+      ηt=-(vx * ηx + vy * ηy + vz * ηz), # dynamic / moving mesh terms
+      ζt=-(vx * ζx + vy * ζy + vz * ζz), # dynamic / moving mesh terms
+    ),
   )
 end
 
@@ -187,36 +162,6 @@ function _setup_jacobian_func(x, y, z)
   end
 
   return jacobian_matrix
-end
-
-# Get the grid metrics for a static grid
-function _get_metrics(_jacobian_matrix::SMatrix{3,3,T}) where {T}
-  inv_jacobian_matrix = inv(_jacobian_matrix)
-  J⁻¹ = det(inv_jacobian_matrix)
-
-  ξx = inv_jacobian_matrix[1, 1]
-  ξy = inv_jacobian_matrix[1, 2]
-  ξz = inv_jacobian_matrix[1, 3]
-
-  ηx = inv_jacobian_matrix[2, 1]
-  ηy = inv_jacobian_matrix[2, 2]
-  ηz = inv_jacobian_matrix[2, 3]
-
-  ζx = inv_jacobian_matrix[3, 1]
-  ζy = inv_jacobian_matrix[3, 2]
-  ζz = inv_jacobian_matrix[3, 3]
-
-  return (
-    ξ̂x=ξx * J⁻¹,
-    ξ̂y=ξy * J⁻¹,
-    ξ̂z=ξz * J⁻¹,
-    η̂x=ηx * J⁻¹,
-    η̂y=ηy * J⁻¹,
-    η̂z=ηz * J⁻¹,
-    ζ̂x=ζx * J⁻¹,
-    ζ̂y=ζy * J⁻¹,
-    ζ̂z=ζz * J⁻¹,
-  )
 end
 
 # Get the grid metrics for a dynamic grid -- grid velocities (vx,vy,vz) must be provided
@@ -303,4 +248,42 @@ function _setup_conservative_metrics_func(x, y, z)
   #       (y x_ζ)_ξ (y x_ζ)_η (y x_ζ)_ζ ]
 
   return conserv_metric_matricies
+end
+
+"""
+    coords(mesh::CurvilinearGrid3D, T=Float64) -> Array{Real}
+
+Return the array of coordinate points, indexed as `[xyz,i,j,k]`. 
+This does _not_ include halo regions since the geometry can be undefined.
+"""
+function coords(m::CurvilinearGrid3D, T=Float64)
+  dims = m.nnodes
+  xyz = zeros(T, 3, dims...)
+  @inbounds for I in CartesianIndices(dims)
+    i, j, k = Tuple(I)
+    xyz[1, i, j, k] = m.x(i, j, k)
+    xyz[2, i, j, k] = m.y(i, j, k)
+    xyz[3, i, j, k] = m.z(i, j, k)
+  end
+
+  return xyz
+end
+
+"""
+    centroids(m::CurvilinearGrid3D, T=Float64) -> Array{Real}
+
+Return the array of coordinate points, indexed as `[xyz,i,j,k]`. 
+This does _not_ include halo regions since the geometry can be undefined.
+"""
+function centroids(m::CurvilinearGrid3D, T=Float64)
+  dims = (m.nnodes .- 1)
+  xyz = zeros(T, 3, dims...)
+  @inbounds for I in CartesianIndices(dims)
+    i, j, k = Tuple(I)
+    xyz[1, i, j, k] = m.x(i + 0.5, j + 0.5, k + 0.5)
+    xyz[2, i, j, k] = m.y(i + 0.5, j + 0.5, k + 0.5)
+    xyz[3, i, j, k] = m.z(i + 0.5, j + 0.5, k + 0.5)
+  end
+
+  return xyz
 end

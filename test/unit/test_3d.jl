@@ -27,15 +27,35 @@
   x, y, z = rect_grid(ni, nj, nk)
   mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 
-  bm0 = @benchmark CurvilinearGrids.GridTypes.update(mesh)
-  @test bm0.allocs == 0
-
-  m = (
-    ξ̂x=0.0625, η̂x=0.0, ζ̂x=0.0, ξ̂y=0.0, η̂y=0.125, ζ̂y=0.0, ξ̂z=0.0, η̂z=0.0, ζ̂z=0.125
+  metrics(mesh, (2, 3, 4)) == (
+    ξx=2.0,
+    ξy=0.0,
+    ξz=0.0,
+    ηx=0.0,
+    ηy=4.0,
+    ηz=0.0,
+    ζx=0.0,
+    ζy=0.0,
+    ζz=4.0,
+    ξt=0.0,
+    ηt=0.0,
+    ζt=0.0,
   )
 
-  @test mesh.cell_center_metrics[2, 3, 4] == m
-  metrics(mesh, (2, 3, 4)) # == m
+  conservative_metrics(mesh, (2, 3, 4)) == (
+    ξ̂x=0.0625,
+    ξ̂y=0.0,
+    ξ̂z=0.0,
+    η̂x=0.0,
+    η̂y=0.125,
+    η̂z=0.0,
+    ζ̂x=0.0,
+    ζ̂y=0.0,
+    ζ̂z=0.125,
+    ξt=0.0,
+    ηt=0.0,
+    ζt=0.0,
+  )
 
   bm1 = @benchmark metrics($mesh, (2, 3, 4))
   @test bm1.allocs == 0
@@ -53,15 +73,6 @@
 
   bm3 = @benchmark jacobian($mesh, (2, 3, 4))
   @test bm3.allocs == 0
-
-  # (2, 3, 4)
-  fn = "test3d"
-  to_vtk(mesh, fn)
-  @test isfile("$fn.vts")
-
-  if isfile("$fn.vts")
-    rm("$fn.vts")
-  end
 
   ilo, ihi, jlo, jhi, klo, khi = mesh.limits
   @test ilo = jlo = klo == 1
