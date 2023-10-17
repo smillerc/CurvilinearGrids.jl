@@ -11,7 +11,7 @@
 
 ### Example
 ```julia
-"""Create a sphereical grid as a function of (r,θ,ϕ)"""
+"""Create a spherical grid as a function of (r,θ,ϕ)"""
 function sphere_grid(nr, ntheta, nphi)
   r0, r1 = (1, 3) # min/max radius
   (θ0, θ1) = deg2rad.((35, 180 - 35)) # min/max polar angle
@@ -50,21 +50,24 @@ mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 
 The API is still a work-in-progress, but for the moment, these functions are exported:
 
-Here `idx` can be a `Tuple` or `CartesianIndex`, and mesh is an `AbstractCurvilinearGrid`.
+Here `idx` can be a `Tuple` or `CartesianIndex`, and mesh is an `AbstractCurvilinearGrid`. **Important:** The indices provided to these functions are aware of halo regions, so the functions do the offsets for you. This is by design, since fields attached to the mesh, like density or pressure for example, _will_ have halo regions, and loops through these fields typically have pre-defined limits that constrain the loop to only work in the non-halo cells. If you don't use halo cells, just set `nhalo=0` in the constructors.
 
+The index can be a `Tuple`, scalar `Integer`, or `CartesianIndex`.
 - `coord(mesh, idx)`: Get the $(x,y,z)$ coordinates at index `idx`. This can be 1, 2, or 3D.
 - `centroid(mesh, idx)`:  Get the $(x,y,z)$ coordinates of the cell centroid at cell index `idx`. This can be 1, 2, or 3D.
+- `metrics(mesh, idx)`: Get the cell metric information, e.g. $\xi_x, \xi_y$, etc.
+- `conservative_metrics(mesh, idx)`: Get the metrics that are consistent with the Geometric Conservation Law (GCL)
+- `jacobian(mesh, idx)`: Get the determinant of the Jacobian matrix of forward transformation, $J$
+- `jacobian_matrix(mesh, idx)`: Get the Jacobian matrix of the forward transformation
+
+These functions are primarily used to get the complete set of coordinates for plotting or post-processing. These do _not_ use halo regions, since there geometry is ill-defined here.
 - `coords(mesh)` Get the: array of coordinates for the entire mesh (typically for writing to a .vtk for example)
 - `centroids(mesh)` Get the: array of centroid coordinates for the entire mesh (typically for writing to a `.vtk` file)
-- `metrics(mesh, idx)`: 
-- `jacobian(mesh, idx)`: 
-- `jacobian_matrix(mesh, idx)`: 
-
 ## Grid Metrics
 
 When solving equations such as the Navier-Stokes in transformed form (in $\xi,\eta,\zeta$), you need to include the grid metric terms. Providing these for the grid is the primary objective of `CurvilinearGrids.jl`. These conservative grid metrics satisfy the Geometric Conservation Law [(Thomas & Lombard 1979)](https://doi.org/10.2514/3.61273)
 
-<!-- 
+
 $$
 \hat{\xi}_x = (y_\eta z)_\zeta − (y_\zeta z)_\eta\\
 \hat{\xi}_y = (z_\eta x)_\zeta − (z_\zeta x)_\eta\\
@@ -72,18 +75,35 @@ $$
 $$
 
 The subscript denotes a partial derivative, so $\xi_x = \partial \xi / \partial x$. 
-Jacobian matrices of transformation
-Inverse transformation $T^{-1}$: $(\xi,\eta,\zeta) \rightarrow (x,y,z)$: $
+
+
+## Jacobian matrices of transformation
+
+Terminology can be somewhat confusing, but the "Jacobian matrix" is the matrix of partial derivatives that describe the forward or inverse transformation, and uses a bold-face $\bold J$. The "Jacobian" then refers to the determinant of the Jacobian matrix, and is the non-bolded $J$. Some authors refer to the matrix as the "Jacobi matrix" as well.
+
+Forward transformation, or $T: (\xi,\eta,\zeta) \rightarrow (x,y,z)$. These functions are what is provided to the `CurvilinearGrid` constructors. See the included examples above and in the unit tests.
+
+$$
+\textbf{J} = 
 \begin{bmatrix}
 x_\xi & y_\xi & z_\xi \\
 x_\eta & y_\eta & z_\eta \\
 x_\zeta & y_\zeta & z_\zeta
 \end{bmatrix}
-$
+$$
+$$
+J = \det [\textbf{J}^{-1}]
+$$
 
-Forward transformation $T$: $(x,y,z) \rightarrow (\xi,\eta,\zeta)$ : $\begin{bmatrix}
+Inverse transformation $T^{-1}$: $(x,y,z) \rightarrow (\xi,\eta,\zeta)$ : 
+$$
+\textbf{J}^{-1} = 
+\begin{bmatrix}
 \xi_x & \eta_x & \zeta_x \\
 \xi_y & \eta_y & \zeta_y \\
 \xi_z & \eta_z & \zeta_z
 \end{bmatrix}
-$ -->
+$$
+$$
+J^{-1} = \det [\textbf{J}]
+$$
