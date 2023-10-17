@@ -67,11 +67,8 @@ These functions are primarily used to get the complete set of coordinates for pl
 
 When solving equations such as the Navier-Stokes in transformed form (in $\xi,\eta,\zeta$), you need to include the grid metric terms. Providing these for the grid is the primary objective of `CurvilinearGrids.jl`. These conservative grid metrics satisfy the Geometric Conservation Law [(Thomas & Lombard 1979)](https://doi.org/10.2514/3.61273)
 
-
 $$
-\hat{\xi}_x = (y_\eta z)_\zeta − (y_\zeta z)_\eta \\
-\hat{\xi}_y = (z_\eta x)_\zeta − (z_\zeta x)_\eta \\
-\hat{\xi}_z = (x_\eta y)_\zeta − (x_\zeta y)_\eta \\
+\hat{\xi}_x, \hat{\xi}_y,...
 $$
 
 The subscript denotes a partial derivative, so $\xi_x = \partial \xi / \partial x$. 
