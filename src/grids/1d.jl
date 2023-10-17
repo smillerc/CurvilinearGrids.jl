@@ -61,7 +61,7 @@ end
 end
 
 @inline function jacobian_matrix(m::CurvilinearGrid1D, i)
-  return SMatrix{1,1}(m.∂x∂ξ(i - m.nhalo))
+  return checkeps(SMatrix{1,1}(m.∂x∂ξ(i - m.nhalo)))
 end
 
 """

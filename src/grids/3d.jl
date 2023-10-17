@@ -99,7 +99,7 @@ end
 
 # Get the grid metrics for a static grid
 @inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Integer})
-  _jacobian_matrix = m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo)
+  _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))
   inv_jacobian_matrix = inv(_jacobian_matrix)
 
   return (

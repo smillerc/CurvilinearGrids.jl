@@ -69,7 +69,7 @@ end
 
 # Get the conservative metrics, e.g. normalized by the Jacobian
 @inline function conservative_metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer})
-  _jacobian_matrix = m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo)
+  _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   J = det(_jacobian_matrix)
 
@@ -101,7 +101,7 @@ end
 end
 
 @inline function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer})
-  _jacobian_matrix = m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo) # -> SMatrix{2,2,T}
+  _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo)) # -> SMatrix{2,2,T}
   inv_jacobian_matrix = inv(_jacobian_matrix)
 
   return (
