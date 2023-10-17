@@ -1,22 +1,22 @@
 
-struct CurvilinearGrid2D{T,T1,T2,T3} <: AbstractCurvilinearGrid
+"""
+CurvilinearGrid2D
+
+# Fields
+ - `x`: Node function; e.g., x(i,j)
+ - `y`: Node function; e.g., y(i,j)
+ - `jacobian_matrix_func`: jacobian matrix, e.g., J(i,j)
+ - `nhalo`: Number of halo cells for all dims
+ - `nnodes`: Number of nodes/vertices
+ - `limits`: Cell loop limits based on halo cells
+"""
+struct CurvilinearGrid2D{T1,T2,T3} <: AbstractCurvilinearGrid
   x::T1
   y::T2
   jacobian_matrix_func::T3
   nhalo::Int
   nnodes::NTuple{2,Int}
   limits::NamedTuple{(:ilo, :ihi, :jlo, :jhi),NTuple{4,Int}}
-  cell_center_metrics::Array{Metrics2D{T},2}
-  edge_metrics::NamedTuple{
-    (:ξ, :η), # one for each edge direction
-    NTuple{
-      2, # (ξ,η)
-      Array{Metrics2D{T},2}, # an array to hold the 2d metrics
-    },
-  }
-
-  J::Array{T,2} # cell-centered Jacobian J
-  # J⁻¹::Array{T,2} # cell-centered inverse Jacobian J⁻¹
 end
 
 function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
@@ -27,67 +27,7 @@ function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
   lo = nhalo + 1
   limits = (ilo=lo, ihi=ni_cells - nhalo, jlo=lo, jhi=nj_cells - nhalo)
 
-  cell_dims = (ni_cells, nj_cells)
-
-  cell_center_metrics = _make_empty_metric_array(cell_dims)
-
-  # metric terms for the {i,j,k}±1/2 edges
-  edge_metrics = (
-    ξ=_make_empty_metric_array(cell_dims), η=_make_empty_metric_array(cell_dims)
-  )
-
-  J = zeros(cell_dims)
-
-  return CurvilinearGrid2D(
-    x, y, jacobian_matrix_func, nhalo, nnodes, limits, cell_center_metrics, edge_metrics, J
-  )
-end
-
-function coords(m::CurvilinearGrid2D)
-  xy = zeros(2, m.nnodes...)
-  for j in axes(xy, 3)
-    for i in axes(xy, 2)
-      xy[1, i, j] = m.x(i, j)
-      xy[2, i, j] = m.y(i, j)
-    end
-  end
-
-  return xy
-end
-
-function centroids(m::CurvilinearGrid2D)
-  xy = zeros(2, (m.nnodes .- 1)...)
-  for j in axes(xy, 3)
-    for i in axes(xy, 2)
-      xy[1, i, j] = m.x(i + 0.5, j + 0.5)
-      xy[2, i, j] = m.y(i + 0.5, j + 0.5)
-    end
-  end
-
-  return xy
-end
-
-"""
-    update_metrics(m::CurvilinearGrid3D)
-
-Update the conservative grid metrics (ξ̂x, ξ̂y, ...). This only needs to be called once for a 
-static mesh. In a dynamic mesh, this needs to be called each time the mesh moves.
-"""
-function update_metrics(m::CurvilinearGrid2D)
-  # cell-centered metrics
-  @inline for I in CartesianIndices(m.cell_center_metrics)
-    ξ, η = Tuple(I)
-    m.cell_center_metrics[I] = _get_metrics(m, (ξ, η))
-  end
-
-  # edge metric terms
-  @inline for I in CartesianIndices(m.cell_center_metrics)
-    ξ, η = Tuple(I)
-    m.edge_metrics.ξ[I] = _get_metrics(m, (ξ + 0.5, η))
-    m.edge_metrics.η[I] = _get_metrics(m, (ξ, η + 0.5))
-  end
-
-  return nothing
+  return CurvilinearGrid2D(x, y, jacobian_matrix_func, nhalo, nnodes, limits)
 end
 
 function _setup_jacobian_func(x, y)
@@ -127,8 +67,9 @@ function _setup_jacobian_func(x, y)
   return jacobian_matrix
 end
 
-# Get the grid metrics for a static grid
-function _get_metrics(_jacobian_matrix::SMatrix{2,2,T}) where {T}
+# Get the conservative metrics, e.g. normalized by the Jacobian
+function conservative_metrics(m::CurvilinearGrid2D, (i, j))
+  _jacobian_matrix = m.jacobian_matrix_func(i, j)
   inv_jacobian_matrix = inv(_jacobian_matrix)
   J = det(_jacobian_matrix)
 
@@ -137,32 +78,71 @@ function _get_metrics(_jacobian_matrix::SMatrix{2,2,T}) where {T}
   ηx = inv_jacobian_matrix[2, 1]
   ηy = inv_jacobian_matrix[2, 2]
 
-  ξ̂x = J * ξx
-  ξ̂y = J * ξy
-  η̂x = J * ηx
-  η̂y = J * ηy
-
-  return (ξ̂x=ξ̂x, ξ̂y=ξ̂y, η̂x=η̂x, η̂y=η̂y)
+  return (
+    ξ̂x=ξx / J,
+    ξ̂y=ξy / J,
+    η̂x=ηx / J,
+    η̂y=ηy / J,
+    ξt=zero(eltype(_jacobian_matrix)),
+    ηt=zero(eltype(_jacobian_matrix)),
+  )
 end
 
-# Get the grid metrics for a dynamic grid -- grid velocities (vx,vy,vz) must be provided
-function _get_metrics(_jacobian_matrix::SMatrix{2,2,T}, (vx, vy)) where {T}
+function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer})
+  _jacobian_matrix = m.jacobian_matrix_func(i, j) # -> SMatrix{2,2,T}
   inv_jacobian_matrix = inv(_jacobian_matrix)
-  J⁻¹ = det(inv_jacobian_matrix)
 
-  ξx = inv_jacobian_matrix[1, 1]
-  ξy = inv_jacobian_matrix[1, 2]
-  ηx = inv_jacobian_matrix[2, 1]
-  ηy = inv_jacobian_matrix[2, 2]
+  return (
+    ξx=inv_jacobian_matrix[1, 1],
+    ξy=inv_jacobian_matrix[1, 2],
+    ηx=inv_jacobian_matrix[2, 1],
+    ηy=inv_jacobian_matrix[2, 2],
+    ξt=zero(eltype(_jacobian_matrix)),
+    ηt=zero(eltype(_jacobian_matrix)),
+  )
+end
 
-  ξ̂x = J⁻¹ * ξx
-  ξ̂y = -J⁻¹ * ξy
-  η̂x = -J⁻¹ * ηx
-  η̂y = J⁻¹ * ηy
+function metrics(m::CurvilinearGrid2D, (i, j), (vx, vy))
+  static = metrics(m, (i, j))
+  @unpack ξx, ξy, ηx, ηy = static
 
-  # temporal metrics
-  ξt = -(vx * ξx + vy * ξy)
-  ηt = -(vx * ηx + vy * ηy)
+  return merge(static, (ξt=-(vx * ξx + vy * ξy), ηt=-(vx * ηx + vy * ηy)))
+end
 
-  return (ξ̂x=ξ̂x, ξ̂y=ξ̂y, η̂x=η̂x, η̂y=η̂y, ξt=ξt, ηt=ηt)
+"""
+    coords(mesh::CurvilinearGrid2D, T=Float64) -> Array{Real}
+
+Return the array of coordinate points, indexed as `[xy,i,j]`. 
+This does _not_ include halo regions since the geometry can be undefined.
+"""
+function coords(m::CurvilinearGrid2D, T=Float64)
+  xy = zeros(T, 2, m.nnodes...)
+
+  @inbounds for j in axes(xy, 3)
+    for i in axes(xy, 2)
+      xy[1, i, j] = m.x(i, j)
+      xy[2, i, j] = m.y(i, j)
+    end
+  end
+
+  return xy
+end
+
+"""
+    centroids(m::CurvilinearGrid2D, T=Float64) -> Array{Real}
+
+Return the array of coordinate points, indexed as `[xy,i,j]`. 
+This does _not_ include halo regions since the geometry can be undefined.
+"""
+function centroids(m::CurvilinearGrid2D, T=Float64)
+  xy = zeros(T, 2, (m.nnodes .- 1)...)
+
+  @inbounds for j in axes(xy, 3)
+    for i in axes(xy, 2)
+      xy[1, i, j] = m.x(i + 0.5, j + 0.5)
+      xy[2, i, j] = m.y(i + 0.5, j + 0.5)
+    end
+  end
+
+  return xy
 end

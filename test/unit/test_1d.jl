@@ -2,17 +2,11 @@
 @testitem "1D Mesh - Rectlinear Mesh" begin
   include("common.jl")
 
-  function LinearSpacing((x0, x1), ni, nhalo)
-    _x(i) = x0 + (x1 - x0) * ((i - 1) / (ni - 1))
-    x(i) = _x(i - nhalo)
-    return x
-  end
-
-  function getmesh()
-    nhalo = 0
+  function getmesh(T=Float32)
+    nhalo = 3
     ni = 5
     x0, x1 = (0.0, 2.0)
-    x = LinearSpacing((x0, x1), ni, nhalo)
+    x(i) = (x0 + (x1 - x0) * ((i - 1) / (ni - 1)))
     return CurvilinearGrid1D(x, ni, nhalo)
   end
 
@@ -23,4 +17,25 @@
   @test jacobian(m, 1) == 0.5
   @test inv(jacobian_matrix(m, 1)) == @SMatrix [2.0]
   @test inv(jacobian(m, 1)) == 2.0
+
+  centroids(m) == [0.25, 0.75, 1.25, 1.75]
+  coords(m) == [0.0, 0.5, 1.0, 1.5, 2.0]
+
+  bm1 = @benchmark metrics($m, 1)
+  @test bm1.allocs == 0
+
+  bm2 = @benchmark conservative_metrics($m, 1)
+  @test bm2.allocs == 0
+
+  bm3 = @benchmark jacobian_matrix($m, 1)
+  @test bm3.allocs == 0
+
+  bm4 = @benchmark jacobian($m, 1)
+  @test bm4.allocs == 0
+
+  bm5 = @benchmark inv(jacobian_matrix($m, 1))
+  @test bm5.allocs == 0
+
+  bm6 = @benchmark inv(jacobian($m, 1))
+  @test bm6.allocs == 0
 end

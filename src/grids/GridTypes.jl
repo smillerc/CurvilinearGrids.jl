@@ -3,12 +3,14 @@ module GridTypes
 using LinearAlgebra
 using StaticArrays
 using ForwardDiff
+using UnPack
 
 export AbstractCurvilinearGrid
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
-export coord, coords
+export coord, coords, cellsize
 export centroid, centroids
 export metrics, jacobian, jacobian_matrix
+export conservative_metrics
 
 abstract type AbstractCurvilinearGrid end
 
@@ -87,6 +89,9 @@ function update(m::AbstractCurvilinearGrid)
   return nothing
 end
 
+cellsize(m::AbstractCurvilinearGrid) = @. m.nnodes - 1
+cellsize_withhalo(m::AbstractCurvilinearGrid) = @. m.nnodes - 1 + 2 * m.nhalo
+
 coord(mesh, CI::CartesianIndex) = coord(mesh, CI.I...)
 coord(m::CurvilinearGrid1D, i) = m.x(i)
 coord(m::CurvilinearGrid2D, i, j) = @SVector [m.x(i, j), m.y(i, j)]
@@ -108,7 +113,7 @@ function centroid(m::CurvilinearGrid3D, i, j, k)
 end
 
 jacobian_matrix(mesh, CI::CartesianIndex) = mesh.jacobian_matrix_func(CI.I...)
-jacobian_matrix(mesh, idx) = jacobian_matrix(mesh, idx...)
+jacobian_matrix(mesh, idx::NTuple{N,T}) where {N,T} = jacobian_matrix(mesh, idx...)
 jacobian_matrix(mesh, i, j, k) = mesh.jacobian_matrix_func(i, j, k)
 jacobian_matrix(mesh, i, j) = mesh.jacobian_matrix_func(i, j)
 
@@ -119,34 +124,32 @@ jacobian(mesh::CurvilinearGrid2D, i, j) = det(jacobian_matrix(mesh, i, j))
 
 """
 Query the mesh metrics at a particular index
-
-**Note**: The mesh stores these in `mesh.cell_center_metrics` and `mesh.edge_metrics`
-
 """
 metrics(mesh, CI::CartesianIndex) = metrics(mesh, CI.I...)
-metrics(mesh, CI::CartesianIndex, v⃗_grid) = metrics(mesh, CI.I..., v⃗_grid)
+metrics(mesh, idx::NTuple{N,T}) where {N,T} = metrics(mesh, idx...)
 
-metrics(mesh, idx) = metrics(mesh, idx...)
-metrics(mesh, idx, v⃗_grid) = metrics(mesh, idx..., v⃗_grid)
+# function metrics(m::CurvilinearGrid3D, i, j, k)
+#   jacobi = m.jacobian_matrix_func(i, j, k)
+#   return _get_metrics(jacobi)
+# end
 
-function metrics(m::CurvilinearGrid3D, i, j, k)
-  jacobi = m.jacobian_matrix_func(i, j, k)
-  return _get_metrics(jacobi)
-end
+# function metrics(m::CurvilinearGrid2D, i, j)
+#   jacobi = m.jacobian_matrix_func(i, j)
+#   return _get_metrics(jacobi)
+# end
 
-function metrics(m::CurvilinearGrid2D, i, j)
-  jacobi = m.jacobian_matrix_func(i, j)
-  return _get_metrics(jacobi)
-end
+# metrics(mesh, CI::CartesianIndex, v⃗_grid) = metrics(mesh, CI.I..., v⃗_grid)
 
-function metrics(m::CurvilinearGrid3D, i, j, k, v⃗_grid)
-  jacobi = m.jacobian_matrix_func(i, j, k)
-  return _get_metrics(jacobi, v⃗_grid)
-end
+# metrics(mesh, idx, v⃗_grid) = metrics(mesh, idx..., v⃗_grid)
 
-function metrics(m::CurvilinearGrid2D, i, j, v⃗_grid)
-  jacobi = m.jacobian_matrix_func(i, j)
-  return _get_metrics(jacobi, v⃗_grid)
-end
+# function metrics(m::CurvilinearGrid3D, i, j, k, v⃗_grid)
+#   jacobi = m.jacobian_matrix_func(i, j, k)
+#   return _get_metrics(jacobi, v⃗_grid)
+# end
+
+# function metrics(m::CurvilinearGrid2D, i, j, v⃗_grid)
+#   jacobi = m.jacobian_matrix_func(i, j)
+#   return _get_metrics(jacobi, v⃗_grid)
+# end
 
 end
