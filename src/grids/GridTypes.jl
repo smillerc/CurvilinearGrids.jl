@@ -41,10 +41,21 @@ index at coord(mesh, 3). The `CurvilinearGrid` only keeps track of the number of
 dimension, whereas the grid functions have no knowledge halos. Therefore, the `coord` function
 applies a shift to the index for you.
 """
-coord(mesh, CI::CartesianIndex) = coord(mesh, CI.I...)
-coord(m::CurvilinearGrid1D, i) = m.x(i)
-coord(m::CurvilinearGrid2D, i, j) = @SVector [m.x(i, j), m.y(i, j)]
-coord(m::CurvilinearGrid3D, i, j, k) = @SVector [m.x(i, j, k), m.y(i, j, k), m.z(i, j, k)]
+coord(mesh, CI::CartesianIndex) = coord(mesh, CI.I)
+coord(m::CurvilinearGrid1D, i) = m.x(i - m.nhalo)
+coord(m::CurvilinearGrid1D, (i,)::NTuple{1,Real}) = m.x(i - m.nhalo)
+
+function coord(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
+  @SVector [m.x(i - m.nhalo, j - m.nhalo), m.y(i - m.nhalo, j - m.nhalo)]
+end
+
+function coord(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
+  @SVector [
+    m.x(i - m.nhalo, j - m.nhalo, k - m.nhalo),
+    m.y(i - m.nhalo, j - m.nhalo, k - m.nhalo),
+    m.z(i - m.nhalo, j - m.nhalo, k - m.nhalo),
+  ]
+end
 
 """
 
@@ -55,17 +66,17 @@ The `CurvilinearGrid` only keeps track of the number of halo cells for each dime
 whereas the grid functions have no knowledge halos. Therefore, the `coord` function
 applies a shift to the index for you.
 """
-centroid(mesh, CI::CartesianIndex) = centroid(mesh, CI.I...)
+centroid(mesh, CI::CartesianIndex) = centroid(mesh, CI.I)
 centroid(m::CurvilinearGrid1D, i) = m.x(i - m.nhalo + 0.5)
 
-function centroid(m::CurvilinearGrid2D, i, j)
+function centroid(m::CurvilinearGrid2D, (i, j)::NTuple{2,Int})
   @SVector [
     m.x(i - m.nhalo + 0.5, j - m.nhalo + 0.5), # x
     m.y(i - m.nhalo + 0.5, j - m.nhalo + 0.5), # y
   ]
 end
 
-function centroid(m::CurvilinearGrid3D, i, j, k)
+function centroid(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Int})
   @SVector [
     m.x(i - m.nhalo + 0.5, j - m.nhalo + 0.5, k - m.nhalo + 0.5), # x
     m.y(i - m.nhalo + 0.5, j - m.nhalo + 0.5, k - m.nhalo + 0.5), # y
