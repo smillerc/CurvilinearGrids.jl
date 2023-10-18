@@ -41,7 +41,7 @@ function CurvilinearGrid3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n
   )
 end
 
-@inline function conservative_metrics(m::CurvilinearGrid3D, (i, j, k)::Tuple)
+@inline function conservative_metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
   M1, M2, M3 = m.conserv_metric_func(i - m.nhalo, j - m.nhalo, k - m.nhalo) # get the matrices 
 
   yξzη = M1[1, 2] # ∂(z ∂y/∂ξ)/∂η
@@ -81,7 +81,9 @@ end
   )
 end
 
-@inline function conservative_metrics(m::CurvilinearGrid3D, (i, j, k)::Tuple, (vx, vy, vz))
+@inline function conservative_metrics(
+  m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, (vx, vy, vz)
+)
   static = conservative_metrics(m, (i, j, k))
   @unpack ξ̂x, ξ̂y, ξ̂z, η̂x, η̂y, η̂z, ζ̂x, ζ̂y, ζ̂z = static
 
@@ -96,7 +98,7 @@ end
 end
 
 # Get the grid metrics for a static grid
-@inline function metrics(m::CurvilinearGrid3D, (i, j, k)::Tuple)
+@inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
   _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))
   inv_jacobian_matrix = inv(_jacobian_matrix)
 
@@ -116,7 +118,7 @@ end
   )
 end
 
-@inline function metrics(m::CurvilinearGrid3D, (i, j, k)::Tuple, (vx, vy, vz))
+@inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, (vx, vy, vz))
   static = metrics(m, (i, j))
   @unpack ξx, ξy, ξz, ηx, ηy, ηz, ζx, ζy, ζz = static
 
