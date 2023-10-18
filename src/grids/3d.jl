@@ -119,7 +119,7 @@ end
 end
 
 @inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, (vx, vy, vz))
-  static = metrics(m, (i, j))
+  static = metrics(m, (i, j, k))
   @unpack ξx, ξy, ξz, ηx, ηy, ηz, ζx, ζy, ζz = static
 
   return merge(
@@ -130,6 +130,14 @@ end
       ζt=-(vx * ζx + vy * ζy + vz * ζz), # dynamic / moving mesh terms
     ),
   )
+end
+
+function jacobian_matrix(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
+  return checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))
+end
+
+function jacobian(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
+  return det(jacobian_matrix(m, (i, j, k)))
 end
 
 function _setup_jacobian_func(x, y, z)

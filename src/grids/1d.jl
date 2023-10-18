@@ -38,30 +38,34 @@ function CurvilinearGrid1D(x::F1, (n_ξ,), nhalo) where {F1<:Function}
   return CurvilinearGrid1D{F1,F2}(x, ∂x∂ξ, nhalo, nnodes, limits)
 end
 
-@inline function conservative_metrics(m::CurvilinearGrid1D, i)
+@inline function conservative_metrics(m::CurvilinearGrid1D, (i,)::Tuple{Real})
   ξx = m.∂x∂ξ(i - m.nhalo)
   return (ξ̂x=1 / (ξx * ξx), ξt=zero(eltype(ξx)))
 end
 
-@inline function conservative_metrics(m::CurvilinearGrid1D, i, vx)
+@inline function conservative_metrics(m::CurvilinearGrid1D, (i,)::Tuple{Real}, vx)
   # don't use (i - m.nhalo), since the static metrics() does it already
   static_metrics = conservative_metrics(m::CurvilinearGrid1D, i)
-  return merge(static_metrics, (ξt=-(vx * ξx),))
+  return merge(static_metrics, (ξt=-(vx * static_metrics.ξx),))
 end
 
-@inline function metrics(m::CurvilinearGrid1D, i)
+@inline function metrics(m::CurvilinearGrid1D, (i,)::Tuple{Real})
   ξx = m.∂x∂ξ(i - m.nhalo)
   return (ξx=1 / ξx, ξt=zero(eltype(ξx)))
 end
 
-@inline function metrics(m::CurvilinearGrid1D, i, vx)
+@inline function metrics(m::CurvilinearGrid1D, (i,)::Tuple{Real}, vx)
   # don't use (i - m.nhalo), since the static metrics() does it already
   static_metrics = metrics(m, i)
   return merge(static_metrics, (ξt=-(vx * ξx),))
 end
 
-@inline function jacobian_matrix(m::CurvilinearGrid1D, i)
+@inline function jacobian_matrix(m::CurvilinearGrid1D, (i,)::Tuple{Real})
   return checkeps(SMatrix{1,1}(m.∂x∂ξ(i - m.nhalo)))
+end
+
+@inline function jacobian(m::CurvilinearGrid1D, (i,)::Tuple{Real})
+  return det(jacobian_matrix(m, i))
 end
 
 """

@@ -77,28 +77,24 @@ end
 Get the Jacobian matrix of the forward transformation (ξ,η,ζ) → (x,y,z).
 """
 jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
-jacobian_matrix(mesh, idx::NTuple) = jacobian_matrix(mesh, idx...)
-function jacobian_matrix(mesh::CurvilinearGrid3D, i, j, k)
-  return checkeps(mesh.jacobian_matrix_func(i - mesh.nhalo, j - mesh.nhalo, k - mesh.nhalo))
-end
-
-function jacobian_matrix(mesh::CurvilinearGrid2D, i, j)
-  return checkeps(mesh.jacobian_matrix_func(i - mesh.nhalo, j - mesh.nhalo))
-end
+jacobian_matrix(mesh::CurvilinearGrid1D, i) = jacobian_matrix(mesh, (i,))
 
 """
 Get the Jacobian of the forward transformation (ξ,η,ζ) → (x,y,z).
 """
-jacobian(mesh, CI::CartesianIndex) = det(jacobian_matrix(mesh, CI.I))
-jacobian(mesh, idx::NTuple) = jacobian(mesh, idx...)
-jacobian(mesh::CurvilinearGrid3D, i, j, k) = det(jacobian_matrix(mesh, (i, j, k)))
-jacobian(mesh::CurvilinearGrid2D, i, j) = det(jacobian_matrix(mesh, (i, j)))
-jacobian(mesh::CurvilinearGrid1D, i) = det(jacobian_matrix(mesh, i))
+jacobian(mesh, CI::CartesianIndex) = jacobian(mesh, CI.I)
+jacobian(mesh::CurvilinearGrid1D, i::Real) = jacobian(mesh, (i,))
 
 """
 Query the mesh metrics at a particular index
 """
 metrics(mesh, CI::CartesianIndex) = metrics(mesh, CI.I...)
-metrics(mesh, idx::NTuple{N,T}) where {N,T} = metrics(mesh, idx...)
+metrics(mesh::CurvilinearGrid1D, i::Real) = metrics(mesh, (i,))
+
+"""
+Query the conservative mesh metrics at a particular index that follow the GCL
+"""
+conservative_metrics(mesh, CI::CartesianIndex) = conservative_metrics(mesh, CI.I...)
+conservative_metrics(mesh::CurvilinearGrid1D, i::Real) = conservative_metrics(mesh, (i,))
 
 end

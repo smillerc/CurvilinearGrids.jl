@@ -124,6 +124,14 @@ end
   ))
 end
 
+function jacobian_matrix(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
+  return checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo))
+end
+
+function jacobian(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
+  return det(jacobian_matrix(m, (i, j)))
+end
+
 """
     coords(mesh::CurvilinearGrid2D, T=Float64) -> Array{Real}
 

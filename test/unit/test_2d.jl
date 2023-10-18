@@ -26,7 +26,7 @@
   @test conservative_metrics(mesh, (2, 3)) ==
     (ξ̂x=16.0, ξ̂y=-0.0, η̂x=-0.0, η̂y=32.0, ξt=0.0, ηt=0.0)
 
-  @test jacobian_matrix(mesh, 2, 2) == @SMatrix [
+  @test jacobian_matrix(mesh, (2, 2)) == @SMatrix [
     0.5 0.0
     0.0 0.25
   ]

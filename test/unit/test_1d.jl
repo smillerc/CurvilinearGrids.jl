@@ -18,8 +18,15 @@
   @test inv(jacobian_matrix(m, 1)) == @SMatrix [2.0]
   @test inv(jacobian(m, 1)) == 2.0
 
-  centroids(m) == [0.25, 0.75, 1.25, 1.75]
-  coords(m) == [0.0, 0.5, 1.0, 1.5, 2.0]
+  @test metrics(m, (1,)) == (ξx=2.0, ξt=0.0)
+  @test conservative_metrics(m, (1,)) == (ξ̂x=4.0, ξt=0.0)
+  @test jacobian_matrix(m, (1,)) == @SMatrix [0.5]
+  @test jacobian(m, (1,)) == 0.5
+  @test inv(jacobian_matrix(m, (1,))) == @SMatrix [2.0]
+  @test inv(jacobian(m, (1,))) == 2.0
+
+  @test centroids(m) == [0.25, 0.75, 1.25, 1.75]
+  @test coords(m) == [0.0, 0.5, 1.0, 1.5, 2.0]
 
   bm1 = @benchmark metrics($m, 1)
   @test bm1.allocs == 0
