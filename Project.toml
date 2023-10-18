@@ -1,7 +1,7 @@
 name = "CurvilinearGrids"
 uuid = "58b19789-dd19-4aa2-839c-c763a7b10301"
 authors = ["Sam Miller <smil@lle.rochester.edu> and contributors"]
-version = "0.1.2"
+version = "0.2.0"
 
 [deps]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
