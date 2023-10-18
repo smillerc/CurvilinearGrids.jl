@@ -59,11 +59,11 @@
   @test ihi == 4
   @test jhi == 8
 
-  @test coord(mesh, 1, 1) == [0, 1]
-  @test coord(mesh, 2, 2) == [0.5, 1.25]
-  @test coord(mesh, 2.5, 2.5) == [0.75, 1.375]
-  @test coord(mesh, 2.5, 2.5) == centroid(mesh, 2, 2)
-  @test centroid(mesh, 1, 1) == [0.25, 1.125]
+  @test coord(mesh, (1, 1)) == [0, 1]
+  @test coord(mesh, (2, 2)) == [0.5, 1.25]
+  @test coord(mesh, (2.5, 2.5)) == [0.75, 1.375]
+  @test coord(mesh, (2.5, 2.5)) == centroid(mesh, (2, 2))
+  @test centroid(mesh, (1, 1)) == [0.25, 1.125]
 
   xy_coords = coords(mesh)
   centroid_coords = centroids(mesh)

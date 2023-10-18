@@ -88,9 +88,9 @@
   #   end
   # end
 
-  @test coord(mesh, 1, 1, 1) == [0, 1, -1]
-  @test coord(mesh, 2.5, 2.5, 2.5) == [0.75, 1.375, -0.625]
-  @test coord(mesh, 2.5, 2.5, 2.5) == centroid(mesh, 2, 2, 2)
+  @test coord(mesh, (1, 1, 1)) == [0, 1, -1]
+  @test coord(mesh, (2.5, 2.5, 2.5)) == [0.75, 1.375, -0.625]
+  @test coord(mesh, (2.5, 2.5, 2.5)) == centroid(mesh, (2, 2, 2))
 
   xyz_coords = coords(mesh)
   centroid_coords = centroids(mesh)
