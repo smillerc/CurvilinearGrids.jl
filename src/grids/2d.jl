@@ -25,7 +25,7 @@ function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
   ni_cells = n_ξ - 1
   nj_cells = n_η - 1
   lo = nhalo + 1
-  limits = (ilo=lo, ihi=ni_cells - nhalo, jlo=lo, jhi=nj_cells - nhalo)
+  limits = (ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo)
 
   return CurvilinearGrid2D(x, y, jacobian_matrix_func, nhalo, nnodes, limits)
 end
@@ -68,7 +68,7 @@ function _setup_jacobian_func(x, y)
 end
 
 # Get the conservative metrics, e.g. normalized by the Jacobian
-@inline function conservative_metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer})
+@inline function conservative_metrics(m::CurvilinearGrid2D, (i, j)::Tuple)
   _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   J = det(_jacobian_matrix)
@@ -88,9 +88,7 @@ end
   )
 end
 
-@inline function conservative_metrics(
-  m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer}, (vx, vy)
-)
+@inline function conservative_metrics(m::CurvilinearGrid2D, (i, j)::Tuple, (vx, vy))
   static = conservative_metrics(m, (i, j))
   @unpack ξ̂x, ξ̂y, ξ̂z, η̂x, η̂y, η̂z = static
 
@@ -100,7 +98,7 @@ end
   ))
 end
 
-@inline function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer})
+@inline function metrics(m::CurvilinearGrid2D, (i, j)::Tuple)
   _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo)) # -> SMatrix{2,2,T}
   inv_jacobian_matrix = inv(_jacobian_matrix)
 
@@ -114,7 +112,7 @@ end
   )
 end
 
-@inline function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Integer}, (vx, vy))
+@inline function metrics(m::CurvilinearGrid2D, (i, j)::Tuple, (vx, vy))
   static = metrics(m, (i, j))
   @unpack ξx, ξy, ηx, ηy = static
 

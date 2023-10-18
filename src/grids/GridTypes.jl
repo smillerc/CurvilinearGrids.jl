@@ -7,7 +7,7 @@ using UnPack
 
 export AbstractCurvilinearGrid
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
-export coord, coords, cellsize
+export coord, coords, cellsize, cellsize_withhalo
 export centroid, centroids
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
