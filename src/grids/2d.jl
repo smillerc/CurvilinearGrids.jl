@@ -20,6 +20,22 @@ struct CurvilinearGrid2D{T1,T2,T3} <: AbstractCurvilinearGrid
 end
 
 function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
+  error_found = false
+  for func in (x, y)
+    try
+      func(1, 1)
+    catch
+      @warn(
+        "The grid nodal $(Symbol(func)) function needs to have it's definition based on 2 arguments, e.g. $(Symbol(func))(i,j) = ...",
+      )
+      error_found = true
+    end
+  end
+
+  if error_found
+    error("Grid function definitions aren't complete... see the warning messages")
+  end
+
   jacobian_matrix_func = _setup_jacobian_func(x, y)
   nnodes = (n_ξ, n_η)
   ni_cells = n_ξ - 1
@@ -31,25 +47,8 @@ function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
 end
 
 function _setup_jacobian_func(x, y)
-
-  # for the gradient calls to work, the x,y,z functions
-  # need to work with a single argument, so we make these
-  # functions below:
-  error_found = false
-  for func in (x, y)
-    try
-      func((1, 1))
-    catch
-      @warn(
-        "The $(Symbol(func)) function needs to have definitions for both $(Symbol(func))(i,j) and $(Symbol(func))((i,j)), or else the gradient calculations will fail",
-      )
-      error_found = true
-    end
-  end
-
-  if error_found
-    error("Grid function definitions aren't complete... see the warning messages")
-  end
+  # _x((i, j)) = x(i, j)
+  # _y((i, j)) = y(i, j)
 
   ∂x∂ξ(ξ, η) = ForwardDiff.derivative(ξ -> x(ξ, η), η)
   ∂x∂η(ξ, η) = ForwardDiff.derivative(η -> x(ξ, η), ξ)
@@ -92,7 +91,7 @@ end
   m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, (vx, vy)
 )
   static = conservative_metrics(m, (i, j))
-  @unpack ξ̂x, ξ̂y, ξ̂z, η̂x, η̂y, η̂z = static
+  @unpack ξ̂x, ξ̂y, η̂x, η̂y = static
 
   return merge(static, (
     ξt=-(vx * ξ̂x + vy * ξ̂y), # dynamic / moving mesh terms

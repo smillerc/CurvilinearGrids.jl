@@ -24,6 +24,22 @@ struct CurvilinearGrid3D{F1,F2,F3,F4,F5} <: AbstractCurvilinearGrid
 end
 
 function CurvilinearGrid3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n_ζ), nhalo)
+  error_found = false
+  for func in (x, y, z)
+    try
+      func(1, 1, 1)
+    catch
+      @warn(
+        "The grid nodal $(Symbol(func)) function needs to have it's definition based on 3 arguments, e.g. $(Symbol(func))(i,j,k) = ...",
+      )
+      error_found = true
+    end
+  end
+
+  if error_found
+    error("Grid function definitions aren't complete... see the warning messages")
+  end
+
   jacobian_matrix_func = _setup_jacobian_func(x, y, z)
   cons_metric_func = _setup_conservative_metrics_func(x, y, z)
   nnodes = (n_ξ, n_η, n_ζ)
@@ -33,52 +49,69 @@ function CurvilinearGrid3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n
   lo = nhalo + 1
 
   limits = (
-    ilo=lo, ihi=ni_cells - nhalo, jlo=lo, jhi=nj_cells - nhalo, klo=lo, khi=nk_cells - nhalo
+    ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo, klo=lo, khi=nk_cells + nhalo
   )
-
   return CurvilinearGrid3D(
     x, y, z, jacobian_matrix_func, cons_metric_func, nhalo, nnodes, limits
   )
 end
 
 @inline function conservative_metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
-  M1, M2, M3 = m.conserv_metric_func(i - m.nhalo, j - m.nhalo, k - m.nhalo) # get the matrices 
-
-  yξzη = M1[1, 2] # ∂(z ∂y/∂ξ)/∂η
-  yξzζ = M1[1, 3] # ∂(z ∂y/∂ξ)/∂ζ
-  yηzξ = M1[2, 1] # ∂(z ∂y/∂η)/∂ξ
-  yηzζ = M1[2, 3] # ∂(z ∂y/∂η)/∂ζ
-  yζzξ = M1[3, 1] # ∂(z ∂y/∂ζ)/∂ξ
-  yζzη = M1[3, 2] # ∂(z ∂y/∂ζ)/∂η
-
-  zξxη = M2[1, 2] # ∂(x ∂z/∂ξ)/∂η
-  zξxζ = M2[1, 3] # ∂(x ∂z/∂ξ)/∂ζ
-  zηxξ = M2[2, 1] # ∂(x ∂z/∂η)/∂ξ
-  zηxζ = M2[2, 3] # ∂(x ∂z/∂η)/∂ζ
-  zζxξ = M2[3, 1] # ∂(x ∂z/∂ζ)/∂ξ
-  zζxη = M2[3, 2] # ∂(x ∂z/∂ζ)/∂η
-
-  xξyη = M3[1, 2] # ∂(y ∂x/∂ξ)/∂η
-  xξyζ = M3[1, 3] # ∂(y ∂x/∂ξ)/∂ζ
-  xηyξ = M3[2, 1] # ∂(y ∂x/∂η)/∂ξ
-  xηyζ = M3[2, 3] # ∂(y ∂x/∂η)/∂ζ
-  xζyξ = M3[3, 1] # ∂(y ∂x/∂ζ)/∂ξ
-  xζyη = M3[3, 2] # ∂(y ∂x/∂ζ)/∂η
-
+  _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))
+  inv_jacobian_matrix = inv(_jacobian_matrix)
+  J = jacobian(m, (i, j, k))
   return (
-    ξ̂x=yηzζ - yζzη,
-    ξ̂y=zηxζ - zζxη,
-    ξ̂z=xηyζ - xζyη,
-    η̂x=yζzξ - yξzζ,
-    η̂y=zζxξ - zξxζ,
-    η̂z=xζyξ - xξyζ,
-    ζ̂x=yξzη - yηzξ,
-    ζ̂y=zξxη - zηxξ,
-    ζ̂z=xξyη - xηyξ,
-    ξt=zero(eltype(M1)),
-    ηt=zero(eltype(M1)),
-    ζt=zero(eltype(M1)),
+    ξ̂x=inv_jacobian_matrix[1, 1] / J,
+    ξ̂y=inv_jacobian_matrix[1, 2] / J,
+    ξ̂z=inv_jacobian_matrix[1, 3] / J,
+    η̂x=inv_jacobian_matrix[2, 1] / J,
+    η̂y=inv_jacobian_matrix[2, 2] / J,
+    η̂z=inv_jacobian_matrix[2, 3] / J,
+    ζ̂x=inv_jacobian_matrix[3, 1] / J,
+    ζ̂y=inv_jacobian_matrix[3, 2] / J,
+    ζ̂z=inv_jacobian_matrix[3, 3] / J,
+    ξt=zero(eltype(_jacobian_matrix)),
+    ηt=zero(eltype(_jacobian_matrix)),
+    ζt=zero(eltype(_jacobian_matrix)),
   )
+
+  # M1, M2, M3 = m.conserv_metric_func(i - m.nhalo, j - m.nhalo, k - m.nhalo) # get the matrices 
+
+  # yξzη = M1[1, 2] # ∂(z ∂y/∂ξ)/∂η
+  # yξzζ = M1[1, 3] # ∂(z ∂y/∂ξ)/∂ζ
+  # yηzξ = M1[2, 1] # ∂(z ∂y/∂η)/∂ξ
+  # yηzζ = M1[2, 3] # ∂(z ∂y/∂η)/∂ζ
+  # yζzξ = M1[3, 1] # ∂(z ∂y/∂ζ)/∂ξ
+  # yζzη = M1[3, 2] # ∂(z ∂y/∂ζ)/∂η
+
+  # zξxη = M2[1, 2] # ∂(x ∂z/∂ξ)/∂η
+  # zξxζ = M2[1, 3] # ∂(x ∂z/∂ξ)/∂ζ
+  # zηxξ = M2[2, 1] # ∂(x ∂z/∂η)/∂ξ
+  # zηxζ = M2[2, 3] # ∂(x ∂z/∂η)/∂ζ
+  # zζxξ = M2[3, 1] # ∂(x ∂z/∂ζ)/∂ξ
+  # zζxη = M2[3, 2] # ∂(x ∂z/∂ζ)/∂η
+
+  # xξyη = M3[1, 2] # ∂(y ∂x/∂ξ)/∂η
+  # xξyζ = M3[1, 3] # ∂(y ∂x/∂ξ)/∂ζ
+  # xηyξ = M3[2, 1] # ∂(y ∂x/∂η)/∂ξ
+  # xηyζ = M3[2, 3] # ∂(y ∂x/∂η)/∂ζ
+  # xζyξ = M3[3, 1] # ∂(y ∂x/∂ζ)/∂ξ
+  # xζyη = M3[3, 2] # ∂(y ∂x/∂ζ)/∂η
+
+  # return (
+  #   ξ̂x=yηzζ - yζzη,
+  #   ξ̂y=zηxζ - zζxη,
+  #   ξ̂z=xηyζ - xζyη,
+  #   η̂x=yζzξ - yξzζ,
+  #   η̂y=zζxξ - zξxζ,
+  #   η̂z=xζyξ - xξyζ,
+  #   ζ̂x=yξzη - yηzξ,
+  #   ζ̂y=zξxη - zηxξ,
+  #   ζ̂z=xξyη - xηyξ,
+  #   ξt=zero(eltype(M1)),
+  #   ηt=zero(eltype(M1)),
+  #   ζt=zero(eltype(M1)),
+  # )
 end
 
 @inline function conservative_metrics(
@@ -133,7 +166,8 @@ end
 end
 
 function jacobian_matrix(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
-  return checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))
+  # return checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))
+  return m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo)
 end
 
 function jacobian(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
@@ -141,29 +175,13 @@ function jacobian(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
 end
 
 function _setup_jacobian_func(x, y, z)
+  _x((i, j, k)) = x(i, j, k)
+  _y((i, j, k)) = y(i, j, k)
+  _z((i, j, k)) = z(i, j, k)
 
-  # for the gradient calls to work, the x,y,z functions
-  # need to work with a single argument, so we make these
-  # functions below:
-  error_found = false
-  for func in (x, y, z)
-    try
-      func((1, 1, 1))
-    catch
-      @warn(
-        "The $(Symbol(func)) function needs to have definitions for both $(Symbol(func))(i,j,k) and $(Symbol(func))((i,j,k)), or else the gradient calculations will fail",
-      )
-      error_found = true
-    end
-  end
-
-  if error_found
-    error("Grid function definitions aren't complete... see the warning messages")
-  end
-
-  ∇x(ξ, η, ζ) = ForwardDiff.gradient(x, @SVector [ξ, η, ζ]) # ∂x∂ξ, ∂x∂η, ∂x∂ζ
-  ∇y(ξ, η, ζ) = ForwardDiff.gradient(y, @SVector [ξ, η, ζ]) # ∂z∂ξ, ∂z∂η, ∂z∂ζ
-  ∇z(ξ, η, ζ) = ForwardDiff.gradient(z, @SVector [ξ, η, ζ]) # ∂y∂ξ, ∂y∂η, ∂y∂ζ
+  ∇x(ξ, η, ζ) = ForwardDiff.gradient(_x, @SVector [ξ, η, ζ]) # ∂x∂ξ, ∂x∂η, ∂x∂ζ
+  ∇y(ξ, η, ζ) = ForwardDiff.gradient(_y, @SVector [ξ, η, ζ]) # ∂z∂ξ, ∂z∂η, ∂z∂ζ
+  ∇z(ξ, η, ζ) = ForwardDiff.gradient(_z, @SVector [ξ, η, ζ]) # ∂y∂ξ, ∂y∂η, ∂y∂ζ
 
   function jacobian_matrix(ξ, η, ζ)
     return SMatrix{3,3,Float64}(∇x(ξ, η, ζ)..., ∇y(ξ, η, ζ)..., ∇z(ξ, η, ζ)...)
@@ -221,9 +239,13 @@ function _get_metrics(_jacobian_matrix::SMatrix{3,3,T}, (vx, vy, vz)) where {T}
 end
 
 function _setup_conservative_metrics_func(x, y, z)
-  gradx_y((ξ, η, ζ)) = ForwardDiff.gradient(x, @SVector [ξ, η, ζ]) * y(ξ, η, ζ)
-  grady_z((ξ, η, ζ)) = ForwardDiff.gradient(y, @SVector [ξ, η, ζ]) * z(ξ, η, ζ)
-  gradz_x((ξ, η, ζ)) = ForwardDiff.gradient(z, @SVector [ξ, η, ζ]) * x(ξ, η, ζ)
+  _x((i, j, k)) = x(i, j, k)
+  _y((i, j, k)) = y(i, j, k)
+  _z((i, j, k)) = z(i, j, k)
+
+  gradx_y((ξ, η, ζ)) = ForwardDiff.gradient(_x, @SVector [ξ, η, ζ]) * y(ξ, η, ζ)
+  grady_z((ξ, η, ζ)) = ForwardDiff.gradient(_y, @SVector [ξ, η, ζ]) * z(ξ, η, ζ)
+  gradz_x((ξ, η, ζ)) = ForwardDiff.gradient(_z, @SVector [ξ, η, ζ]) * x(ξ, η, ζ)
 
   grady_z_jacobian(ξ, η, ζ) = ForwardDiff.jacobian(grady_z, @SVector [ξ, η, ζ])
   gradz_x_jacobian(ξ, η, ζ) = ForwardDiff.jacobian(gradz_x, @SVector [ξ, η, ζ])
