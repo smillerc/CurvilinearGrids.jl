@@ -118,7 +118,7 @@ end
   @unpack ξx, ξy, ηx, ηy = static
 
   return merge(static, (
-    ξt=-(vx * ξx + vy * ξy), # dynamic / moving mesh terms 
+    ξt=-(vx * ξx + vy * ξy), # dynamic / moving mesh terms
     ηt=-(vx * ηx + vy * ηy), # dynamic / moving mesh terms
   ))
 end
@@ -134,12 +134,10 @@ end
 """
     coords(mesh::CurvilinearGrid2D, T=Float64) -> Array{Real}
 
-Return the array of coordinate points, indexed as `[xy,i,j]`. 
+Return the array of coordinate points, indexed as `[xy,i,j]`.
 This does _not_ include halo regions since the geometry can be undefined.
 """
-function coords(m::CurvilinearGrid2D, T=Float64)
-  xy = zeros(T, 2, m.nnodes...)
-
+function coords!(xy::Array{T,3}, m::CurvilinearGrid2D) where {T}
   @inbounds for j in axes(xy, 3)
     for i in axes(xy, 2)
       xy[1, i, j] = m.x(i, j)
@@ -147,13 +145,19 @@ function coords(m::CurvilinearGrid2D, T=Float64)
     end
   end
 
+  return nothing
+end
+
+function coords(m::CurvilinearGrid2D, T=Float64)
+  xy = zeros(T, 2, m.nnodes...)
+  coords!(xy, m)
   return xy
 end
 
 """
     centroids(m::CurvilinearGrid2D, T=Float64) -> Array{Real}
 
-Return the array of coordinate points, indexed as `[xy,i,j]`. 
+Return the array of coordinate points, indexed as `[xy,i,j]`.
 This does _not_ include halo regions since the geometry can be undefined.
 """
 function centroids(m::CurvilinearGrid2D, T=Float64)
