@@ -113,6 +113,21 @@ end
   )
 end
 
+@inline function metrics_with_jacobian(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
+  _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo)) # -> SMatrix{2,2,T}
+  inv_jacobian_matrix = inv(_jacobian_matrix)
+
+  return (
+    ξx=inv_jacobian_matrix[1, 1],
+    ξy=inv_jacobian_matrix[1, 2],
+    ηx=inv_jacobian_matrix[2, 1],
+    ηy=inv_jacobian_matrix[2, 2],
+    ξt=zero(eltype(_jacobian_matrix)),
+    ηt=zero(eltype(_jacobian_matrix)),
+    J=det(_jacobian_matrix),
+  )
+end
+
 @inline function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, (vx, vy))
   static = metrics(m, (i, j))
   @unpack ξx, ξy, ηx, ηy = static

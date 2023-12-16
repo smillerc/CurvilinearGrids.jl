@@ -11,6 +11,7 @@ export coord, coords, cellsize, cellsize_withhalo
 export centroid, centroids
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
+export metrics_with_jacobian
 
 abstract type AbstractCurvilinearGrid end
 
