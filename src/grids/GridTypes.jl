@@ -7,7 +7,7 @@ using UnPack
 
 export AbstractCurvilinearGrid
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
-export coord, coords, cellsize, cellsize_withhalo
+export coord, coords, coords!, cellsize, cellsize_withhalo
 export centroid, centroids
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
@@ -17,9 +17,9 @@ export cell_metrics
 abstract type AbstractCurvilinearGrid end
 
 # Helper functions to eliminate floating point values below ϵ; these
-# are used to "clean" the jacobian matrices, so we don't get 
+# are used to "clean" the jacobian matrices, so we don't get
 # numbers like 1e-18, when in reality they should be 0.0
-# @inline checkeps(M) = M # non-Float version 
+# @inline checkeps(M) = M # non-Float version
 @inline function checkeps(M::AbstractArray{T}) where {T<:AbstractFloat}
   return M #@. M * (abs(M) >= eps(T))
 end
@@ -38,7 +38,7 @@ cellsize_withhalo(m::AbstractCurvilinearGrid) = @. m.nnodes - 1 + 2 * m.nhalo
 """
 
 Get the position/coordinate at a given index. **NOTE:** these indices are consistent with halo cells included.
-This means that if your grid has 2 halo cells, the position of the first non-halo vertex is 
+This means that if your grid has 2 halo cells, the position of the first non-halo vertex is
 index at coord(mesh, 3). The `CurvilinearGrid` only keeps track of the number of halo cells for each
 dimension, whereas the grid functions have no knowledge halos. Therefore, the `coord` function
 applies a shift to the index for you.
@@ -61,10 +61,10 @@ end
 
 """
 
-Get the position of the centroid for the given _cell_ index. **NOTE:** these indices 
-are consistent with halo cells included. This means that if your grid has 2 halo cells, 
-the position of the first non-halo centroid is index at coord(mesh, 3). 
-The `CurvilinearGrid` only keeps track of the number of halo cells for each dimension, 
+Get the position of the centroid for the given _cell_ index. **NOTE:** these indices
+are consistent with halo cells included. This means that if your grid has 2 halo cells,
+the position of the first non-halo centroid is index at coord(mesh, 3).
+The `CurvilinearGrid` only keeps track of the number of halo cells for each dimension,
 whereas the grid functions have no knowledge halos. Therefore, the `coord` function
 applies a shift to the index for you.
 """
