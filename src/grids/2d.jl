@@ -20,23 +20,15 @@ struct CurvilinearGrid2D{T1,T2,T3} <: AbstractCurvilinearGrid
 end
 
 function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
-  error_found = false
-  for func in (x, y)
-    try
-      func(1, 1)
-    catch
-      @warn(
-        "The grid nodal $(Symbol(func)) function needs to have it's definition based on 2 arguments, e.g. $(Symbol(func))(i,j) = ...",
-      )
-      error_found = true
-    end
-  end
+  check_nargs(x, 2, :x)
+  check_nargs(y, 2, :y)
+  test_coord_func(x, 2, :x)
+  test_coord_func(y, 2, :y)
 
-  if error_found
-    error("Grid function definitions aren't complete... see the warning messages")
-  end
+  coord(i, j) = @SVector [x(i, j), y(i, j)]
+  jacobian_matrix_func(i, j) = ForwardDiff.jacobian(x -> coord(x[1], x[2]), @SVector [i, j])
 
-  jacobian_matrix_func = _setup_jacobian_func(x, y)
+  # jacobian_matrix_func = _setup_jacobian_func(x, y)
   nnodes = (n_ξ, n_η)
   ni_cells = n_ξ - 1
   nj_cells = n_η - 1
@@ -44,6 +36,28 @@ function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
   limits = (ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo)
 
   return CurvilinearGrid2D(x, y, jacobian_matrix_func, nhalo, nnodes, limits)
+end
+
+function check_nargs(f, nargs, fname)
+  for m in methods(f)
+    if (m.nargs - 1) != nargs
+      error(
+        "The function $(fname)() isn't defined correctly, it needs to be use $nargs (not $(m.nargs - 1)) arguments, e.g. `x(i,j) = ...` for 2D",
+      )
+    end
+  end
+end
+
+function test_coord_func(f, ndims, fname)
+  args = ones(Int, ndims)
+  try
+    f(args...)
+  catch err
+    @error(
+      "Unable to evaluate the coordinate function $fname, due to the following errors:"
+    )
+    throw(err)
+  end
 end
 
 function _setup_jacobian_func(x, y)
@@ -100,7 +114,7 @@ end
 end
 
 @inline function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
-  _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo)) # -> SMatrix{2,2,T}
+  _jacobian_matrix = m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo) # -> SMatrix{2,2,T}
   inv_jacobian_matrix = inv(_jacobian_matrix)
 
   return (
@@ -111,6 +125,10 @@ end
     ξt=zero(eltype(_jacobian_matrix)),
     ηt=zero(eltype(_jacobian_matrix)),
   )
+end
+
+@inline function cell_metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
+  return metrics(m, (i + 0.5, j + 0.5))
 end
 
 @inline function metrics_with_jacobian(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})

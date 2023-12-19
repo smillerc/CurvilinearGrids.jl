@@ -12,6 +12,7 @@ export centroid, centroids
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
+export cell_metrics
 
 abstract type AbstractCurvilinearGrid end
 
@@ -20,7 +21,7 @@ abstract type AbstractCurvilinearGrid end
 # numbers like 1e-18, when in reality they should be 0.0
 # @inline checkeps(M) = M # non-Float version 
 @inline function checkeps(M::AbstractArray{T}) where {T<:AbstractFloat}
-  return @. M * abs(M >= eps(T))
+  return M #@. M * (abs(M) >= eps(T))
 end
 @inline checkeps(M) = M
 
