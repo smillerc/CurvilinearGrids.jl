@@ -11,6 +11,8 @@
 
 ### Example
 ```julia
+using CurvilinearGrids
+
 """Create a spherical grid as a function of (r,θ,ϕ)"""
 function sphere_grid(nr, ntheta, nphi)
   r0, r1 = (1, 3) # min/max radius
@@ -24,15 +26,9 @@ function sphere_grid(nr, ntheta, nphi)
   ϕ(ζ) = ϕ0 + (ϕ1 - ϕ0) * ((ζ - 1) / (nphi - 1))
 
   # simple spherical to cartesian mapping
-  x(ξ, η, ζ) = r(ξ) * sin(θ(η)) * cos(ϕ(ζ))
-  y(ξ, η, ζ) = r(ξ) * sin(θ(η)) * sin(ϕ(ζ))
-  z(ξ, η, ζ) = r(ξ) * cos(θ(η))
-
-  # Provide the 1-argument version as well, so ForwardDiff can
-  # compute derivatives of f in the form of f(x)
-  x((ξ, η, ζ)) = x(ξ, η, ζ)
-  y((ξ, η, ζ)) = y(ξ, η, ζ)
-  z((ξ, η, ζ)) = z(ξ, η, ζ)
+  x(i,j,k) = r(i) * sin(θ(j)) * cos(ϕ(k))
+  y(i,j,k) = r(i) * sin(θ(j)) * sin(ϕ(k))
+  z(i,j,k) = r(i) * cos(θ(j))
 
   return (x, y, z)
 end
