@@ -20,10 +20,11 @@ struct CurvilinearGrid2D{T1,T2,T3} <: AbstractCurvilinearGrid
 end
 
 function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
-  check_nargs(x, 2, :x)
-  check_nargs(y, 2, :y)
-  test_coord_func(x, 2, :x)
-  test_coord_func(y, 2, :y)
+  dim = 2
+  check_nargs(x, dim, :x)
+  check_nargs(y, dim, :y)
+  test_coord_func(x, dim, :x)
+  test_coord_func(y, dim, :y)
 
   coord(i, j) = @SVector [x(i, j), y(i, j)]
   jacobian_matrix_func(i, j) = ForwardDiff.jacobian(x -> coord(x[1], x[2]), @SVector [i, j])
@@ -36,48 +37,6 @@ function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
   limits = (ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo)
 
   return CurvilinearGrid2D(x, y, jacobian_matrix_func, nhalo, nnodes, limits)
-end
-
-function check_nargs(f, nargs, fname)
-  for m in methods(f)
-    if (m.nargs - 1) != nargs
-      error(
-        "The function $(fname)() isn't defined correctly, it needs to be use $nargs (not $(m.nargs - 1)) arguments, e.g. `x(i,j) = ...` for 2D",
-      )
-    end
-  end
-end
-
-function test_coord_func(f, ndims, fname)
-  args = ones(Int, ndims)
-  try
-    f(args...)
-  catch err
-    @error(
-      "Unable to evaluate the coordinate function $fname, due to the following errors:"
-    )
-    throw(err)
-  end
-end
-
-function _setup_jacobian_func(x, y)
-  # _x((i, j)) = x(i, j)
-  # _y((i, j)) = y(i, j)
-
-  ∂x∂ξ(ξ, η) = ForwardDiff.derivative(ξ -> x(ξ, η), η)
-  ∂x∂η(ξ, η) = ForwardDiff.derivative(η -> x(ξ, η), ξ)
-  ∂y∂ξ(ξ, η) = ForwardDiff.derivative(ξ -> y(ξ, η), η)
-  ∂y∂η(ξ, η) = ForwardDiff.derivative(η -> y(ξ, η), ξ)
-
-  jacobian_matrix(ξ, η) = @SMatrix [
-    ∂x∂ξ(ξ, η) ∂x∂η(ξ, η)
-    ∂y∂ξ(ξ, η) ∂y∂η(ξ, η)
-  ]
-
-  # xy((i, j)) = @SVector [x((i, j)), y((i, j))]
-  # jac(i, j) = ForwardDiff.jacobian(xy, @SVector [i, j])
-
-  return jacobian_matrix
 end
 
 # Get the conservative metrics, e.g. normalized by the Jacobian

@@ -24,23 +24,21 @@ struct CurvilinearGrid3D{F1,F2,F3,F4,F5} <: AbstractCurvilinearGrid
 end
 
 function CurvilinearGrid3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n_ζ), nhalo)
-  error_found = false
-  for func in (x, y, z)
-    try
-      func(1, 1, 1)
-    catch
-      @warn(
-        "The grid nodal $(Symbol(func)) function needs to have it's definition based on 3 arguments, e.g. $(Symbol(func))(i,j,k) = ...",
-      )
-      error_found = true
-    end
+  dim = 3
+  check_nargs(x, dim, :x)
+  check_nargs(y, dim, :y)
+  check_nargs(z, dim, :z)
+
+  test_coord_func(x, dim, :x)
+  test_coord_func(y, dim, :y)
+  test_coord_func(z, dim, :z)
+
+  coord(i, j, k) = @SVector [x(i, j, k), y(i, j, k), z(i, j, k)]
+  function jacobian_matrix_func(i, j, k)
+    return ForwardDiff.jacobian(x -> coord(x[1], x[2], x[3]), @SVector [i, j, k])
   end
 
-  if error_found
-    error("Grid function definitions aren't complete... see the warning messages")
-  end
-
-  jacobian_matrix_func = _setup_jacobian_func(x, y, z)
+  # jacobian_matrix_func = _setup_jacobian_func(x, y, z)
   cons_metric_func = _setup_conservative_metrics_func(x, y, z)
   nnodes = (n_ξ, n_η, n_ζ)
   ni_cells = n_ξ - 1
@@ -75,7 +73,7 @@ end
     ζt=zero(eltype(_jacobian_matrix)),
   )
 
-  # M1, M2, M3 = m.conserv_metric_func(i - m.nhalo, j - m.nhalo, k - m.nhalo) # get the matrices 
+  # M1, M2, M3 = m.conserv_metric_func(i - m.nhalo, j - m.nhalo, k - m.nhalo) # get the matrices
 
   # yξzη = M1[1, 2] # ∂(z ∂y/∂ξ)/∂η
   # yξzζ = M1[1, 3] # ∂(z ∂y/∂ξ)/∂ζ
@@ -243,13 +241,13 @@ function _setup_conservative_metrics_func(x, y, z)
   _y((i, j, k)) = y(i, j, k)
   _z((i, j, k)) = z(i, j, k)
 
-  gradx_y((ξ, η, ζ)) = ForwardDiff.gradient(_x, @SVector [ξ, η, ζ]) * y(ξ, η, ζ)
-  grady_z((ξ, η, ζ)) = ForwardDiff.gradient(_y, @SVector [ξ, η, ζ]) * z(ξ, η, ζ)
-  gradz_x((ξ, η, ζ)) = ForwardDiff.gradient(_z, @SVector [ξ, η, ζ]) * x(ξ, η, ζ)
+  gradx_y((i, j, k)) = ForwardDiff.gradient(_x, @SVector [i, j, k]) * y(i, j, k)
+  grady_z((i, j, k)) = ForwardDiff.gradient(_y, @SVector [i, j, k]) * z(i, j, k)
+  gradz_x((i, j, k)) = ForwardDiff.gradient(_z, @SVector [i, j, k]) * x(i, j, k)
 
-  grady_z_jacobian(ξ, η, ζ) = ForwardDiff.jacobian(grady_z, @SVector [ξ, η, ζ])
-  gradz_x_jacobian(ξ, η, ζ) = ForwardDiff.jacobian(gradz_x, @SVector [ξ, η, ζ])
-  gradx_y_jacobian(ξ, η, ζ) = ForwardDiff.jacobian(gradx_y, @SVector [ξ, η, ζ])
+  grady_z_jacobian(i, j, k) = ForwardDiff.jacobian(grady_z, @SVector [i, j, k])
+  gradz_x_jacobian(i, j, k) = ForwardDiff.jacobian(gradz_x, @SVector [i, j, k])
+  gradx_y_jacobian(i, j, k) = ForwardDiff.jacobian(gradx_y, @SVector [i, j, k])
 
   # Get all the matrices at once
   function conserv_metric_matricies(ξ, η, ζ)
@@ -283,7 +281,7 @@ end
 """
     coords(mesh::CurvilinearGrid3D, T=Float64) -> Array{Real}
 
-Return the array of coordinate points, indexed as `[xyz,i,j,k]`. 
+Return the array of coordinate points, indexed as `[xyz,i,j,k]`.
 This does _not_ include halo regions since the geometry can be undefined.
 """
 function coords(m::CurvilinearGrid3D, T=Float64)
@@ -302,7 +300,7 @@ end
 """
     centroids(m::CurvilinearGrid3D, T=Float64) -> Array{Real}
 
-Return the array of coordinate points, indexed as `[xyz,i,j,k]`. 
+Return the array of coordinate points, indexed as `[xyz,i,j,k]`.
 This does _not_ include halo regions since the geometry can be undefined.
 """
 function centroids(m::CurvilinearGrid3D, T=Float64)

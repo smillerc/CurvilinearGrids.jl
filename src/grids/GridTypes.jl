@@ -12,7 +12,7 @@ export centroid, centroids
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
-export cell_metrics
+export cell_metrics, cell_indices
 
 abstract type AbstractCurvilinearGrid end
 
@@ -24,6 +24,31 @@ abstract type AbstractCurvilinearGrid end
   return M #@. M * (abs(M) >= eps(T))
 end
 @inline checkeps(M) = M
+
+# helper func to ensure that coordinate functions
+# take the proper number of arguments, e.g., x(i) for 1d, x(i,j) for 2d
+function check_nargs(f, nargs, fname)
+  for m in methods(f)
+    if (m.nargs - 1) != nargs
+      error(
+        "The function $(fname)() isn't defined correctly, it needs to be use $nargs (not $(m.nargs - 1)) arguments, e.g. `x(i,j) = ...` for 2D",
+      )
+    end
+  end
+end
+
+# helper func to ensure that coordinate functions are working properly
+function test_coord_func(f, ndims, fname)
+  args = ones(Int, ndims)
+  try
+    f(args...)
+  catch err
+    @error(
+      "Unable to evaluate the coordinate function $fname, due to the following errors:"
+    )
+    throw(err)
+  end
+end
 
 include("1d.jl")
 include("2d.jl")
@@ -109,5 +134,20 @@ Query the conservative mesh metrics at a particular index that follow the GCL
 """
 conservative_metrics(mesh, CI::CartesianIndex) = conservative_metrics(mesh, CI.I...)
 conservative_metrics(mesh::CurvilinearGrid1D, i::Real) = conservative_metrics(mesh, (i,))
+
+function cell_indices(mesh::CurvilinearGrid1D)
+  @unpack ilo, ihi = mesh.limits
+  return CartesianIndices((ilo:ihi))
+end
+
+function cell_indices(mesh::CurvilinearGrid2D)
+  @unpack ilo, ihi, jlo, jhi = mesh.limits
+  return CartesianIndices((ilo:ihi, jlo:jhi))
+end
+
+function cell_indices(mesh::CurvilinearGrid3D)
+  @unpack ilo, ihi, jlo, jhi, klo, khi = mesh.limits
+  return CartesianIndices((ilo:ihi, jlo:jhi, klo:khi))
+end
 
 end

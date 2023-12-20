@@ -1,5 +1,5 @@
 
-@testitem "2D Mesh - Rectlinear Mesh" begin
+@testitem "2D rectangular mesh" begin
   include("common.jl")
 
   function rect_grid(nx, ny)
@@ -67,29 +67,38 @@
   @test size(xy_coords) == (2, 5, 9)
 end
 
-# begin
-#   function wavy_grid(nx, ny)
-#     x0, x1 = (0, 1)
-#     y0, y1 = (0, 1)
-#     a0 = 0.1
+@testitem "2D wavy mesh" begin
+  include("common.jl")
 
-#     function x(i, j)
-#       x1d = x0 + (x1 - x0) * ((i - 1) / (nx - 1))
-#       y1d = y0 + (y1 - y0) * ((j - 1) / (ny - 1))
-#       return x1d + a0 * sin(2 * pi * x1d) * sin(2 * pi * y1d)
-#     end
+  function wavy_grid(nx, ny)
+    x0, x1 = (0, 1)
+    y0, y1 = (0, 1)
+    a0 = 0.1
 
-#     function y(i, j)
-#       x1d = x0 + (x1 - x0) * ((i - 1) / (nx - 1))
-#       y1d = y0 + (y1 - y0) * ((j - 1) / (ny - 1))
-#       return y1d + a0 * sin(2 * pi * x1d) * sin(2 * pi * y1d)
-#     end
+    function x(i, j)
+      x1d = x0 + (x1 - x0) * ((i - 1) / (nx - 1))
+      y1d = y0 + (y1 - y0) * ((j - 1) / (ny - 1))
+      return x1d + a0 * sin(2 * pi * x1d) * sin(2 * pi * y1d)
+    end
 
-#     return (x, y)
-#   end
+    function y(i, j)
+      x1d = x0 + (x1 - x0) * ((i - 1) / (nx - 1))
+      y1d = y0 + (y1 - y0) * ((j - 1) / (ny - 1))
+      return y1d + a0 * sin(2 * pi * x1d) * sin(2 * pi * y1d)
+    end
 
-#   ni, nj = (41, 41)
-#   nhalo = 1
-#   x, y = wavy_grid(ni, nj)
-#   mesh = CurvilinearGrid2D(x, y, (ni, nj), nhalo)
-# end
+    return (x, y)
+  end
+
+  ni, nj = (41, 41)
+  nhalo = 1
+  x, y = wavy_grid(ni, nj)
+  mesh = CurvilinearGrid2D(x, y, (ni, nj), nhalo)
+
+  CI = cell_indices(mesh)
+  total_area = 0.0
+  for idx in CI
+    global total_area += jacobian(mesh, idx)
+  end
+  @test total_area ≈ 1.0
+end

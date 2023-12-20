@@ -9,6 +9,6 @@ export centroid, centroids
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
-export cell_metrics
+export cell_metrics, cell_indices
 
 end

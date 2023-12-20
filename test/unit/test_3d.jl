@@ -113,10 +113,6 @@ centroid_coords = centroids(mesh)
     y(ξ, η, ζ) = r(ξ) * sin(θ(η)) * sin(ϕ(ζ))
     z(ξ, η, ζ) = r(ξ) * cos(θ(η))
 
-    x((ξ, η, ζ)) = x(ξ, η, ζ)
-    y((ξ, η, ζ)) = y(ξ, η, ζ)
-    z((ξ, η, ζ)) = z(ξ, η, ζ)
-
     return (x, y, z)
   end
 
