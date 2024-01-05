@@ -146,6 +146,7 @@ end
     ξt=zero(eltype(_jacobian_matrix)),
     ηt=zero(eltype(_jacobian_matrix)),
     ζt=zero(eltype(_jacobian_matrix)),
+    J=det(_jacobian_matrix),
   )
 end
 

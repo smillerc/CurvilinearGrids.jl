@@ -7,8 +7,11 @@ using UnPack
 
 export AbstractCurvilinearGrid
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
+export CylindricalGrid1D, SphericalGrid1D
+export RZAxisymmetricGrid2D
 export coord, coords, coords!, cellsize, cellsize_withhalo
 export centroid, centroids
+export area, volume
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
@@ -21,7 +24,8 @@ abstract type AbstractCurvilinearGrid end
 # numbers like 1e-18, when in reality they should be 0.0
 # @inline checkeps(M) = M # non-Float version
 @inline function checkeps(M::AbstractArray{T}) where {T<:AbstractFloat}
-  return M #@. M * (abs(M) >= eps(T))
+  # return M #@. M * (abs(M) >= eps(T))
+  return @. M * (abs(M) >= eps(T))
 end
 @inline checkeps(M) = M
 
@@ -51,7 +55,9 @@ function test_coord_func(f, ndims, fname)
 end
 
 include("1d.jl")
+include("1d_axisymmetric.jl")
 include("2d.jl")
+include("2d_axisymmetric.jl")
 include("3d.jl")
 
 """Get the size of the grid for cell-based arrays"""
@@ -128,6 +134,18 @@ Query the mesh metrics at a particular index
 """
 metrics(mesh, CI::CartesianIndex) = metrics(mesh, CI.I...)
 metrics(mesh::CurvilinearGrid1D, i::Real) = metrics(mesh, (i,))
+
+@inline function cell_metrics(m::CurvilinearGrid1D, i::Real)
+  return metrics(m, i + 0.5)
+end
+
+@inline function cell_metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
+  return metrics(m, (i + 0.5, j + 0.5))
+end
+
+@inline function cell_metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
+  return metrics(m, (i + 0.5, j + 0.5, k + 0.5))
+end
 
 """
 Query the conservative mesh metrics at a particular index that follow the GCL

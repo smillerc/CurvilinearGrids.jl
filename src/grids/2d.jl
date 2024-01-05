@@ -26,8 +26,8 @@ function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
   test_coord_func(x, dim, :x)
   test_coord_func(y, dim, :y)
 
-  coord(i, j) = @SVector [x(i, j), y(i, j)]
-  jacobian_matrix_func(i, j) = ForwardDiff.jacobian(x -> coord(x[1], x[2]), @SVector [i, j])
+  xy(i, j) = @SVector [x(i, j), y(i, j)]
+  jacobian_matrix_func(i, j) = ForwardDiff.jacobian(x -> xy(x[1], x[2]), @SVector [i, j])
 
   # jacobian_matrix_func = _setup_jacobian_func(x, y)
   nnodes = (n_ξ, n_η)
@@ -83,11 +83,8 @@ end
     ηy=inv_jacobian_matrix[2, 2],
     ξt=zero(eltype(_jacobian_matrix)),
     ηt=zero(eltype(_jacobian_matrix)),
+    J=det(_jacobian_matrix),
   )
-end
-
-@inline function cell_metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
-  return metrics(m, (i + 0.5, j + 0.5))
 end
 
 @inline function metrics_with_jacobian(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
