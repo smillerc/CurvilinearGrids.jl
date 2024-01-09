@@ -74,3 +74,6 @@ end
 covariant_basis_vectors(mesh, (2, 2))
 covariant_basis_vectors(mesh, (2, 0.25, 3))
 contravariant_basis_vectors(mesh, (2, 2))
+
+coord(mesh, (1, 2, 3))
+coord(mesh, (1, 3))

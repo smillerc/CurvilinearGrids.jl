@@ -82,6 +82,18 @@ function coord(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
   @SVector [m.x(i - m.nhalo, j - m.nhalo), m.y(i - m.nhalo, j - m.nhalo)]
 end
 
+function coord(m::RZAxisymmetricGrid2D, (i, j)::NTuple{2,Real})
+  @SVector [m.r(i - m.nhalo, 1, j - m.nhalo), m.z(i - m.nhalo, 1, j - m.nhalo)]
+end
+
+function coord(m::RZAxisymmetricGrid2D, (i, j, k)::NTuple{3,Real})
+  @SVector [
+    m.r(i - m.nhalo, j - m.nhalo, k - m.nhalo),
+    m.θ(i - m.nhalo, j - m.nhalo, k - m.nhalo),
+    m.z(i - m.nhalo, j - m.nhalo, k - m.nhalo),
+  ]
+end
+
 function coord(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
   @SVector [
     m.x(i - m.nhalo, j - m.nhalo, k - m.nhalo),

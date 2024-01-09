@@ -62,10 +62,10 @@ end
   # In this scenario, J is the volume of the node/cell at (i,j),
   # and it includes the revolution term. This is important!
   _metrics = (
-    ξx¹=ξr, # re-name these so the 2D API is consistent
-    ξx²=ξz, # 
-    ηx¹=ηr, # 
-    ηx²=ηz, # 
+    ξx₁=ξr, # re-name these so the 2D API is consistent
+    ξx₂=ξz, # 
+    ηx₁=ηr, # 
+    ηx₂=ηz, # 
     ξt=zero(T),
     ηt=zero(T),
     J=det(_jacobian_matrix),
@@ -97,10 +97,10 @@ end
   # In this scenario, J is the AREA of the node/cell at (i,j),
   # and it DOES NOT include the revolution term. This is important!
   _metrics = (
-    ξx¹=ξr, # re-name these so the 2D API is consistent
-    ξx²=ξz, # 
-    ηx¹=ηr, # 
-    ηx²=ηz, # 
+    ξx₁=ξr, # re-name these so the 2D API is consistent
+    ξx₂=ξz, # 
+    ηx₁=ηr, # 
+    ηx₂=ηz, # 
     ξt=zero(T),
     ηt=zero(T),
     J=J,
@@ -121,15 +121,15 @@ end
   # occupied by the polyhedral element defined by the centroids 
   # of the surrounding cells.
   _metrics = (
-    ξx¹=inv_jacobian_matrix[1, 1],
-    ξx²=inv_jacobian_matrix[1, 2],
-    ξx³=inv_jacobian_matrix[1, 3],
-    ηx¹=inv_jacobian_matrix[2, 1],
-    ηx²=inv_jacobian_matrix[2, 2],
-    ηx³=inv_jacobian_matrix[2, 3],
-    ζx¹=inv_jacobian_matrix[3, 1],
-    ζx²=inv_jacobian_matrix[3, 2],
-    ζx³=inv_jacobian_matrix[3, 3],
+    ξx₁=inv_jacobian_matrix[1, 1],
+    ξx₂=inv_jacobian_matrix[1, 2],
+    ξx₃=inv_jacobian_matrix[1, 3],
+    ηx₁=inv_jacobian_matrix[2, 1],
+    ηx₂=inv_jacobian_matrix[2, 2],
+    ηx₃=inv_jacobian_matrix[2, 3],
+    ζx₁=inv_jacobian_matrix[3, 1],
+    ζx₂=inv_jacobian_matrix[3, 2],
+    ζx₃=inv_jacobian_matrix[3, 3],
     ξt=zero(T),
     ηt=zero(T),
     ζt=zero(T),
@@ -168,7 +168,7 @@ function jacobian(m::RZAxisymmetricGrid2D, (i, j, k)::NTuple{3,Real})
   return det(_jacobian_matrix)
 end
 
-area(m::RZAxisymmetricGrid2D, (i, j, k)::NTuple{3,Real}) = jacobian(m, (i, k))
+area(m::RZAxisymmetricGrid2D, (i, k)::NTuple{2,Real}) = jacobian(m, (i, k))
 function area(::RZAxisymmetricGrid2D, (i, j, k)::NTuple{3,Real})
   return error(
     """
@@ -180,5 +180,5 @@ function area(::RZAxisymmetricGrid2D, (i, j, k)::NTuple{3,Real})
   )
 end
 
-volume(m::RZAxisymmetricGrid2D, (i, j)::NTuple{3,Real}) = jacobian(m, (i, j))
+volume(m::RZAxisymmetricGrid2D, (i, j)::NTuple{2,Real}) = jacobian(m, (i, j))
 volume(m::RZAxisymmetricGrid2D, (i, j, k)::NTuple{3,Real}) = jacobian(m, (i, k))
