@@ -4,6 +4,7 @@ authors = ["Sam Miller <smil@lle.rochester.edu> and contributors"]
 version = "0.2.1"
 
 [deps]
+FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"

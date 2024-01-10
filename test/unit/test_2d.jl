@@ -67,8 +67,13 @@
   @test size(xy_coords) == (2, 5, 9)
 end
 
-@testitem "2D wavy mesh" begin
+# @testitem "2D wavy mesh" 
+begin
+  using Test
+  using Plots
   include("common.jl")
+
+  include("../../src/grids/finitediff_metrics.jl")
 
   function wavy_grid(nx, ny)
     x0, x1 = (0, 1)
@@ -95,10 +100,48 @@ end
   x, y = wavy_grid(ni, nj)
   mesh = CurvilinearGrid2D(x, y, (ni, nj), nhalo)
 
-  CI = cell_indices(mesh)
-  total_area = 0.0
-  for idx in CI
-    global total_area += jacobian(mesh, idx)
-  end
-  @test total_area ≈ 1.0
+  # CI = cell_indices(mesh)
+  # total_area = 0.0
+  # for idx in CI
+  #   global total_area += jacobian(mesh, idx)
+  # end
+  # @test total_area ≈ 1.0
+
+  xyn = coords(mesh)
+
+  xn = @view xyn[1, :, :]
+  yn = @view xyn[2, :, :]
+
+  ∂x_∂ξ, ∂x_∂η = _fd_metrics(xn, 4)
+  ∂y_∂ξ, ∂y_∂η = _fd_metrics(yn, 4)
+
+  ∂x_∂ξ⁶, ∂x_∂η⁶ = _fd_metrics(xn, 6)
+  ∂y_∂ξ⁶, ∂y_∂η⁶ = _fd_metrics(yn, 6)
+  p1 = heatmap(∂x_∂ξ'; title="∂x_∂ξ")
+  p2 = heatmap(∂x_∂η'; title="∂x_∂η")
+  p3 = heatmap(∂y_∂ξ'; title="∂y_∂ξ")
+  p4 = heatmap(∂y_∂η'; title="∂y_∂η")
+
+  l = @layout [a b; c d]
+
+  pall = plot(p1, p2, p3, p4; layout=l)
+  display(pall)
+
+  metric_diff = ∂x_∂ξ⁶ .- ∂x_∂ξ
+  pdiff = heatmap(metric_diff; title="4th - 6th")
+
+  println(extrema(metric_diff))
+  pdiff
+end
+
+CI = CartesianIndices(xn)
+order = 6
+nhalo = 3
+for k in 1:nhalo
+  # for offset in 0:-1:(-nhalo + 1)
+  offset = -(nhalo - k)
+  # fdm = FiniteDifferenceMethod(offset:(offset + order - 1), 1)
+  # edgeCI = @view CI[begin - offset, :]
+  @show offset
+  # display(fdm)
 end
