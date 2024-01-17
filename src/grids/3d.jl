@@ -12,18 +12,30 @@ CurvilinearGrid3D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CurvilinearGrid3D{F1,F2,F3,F4,F5} <: AbstractCurvilinearGrid
-  x::F1 # x(ξ,η,ζ)
-  y::F2 # y(ξ,η,ζ)
-  z::F3 # z(ξ,η,ζ)
+struct CurvilinearGrid3D{F1,F2,F3,EM,CCM,F4,F5,L,CI} <: AbstractCurvilinearGrid
+  x::F1 # x(ijk)
+  y::F2 # y(ijk)
+  z::F3 # z(ijk)
+  edge_metrics::EM
+  cell_center_metrics::CCM
   jacobian_matrix_func::F4 # jacobian_matrix(ξ,η,ζ)
   conserv_metric_func::F5 # f(ξ,η,ζ) to get ξ̂x, ξ̂y, ...
   nhalo::Int # number of halo cells (for all dimensions)
   nnodes::NTuple{3,Int}
-  limits::NamedTuple{(:ilo, :ihi, :jlo, :jhi, :klo, :khi),NTuple{6,Int}}
+  domain_limits::L
+  iterators::CI
 end
 
-function CurvilinearGrid3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n_ζ), nhalo)
+function CurvilinearGrid3D(
+  x::Function,
+  y::Function,
+  z::Function,
+  (n_ξ, n_η, n_ζ),
+  nhalo,
+  cache=true,
+  use_autodiff=true,
+  T=Float64,
+)
   dim = 3
   check_nargs(x, dim, :x)
   check_nargs(y, dim, :y)
@@ -41,6 +53,7 @@ function CurvilinearGrid3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n
   # jacobian_matrix_func = _setup_jacobian_func(x, y, z)
   cons_metric_func = _setup_conservative_metrics_func(x, y, z)
   nnodes = (n_ξ, n_η, n_ζ)
+  ncells = nnodes .- 1
   ni_cells = n_ξ - 1
   nj_cells = n_η - 1
   nk_cells = n_ζ - 1
@@ -49,9 +62,333 @@ function CurvilinearGrid3D(x::Function, y::Function, z::Function, (n_ξ, n_η, n
   limits = (
     ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo, klo=lo, khi=nk_cells + nhalo
   )
-  return CurvilinearGrid3D(
-    x, y, z, jacobian_matrix_func, cons_metric_func, nhalo, nnodes, limits
+
+  limits = (
+    node=(ilo=lo, ihi=n_ξ + nhalo, jlo=lo, jhi=n_η + nhalo, klo=lo, khi=n_ζ + nhalo),
+    cell=(
+      ilo=lo,
+      ihi=ni_cells + nhalo,
+      jlo=lo,
+      jhi=nj_cells + nhalo,
+      klo=lo,
+      khi=nk_cells + nhalo,
+    ),
   )
+
+  nodeCI = CartesianIndices(nnodes .+ 2nhalo)
+  cellCI = CartesianIndices(ncells .+ 2nhalo)
+
+  _iterators = (
+    node=(
+      full=nodeCI,
+      domain=nodeCI[
+        (begin + nhalo):(end - nhalo),
+        (begin + nhalo):(end - nhalo),
+        (begin + nhalo):(end - nhalo),
+      ],
+      ilo_halo=nodeCI[
+        begin:(begin + nhalo), (begin + nhalo):(end - nhalo), (begin + nhalo):(end - nhalo)
+      ],
+      jlo_halo=nodeCI[
+        (begin + nhalo):(end - nhalo), begin:(begin + nhalo), (begin + nhalo):(end - nhalo)
+      ],
+      klo_halo=nodeCI[
+        (begin + nhalo):(end - nhalo), (begin + nhalo):(end - nhalo), begin:(begin + nhalo)
+      ],
+      ihi_halo=nodeCI[(end - nhalo):end, (begin + nhalo):(end - nhalo), (end - nhalo):end],
+      jhi_halo=nodeCI[
+        (begin + nhalo):(end - nhalo), (end - nhalo):end, (begin + nhalo):(end - nhalo)
+      ],
+      khi_halo=nodeCI[
+        (begin + nhalo):(end - nhalo), (begin + nhalo):(end - nhalo), (end - nhalo):end
+      ],
+    ),
+    cell=(
+      full=cellCI,
+      domain=cellCI[
+        (begin + nhalo):(end - nhalo),
+        (begin + nhalo):(end - nhalo),
+        (begin + nhalo):(end - nhalo),
+      ],
+      ilo_halo=cellCI[
+        begin:(begin + nhalo - 1),
+        (begin + nhalo):(end - nhalo),
+        (begin + nhalo):(end - nhalo),
+      ],
+      jlo_halo=cellCI[
+        (begin + nhalo):(end - nhalo),
+        begin:(begin + nhalo - 1),
+        (begin + nhalo):(end - nhalo),
+      ],
+      klo_halo=cellCI[
+        (begin + nhalo):(end - nhalo),
+        (begin + nhalo):(end - nhalo),
+        begin:(begin + nhalo - 1),
+      ],
+      ihi_halo=cellCI[
+        (end - nhalo + 1):end, (begin + nhalo):(end - nhalo), (begin + nhalo):(end - nhalo)
+      ],
+      jhi_halo=cellCI[
+        (begin + nhalo):(end - nhalo), (end - nhalo + 1):end, (begin + nhalo):(end - nhalo)
+      ],
+      khi_halo=cellCI[
+        (begin + nhalo):(end - nhalo), (begin + nhalo):(end - nhalo), (end - nhalo + 1):end
+      ],
+    ),
+  )
+
+  if cache
+    _metric = (
+      J=zero(T),
+      ξx=zero(T),
+      ξ̂x=zero(T),
+      ξy=zero(T),
+      ξ̂y=zero(T),
+      ξz=zero(T),
+      ξ̂z=zero(T),
+      ηx=zero(T),
+      η̂x=zero(T),
+      ηy=zero(T),
+      η̂y=zero(T),
+      ηz=zero(T),
+      η̂z=zero(T),
+      ζx=zero(T),
+      ζ̂x=zero(T),
+      ζy=zero(T),
+      ζ̂y=zero(T),
+      ζz=zero(T),
+      ζ̂z=zero(T),
+      ξt=zero(T),
+      ηt=zero(T),
+      ζt=zero(T),
+    )
+
+    M = typeof(_metric)
+    cell_center_metrics = Array{M,3}(undef, ncells .+ 2nhalo)
+
+    edge_metrics = (
+      i₊½=Array{M,3}(undef, ncells .+ 2nhalo),
+      j₊½=Array{M,3}(undef, ncells .+ 2nhalo),
+      k₊½=Array{M,3}(undef, ncells .+ 2nhalo),
+    )
+  else
+    edge_metrics = nothing
+    cell_center_metrics = nothing
+  end
+
+  m = CurvilinearGrid3D(
+    x,
+    y,
+    z,
+    edge_metrics,
+    cell_center_metrics,
+    jacobian_matrix_func,
+    cons_metric_func,
+    nhalo,
+    nnodes,
+    limits,
+    _iterators,
+  )
+
+  update_metrics!(m)
+
+  return m
+end
+
+function update_metrics!(m::CurvilinearGrid3D)
+  function _get_metrics(m, (i, j, k))
+    _jacobian_matrix = m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo)
+
+    inv_jacobian_matrix = inv(_jacobian_matrix)
+
+    return (
+      J=det(_jacobian_matrix),
+      ξx=inv_jacobian_matrix[1, 1],
+      ξy=inv_jacobian_matrix[1, 2],
+      ξz=inv_jacobian_matrix[1, 3],
+      ηx=inv_jacobian_matrix[2, 1],
+      ηy=inv_jacobian_matrix[2, 2],
+      ηz=inv_jacobian_matrix[2, 3],
+      ζx=inv_jacobian_matrix[3, 1],
+      ζy=inv_jacobian_matrix[3, 2],
+      ζz=inv_jacobian_matrix[3, 3],
+      ξt=zero(eltype(_jacobian_matrix)),
+      ηt=zero(eltype(_jacobian_matrix)),
+      ζt=zero(eltype(_jacobian_matrix)),
+    )
+  end
+
+  # cell centroid metrics
+  for idx in m.iterators.cell.domain
+    node_idx = idx.I .- m.nhalo
+    cell_idx = node_idx .+ 0.5
+    @unpack J, ξx, ξy, ξz, ηx, ηy, ηz, ζx, ζy, ζz = _get_metrics(m, cell_idx)
+
+    _metric = (
+      J=J,
+      ξx=ξx,
+      ξ̂x=ξx / J,
+      ξy=ξy,
+      ξ̂y=ξy / J,
+      ξz=ξz,
+      ξ̂z=ξz / J,
+      ηx=ηx,
+      η̂x=ηx / J,
+      ηy=ηy,
+      η̂y=ηy / J,
+      ηz=ηz,
+      η̂z=ηz / J,
+      ζx=ζx,
+      ζ̂x=ζx / J,
+      ζy=ζy,
+      ζ̂y=ζy / J,
+      ζz=ζz,
+      ζ̂z=ζz / J,
+      ξt=zero(J),
+      ηt=zero(J),
+      ζt=zero(J),
+    )
+
+    m.cell_center_metrics[idx] = _metric
+  end
+
+  ilo_n, ihi_n, jlo_n, jhi_n, klo_n, khi_n = m.domain_limits.node
+
+  i₊½CI = CartesianIndices((ilo_n:ihi_n, jlo_n:(jhi_n - 1), klo_n:(khi_n - 1)))
+  j₊½CI = CartesianIndices((ilo_n:(ihi_n - 1), jlo_n:jhi_n, klo_n:(khi_n - 1)))
+  k₊½CI = CartesianIndices((ilo_n:(ihi_n - 1), jlo_n:(jhi_n - 1), klo_n:khi_n))
+
+  # The grid x,y functions define the NODE position
+  # of the entire mesh, and do not know about halo cells
+  # The `- m.nhalo` accounts for this and the `+ 1/2`
+  # is so we get the middle of the edge. 
+
+  #             o-------------o
+  #             |             |
+  #             |             |
+  #     i₊½     X    (i,j)    |   
+  #   for the   |             |   
+  #   cell to   |             |   
+  #   the left  o------X------o   
+  #                   j₊½ for the cell below
+  # the lower left corner node is (i,j) as well,
+  # so this is why the ₊½ node indices seem backwards...
+  i₊½_offset = (0.0, 0.5, 0.5)
+  i₊½_cell_offset = (-1, 0, 0)
+  for idx in i₊½CI
+    node_idx = idx.I
+    i₊½_node_idx = node_idx .+ i₊½_offset .- m.nhalo
+    i₊½_cell_idx = CartesianIndex(node_idx .+ i₊½_cell_offset)
+
+    J_i₊½, ξx_i₊½, ξy_i₊½, ξz_i₊½, ηx_i₊½, ηy_i₊½, ηz_i₊½, ζx_i₊½, ζy_i₊½, ζz_i₊½ = _get_metrics(
+      m, i₊½_node_idx
+    )
+
+    i₊½_metric = (
+      J=J_i₊½,
+      ξx=ξx_i₊½,
+      ξ̂x=ξx_i₊½ / J_i₊½,
+      ξy=ξy_i₊½,
+      ξ̂y=ξy_i₊½ / J_i₊½,
+      ξz=ξz_i₊½,
+      ξ̂z=ξz_i₊½ / J_i₊½,
+      ηx=ηx_i₊½,
+      η̂x=ηx_i₊½ / J_i₊½,
+      ηy=ηy_i₊½,
+      η̂y=ηy_i₊½ / J_i₊½,
+      ηz=ηz_i₊½,
+      η̂z=ηz_i₊½ / J_i₊½,
+      ζx=ζx_i₊½,
+      ζ̂x=ζx_i₊½ / J_i₊½,
+      ζy=ζy_i₊½,
+      ζ̂y=ζy_i₊½ / J_i₊½,
+      ζz=ζz_i₊½,
+      ζ̂z=ζz_i₊½ / J_i₊½,
+      ξt=zero(J_i₊½),
+      ηt=zero(J_i₊½),
+      ζt=zero(J_i₊½),
+    )
+
+    m.edge_metrics.i₊½[i₊½_cell_idx] = i₊½_metric
+  end
+
+  j₊½_offset = (0.5, 0.0, 0.5)
+  j₊½_cell_offset = (0, -1, 0)
+  for idx in j₊½CI
+    node_idx = idx.I
+    j₊½_node_idx = node_idx .+ j₊½_offset .- m.nhalo
+    j₊½_cell_idx = CartesianIndex(node_idx .+ j₊½_cell_offset)
+    J_j₊½, ξx_j₊½, ξy_j₊½, ξz_j₊½, ηx_j₊½, ηy_j₊½, ηz_j₊½, ζx_j₊½, ζy_j₊½, ζz_j₊½ = _get_metrics(
+      m, j₊½_node_idx
+    )
+
+    j₊½_metric = (
+      J=J_j₊½,
+      ξx=ξx_j₊½,
+      ξ̂x=ξx_j₊½ / J_j₊½,
+      ξy=ξy_j₊½,
+      ξ̂y=ξy_j₊½ / J_j₊½,
+      ξz=ξz_j₊½,
+      ξ̂z=ξz_j₊½ / J_j₊½,
+      ηx=ηx_j₊½,
+      η̂x=ηx_j₊½ / J_j₊½,
+      ηy=ηy_j₊½,
+      η̂y=ηy_j₊½ / J_j₊½,
+      ηz=ηz_j₊½,
+      η̂z=ηz_j₊½ / J_j₊½,
+      ζx=ζx_j₊½,
+      ζ̂x=ζx_j₊½ / J_j₊½,
+      ζy=ζy_j₊½,
+      ζ̂y=ζy_j₊½ / J_j₊½,
+      ζz=ζz_j₊½,
+      ζ̂z=ζz_j₊½ / J_j₊½,
+      ξt=zero(J_j₊½),
+      ηt=zero(J_j₊½),
+      ζt=zero(J_j₊½),
+    )
+
+    m.edge_metrics.j₊½[j₊½_cell_idx] = j₊½_metric
+  end
+
+  k₊½_offset = (0.5, 0.5, 0.0)
+  k₊½_cell_offset = (0, 0, -1)
+  for idx in k₊½CI
+    node_idx = idx.I
+    k₊½_node_idx = node_idx .+ k₊½_offset .- m.nhalo
+    k₊½_cell_idx = CartesianIndex(node_idx .+ k₊½_cell_offset)
+    J_k₊½, ξx_k₊½, ξy_k₊½, ξz_k₊½, ηx_k₊½, ηy_k₊½, ηz_k₊½, ζx_k₊½, ζy_k₊½, ζz_k₊½ = _get_metrics(
+      m, k₊½_node_idx
+    )
+
+    k₊½_metric = (
+      J=J_k₊½,
+      ξx=ξx_k₊½,
+      ξ̂x=ξx_k₊½ / J_k₊½,
+      ξy=ξy_k₊½,
+      ξ̂y=ξy_k₊½ / J_k₊½,
+      ξz=ξz_k₊½,
+      ξ̂z=ξz_k₊½ / J_k₊½,
+      ηx=ηx_k₊½,
+      η̂x=ηx_k₊½ / J_k₊½,
+      ηy=ηy_k₊½,
+      η̂y=ηy_k₊½ / J_k₊½,
+      ηz=ηz_k₊½,
+      η̂z=ηz_k₊½ / J_k₊½,
+      ζx=ζx_k₊½,
+      ζ̂x=ζx_k₊½ / J_k₊½,
+      ζy=ζy_k₊½,
+      ζ̂y=ζy_k₊½ / J_k₊½,
+      ζz=ζz_k₊½,
+      ζ̂z=ζz_k₊½ / J_k₊½,
+      ξt=zero(J_k₊½),
+      ηt=zero(J_k₊½),
+      ζt=zero(J_k₊½),
+    )
+
+    m.edge_metrics.k₊½[k₊½_cell_idx] = k₊½_metric
+  end
+
+  return nothing
 end
 
 @inline function conservative_metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
