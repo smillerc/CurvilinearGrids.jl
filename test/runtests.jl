@@ -1,6 +1,6 @@
 using CurvilinearGrids
 using Test
-using TestItemRunner
-using TestItems
 
-@run_package_tests
+@testset "UnitTests" begin
+  include("unit/test_2d.jl")
+end

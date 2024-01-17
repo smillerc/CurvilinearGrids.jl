@@ -10,16 +10,21 @@ CurvilinearGrid2D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CurvilinearGrid2D{T1,T2,T3} <: AbstractCurvilinearGrid
+struct CurvilinearGrid2D{T1,T2,T3,EM,CCM,L,CI} <: AbstractCurvilinearGrid
   x::T1
   y::T2
+  edge_metrics::EM
+  cell_center_metrics::CCM
   jacobian_matrix_func::T3
   nhalo::Int
   nnodes::NTuple{2,Int}
-  limits::NamedTuple{(:ilo, :ihi, :jlo, :jhi),NTuple{4,Int}}
+  domain_limits::L
+  iterators::CI
 end
 
-function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
+function CurvilinearGrid2D(
+  x::Function, y::Function, (n_ξ, n_η), nhalo, cache=true, use_autodiff=true, T=Float64
+)
   dim = 2
   check_nargs(x, dim, :x)
   check_nargs(y, dim, :y)
@@ -31,12 +36,182 @@ function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo)
 
   # jacobian_matrix_func = _setup_jacobian_func(x, y)
   nnodes = (n_ξ, n_η)
-  ni_cells = n_ξ - 1
-  nj_cells = n_η - 1
+  ncells = nnodes .- 1
+  ni_cells, nj_cells = ncells
   lo = nhalo + 1
-  limits = (ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo)
+  limits = (
+    node=(ilo=lo, ihi=n_ξ + nhalo, jlo=lo, jhi=n_η + nhalo),
+    cell=(ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo),
+  )
 
-  return CurvilinearGrid2D(x, y, jacobian_matrix_func, nhalo, nnodes, limits)
+  nodeCI = CartesianIndices(nnodes .+ 2nhalo)
+  cellCI = CartesianIndices(ncells .+ 2nhalo)
+  _iterators = (
+    node=(
+      full=nodeCI,
+      domain=nodeCI[(begin + nhalo):(end - nhalo), (begin + nhalo):(end - nhalo)],
+      ilo_halo=nodeCI[begin:(begin + nhalo), (begin + nhalo):(end - nhalo)],
+      ihi_halo=nodeCI[(end - nhalo):end, (begin + nhalo):(end - nhalo)],
+      jlo_halo=nodeCI[(begin + nhalo):(end - nhalo), begin:(begin + nhalo)],
+      jhi_halo=nodeCI[(begin + nhalo):(end - nhalo), (end - nhalo):end],
+    ),
+    cell=(
+      full=cellCI,
+      domain=cellCI[(begin + nhalo):(end - nhalo), (begin + nhalo):(end - nhalo)],
+      ilo_halo=cellCI[begin:(begin + nhalo - 1), (begin + nhalo):(end - nhalo)],
+      jlo_halo=cellCI[(begin + nhalo):(end - nhalo), begin:(begin + nhalo - 1)],
+      ihi_halo=cellCI[(end - nhalo + 1):end, (begin + nhalo):(end - nhalo)],
+      jhi_halo=cellCI[(begin + nhalo):(end - nhalo), (end - nhalo + 1):end],
+    ),
+  )
+
+  if cache
+    _metric = (
+      J=zero(T),
+      ξx=zero(T),
+      ξ̂x=zero(T),
+      ξy=zero(T),
+      ξ̂y=zero(T),
+      ηx=zero(T),
+      η̂x=zero(T),
+      ηy=zero(T),
+      η̂y=zero(T),
+      ξt=zero(T),
+      ηt=zero(T),
+    )
+
+    M = typeof(_metric)
+    cell_center_metrics = Matrix{M}(undef, ncells .+ 2nhalo)
+
+    edge_metrics = (
+      i₊½=Matrix{M}(undef, ncells .+ 2nhalo), j₊½=Matrix{M}(undef, ncells .+ 2nhalo)
+    )
+  else
+    edge_metrics = nothing
+    cell_center_metrics = nothing
+  end
+
+  m = CurvilinearGrid2D(
+    x,
+    y,
+    edge_metrics,
+    cell_center_metrics,
+    jacobian_matrix_func,
+    nhalo,
+    nnodes,
+    limits,
+    _iterators,
+  )
+
+  update_metrics!(m)
+
+  return m
+end
+
+function update_metrics!(m::CurvilinearGrid2D)
+  function _get_metrics(m, (i, j))
+    _jacobian_matrix = m.jacobian_matrix_func(i, j)
+    inv_jacobian_matrix = inv(_jacobian_matrix)
+    J = det(_jacobian_matrix)
+    ξx = inv_jacobian_matrix[1, 1]
+    ξy = inv_jacobian_matrix[1, 2]
+    ηx = inv_jacobian_matrix[2, 1]
+    ηy = inv_jacobian_matrix[2, 2]
+    return (J, ξx, ξy, ηx, ηy)
+  end
+
+  # cell centroid metrics
+  for idx in m.iterators.cell.domain
+    node_idx = idx.I .- m.nhalo
+    cell_idx = node_idx .+ 0.5
+    J, ξx, ξy, ηx, ηy = _get_metrics(m, cell_idx)
+
+    _metric = (
+      J=J,
+      ξx=ξx,
+      ξ̂x=ξx / J,
+      ξy=ξy,
+      ξ̂y=ξy / J,
+      ηx=ηx,
+      η̂x=ηx / J,
+      ηy=ηy,
+      η̂y=ηy / J,
+      ξt=zero(J),
+      ηt=zero(J),
+    )
+
+    m.cell_center_metrics[idx] = _metric
+  end
+
+  ilo_n, ihi_n, jlo_n, jhi_n = m.domain_limits.node
+
+  j₊½CI = CartesianIndices((ilo_n:(ihi_n - 1), jlo_n:jhi_n))
+  i₊½CI = CartesianIndices((ilo_n:ihi_n, jlo_n:(jhi_n - 1)))
+
+  # The grid x,y functions define the NODE position
+  # of the entire mesh, and do not know about halo cells
+  # The `- m.nhalo` accounts for this and the `+ 1/2`
+  # is so we get the middle of the edge. 
+
+  #             o-------------o
+  #             |             |
+  #             |             |
+  #     i₊½     X    (i,j)    |   
+  #   for the   |             |   
+  #   cell to   |             |   
+  #   the left  o------X------o   
+  #                   j₊½ for the cell below
+  # the lower left corner node is (i,j) as well,
+  # so this is why the ₊½ node indices seem backwards...
+
+  for idx in i₊½CI
+    node_idx = idx.I
+    i₊½_node_idx = (node_idx[1], node_idx[2] + 0.5) .- m.nhalo
+    i₊½_cell_idx = CartesianIndex((node_idx[1] - 1, node_idx[2]))
+
+    J_i₊½, ξx_i₊½, ξy_i₊½, ηx_i₊½, ηy_i₊½ = _get_metrics(m, i₊½_node_idx)
+
+    i₊½_metric = (
+      J=J_i₊½,
+      ξx=ξx_i₊½,
+      ξ̂x=ξx_i₊½ / J_i₊½,
+      ξy=ξy_i₊½,
+      ξ̂y=ξy_i₊½ / J_i₊½,
+      ηx=ηx_i₊½,
+      η̂x=ηx_i₊½ / J_i₊½,
+      ηy=ηy_i₊½,
+      η̂y=ηy_i₊½ / J_i₊½,
+      ξt=zero(J_i₊½),
+      ηt=zero(J_i₊½),
+    )
+
+    m.edge_metrics.i₊½[i₊½_cell_idx] = i₊½_metric
+  end
+
+  for idx in j₊½CI
+    node_idx = idx.I
+    j₊½_node_idx = (node_idx[1] + 0.5, node_idx[2]) .- m.nhalo
+    j₊½_cell_idx = CartesianIndex((node_idx[1], node_idx[2] - 1))
+    J_j₊½, ξx_j₊½, ξy_j₊½, ηx_j₊½, ηy_j₊½ = _get_metrics(m, j₊½_node_idx)
+
+    j₊½_metric = (
+      J=J_j₊½,
+      ξx=ξx_j₊½,
+      ξ̂x=ξx_j₊½ / J_j₊½,
+      ξy=ξy_j₊½,
+      ξ̂y=ξy_j₊½ / J_j₊½,
+      ηx=ηx_j₊½,
+      η̂x=ηx_j₊½ / J_j₊½,
+      ηy=ηy_j₊½,
+      η̂y=ηy_j₊½ / J_j₊½,
+      ξt=zero(J_j₊½),
+      ηt=zero(J_j₊½),
+    )
+
+    m.edge_metrics.j₊½[j₊½_cell_idx] = j₊½_metric
+  end
+
+  return nothing
 end
 
 # Get the conservative metrics, e.g. normalized by the Jacobian
@@ -87,20 +262,20 @@ end
   )
 end
 
-@inline function metrics_with_jacobian(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
-  _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo)) # -> SMatrix{2,2,T}
-  inv_jacobian_matrix = inv(_jacobian_matrix)
+# @inline function metrics_with_jacobian(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
+#   _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo)) # -> SMatrix{2,2,T}
+#   inv_jacobian_matrix = inv(_jacobian_matrix)
 
-  return (
-    ξx=inv_jacobian_matrix[1, 1],
-    ξy=inv_jacobian_matrix[1, 2],
-    ηx=inv_jacobian_matrix[2, 1],
-    ηy=inv_jacobian_matrix[2, 2],
-    ξt=zero(eltype(_jacobian_matrix)),
-    ηt=zero(eltype(_jacobian_matrix)),
-    J=det(_jacobian_matrix),
-  )
-end
+#   return (
+#     ξx=inv_jacobian_matrix[1, 1],
+#     ξy=inv_jacobian_matrix[1, 2],
+#     ηx=inv_jacobian_matrix[2, 1],
+#     ηy=inv_jacobian_matrix[2, 2],
+#     ξt=zero(eltype(_jacobian_matrix)),
+#     ηt=zero(eltype(_jacobian_matrix)),
+#     J=det(_jacobian_matrix),
+#   )
+# end
 
 @inline function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, (vx, vy))
   static = metrics(m, (i, j))
