@@ -53,7 +53,7 @@ end
 
 dims(m::MEG6Scheme) = keys(m.∂ϕᵢ)
 
-@inline function ∂ϕ(ϕ::OffsetVector{T,SVector{7,T}}) where {T}
+@inline function ∂(ϕ::OffsetVector{T,SVector{7,T}}) where {T}
   f1 = 3 / 4
   f2 = 3 / 20
   f3 = 1 / 60
@@ -62,14 +62,17 @@ dims(m::MEG6Scheme) = keys(m.∂ϕᵢ)
 end
 
 # ∂²ϕ(ϕ, ∂ϕ) = 2(ϕ[+1] - 2ϕ[0] + ϕ[-1]) - f1 * (∂ϕ[+1] - ∂ϕ[-1])
-@inline function ∂²ϕ(
+@inline function ∂²(
   ϕ::OffsetVector{T,SVector{3,T}}, ∂ϕ::OffsetVector{T,SVector{3,T}}
 ) where {T}
   _∂²ϕ = 2(ϕ[+1] - 2ϕ[0] + ϕ[-1]) - (∂ϕ[+1] - ∂ϕ[-1]) / 2
   return _∂²ϕ
 end
 
-function update_metrics!(scheme::MEG6Scheme, x, y, z)
+# 3D version
+function update_metrics!(
+  scheme::MEG6Scheme, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}
+) where {T}
   # compute the ∂x/∂ξ|ᵢ, ∂x/∂η|ᵢ terms
 
   # Each dimension is on a different axes in the various metric arrays.
@@ -149,6 +152,7 @@ function update_metrics!(scheme::MEG6Scheme, x, y, z)
   _iterp_mixed_terms_to_edge(scheme, x_η, y, x_ηy_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
   _conserved_metric_term!(ζ̂z, (x_ξy_ηⱼ₊½, x_ηy_ξᵢ₊½), (η_ax, ξ_ax), domain) # -> ζ̂z
 
+  # Now interpolate the conserved metrics to the edges
   _iterp_to_edge!(scheme, ξ̂x, ξ̂x_i₊½, ξ_ax, domain) # -> ξ̂x_i₊½
   _iterp_to_edge!(scheme, η̂x, η̂x_i₊½, ξ_ax, domain) # -> η̂x_i₊½
   _iterp_to_edge!(scheme, ζ̂x, ζ̂x_i₊½, ξ_ax, domain) # -> ζ̂x_i₊½
@@ -178,6 +182,71 @@ function update_metrics!(scheme::MEG6Scheme, x, y, z)
   _iterp_to_edge!(scheme, ξ̂z, ξ̂z_k₊½, ζ_ax, domain) # -> ξ̂z_k₊½ 
   _iterp_to_edge!(scheme, η̂z, η̂z_k₊½, ζ_ax, domain) # -> η̂z_k₊½ 
   _iterp_to_edge!(scheme, ζ̂z, ζ̂z_k₊½, ζ_ax, domain) # -> ζ̂z_k₊½ 
+
+  return nothing
+end
+
+# 2D version
+function update_metrics!(
+  scheme::MEG6Scheme, x::AbstractArray{T,2}, y::AbstractArray{T,2}
+) where {T}
+  # compute the ∂x/∂ξ|ᵢ, ∂x/∂η|ᵢ terms
+
+  # Each dimension is on a different axes in the various metric arrays.
+  # These are used since the metric functions are defined for
+  # arbitrary dimensions, so we need to define what axis we're working on
+  ξ_ax, η_ax = (1, 2)
+
+  _cell_center_metric(scheme, x, scheme.∂xᵢ∂ξᵢ.x.ξ, ξ_ax) # ∂x/∂ξ
+  _cell_center_metric(scheme, x, scheme.∂xᵢ∂ξᵢ.x.η, η_ax) # ∂x/∂η
+
+  _cell_center_metric(scheme, y, scheme.∂xᵢ∂ξᵢ.y.ξ, ξ_ax) # ∂y/∂ξ
+  _cell_center_metric(scheme, y, scheme.∂xᵢ∂ξᵢ.y.η, η_ax) # ∂y/∂η
+
+  # compute the inverse metrics, i.e., ∂ξᵢ/∂xᵢ (or ξₓ). To do this
+  # the jacobian matrix has to be assembled and then inverted
+  _inverse_metrics_2d(scheme, domain)
+
+  # Next we find the **conservative** metrics
+
+  # ξ̂x = ξx / J
+  _iterp_mixed_terms_to_edge(scheme, ξx, J, ξ̂xᵢ₊½, ξ_ax, domain, /)
+  _iterp_mixed_terms_to_edge(scheme, ξx, J, ξ̂xj₊½, η_ax, domain, /)
+
+  # η̂x = ηx / J
+  _iterp_mixed_terms_to_edge(scheme, ηx, J, η̂xᵢ₊½, ξ_ax, domain, /)
+  _iterp_mixed_terms_to_edge(scheme, ηx, J, η̂xj₊½, η_ax, domain, /)
+
+  # ξ̂y = ξy / J
+  _iterp_mixed_terms_to_edge(scheme, ξy, J, ξ̂yᵢ₊½, ξ_ax, domain, /)
+  _iterp_mixed_terms_to_edge(scheme, ξy, J, ξ̂yj₊½, η_ax, domain, /)
+
+  # η̂y = ηy / J
+  _iterp_mixed_terms_to_edge(scheme, ηy, J, η̂yᵢ₊½, ξ_ax, domain, /)
+  _iterp_mixed_terms_to_edge(scheme, ηy, J, η̂yj₊½, η_ax, domain, /)
+
+  return nothing
+end
+
+# 1D version
+function update_metrics!(scheme::MEG6Scheme, x::AbstractArray{T,1}) where {T}
+  # compute the ∂x/∂ξ|ᵢ, ∂x/∂η|ᵢ terms
+
+  # Each dimension is on a different axes in the various metric arrays.
+  # These are used since the metric functions are defined for
+  # arbitrary dimensions, so we need to define what axis we're working on
+  ξ_ax = 1
+
+  _cell_center_metric(scheme, x, scheme.∂xᵢ∂ξᵢ.x.ξ, ξ_ax) # ∂x/∂ξ
+
+  # compute the inverse metrics, i.e., ∂ξᵢ/∂xᵢ (or ξₓ). To do this
+  # the jacobian matrix has to be assembled and then inverted
+  _inverse_metrics_1d(scheme, domain)
+
+  # Next we find the **conservative** metrics 
+
+  # ξ̂x = ξx / J
+  _iterp_mixed_terms_to_edge(scheme, ξx, J, ξ̂xᵢ₊½, ξ_ax, domain, /)
 
   return nothing
 end
