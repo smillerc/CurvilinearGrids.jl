@@ -10,9 +10,11 @@ CurvilinearGrid2D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CurvilinearGrid2D{T1,T2,T3,EM,CCM,L,CI} <: AbstractCurvilinearGrid
-  x::T1
-  y::T2
+struct CurvilinearGrid2D{T1,T2,T3,EM,CCM,L,CI,AA} <: AbstractCurvilinearGrid
+  x_func::T1 # functional form x(i,j)
+  y_func::T2 # functional form j(i,j)
+  x_coord::AA # stored x-coordinate location
+  y_coord::AA # stored y-coordinate location
   edge_metrics::EM
   cell_center_metrics::CCM
   jacobian_matrix_func::T3
@@ -20,6 +22,7 @@ struct CurvilinearGrid2D{T1,T2,T3,EM,CCM,L,CI} <: AbstractCurvilinearGrid
   nnodes::NTuple{2,Int}
   domain_limits::L
   iterators::CI
+  use_autodiff::Bool
 end
 
 function CurvilinearGrid2D(
@@ -86,14 +89,29 @@ function CurvilinearGrid2D(
     edge_metrics = (
       i₊½=Matrix{M}(undef, ncells .+ 2nhalo), j₊½=Matrix{M}(undef, ncells .+ 2nhalo)
     )
+
+    xcoords = zeros(T, nnodes .+ 2nhalo)
+    ycoords = zeros(T, nnodes .+ 2nhalo)
+
+    @inbounds for j in axes(xcoords, 2)
+      for i in axes(xcoords, 1)
+        xcoords[i, j] = x(i - nhalo, j - nhalo)
+        ycoords[i, j] = y(i - nhalo, j - nhalo)
+      end
+    end
+
   else
     edge_metrics = nothing
     cell_center_metrics = nothing
+    xcoords = nothing
+    ycoords = nothing
   end
 
   m = CurvilinearGrid2D(
     x,
     y,
+    xcoords,
+    ycoords,
     edge_metrics,
     cell_center_metrics,
     jacobian_matrix_func,
@@ -101,6 +119,7 @@ function CurvilinearGrid2D(
     nnodes,
     limits,
     _iterators,
+    use_autodiff,
   )
 
   update_metrics!(m)
@@ -304,8 +323,8 @@ This does _not_ include halo regions since the geometry can be undefined.
 function coords!(xy::Array{T,3}, m::CurvilinearGrid2D) where {T}
   @inbounds for j in axes(xy, 3)
     for i in axes(xy, 2)
-      xy[1, i, j] = m.x(i, j)
-      xy[2, i, j] = m.y(i, j)
+      xy[1, i, j] = m.x_func(i, j)
+      xy[2, i, j] = m.y_func(i, j)
     end
   end
 
@@ -315,6 +334,18 @@ end
 function coords(m::CurvilinearGrid2D, T=Float64)
   xy = zeros(T, 2, m.nnodes...)
   coords!(xy, m)
+  return xy
+end
+
+function coords_withhalo(m::CurvilinearGrid2D, T=Float64)
+  xy = zeros(T, 2, (m.nnodes .+ 2nhalo)...)
+
+  @inbounds for j in axes(xy, 3)
+    for i in axes(xy, 2)
+      xy[1, i, j] = m.x_func(i - m.nhalo, j - m.nhalo)
+      xy[2, i, j] = m.y_func(i - m.nhalo, j - m.nhalo)
+    end
+  end
   return xy
 end
 
@@ -329,8 +360,8 @@ function centroids(m::CurvilinearGrid2D, T=Float64)
 
   @inbounds for j in axes(xy, 3)
     for i in axes(xy, 2)
-      xy[1, i, j] = m.x(i + 0.5, j + 0.5)
-      xy[2, i, j] = m.y(i + 0.5, j + 0.5)
+      xy[1, i, j] = m.x_func(i + 0.5, j + 0.5)
+      xy[2, i, j] = m.y_func(i + 0.5, j + 0.5)
     end
   end
 

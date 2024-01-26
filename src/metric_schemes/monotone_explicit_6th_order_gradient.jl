@@ -1,58 +1,45 @@
-using OffsetArrays
-using StaticArrays
 
-dim_names(::NTuple{1,Int}) = (:ξ,)
-dim_names(::NTuple{2,Int}) = (:ξ, :η)
-dim_names(::NTuple{3,Int}) = (:ξ, :η, :ζ)
+"""
+A Monotone Explicit 6th Order Gradient (MEG6) scheme to discretize
+the grid metrics
+"""
+struct MEG6Scheme{N,T,AA<:AbstractArray{T,N},B,C,D,E} <: AbstractMetricScheme
+  ∂_cache::AA # cache array for derivative terms of any scalar term ϕ 
+  ∂²_cache::AA # cache array for 2nd derivative terms of any scalar term ϕ 
+  Jᵢ::AA # cell-centered Jacobian (det(jacobian matrix))
+  ∂x∂ξᵢ::B # cell-centered inverse metrics ∂x/∂(ξ,η,ζ), ∂y/∂(ξ,η,ζ), ∂z/∂(ξ,η,ζ)
+  ∂ξ∂xᵢ::C # cell-centered metrics ∂(ξ,η,ζ)/∂z, ∂(ξ,η,ζ)∂y, ∂(ξ,η,ζ)∂z
+  ∂ξ̂∂xᵢ::D # cell-centered conservative metrics, where ξ̂ = ξ/J; ∂(ξ,η,ζ)/∂z, ∂(ξ,η,ζ)∂y, ∂(ξ,η,ζ)∂z
+  ∂ξ̂∂xᵢ₊½::E # conservative metrics at the cell edges ((i,j,k)+1/2), where ξ̂ = ξ/J; ∂(ξ,η,ζ)/∂z, ∂(ξ,η,ζ)∂y, ∂(ξ,η,ζ)∂z
+end
 
-coord_names(::NTuple{1,Int}) = (:x₁,)
-coord_names(::NTuple{2,Int}) = (:x₁, :x₂)
-coord_names(::NTuple{3,Int}) = (:x₁, :x₂, :x₃)
+# MEG6Scheme Constructor
+function MEG6Scheme(celldims::NTuple{N,Int}; T=Float64) where {N}
+  ∂ϕᵢ = zeros(T, celldims)
+  Jᵢ = zeros(T, celldims)
+  ∂²ϕᵢ = zeros(T, celldims)
 
-function metric_vars(dims)
-  vars = coord_names(dims)
-  gradients = NamedTuple{(vars)}(
-    cell_centered_vars(dims) for i in 1:length(vars) # (:x=(ξ,η,ζ), :y=(ξ,η,ζ), ...)
+  ∂x∂ξᵢ = NamedTuple{(x_names(celldims))}( # (∂x, ∂y, ∂z)
+    nested_tuple(celldims, ξ_names, T) for i in 1:N  # (∂ξ, ∂η, ∂ζ)
   )
 
-  return gradients
-end
-
-function inv_metric_vars(dims)
-  vars = coord_names(dims)
-  gradients = NamedTuple{(vars)}(
-    cell_centered_vars(dims) for i in 1:length(vars) # (:x=(ξ,η,ζ), :y=(ξ,η,ζ), ...)
+  ∂ξ∂xᵢ = NamedTuple{(ξ_names(celldims))}( # (∂ξ, ∂η, ∂ζ)
+    nested_tuple(celldims, x_names, T) for i in 1:N # (∂x, ∂y, ∂z)
   )
 
-  return gradients
+  ∂ξ̂∂xᵢ = NamedTuple{(ξ̂_names(celldims))}( # (∂ξ, ∂η, ∂ζ)
+    nested_tuple(celldims, x_names, T) for i in 1:N # (∂x, ∂y, ∂z)
+  )
+
+  ∂ξ̂∂xᵢ₊½ = NamedTuple{(ξ_names(celldims))}( # (∂ξ, ∂η, ∂ζ)
+    NamedTuple{(x_names(celldims))}( # (∂x, ∂y, ∂z)
+      nested_tuple(celldims, edge_names, T) for i in 1:N # (i₊½, j₊½, k₊½)
+    ) for j in 1:N
+  )
+  return MEG6Scheme(∂ϕᵢ, ∂²ϕᵢ, Jᵢ, ∂x∂ξᵢ, ∂ξ∂xᵢ, ∂ξ̂∂xᵢ, ∂ξ̂∂xᵢ₊½)
 end
 
-function cell_centered_vars(dims)
-  ξηζ = dim_names(dims)
-  # (:ξ=Array, :η=Array, :ζ=Array)
-  return NamedTuple{(ξηζ)}(zeros(dims) for i in 1:length(ξηζ))
-end
-
-struct MEG6Scheme{A,B,C,D}
-  ∂ϕᵢ::A # gradient terms of any scalar term ϕ (these are cached and re-used for each metric term)
-  ∂²ϕᵢ::B # gradient terms of any scalar term ϕ (these are cached and re-used for each metric term)
-  ∂ξᵢ∂xᵢ::C # metrics; ∂(ξ,η,ζ)/∂z, ∂(ξ,η,ζ)∂y, ∂(ξ,η,ζ)∂z
-  ∂ξ̂ᵢ∂xᵢ::C # conservative metrics, where ξ̂ = ξ/J; ∂(ξ,η,ζ)/∂z, ∂(ξ,η,ζ)∂y, ∂(ξ,η,ζ)∂z
-  ∂ξ̂ᵢ∂xᵢ_edge::C # conservative metrics at the cell edges ((i,j,k)+1/2), where ξ̂ = ξ/J; ∂(ξ,η,ζ)/∂z, ∂(ξ,η,ζ)∂y, ∂(ξ,η,ζ)∂z
-  ∂xᵢ∂ξᵢ::D # ∂x/∂(ξ,η,ζ), ∂y/∂(ξ,η,ζ), ∂z/∂(ξ,η,ζ)
-  J
-end
-
-function MEG6Scheme(celldims::NTuple{N,Int}) where {N}
-  ∂ϕᵢ = cell_centered_vars(celldims)
-  ∂²ϕᵢ = cell_centered_vars(celldims)
-  x_ξ = metric_vars(dims)
-  ξ_x = inv_metric_vars(dims)
-  return MEG6Scheme(∂ϕᵢ, ∂²ϕᵢ, x_ξ, ξ_x)
-end
-
-dims(m::MEG6Scheme) = keys(m.∂ϕᵢ)
-
+# 1st derivative operator
 @inline function ∂(ϕ::OffsetVector{T,SVector{7,T}}) where {T}
   f1 = 3 / 4
   f2 = 3 / 20
@@ -61,7 +48,7 @@ dims(m::MEG6Scheme) = keys(m.∂ϕᵢ)
   return _∂ϕ
 end
 
-# ∂²ϕ(ϕ, ∂ϕ) = 2(ϕ[+1] - 2ϕ[0] + ϕ[-1]) - f1 * (∂ϕ[+1] - ∂ϕ[-1])
+# 2nd derivative operator
 @inline function ∂²(
   ϕ::OffsetVector{T,SVector{3,T}}, ∂ϕ::OffsetVector{T,SVector{3,T}}
 ) where {T}
@@ -71,7 +58,7 @@ end
 
 # 3D version
 function update_metrics!(
-  scheme::MEG6Scheme, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}
+  scheme::MEG6Scheme{3}, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}
 ) where {T}
   # compute the ∂x/∂ξ|ᵢ, ∂x/∂η|ᵢ terms
 
@@ -188,7 +175,7 @@ end
 
 # 2D version
 function update_metrics!(
-  scheme::MEG6Scheme, x::AbstractArray{T,2}, y::AbstractArray{T,2}
+  scheme::MEG6Scheme{2}, x::AbstractArray{T,2}, y::AbstractArray{T,2}, domain
 ) where {T}
   # compute the ∂x/∂ξ|ᵢ, ∂x/∂η|ᵢ terms
 
@@ -197,39 +184,52 @@ function update_metrics!(
   # arbitrary dimensions, so we need to define what axis we're working on
   ξ_ax, η_ax = (1, 2)
 
-  _cell_center_metric(scheme, x, scheme.∂xᵢ∂ξᵢ.x.ξ, ξ_ax) # ∂x/∂ξ
-  _cell_center_metric(scheme, x, scheme.∂xᵢ∂ξᵢ.x.η, η_ax) # ∂x/∂η
+  _cell_center_metric(scheme, x, scheme.∂x∂ξᵢ.∂x₁.∂ξ₁, ξ_ax, domain) # ∂x/∂ξ
+  _cell_center_metric(scheme, x, scheme.∂x∂ξᵢ.∂x₁.∂ξ₂, η_ax, domain) # ∂x/∂η
 
-  _cell_center_metric(scheme, y, scheme.∂xᵢ∂ξᵢ.y.ξ, ξ_ax) # ∂y/∂ξ
-  _cell_center_metric(scheme, y, scheme.∂xᵢ∂ξᵢ.y.η, η_ax) # ∂y/∂η
+  _cell_center_metric(scheme, y, scheme.∂x∂ξᵢ.∂x₂.∂ξ₁, ξ_ax, domain) # ∂y/∂ξ
+  _cell_center_metric(scheme, y, scheme.∂x∂ξᵢ.∂x₂.∂ξ₂, η_ax, domain) # ∂y/∂η
 
   # compute the inverse metrics, i.e., ∂ξᵢ/∂xᵢ (or ξₓ). To do this
   # the jacobian matrix has to be assembled and then inverted
-  _inverse_metrics_2d(scheme, domain)
+  _inverse_metrics(scheme, domain) # -> this also populates scheme.J
 
-  # Next we find the **conservative** metrics
+  # Next we find the **conservative** metrics. This is much more
+  # complicated in 3D...
 
   # ξ̂x = ξx / J
-  _iterp_mixed_terms_to_edge(scheme, ξx, J, ξ̂xᵢ₊½, ξ_ax, domain, /)
-  _iterp_mixed_terms_to_edge(scheme, ξx, J, ξ̂xj₊½, η_ax, domain, /)
+  ξx = scheme.∂ξ∂xᵢ.∂ξ₁.∂x₁
+  ξ̂xᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₁.i₊½
+  ξ̂xⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₁.j₊½
+  _iterp_mixed_terms_to_edge(scheme, s, scheme.Jᵢ, ξ̂xᵢ₊½, ξ_ax, domain, /)
+  _iterp_mixed_terms_to_edge(scheme, ξx, scheme.Jᵢ, ξ̂xⱼ₊½, η_ax, domain, /)
 
   # η̂x = ηx / J
-  _iterp_mixed_terms_to_edge(scheme, ηx, J, η̂xᵢ₊½, ξ_ax, domain, /)
-  _iterp_mixed_terms_to_edge(scheme, ηx, J, η̂xj₊½, η_ax, domain, /)
+  ηx = scheme.∂ξ∂xᵢ.∂ξ₂.∂x₁
+  η̂xᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.i₊½
+  η̂xⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.j₊½
+  _iterp_mixed_terms_to_edge(scheme, ηx, scheme.Jᵢ, η̂xᵢ₊½, ξ_ax, domain, /)
+  _iterp_mixed_terms_to_edge(scheme, ηx, scheme.Jᵢ, η̂xⱼ₊½, η_ax, domain, /)
 
   # ξ̂y = ξy / J
-  _iterp_mixed_terms_to_edge(scheme, ξy, J, ξ̂yᵢ₊½, ξ_ax, domain, /)
-  _iterp_mixed_terms_to_edge(scheme, ξy, J, ξ̂yj₊½, η_ax, domain, /)
+  ξy = scheme.∂ξ∂xᵢ.∂ξ₁.∂x₂
+  ξ̂yᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.i₊½
+  ξ̂yⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.j₊½
+  _iterp_mixed_terms_to_edge(scheme, ξy, scheme.Jᵢ, ξ̂yᵢ₊½, ξ_ax, domain, /)
+  _iterp_mixed_terms_to_edge(scheme, ξy, scheme.Jᵢ, ξ̂yⱼ₊½, η_ax, domain, /)
 
   # η̂y = ηy / J
-  _iterp_mixed_terms_to_edge(scheme, ηy, J, η̂yᵢ₊½, ξ_ax, domain, /)
-  _iterp_mixed_terms_to_edge(scheme, ηy, J, η̂yj₊½, η_ax, domain, /)
+  ηy = scheme.∂ξ∂xᵢ.∂ξ₂.∂x₂
+  η̂yᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.i₊½
+  η̂yⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.j₊½
+  _iterp_mixed_terms_to_edge(scheme, ηy, scheme.Jᵢ, η̂yᵢ₊½, ξ_ax, domain, /)
+  _iterp_mixed_terms_to_edge(scheme, ηy, scheme.Jᵢ, η̂yⱼ₊½, η_ax, domain, /)
 
   return nothing
 end
 
 # 1D version
-function update_metrics!(scheme::MEG6Scheme, x::AbstractArray{T,1}) where {T}
+function update_metrics!(scheme::MEG6Scheme{1}, x::AbstractArray{T,1}) where {T}
   # compute the ∂x/∂ξ|ᵢ, ∂x/∂η|ᵢ terms
 
   # Each dimension is on a different axes in the various metric arrays.
@@ -250,6 +250,10 @@ function update_metrics!(scheme::MEG6Scheme, x::AbstractArray{T,1}) where {T}
 
   return nothing
 end
+
+# ----------------------------------------------------------------
+# Private functions not intended to be used outside of this module
+# ----------------------------------------------------------------
 
 @inline function _conserved_metric_term!(
   ∂ϕ, (ϕ1, ϕ2)::NTuple{2,AbstractArray{T,3}}, (ax1, ax2)::NTuple{2,Int}, domain
@@ -296,44 +300,18 @@ end
   return nothing
 end
 
-# 2D version
-function _inverse_metrics_2d(scheme, domain)
-  @inbounds for idx in domain
-    xξ = scheme.∂xᵢ∂ξᵢ.x.ξ[idx] # ∂x/∂ξ
-    yξ = scheme.∂xᵢ∂ξᵢ.y.ξ[idx] # ∂y/∂ξ
-    xη = scheme.∂xᵢ∂ξᵢ.x.η[idx] # ∂x/∂η
-    yη = scheme.∂xᵢ∂ξᵢ.y.η[idx] # ∂y/∂η
-
-    # inverse jacobian matrix
-    J⁻¹ = @SMatrix [
-      xξ yξ
-      xη yη
-    ]
-
-    J = inv(J⁻¹)
-    scheme.J[idx] = det(J) # "the Jacobian".... why can't we use different names??
-
-    scheme.∂ξᵢ∂xᵢ.ξ.x₁[idx] = J[1, 1] # ∂ξ/∂x
-    scheme.∂ξᵢ∂xᵢ.ξ.x₂[idx] = J[1, 2] # ∂ξ/∂y
-    scheme.∂ξᵢ∂xᵢ.η.x₁[idx] = J[2, 1] # ∂η/∂x
-    scheme.∂ξᵢ∂xᵢ.η.x₂[idx] = J[2, 2] # ∂η/∂y
-  end
-
-  return nothing
-end
-
 # 3D version
-function _inverse_metrics_3d(scheme, domain)
+function _inverse_metrics(scheme::MEG6Scheme{3}, domain)
   @inbounds for idx in domain
-    xξ = scheme.∂xᵢ∂ξᵢ.x.ξ[idx] # ∂x/∂ξ
-    yξ = scheme.∂xᵢ∂ξᵢ.y.ξ[idx] # ∂y/∂ξ
-    zξ = scheme.∂xᵢ∂ξᵢ.z.ξ[idx] # ∂z/∂ξ
-    xη = scheme.∂xᵢ∂ξᵢ.x.η[idx] # ∂x/∂η
-    yη = scheme.∂xᵢ∂ξᵢ.y.η[idx] # ∂y/∂η
-    zη = scheme.∂xᵢ∂ξᵢ.z.η[idx] # ∂z/∂η
-    xζ = scheme.∂xᵢ∂ξᵢ.x.ζ[idx] # ∂x/∂ζ
-    yζ = scheme.∂xᵢ∂ξᵢ.y.ζ[idx] # ∂y/∂ζ
-    zζ = scheme.∂xᵢ∂ξᵢ.z.ζ[idx] # ∂z/∂ζ
+    xξ = scheme.∂x∂ξᵢ.x₁.ξ₁[idx] # ∂x/∂ξ
+    yξ = scheme.∂x∂ξᵢ.x₂.ξ₁[idx] # ∂y/∂ξ
+    zξ = scheme.∂x∂ξᵢ.x₃.ξ₁[idx] # ∂z/∂ξ
+    xη = scheme.∂x∂ξᵢ.x₁.ξ₂[idx] # ∂x/∂η
+    yη = scheme.∂x∂ξᵢ.x₂.ξ₂[idx] # ∂y/∂η
+    zη = scheme.∂x∂ξᵢ.x₃.ξ₂[idx] # ∂z/∂η
+    xζ = scheme.∂x∂ξᵢ.x₁.ξ₃[idx] # ∂x/∂ζ
+    yζ = scheme.∂x∂ξᵢ.x₂.ξ₃[idx] # ∂y/∂ζ
+    zζ = scheme.∂x∂ξᵢ.x₃.ξ₃[idx] # ∂z/∂ζ
 
     # inverse jacobian matrix
     J⁻¹ = @SMatrix [
@@ -343,17 +321,57 @@ function _inverse_metrics_3d(scheme, domain)
     ]
 
     J = inv(J⁻¹) # jacobian matrix
-    scheme.J[idx] = det(J) # "the Jacobian"... why can't we use different names??
+    scheme.Jᵢ[idx] = det(J) # "the Jacobian"... why can't we use different names??
 
-    scheme.∂ξᵢ∂xᵢ.ξ.x₁[idx] = J[1, 1] # ∂ξ/∂x
-    scheme.∂ξᵢ∂xᵢ.ξ.x₂[idx] = J[1, 2] # ∂ξ/∂y
-    scheme.∂ξᵢ∂xᵢ.ξ.x₃[idx] = J[1, 3] # ∂ξ/∂z
-    scheme.∂ξᵢ∂xᵢ.η.x₁[idx] = J[2, 1] # ∂η/∂x
-    scheme.∂ξᵢ∂xᵢ.η.x₂[idx] = J[2, 2] # ∂η/∂y
-    scheme.∂ξᵢ∂xᵢ.η.x₃[idx] = J[2, 3] # ∂η/∂z
-    scheme.∂ξᵢ∂xᵢ.ζ.x₁[idx] = J[3, 1] # ∂ζ/∂x
-    scheme.∂ξᵢ∂xᵢ.ζ.x₂[idx] = J[3, 2] # ∂ζ/∂y
-    scheme.∂ξᵢ∂xᵢ.ζ.x₃[idx] = J[3, 3] # ∂ζ/∂z
+    scheme.∂ξ∂xᵢ.ξ₁.x₁[idx] = J[1, 1] # ∂ξ/∂x
+    scheme.∂ξ∂xᵢ.ξ₁.x₂[idx] = J[1, 2] # ∂ξ/∂y
+    scheme.∂ξ∂xᵢ.ξ₁.x₃[idx] = J[1, 3] # ∂ξ/∂z
+    scheme.∂ξ∂xᵢ.ξ₂.x₁[idx] = J[2, 1] # ∂η/∂x
+    scheme.∂ξ∂xᵢ.ξ₂.x₂[idx] = J[2, 2] # ∂η/∂y
+    scheme.∂ξ∂xᵢ.ξ₂.x₃[idx] = J[2, 3] # ∂η/∂z
+    scheme.∂ξ∂xᵢ.ξ₃.x₁[idx] = J[3, 1] # ∂ζ/∂x
+    scheme.∂ξ∂xᵢ.ξ₃.x₂[idx] = J[3, 2] # ∂ζ/∂y
+    scheme.∂ξ∂xᵢ.ξ₃.x₃[idx] = J[3, 3] # ∂ζ/∂z
+  end
+
+  return nothing
+end
+
+# 2D version
+function _inverse_metrics(scheme::MEG6Scheme{2}, domain)
+  # extended_domain = expand(domain, 1)
+  @inbounds for idx in domain
+    xξ = scheme.∂x∂ξᵢ.∂x₁.∂ξ₁[idx] # ∂x/∂ξ
+    xη = scheme.∂x∂ξᵢ.∂x₁.∂ξ₂[idx] # ∂x/∂η
+    yξ = scheme.∂x∂ξᵢ.∂x₂.∂ξ₁[idx] # ∂y/∂ξ
+    yη = scheme.∂x∂ξᵢ.∂x₂.∂ξ₂[idx] # ∂y/∂η
+
+    # inverse jacobian matrix
+    J⁻¹ = @SMatrix [
+      xξ yξ
+      xη yη
+    ]
+
+    J = inv(J⁻¹)
+    scheme.Jᵢ[idx] = det(J) # "the Jacobian".... why can't we use different names??
+
+    scheme.∂ξ∂xᵢ.∂ξ₁.∂x₁[idx] = J[1, 1] # ∂ξ/∂x
+    scheme.∂ξ∂xᵢ.∂ξ₁.∂x₂[idx] = J[1, 2] # ∂ξ/∂y
+    scheme.∂ξ∂xᵢ.∂ξ₂.∂x₁[idx] = J[2, 1] # ∂η/∂x
+    scheme.∂ξ∂xᵢ.∂ξ₂.∂x₂[idx] = J[2, 2] # ∂η/∂y
+  end
+
+  return nothing
+end
+
+# 1D version
+function _inverse_metrics(scheme::MEG6Scheme{1}, domain)
+  # 1D is extremely simple! No need for matrices, inv(), or det()
+  @inbounds for idx in domain
+    J⁻¹ = scheme.∂x∂ξᵢ.x₁.ξ₁[idx] # ∂x/∂ξ
+    J = 1 / J⁻¹
+    scheme.Jᵢ[idx] = J # "the Jacobian".... why can't we use different names??
+    scheme.∂ξ∂xᵢ.ξ₁.x₁[idx] = J # ∂ξ/∂x
   end
 
   return nothing
@@ -437,21 +455,21 @@ requires that the whole term is interpolated, i.e, A*B, rather than interpolatin
 them separately and then applying the operator.
 """
 function _iterp_mixed_terms_to_edge(
-  scheme,
+  scheme::MEG6Scheme{N,T},
   A::AbstractArray{T,N},
   B::AbstractArray{T,N},
   ABᵢ₊½::AbstractArray{T,N},
   axis::Int, # 1 = i, 2 = j, 3 = k
   domain, # domain iterator, e.g., CartesianIndices
-  operator=*, # we're interpolating operator(A,B), e.g, A*B
-) where {T}
+  operator=*, # we're interpolating operator.(A,B), e.g, A*B
+) where {T,N}
 
   # intermediate-arrays
   ∂AB = scheme.∂_cache
   ∂²AB = scheme.∂²_cache
 
   # find the derivative term ∂AB, or ∂(A*B)/∂i
-  @inbounds for idx in domain
+  for idx in domain
     # get i-3:i+3 on whichever axis, e.g. i, j, or k
     offset = 3
     offset_idx = plus_minus(idx, axis, offset)
@@ -460,31 +478,31 @@ function _iterp_mixed_terms_to_edge(
     A_stencil = SVector{2offset + 1}(view(A, offset_idx))
     B_stencil = SVector{2offset + 1}(view(B, offset_idx))
 
-    # The mixed term is usually A*B, with the * operator
+    # The mixed term is usually A*B, with the * operator (which we apply element-wise with the .)
     # This could be any 2-argument function, i.e. +,-,*,/, etc.
     # Use an offset vector so the cell in question is always at 0,
-    # and its convienient to use -n:n indices for stencil operatios
-    AB_stencil = OffsetVector(operator(A_stencil, B_stencil), (-offset):offset)
-    ∂AB[idx] = ∂ϕ(AB_stencil)
+    # and its convienient to use -n:n indices for stencil operations
+    AB_stencil = OffsetVector(operator.(A_stencil, B_stencil), (-offset):offset)
+    ∂AB[idx] = ∂(AB_stencil)
   end
 
   # find the 2nd derivative term ∂²AB, or ∂²(A*B)/∂i
-  @inbounds for idx in domain
+  for idx in domain
     offset = 1
     offset_idx = plus_minus(idx, axis, offset)
 
     A_stencil = SVector{3}(view(A, offset_idx))
     B_stencil = SVector{3}(view(B, offset_idx))
-    AB_stencil = OffsetVector(operator(A_stencil, B_stencil), (-offset):offset)
-    ∂AB_stencil = SVector{3}(view(∂AB, offset_idx))
-    ∂²AB[idx] = ∂²ϕ(AB_stencil, ∂AB_stencil)
+    AB_stencil = OffsetVector(operator.(A_stencil, B_stencil), (-offset):offset)
+    ∂AB_stencil = OffsetVector(SVector{3}(view(∂AB, offset_idx)), (-offset):offset)
+    ∂²AB[idx] = ∂²(AB_stencil, ∂AB_stencil)
   end
 
   # interpolate to the edge
-  @inbounds for idx in domain
+  for idx in domain
     up_one = up(idx, axis, 1)# i.e. [i+1, j, k]
-    AB = operator(A[idx], B[idx]) # i.e. A[i,j,k] * B[i,j,k]
-    AB_up_one = operator(A[up_one], B[up_one]) # i.e, A[i+1, j, k] * B[i+1, j, k]
+    AB = operator.(A[idx], B[idx]) # i.e. A[i,j,k] * B[i,j,k]
+    AB_up_one = operator.(A[up_one], B[up_one]) # i.e, A[i+1, j, k] * B[i+1, j, k]
 
     # the name says ᵢ₊½, but it could be i₊½, j₊½, or k₊½, it just means the "+" edge
     ABᴸᵢ₊½ = AB + 0.5∂AB[idx] + ∂²AB[idx] / 12
@@ -495,13 +513,16 @@ function _iterp_mixed_terms_to_edge(
   return nothing
 end
 
+"""
+Interpolate cell-centered quantity `A` to cell edges for arbitary dimensions
+"""
 function _iterp_to_edge!(
-  scheme,
+  scheme::MEG6Scheme{N,T},
   A::AbstractArray{T,N},
   Aᵢ₊½::AbstractArray{T,N},
   axis::Int, # 1 = i, 2 = j, 3 = k
   domain, # domain iterator, e.g., CartesianIndices
-) where {T}
+) where {T,N}
 
   # intermediate-arrays
   ∂A = scheme.∂_cache
@@ -557,16 +578,24 @@ function _iterp_to_edge!(
 end
 
 """
-Compute a cell-centered metric term, i.e. ∂x∂ξ. Provide the axis to determine
+Compute a cell-centered term ∂ϕ∂ξ based on the MEG6 gradient scheme. Provide the axis to determine
 which direction
 """
-function _cell_center_metric(scheme, ϕ::AbstractArray{T,N}, ∂ϕ∂ξ, axis::Int) where {T,N}
+function _cell_center_metric(
+  scheme::MEG6Scheme{N,T}, ϕ::AbstractArray{T,N}, ∂ϕ∂ξ, axis::Int, domain
+) where {T,N}
   # intermediate-arrays
   ∂ϕ = scheme.∂_cache
   ∂²ϕ = scheme.∂²_cache
 
+  # expand the domain by 1 cell so we can get better
+  # gradients along the edge. This *ONLY* works when 
+  # we have functionally smooth definitions of the grid coordinates
+  # rather than a discrete array provided by a mesh type
+  extended_domain = expand(domain, 1)
+
   # cell-centered ∂ϕ
-  @inbounds for idx in domain
+  for idx in extended_domain
     offset = 3
     # get i-3:i+3 on whichever axis, e.g. i, j, or k
     offset_idx = plus_minus(idx, axis, offset)
@@ -581,7 +610,7 @@ function _cell_center_metric(scheme, ϕ::AbstractArray{T,N}, ∂ϕ∂ξ, axis::I
   end
 
   # cell-centered ∂²ϕ
-  @inbounds for idx in domain
+  for idx in domain
     offset = 1
     # get i-1:i+1 on whichever axis, e.g. i, j, or k
     offset_idx = plus_minus(idx, axis, offset)
@@ -601,7 +630,7 @@ function _cell_center_metric(scheme, ϕ::AbstractArray{T,N}, ∂ϕ∂ξ, axis::I
   # now find ∂ϕ∂ξ
   # ------------------------------------------------------------------
   #TODO: how to handle boundary ∂ terms?
-  @inbounds for idx in domain
+  for idx in domain
     up_one = up(idx, axis, 1) # i.e. [i+1, j, k]
     down_one = down(idx, axis, 1) # i.e. [i-1, j, k]
 
@@ -634,33 +663,33 @@ end
 #   return nothing
 # end
 
-function cons()
-  yξz = (
-    (2282 / 2880) * (y[i + 1, j, k] - y[i - 1, j, k]) * z[i, j, k] +
-    (-546 / 2880) * (y[i + 2, j, k] - y[i - 2, j, k]) * z[i, j, k] +
-    (89 / 2880) * (y[i + 3, j, k] - y[i - 3, j, k]) * z[i, j, k] +
-    (-3 / 2880) * (y[i + 4, j, k] - y[i - 4, j, k]) * z[i, j, k] +
-    (-1 / 2880) * (y[i + 5, j, k] - y[i - 5, j, k]) * z[i, j, k]
-  )
+# function cons()
+#   yξz = (
+#     (2282 / 2880) * (y[i + 1, j, k] - y[i - 1, j, k]) * z[i, j, k] +
+#     (-546 / 2880) * (y[i + 2, j, k] - y[i - 2, j, k]) * z[i, j, k] +
+#     (89 / 2880) * (y[i + 3, j, k] - y[i - 3, j, k]) * z[i, j, k] +
+#     (-3 / 2880) * (y[i + 4, j, k] - y[i - 4, j, k]) * z[i, j, k] +
+#     (-1 / 2880) * (y[i + 5, j, k] - y[i - 5, j, k]) * z[i, j, k]
+#   )
 
-  yηz = (
-    (2282 / 2880) * (y[i, j + 1, k] - y[i, j - 1, k]) * z[i, j, k] +
-    (-546 / 2880) * (y[i, j + 2, k] - y[i, j - 2, k]) * z[i, j, k] +
-    (89 / 2880) * (y[i, j + 3, k] - y[i, j - 3, k]) * z[i, j, k] +
-    (-3 / 2880) * (y[i, j + 4, k] - y[i, j - 4, k]) * z[i, j, k] +
-    (-1 / 2880) * (y[i, j + 5, k] - y[i, j - 5, k]) * z[i, j, k]
-  )
+#   yηz = (
+#     (2282 / 2880) * (y[i, j + 1, k] - y[i, j - 1, k]) * z[i, j, k] +
+#     (-546 / 2880) * (y[i, j + 2, k] - y[i, j - 2, k]) * z[i, j, k] +
+#     (89 / 2880) * (y[i, j + 3, k] - y[i, j - 3, k]) * z[i, j, k] +
+#     (-3 / 2880) * (y[i, j + 4, k] - y[i, j - 4, k]) * z[i, j, k] +
+#     (-1 / 2880) * (y[i, j + 5, k] - y[i, j - 5, k]) * z[i, j, k]
+#   )
 
-  yζz = (
-    (2282 / 2880) * (y[i, j, k + 1] - y[i, j, k - 1]) * z[i, j, k] +
-    (-546 / 2880) * (y[i, j, k + 2] - y[i, j, k - 2]) * z[i, j, k] +
-    (89 / 2880) * (y[i, j, k + 3] - y[i, j, k - 3]) * z[i, j, k] +
-    (-3 / 2880) * (y[i, j, k + 4] - y[i, j, k - 4]) * z[i, j, k] +
-    (-1 / 2880) * (y[i, j, k + 5] - y[i, j, k - 5]) * z[i, j, k]
-  )
+#   yζz = (
+#     (2282 / 2880) * (y[i, j, k + 1] - y[i, j, k - 1]) * z[i, j, k] +
+#     (-546 / 2880) * (y[i, j, k + 2] - y[i, j, k - 2]) * z[i, j, k] +
+#     (89 / 2880) * (y[i, j, k + 3] - y[i, j, k - 3]) * z[i, j, k] +
+#     (-3 / 2880) * (y[i, j, k + 4] - y[i, j, k - 4]) * z[i, j, k] +
+#     (-1 / 2880) * (y[i, j, k + 5] - y[i, j, k - 5]) * z[i, j, k]
+#   )
 
-  return nothing
-end
+#   return nothing
+# end
 
 # for mixed derivatives, like ξ̂x = (y_η z)_ζ − (y_ζ z)_η, we have 
 # the y_η terms already computed, and the normal x,y,z terms as well.
@@ -678,23 +707,3 @@ end
 # ξ̂z = (x_η y)_ζ − (x_ζ y)_η
 # η̂z = (x_ζ y)_ξ − (x_ξ y)_ζ
 # ζ̂z = (x_ξ y)_η − (x_η y)_ξ
-
-"""
-  Apply a delta function to the cartesian index on a specified axis. For 
-  example, `δ(3, CartesianIndex(1,2,3))` will give `CartesianIndex(0,0,1)`.
-"""
-δ(axis, ::CartesianIndex{N}) where {N} = CartesianIndex(ntuple(j -> j == axis ? 1 : 0, N))
-
-"""
-"""
-function plus_minus(I::CartesianIndex{N}, axis::Int, n::Int) where {N}
-  return (I - n * δ(axis, I)):(I + n * δ(axis, I))
-end
-
-function up(I::CartesianIndex{N}, axis::Int, n::Int) where {N}
-  return I + n * δ(axis, I)
-end
-
-function down(I::CartesianIndex{N}, axis::Int, n::Int) where {N}
-  return I - n * δ(axis, I)
-end
