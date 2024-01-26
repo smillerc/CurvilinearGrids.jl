@@ -39,26 +39,17 @@ function MEG6Scheme(celldims::NTuple{N,Int}; T=Float64) where {N}
   return MEG6Scheme(∂ϕᵢ, ∂²ϕᵢ, Jᵢ, ∂x∂ξᵢ, ∂ξ∂xᵢ, ∂ξ̂∂xᵢ, ∂ξ̂∂xᵢ₊½)
 end
 
-# 1st derivative operator
-@inline function ∂(ϕ::OffsetVector{T,SVector{7,T}}) where {T}
-  f1 = 3 / 4
-  f2 = 3 / 20
-  f3 = 1 / 60
-  _∂ϕ = f1 * (ϕ[+1] - ϕ[-1]) - f2 * (ϕ[+2] - ϕ[-2]) + f3 * (ϕ[+3] - ϕ[-3])
-  return _∂ϕ
-end
-
-# 2nd derivative operator
-@inline function ∂²(
-  ϕ::OffsetVector{T,SVector{3,T}}, ∂ϕ::OffsetVector{T,SVector{3,T}}
-) where {T}
-  _∂²ϕ = 2(ϕ[+1] - 2ϕ[0] + ϕ[-1]) - (∂ϕ[+1] - ∂ϕ[-1]) / 2
-  return _∂²ϕ
-end
-
 # 3D version
+"""
+    update_metrics!(scheme, xc, yc, zc, domain) 
+
+Update the 3D grid metrics given the cell-centroid positions `xc`, `yc`, and `zc`
+"""
 function update_metrics!(
-  scheme::MEG6Scheme{3}, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}
+  scheme::MEG6Scheme{3},
+  xc::AbstractArray{T,3},
+  yc::AbstractArray{T,3},
+  zc::AbstractArray{T,3},
 ) where {T}
   # compute the ∂x/∂ξ|ᵢ, ∂x/∂η|ᵢ terms
 
@@ -67,17 +58,17 @@ function update_metrics!(
   # arbitrary dimensions, so we need to define what axis we're working on
   ξ_ax, η_ax, ζ_ax = (1, 2, 3)
 
-  _cell_center_metric(scheme, x, scheme.∂xᵢ∂ξᵢ.x.ξ, ξ_ax) # ∂x/∂ξ
-  _cell_center_metric(scheme, x, scheme.∂xᵢ∂ξᵢ.x.η, η_ax) # ∂x/∂η
-  _cell_center_metric(scheme, x, scheme.∂xᵢ∂ξᵢ.x.ζ, ζ_ax) # ∂x/∂ζ
+  _cell_center_metric(scheme, xc, scheme.∂xᵢ∂ξᵢ.x.ξ, ξ_ax, domain) # ∂x/∂ξ
+  _cell_center_metric(scheme, xc, scheme.∂xᵢ∂ξᵢ.x.η, η_ax, domain) # ∂x/∂η
+  _cell_center_metric(scheme, xc, scheme.∂xᵢ∂ξᵢ.x.ζ, ζ_ax, domain) # ∂x/∂ζ
 
-  _cell_center_metric(scheme, y, scheme.∂xᵢ∂ξᵢ.y.ξ, ξ_ax) # ∂y/∂ξ
-  _cell_center_metric(scheme, y, scheme.∂xᵢ∂ξᵢ.y.η, η_ax) # ∂y/∂η
-  _cell_center_metric(scheme, y, scheme.∂xᵢ∂ξᵢ.y.ζ, ζ_ax) # ∂y/∂ζ
+  _cell_center_metric(scheme, yc, scheme.∂xᵢ∂ξᵢ.y.ξ, ξ_ax, domain) # ∂y/∂ξ
+  _cell_center_metric(scheme, yc, scheme.∂xᵢ∂ξᵢ.y.η, η_ax, domain) # ∂y/∂η
+  _cell_center_metric(scheme, yc, scheme.∂xᵢ∂ξᵢ.y.ζ, ζ_ax, domain) # ∂y/∂ζ
 
-  _cell_center_metric(scheme, z, scheme.∂xᵢ∂ξᵢ.z.ξ, ξ_ax) # ∂z/∂ξ
-  _cell_center_metric(scheme, z, scheme.∂xᵢ∂ξᵢ.z.η, η_ax) # ∂z/∂η
-  _cell_center_metric(scheme, z, scheme.∂xᵢ∂ξᵢ.z.ζ, ζ_ax) # ∂z/∂ζ
+  _cell_center_metric(scheme, zc, scheme.∂xᵢ∂ξᵢ.z.ξ, ξ_ax, domain) # ∂z/∂ξ
+  _cell_center_metric(scheme, zc, scheme.∂xᵢ∂ξᵢ.z.η, η_ax, domain) # ∂z/∂η
+  _cell_center_metric(scheme, zc, scheme.∂xᵢ∂ξᵢ.z.ζ, ζ_ax, domain) # ∂z/∂ζ
 
   # compute the inverse metrics, i.e., ∂ξᵢ/∂xᵢ (or ξₓ). To do this
   # the jacobian matrix has to be assembled and then inverted
@@ -95,48 +86,48 @@ function update_metrics!(
   # operator would be "+", and so on.
 
   # ξ̂x = (y_η z)_ζ − (y_ζ z)_η
-  _iterp_mixed_terms_to_edge(scheme, y_η, z, y_ηz_ζₖ₊½, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
-  _iterp_mixed_terms_to_edge(scheme, y_ζ, z, y_ζz_ηⱼ₊½, η_ax, domain, *) # interp to j+½, since the outer deriv is in η 
+  _iterp_mixed_terms_to_edge(scheme, y_η, zc, y_ηz_ζₖ₊½, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
+  _iterp_mixed_terms_to_edge(scheme, y_ζ, zc, y_ζz_ηⱼ₊½, η_ax, domain, *) # interp to j+½, since the outer deriv is in η 
   _conserved_metric_term!(ξ̂x, (y_ηz_ζₖ₊½, y_ζz_ηⱼ₊½), (ζ_ax, η_ax), domain) # -> ξ̂x
 
   # η̂x = (y_ζ z)_ξ − (y_ξ z)_ζ
-  _iterp_mixed_terms_to_edge(scheme, y_ζ, z, y_ζz_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
-  _iterp_mixed_terms_to_edge(scheme, y_ξ, z, y_ξz_ζₖ₊½, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
+  _iterp_mixed_terms_to_edge(scheme, y_ζ, zc, y_ζz_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
+  _iterp_mixed_terms_to_edge(scheme, y_ξ, zc, y_ξz_ζₖ₊½, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
   _conserved_metric_term!(η̂x, (y_ζz_ξᵢ₊½, y_ξz_ζₖ₊½), (ξ_ax, ζ_ax), domain) # -> η̂x
 
   # ζ̂x = (y_ξ z)_η − (y_η z)_ξ
-  _iterp_mixed_terms_to_edge(scheme, y_ξ, z, y_ξz_ηⱼ₊½, η_ax, domain, *) # interp to j+½, since the outer deriv is in η
-  _iterp_mixed_terms_to_edge(scheme, y_η, z, y_ηz_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
+  _iterp_mixed_terms_to_edge(scheme, y_ξ, zc, y_ξz_ηⱼ₊½, η_ax, domain, *) # interp to j+½, since the outer deriv is in η
+  _iterp_mixed_terms_to_edge(scheme, y_η, zc, y_ηz_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
   _conserved_metric_term!(ζ̂x, (y_ξz_ηⱼ₊½, y_ηz_ξᵢ₊½), (η_ax, ξ_ax), domain) # -> ζ̂x
 
   # ξ̂y = (z_η x)_ζ − (z_ζ x)_η
-  _iterp_mixed_terms_to_edge(scheme, z_η, x, z_ηx_ζₖ₊½, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
-  _iterp_mixed_terms_to_edge(scheme, z_ζ, x, z_ζx_ηⱼ₊½, η_ax, domain, *) # interp to j+½, since the outer deriv is in η 
+  _iterp_mixed_terms_to_edge(scheme, z_η, xc, z_ηx_ζₖ₊½, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
+  _iterp_mixed_terms_to_edge(scheme, z_ζ, xc, z_ζx_ηⱼ₊½, η_ax, domain, *) # interp to j+½, since the outer deriv is in η 
   _conserved_metric_term!(ξ̂y, (z_ηx_ζₖ₊½, z_ζx_ηⱼ₊½), (ζ_ax, η_ax), domain) # -> ξ̂y
 
   # η̂y = (z_ζ x)_ξ − (z_ξ x)_ζ
-  _iterp_mixed_terms_to_edge(scheme, z_ζ, x, z_ζx_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
-  _iterp_mixed_terms_to_edge(scheme, z_ξ, x, z_ξx_ζₖ₊½, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
+  _iterp_mixed_terms_to_edge(scheme, z_ζ, xc, z_ζx_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
+  _iterp_mixed_terms_to_edge(scheme, z_ξ, xc, z_ξx_ζₖ₊½, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
   _conserved_metric_term!(η̂y, (z_ζx_ξᵢ₊½, z_ξx_ζₖ₊½), (ξ_ax, ζ_ax), domain) # -> η̂y
 
   # ζ̂y = (z_ξ x)_η − (z_η x)_ξ
-  _iterp_mixed_terms_to_edge(scheme, z_ξ, x, z_ξx_ηⱼ₊½, η_ax, domain, *) # interp to j+½, since the outer deriv is in η
-  _iterp_mixed_terms_to_edge(scheme, z_η, x, z_ηx_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
+  _iterp_mixed_terms_to_edge(scheme, z_ξ, xc, z_ξx_ηⱼ₊½, η_ax, domain, *) # interp to j+½, since the outer deriv is in η
+  _iterp_mixed_terms_to_edge(scheme, z_η, xc, z_ηx_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
   _conserved_metric_term!(ζ̂y, (z_ξx_ηⱼ₊½, z_ηx_ξᵢ₊½), (η_ax, ξ_ax), domain) # -> ζ̂y
 
   # ξ̂z = (x_η y)_ζ − (x_ζ y)_η
-  _iterp_mixed_terms_to_edge(scheme, x_η, y, x_ηy_ζₖ₊½, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
-  _iterp_mixed_terms_to_edge(scheme, x_ζ, y, x_ζy_ηⱼ₊½, η_ax, domain, *) # interp to j+½, since the outer deriv is in η 
+  _iterp_mixed_terms_to_edge(scheme, x_η, yc, x_ηy_ζₖ₊½, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
+  _iterp_mixed_terms_to_edge(scheme, x_ζ, yc, x_ζy_ηⱼ₊½, η_ax, domain, *) # interp to j+½, since the outer deriv is in η 
   _conserved_metric_term!(ξ̂z, (x_ηy_ζₖ₊½, x_ζy_ηⱼ₊½), (ζ_ax, η_ax), domain) # -> ξ̂z
 
   # η̂z = (x_ζ y)_ξ − (x_ξ y)_ζ 
-  _iterp_mixed_terms_to_edge(scheme, x_ζ, y, x_ζy_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
-  _iterp_mixed_terms_to_edge(scheme, x_ξ, y, x_ξy_ζₖ₊½, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
+  _iterp_mixed_terms_to_edge(scheme, x_ζ, yc, x_ζy_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
+  _iterp_mixed_terms_to_edge(scheme, x_ξ, yc, x_ξy_ζₖ₊½, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
   _conserved_metric_term!(η̂z, (x_ζy_ξᵢ₊½, x_ξy_ζₖ₊½), (ξ_ax, ζ_ax), domain) # -> η̂z
 
   # ζ̂z = (x_ξ y)_η − (x_η y)_ξ
-  _iterp_mixed_terms_to_edge(scheme, x_ξ, y, x_ξy_ηⱼ₊½, η_ax, domain, *) # interp to j+½, since the outer deriv is in η
-  _iterp_mixed_terms_to_edge(scheme, x_η, y, x_ηy_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
+  _iterp_mixed_terms_to_edge(scheme, x_ξ, yc, x_ξy_ηⱼ₊½, η_ax, domain, *) # interp to j+½, since the outer deriv is in η
+  _iterp_mixed_terms_to_edge(scheme, x_η, yc, x_ηy_ξᵢ₊½, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
   _conserved_metric_term!(ζ̂z, (x_ξy_ηⱼ₊½, x_ηy_ξᵢ₊½), (η_ax, ξ_ax), domain) # -> ζ̂z
 
   # Now interpolate the conserved metrics to the edges
@@ -174,8 +165,13 @@ function update_metrics!(
 end
 
 # 2D version
+"""
+    update_metrics!(scheme, xc, yc, domain) 
+
+Update the 2D grid metrics given the cell-centroid positions `xc` and `yc`
+"""
 function update_metrics!(
-  scheme::MEG6Scheme{2}, x::AbstractArray{T,2}, y::AbstractArray{T,2}, domain
+  scheme::MEG6Scheme{2}, xc::AbstractArray{T,2}, yc::AbstractArray{T,2}, domain
 ) where {T}
   # compute the ∂x/∂ξ|ᵢ, ∂x/∂η|ᵢ terms
 
@@ -184,11 +180,18 @@ function update_metrics!(
   # arbitrary dimensions, so we need to define what axis we're working on
   ξ_ax, η_ax = (1, 2)
 
-  _cell_center_metric(scheme, x, scheme.∂x∂ξᵢ.∂x₁.∂ξ₁, ξ_ax, domain) # ∂x/∂ξ
-  _cell_center_metric(scheme, x, scheme.∂x∂ξᵢ.∂x₁.∂ξ₂, η_ax, domain) # ∂x/∂η
-
-  _cell_center_metric(scheme, y, scheme.∂x∂ξᵢ.∂x₂.∂ξ₁, ξ_ax, domain) # ∂y/∂ξ
-  _cell_center_metric(scheme, y, scheme.∂x∂ξᵢ.∂x₂.∂ξ₂, η_ax, domain) # ∂y/∂η
+  _cell_center_metric!(
+    scheme.∂x∂ξᵢ.∂x₁.∂ξ₁, xc, scheme.∂_cache, scheme.∂²_cache, ξ_ax, domain
+  ) # ∂x/∂ξ
+  _cell_center_metric!(
+    scheme.∂x∂ξᵢ.∂x₁.∂ξ₂, xc, scheme.∂_cache, scheme.∂²_cache, η_ax, domain
+  ) # ∂x/∂η
+  _cell_center_metric!(
+    scheme.∂x∂ξᵢ.∂x₂.∂ξ₁, yc, scheme.∂_cache, scheme.∂²_cache, ξ_ax, domain
+  ) # ∂y/∂ξ
+  _cell_center_metric!(
+    scheme.∂x∂ξᵢ.∂x₂.∂ξ₂, yc, scheme.∂_cache, scheme.∂²_cache, η_ax, domain
+  ) # ∂y/∂η
 
   # compute the inverse metrics, i.e., ∂ξᵢ/∂xᵢ (or ξₓ). To do this
   # the jacobian matrix has to be assembled and then inverted
@@ -201,35 +204,51 @@ function update_metrics!(
   ξx = scheme.∂ξ∂xᵢ.∂ξ₁.∂x₁
   ξ̂xᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₁.i₊½
   ξ̂xⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₁.j₊½
-  _iterp_mixed_terms_to_edge(scheme, s, scheme.Jᵢ, ξ̂xᵢ₊½, ξ_ax, domain, /)
-  _iterp_mixed_terms_to_edge(scheme, ξx, scheme.Jᵢ, ξ̂xⱼ₊½, η_ax, domain, /)
+  _iterp_mixed_terms_to_edge(
+    ξ̂xᵢ₊½, ξx, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, ξ_ax, domain, /
+  )
+  _iterp_mixed_terms_to_edge(
+    ξ̂xⱼ₊½, ξx, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, η_ax, domain, /
+  )
 
   # η̂x = ηx / J
   ηx = scheme.∂ξ∂xᵢ.∂ξ₂.∂x₁
   η̂xᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.i₊½
   η̂xⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.j₊½
-  _iterp_mixed_terms_to_edge(scheme, ηx, scheme.Jᵢ, η̂xᵢ₊½, ξ_ax, domain, /)
-  _iterp_mixed_terms_to_edge(scheme, ηx, scheme.Jᵢ, η̂xⱼ₊½, η_ax, domain, /)
+  _iterp_mixed_terms_to_edge(
+    η̂xᵢ₊½, ηx, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, ξ_ax, domain, /
+  )
+  _iterp_mixed_terms_to_edge(
+    η̂xⱼ₊½, ηx, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, η_ax, domain, /
+  )
 
   # ξ̂y = ξy / J
   ξy = scheme.∂ξ∂xᵢ.∂ξ₁.∂x₂
   ξ̂yᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.i₊½
   ξ̂yⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.j₊½
-  _iterp_mixed_terms_to_edge(scheme, ξy, scheme.Jᵢ, ξ̂yᵢ₊½, ξ_ax, domain, /)
-  _iterp_mixed_terms_to_edge(scheme, ξy, scheme.Jᵢ, ξ̂yⱼ₊½, η_ax, domain, /)
+  _iterp_mixed_terms_to_edge(
+    ξ̂yᵢ₊½, ξy, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, ξ_ax, domain, /
+  )
+  _iterp_mixed_terms_to_edge(
+    ξ̂yⱼ₊½, ξy, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, η_ax, domain, /
+  )
 
   # η̂y = ηy / J
   ηy = scheme.∂ξ∂xᵢ.∂ξ₂.∂x₂
   η̂yᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.i₊½
   η̂yⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.j₊½
-  _iterp_mixed_terms_to_edge(scheme, ηy, scheme.Jᵢ, η̂yᵢ₊½, ξ_ax, domain, /)
-  _iterp_mixed_terms_to_edge(scheme, ηy, scheme.Jᵢ, η̂yⱼ₊½, η_ax, domain, /)
+  _iterp_mixed_terms_to_edge(
+    η̂yᵢ₊½, ηy, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, ξ_ax, domain, /
+  )
+  _iterp_mixed_terms_to_edge(
+    η̂yⱼ₊½, ηy, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, η_ax, domain, /
+  )
 
   return nothing
 end
 
 # 1D version
-function update_metrics!(scheme::MEG6Scheme{1}, x::AbstractArray{T,1}) where {T}
+function update_metrics!(scheme::MEG6Scheme{1}, xc::AbstractArray{T,1}, domain) where {T}
   # compute the ∂x/∂ξ|ᵢ, ∂x/∂η|ᵢ terms
 
   # Each dimension is on a different axes in the various metric arrays.
@@ -237,7 +256,7 @@ function update_metrics!(scheme::MEG6Scheme{1}, x::AbstractArray{T,1}) where {T}
   # arbitrary dimensions, so we need to define what axis we're working on
   ξ_ax = 1
 
-  _cell_center_metric(scheme, x, scheme.∂xᵢ∂ξᵢ.x.ξ, ξ_ax) # ∂x/∂ξ
+  _cell_center_metric(scheme, xc, scheme.∂xᵢ∂ξᵢ.x.ξ, ξ_ax, domain) # ∂x/∂ξ
 
   # compute the inverse metrics, i.e., ∂ξᵢ/∂xᵢ (or ξₓ). To do this
   # the jacobian matrix has to be assembled and then inverted
@@ -254,6 +273,306 @@ end
 # ----------------------------------------------------------------
 # Private functions not intended to be used outside of this module
 # ----------------------------------------------------------------
+
+# 1st derivative operator
+@inline function forward_∂_2nd_order(ϕ::OffsetVector{T,SVector{3,T}}) where {T}
+  _∂ϕ = -(3 / 2) * ϕ[0] + 2ϕ[+1] - (1 / 2) * ϕ[+2]
+  return _∂ϕ
+end
+
+@inline function backward_∂_2nd_order(ϕ::OffsetVector{T,SVector{3,T}}) where {T}
+  _∂ϕ = +(3 / 2) * ϕ[0] - 2ϕ[-1] + (1 / 2) * ϕ[-2]
+  return _∂ϕ
+end
+
+@inline function forward_mixed_∂_4th_order(ϕ::OffsetVector{T,SVector{5,T}}) where {T}
+  _∂ϕ = (1 / 12) * (-25ϕ[0] + 48ϕ[+1] - 36ϕ[+2] + 16ϕ[+3] - 3ϕ[+4])
+  # _∂ϕ = (
+  #   -(1 / 4) * ϕ[0] - (5 / 6) * ϕ[+1] + (3 / 2) * ϕ[+2] - (1 / 2) * ϕ[+3] + (1 / 12) * ϕ[+4]
+  # )
+  return _∂ϕ
+end
+
+@inline function backward_mixed_∂_4th_order(ϕ::OffsetVector{T,SVector{5,T}}) where {T}
+  _∂ϕ = (1 / 12) * (+25ϕ[0] - 48ϕ[-1] + 36ϕ[-2] - 16ϕ[-3] + 3ϕ[-4])
+  # _∂ϕ = (
+  #   -(1 / 4) * ϕ[0] - (5 / 6) * ϕ[-1] + (3 / 2) * ϕ[-2] - (1 / 2) * ϕ[-3] + (1 / 12) * ϕ[-4]
+  # )
+  return _∂ϕ
+end
+
+@inline function central_∂_4th_order(ϕ::OffsetVector{T,SVector{5,T}}) where {T}
+  _∂ϕ = ((2 / 3) * (ϕ[+1] - ϕ[-1]) - (1 / 12) * (ϕ[+2] - ϕ[-2]))
+  return _∂ϕ
+end
+
+@inline function ∂(ϕ::OffsetVector{T,SVector{7,T}}) where {T}
+  f1 = 3 / 4
+  f2 = 3 / 20
+  f3 = 1 / 60
+  _∂ϕ = f1 * (ϕ[+1] - ϕ[-1]) - f2 * (ϕ[+2] - ϕ[-2]) + f3 * (ϕ[+3] - ϕ[-3])
+  return _∂ϕ
+end
+
+# 2nd derivative operator
+@inline function ∂²(
+  ϕ::OffsetVector{T,SVector{3,T}}, ∂ϕ::OffsetVector{T,SVector{3,T}}
+) where {T}
+  _∂²ϕ = 2(ϕ[+1] - 2ϕ[0] + ϕ[-1]) - (∂ϕ[+1] - ∂ϕ[-1]) / 2
+  return _∂²ϕ
+end
+
+@inline function forward_∂²(∂ϕ::OffsetVector{T,SVector{3,T}}) where {T}
+  _∂²ϕ = -(3 / 2) * ∂ϕ[+0] + 2∂ϕ[+1] - (1 / 2) * ∂ϕ[+2]
+  return _∂²ϕ
+end
+
+@inline function forward_mixed_∂²(∂ϕ::OffsetVector{T,SVector{5,T}}) where {T}
+  _∂²ϕ =
+    -(1 / 4) * ∂ϕ[0] - (5 / 6) * ∂ϕ[+1] + (3 / 2) * ∂ϕ[+2] - (1 / 2) * ∂ϕ[+3] +
+    (1 / 12) * ∂ϕ[+4]
+  return _∂²ϕ
+end
+
+@inline function backward_∂²(∂ϕ::OffsetVector{T,SVector{3,T}}) where {T}
+  _∂²ϕ = +(3 / 2) * ∂ϕ[+0] - 2∂ϕ[-1] + (1 / 2) * ∂ϕ[-2]
+  return _∂²ϕ
+end
+
+@inline function backward_mixed_∂²(∂ϕ::OffsetVector{T,SVector{5,T}}) where {T}
+  _∂²ϕ =
+    +(1 / 4) * ∂ϕ[0] + (5 / 6) * ∂ϕ[-1] - (3 / 2) * ∂ϕ[-2] + (1 / 2) * ∂ϕ[-3] -
+    (1 / 12) * ∂ϕ[-4]
+  return _∂²ϕ
+end
+
+# @inline function ∂²_central(
+#   ϕ::OffsetVector{T,SVector{3,T}}, ∂ϕ::OffsetVector{T,SVector{3,T}}
+# ) where {T}
+#   # _∂²ϕ = -(1 / 2) * (∂ϕ[+1] - ∂ϕ[-1]) - 2(ϕ[+1] - 2ϕ[0] + ϕ[-1])
+#   _∂²ϕ = -(1 / 2) * (∂ϕ[+1] - ∂ϕ[-1]) - 2(ϕ[+1] - 2ϕ[0] + ϕ[-1])
+#   return _∂²ϕ
+# end
+
+function _get_inner_gradient(
+  ϕ::AbstractArray{T,N}, ∂ϕ∂ξ::AbstractArray{T,N}, axis::Int, domain
+) where {T,N}
+  return nothing
+end
+
+function _boundary_∂!(
+  ∂ϕ::AbstractArray{T,N}, ϕ::AbstractArray{T,N}, axis::Int, domain
+) where {T,N}
+
+  # Create CartesianIndices iterators for the thin boundary regions 
+  # along the given axis. For example, lets say the boundary axis is "i",
+  # or axis=1, so the lower_b1 corresponts to CartesianIndices((1:1, 1:10))
+  # for a domain of CartesianIndices((1:10,1:10)), lower_b2 is (2:2, 1:10) 
+  # and so on. The same logic applies to upper_b1, etc.
+  lower_b1 = lower_boundary_indices(domain, axis, 0)  # first index on given boundary axis
+  lower_b2 = lower_boundary_indices(domain, axis, +1) # first index + 1 on given boundary axis
+  lower_b3 = lower_boundary_indices(domain, axis, +2) # first index + 2 on given boundary axis
+  upper_b3 = upper_boundary_indices(domain, axis, -2) # last index on given boundary axis
+  upper_b2 = upper_boundary_indices(domain, axis, -1) # last index + 1 on given boundary axis
+  upper_b1 = upper_boundary_indices(domain, axis, 0)  # last index + 2 on given boundary axis
+
+  # Do 1st derivatives first...
+  # one-sided forward ∂ϕ
+  for idx in lower_b1
+    imp = (0, 2) # i.e offset of 0:2 
+    offset_idx = plus_minus(idx, axis, imp)
+    _ϕ = OffsetVector(SVector{3}(view(ϕ, offset_idx)), 0:2)
+    ∂ϕ[idx] = forward_∂_2nd_order(_ϕ)
+  end
+
+  for idx in lower_b2
+    imp = (0, 4) # i.e offset of 0:4
+    offset_idx = plus_minus(idx, axis, imp)
+    _ϕ = OffsetVector(SVector{5}(view(ϕ, offset_idx)), 0:4)
+    ∂ϕ[idx] = forward_mixed_∂_4th_order(_ϕ)
+  end
+
+  for idx in lower_b3
+    imp = (2, 2) # i.e offset of -2:2
+    offset_idx = plus_minus(idx, axis, imp)
+    _ϕ = OffsetVector(SVector{5}(view(ϕ, offset_idx)), -2:2)
+    ∂ϕ[idx] = central_∂_4th_order(_ϕ)
+  end
+
+  # one-sided backward ∂ϕ
+  for idx in upper_b3
+    imp = (2, 2) # i.e offset of -2:2
+    offset_idx = plus_minus(idx, axis, imp)
+    _ϕ = OffsetVector(SVector{5}(view(ϕ, offset_idx)), -2:2)
+    ∂ϕ[idx] = central_∂_4th_order(_ϕ)
+  end
+
+  for idx in upper_b2
+    imp = (4, 0) # i.e offset of 0:4
+    offset_idx = plus_minus(idx, axis, imp)
+    _ϕ = OffsetVector(SVector{5}(view(ϕ, offset_idx)), -4:0)
+    ∂ϕ[idx] = backward_mixed_∂_4th_order(_ϕ)
+  end
+
+  for idx in upper_b1
+    imp = (2, 0) # i.e offset of 0:4
+    offset_idx = plus_minus(idx, axis, imp)
+    _ϕ = OffsetVector(SVector{3}(view(ϕ, offset_idx)), -2:0)
+    ∂ϕ[idx] = backward_∂_2nd_order(_ϕ)
+  end
+
+  return nothing
+end
+
+function _boundary_∂AB!(
+  ∂AB::AbstractArray{T,N},
+  A::AbstractArray{T,N},
+  B::AbstractArray{T,N},
+  axis::Int,
+  domain,
+  operator=*,
+) where {T,N}
+
+  # Create CartesianIndices iterators for the thin boundary regions 
+  # along the given axis. For example, lets say the boundary axis is "i",
+  # or axis=1, so the lower_b1 corresponts to CartesianIndices((1:1, 1:10))
+  # for a domain of CartesianIndices((1:10,1:10)), lower_b2 is (2:2, 1:10) 
+  # and so on. The same logic applies to upper_b1, etc.
+  lower_b1 = lower_boundary_indices(domain, axis, 0)  # first index on given boundary axis
+  lower_b2 = lower_boundary_indices(domain, axis, +1) # first index + 1 on given boundary axis
+  lower_b3 = lower_boundary_indices(domain, axis, +2) # first index + 2 on given boundary axis
+  upper_b3 = upper_boundary_indices(domain, axis, -2) # last index on given boundary axis
+  upper_b2 = upper_boundary_indices(domain, axis, -1) # last index + 1 on given boundary axis
+  upper_b1 = upper_boundary_indices(domain, axis, 0)  # last index + 2 on given boundary axis
+
+  # Do 1st derivatives first...
+  # one-sided forward ∂AB
+  for idx in lower_b1
+    imp = (0, 2) # i.e offset of 0:2 
+    offset_idx = plus_minus(idx, axis, imp)
+    _A = SVector{3}(view(A, offset_idx))
+    _B = SVector{3}(view(B, offset_idx))
+    _AB = OffsetVector(operator.(_A, _B), 0:2)
+    ∂AB[idx] = forward_∂_2nd_order(_AB)
+  end
+
+  for idx in lower_b2
+    imp = (0, 4) # i.e offset of 0:4
+    offset_idx = plus_minus(idx, axis, imp)
+    _A = SVector{5}(view(A, offset_idx))
+    _B = SVector{5}(view(B, offset_idx))
+    _AB = OffsetVector(operator.(_A, _B), 0:4)
+    ∂AB[idx] = forward_mixed_∂_4th_order(_AB)
+  end
+
+  for idx in lower_b3
+    imp = (2, 2) # i.e offset of -2:2
+    offset_idx = plus_minus(idx, axis, imp)
+    _A = SVector{5}(view(A, offset_idx))
+    _B = SVector{5}(view(B, offset_idx))
+    _AB = OffsetVector(operator.(_A, _B), -2:2)
+    ∂AB[idx] = central_∂_4th_order(_AB)
+  end
+
+  # one-sided backward ∂AB
+  for idx in upper_b3
+    imp = (2, 2) # i.e offset of -2:2
+    offset_idx = plus_minus(idx, axis, imp)
+    # _ϕ = OffsetVector(SVector{5}(view(ϕ, offset_idx)), -2:2)
+    _A = SVector{5}(view(A, offset_idx))
+    _B = SVector{5}(view(B, offset_idx))
+    _AB = OffsetVector(operator.(_A, _B), -2:2)
+    ∂AB[idx] = central_∂_4th_order(_AB)
+  end
+
+  for idx in upper_b2
+    imp = (4, 0) # i.e offset of 0:4
+    offset_idx = plus_minus(idx, axis, imp)
+    # _ϕ = OffsetVector(SVector{5}(view(ϕ, offset_idx)), -4:0)
+    _A = SVector{5}(view(A, offset_idx))
+    _B = SVector{5}(view(B, offset_idx))
+    _AB = OffsetVector(operator.(_A, _B), -4:0)
+    ∂AB[idx] = backward_mixed_∂_4th_order(_AB)
+  end
+
+  for idx in upper_b1
+    imp = (2, 0) # i.e offset of 0:4
+    offset_idx = plus_minus(idx, axis, imp)
+    # _ϕ = OffsetVector(SVector{3}(view(ϕ, offset_idx)), -2:0)
+    _A = SVector{3}(view(A, offset_idx))
+    _B = SVector{3}(view(B, offset_idx))
+    _AB = OffsetVector(operator.(_A, _B), -2:0)
+    ∂AB[idx] = backward_∂_2nd_order(_AB)
+  end
+
+  return nothing
+end
+
+function _boundary_∂²!(
+  ∂²ϕ::AbstractArray{T,N}, ∂ϕ::AbstractArray{T,N}, axis::Int, domain
+) where {T,N}
+
+  # Create CartesianIndices iterators for the thin boundary regions 
+  # along the given axis. For example, lets say the boundary axis is "i",
+  # or axis=1, so the lower_b1 corresponts to CartesianIndices((1:1, 1:10))
+  # for a domain of CartesianIndices((1:10,1:10)), lower_b2 is (2:2, 1:10) 
+  # and so on. The same logic applies to upper_b1, etc.
+  lower_b1 = lower_boundary_indices(domain, axis, 0)  # first index on given boundary axis
+  lower_b2 = lower_boundary_indices(domain, axis, +1) # first index + 1 on given boundary axis
+  # lower_b3 = lower_boundary_indices(domain, axis, +2) # first index + 2 on given boundary axis
+  # upper_b3 = upper_boundary_indices(domain, axis, -2) # last index on given boundary axis
+  upper_b2 = upper_boundary_indices(domain, axis, -1) # last index + 1 on given boundary axis
+  upper_b1 = upper_boundary_indices(domain, axis, 0)  # last index + 2 on given boundary axis
+
+  # Now do 2nd derivatives, since they depend on the 1st derivatives
+  # one-sided forward ∂²ϕ
+  for idx in lower_b1
+    imp = (0, 2) # i.e offset of 0:2
+    offset_idx = plus_minus(idx, axis, imp)
+    _∂ϕ = OffsetVector(SVector{3}(view(∂ϕ, offset_idx)), 0:2)
+    ∂²ϕ[idx] = forward_∂²(_∂ϕ)
+  end
+
+  for idx in lower_b2
+    imp = (0, 4) # i.e offset of 0:4
+    offset_idx = plus_minus(idx, axis, imp)
+    _∂ϕ = OffsetVector(SVector{5}(view(∂ϕ, offset_idx)), 0:4)
+    ∂²ϕ[idx] = forward_mixed_∂²(_∂ϕ)
+  end
+
+  # for idx in lower_b3
+  #   imp = (1, 1) # i.e offset of -2:2
+  #   offset_idx = plus_minus(idx, axis, imp)
+  #   _ϕ = OffsetVector(SVector{3}(view(ϕ, offset_idx)), -1:1)
+  #   _∂ϕ = OffsetVector(SVector{3}(view(∂ϕ, offset_idx)), -1:1)
+  #   ∂²ϕ[idx] = ∂²_central(_ϕ, _∂ϕ)
+  # end
+
+  # one-sided backward ∂²ϕ
+  # for idx in upper_b3
+  #   imp = (1, 1) # i.e offset of -1:1
+  #   offset_idx = plus_minus(idx, axis, imp)
+  #   _ϕ = OffsetVector(SVector{3}(view(ϕ, offset_idx)), -1:1)
+  #   _∂ϕ = OffsetVector(SVector{3}(view(∂ϕ, offset_idx)), -1:1)
+  #   ∂²ϕ[idx] = ∂²_central(_ϕ, _∂ϕ)
+  # end
+
+  for idx in upper_b2
+    imp = (4, 0) # i.e offset of 0:4
+    offset_idx = plus_minus(idx, axis, imp)
+    _∂ϕ = OffsetVector(SVector{5}(view(∂ϕ, offset_idx)), -4:0)
+    ∂²ϕ[idx] = backward_mixed_∂²(_∂ϕ)
+  end
+
+  for idx in upper_b1
+    imp = (2, 0) # i.e offset of 0:2
+    offset_idx = plus_minus(idx, axis, imp)
+    _∂ϕ = OffsetVector(SVector{3}(view(∂ϕ, offset_idx)), -2:0)
+    ∂²ϕ[idx] = backward_∂²(_∂ϕ)
+  end
+
+  return nothing
+end
 
 @inline function _conserved_metric_term!(
   ∂ϕ, (ϕ1, ϕ2)::NTuple{2,AbstractArray{T,3}}, (ax1, ax2)::NTuple{2,Int}, domain
@@ -377,99 +696,35 @@ function _inverse_metrics(scheme::MEG6Scheme{1}, domain)
   return nothing
 end
 
-# function _interp_conserv_metrics_to_edges(
-#   scheme, ϕ::AbstractArray{T,2}, J::AbstractArray{T,2}, ∂ξ̂∂xᵢ₊½, ∂ξ̂∂xⱼ₊½
-# ) where {T}
-
-#   # interpolate from the cell-centered quantity ϕ to the conservative
-#   # edge metric term ϕ/J|ᵢ₊½, where  ϕ is whatever metric quantity, like ξₓ
-#   # ϕ̂ is ϕ / J, e.g. the conservative metric, like ξ̂ₓ = ξₓ / J
-
-#   ∂ϕ̂ᵢ = scheme.∂ϕᵢ.ξ
-#   ∂ϕ̂ⱼ = scheme.∂ϕᵢ.η
-#   ∂²ϕ̂ᵢ = scheme.∂²ϕᵢ.ξ
-#   ∂²ϕ̂ⱼ = scheme.∂²ϕᵢ.η
-
-#   # edge metrics we're updating
-#   ∂ϕ̂∂xᵢ₊½ = ∂ξᵢ∂ϕ̂ᵢ.x
-#   ∂ϕ̂∂yⱼ₊½ = ∂ξᵢ∂ϕ̂ᵢ.y
-
-#   # find the derivative term ∂ϕ̂ᵢ, or ∂(ϕ/J)/∂i
-#   @inbounds for idx in mesh.iterators.cell.domain
-#     i, j = idx.I
-#     ϕ_stencil = SVector{7}(view(ϕ, (i - 3):(i + 3), j))
-#     J_stencil = SVector{7}(view(J, (i - 3):(i + 3), j))
-#     ϕ̂ = OffsetVector(ϕ_stencil / J_stencil, -3:3)
-#     ∂ϕ̂ᵢ[idx] = ∂ϕ(ϕ̂)
-#   end
-
-#   @inbounds for idx in mesh.iterators.cell.domain
-#     i, j = idx.I
-#     ϕ_stencil = SVector{7}(view(ϕ, i, (j - 3):(j + 3)))
-#     J_stencil = SVector{7}(view(J, i, (j - 3):(j + 3)))
-#     ϕ̂ = OffsetVector(ϕ_stencil / J_stencil, -3:3)
-#     ∂ϕ̂ⱼ[idx] = ∂ϕ(ϕ̂)
-#   end
-
-#   @inbounds for idx in mesh.iterators.cell.domain
-#     i, j = idx.I
-
-#     ϕ_stencil = SVector{3}(view(ϕ, (i - 1):(i + 1), j))
-#     J_stencil = SVector{3}(view(J, (i - 1):(i + 1), j))
-#     ϕ̂ = OffsetVector(ϕ_stencil / J_stencil, -1:1)
-#     ∂ϕ̂ = OffsetVector(SVector{3}(view(∂ϕ̂ⱼ, (i - 1):(i + 1), j)), -1:1)
-#     ∂²ϕ̂ᵢ[idx] = ∂²ϕ(ϕ̂, ∂ϕ̂)
-#   end
-
-#   @inbounds for idx in mesh.iterators.cell.domain
-#     i, j = idx.I
-#     ϕ_stencil = SVector{3}(view(ϕ, i, (j - 1):(j + 1)))
-#     J_stencil = SVector{3}(view(J, i, (j - 1):(j + 1)))
-#     ϕ̂ = OffsetVector(ϕ_stencil / J_stencil, -1:1)
-#     ∂ϕ̂ = OffsetVector(SVector{3}(view(∂ϕ̂ⱼ, i, (j - 1):(j + 1))), -1:1)
-#     ∂²ϕ̂ⱼ[idx] = ∂²ϕ(ϕ̂, ∂ϕ̂)
-#   end
-
-#   # interpolate to the edges
-#   @inbounds for idx in mesh.iterators.cell.domain
-#     i, j = idx.I
-
-#     #TODO: how to handle edge ∂ terms?
-
-#     ϕ̂ᴸᵢ₊½ = (ϕ[i, j] / J[i, j]) + 0.5∂ϕ̂ᵢ[i, j] + ∂²ϕ̂ᵢ[i, j] / 12
-#     ϕ̂ᴸⱼ₊½ = (ϕ[i, j] / J[i, j]) + 0.5∂ϕ̂ⱼ[i, j] + ∂²ϕ̂ⱼ[i, j] / 12
-
-#     ϕ̂ᴿᵢ₊½ = (ϕ[i + 1, j] / J[i + 1, j]) - 0.5∂ϕ̂ᵢ[i + 1, j] + ∂²ϕ̂ᵢ[i + 1, j] / 12
-#     ϕ̂ᴿⱼ₊½ = (ϕ[i, j + 1] / J[i, j + 1]) - 0.5∂ϕ̂ⱼ[i, j + 1] + ∂²ϕ̂ⱼ[i, j + 1] / 12
-
-#     ∂ϕ̂∂xᵢ₊½[idx] = 0.5(ϕ̂ᴸᵢ₊½ + ϕ̂ᴿᵢ₊½)
-#     ∂ϕ̂∂yⱼ₊½[idx] = 0.5(ϕ̂ᴸⱼ₊½ + ϕ̂ᴿⱼ₊½)
-#   end
-
-#   return nothing
-# end
-
 """
 Interpolate cell-centered combination of A and B terms to the edge. Consistency 
 requires that the whole term is interpolated, i.e, A*B, rather than interpolating 
 them separately and then applying the operator.
 """
 function _iterp_mixed_terms_to_edge(
-  scheme::MEG6Scheme{N,T},
+  ABᵢ₊½::AbstractArray{T,N},
   A::AbstractArray{T,N},
   B::AbstractArray{T,N},
-  ABᵢ₊½::AbstractArray{T,N},
+  ∂AB, # cache arrays
+  ∂²AB, # cache arrays
   axis::Int, # 1 = i, 2 = j, 3 = k
   domain, # domain iterator, e.g., CartesianIndices
   operator=*, # we're interpolating operator.(A,B), e.g, A*B
 ) where {T,N}
 
   # intermediate-arrays
-  ∂AB = scheme.∂_cache
-  ∂²AB = scheme.∂²_cache
+  # ∂AB = scheme.∂_cache
+  # ∂²AB = scheme.∂²_cache
+  # TODO: fix this shit!
+  # gradients for the boundaries require mixed and one-sided stencils
+  # _boundary_∂AB!(∂AB, A, B, axis, domain)
+
+  # since we already did the special boundary treatment, 
+  # shrink the domain where we apply the standard stencils below
+  inner_domain_m3 = expand(domain, axis, -3) # shrink by 3 boundary cells
 
   # find the derivative term ∂AB, or ∂(A*B)/∂i
-  for idx in domain
+  for idx in inner_domain_m3
     # get i-3:i+3 on whichever axis, e.g. i, j, or k
     offset = 3
     offset_idx = plus_minus(idx, axis, offset)
@@ -486,8 +741,14 @@ function _iterp_mixed_terms_to_edge(
     ∂AB[idx] = ∂(AB_stencil)
   end
 
+  # gradients for the boundaries require mixed and one-sided stencils
+  # _boundary_∂²!(∂²AB, ∂AB, axis, domain)
+
+  # cell-centered ∂²ϕ
+  inner_domain_m1 = expand(domain, axis, -1) # shrink by 3 boundary cells
+
   # find the 2nd derivative term ∂²AB, or ∂²(A*B)/∂i
-  for idx in domain
+  for idx in inner_domain_m1
     offset = 1
     offset_idx = plus_minus(idx, axis, offset)
 
@@ -497,6 +758,39 @@ function _iterp_mixed_terms_to_edge(
     ∂AB_stencil = OffsetVector(SVector{3}(view(∂AB, offset_idx)), (-offset):offset)
     ∂²AB[idx] = ∂²(AB_stencil, ∂AB_stencil)
   end
+
+  # # treat boundaries separately for the edge terms
+  # lower_b1 = lower_boundary_indices(domain, axis, 0)  # first index on given boundary axis
+  # for idx in lower_b1
+  #   up_one = up(idx, axis, 1) # i.e. [i+1, j, k]
+  #   down_one = down(idx, axis, 1) # i.e. [i+1, j, k]
+
+  #   AB = operator.(A[idx], B[idx]) # i.e. A[i,j,k] * B[i,j,k]
+  #   AB_up_one = operator.(A[up_one], B[up_one]) # i.e, A[i+1, j, k] * B[i+1, j, k]
+
+  #   ABᴸᵢ₊½ = AB + 0.5∂AB[idx] + ∂²AB[idx] / 12
+  #   ABᴿᵢ₊½ = AB_up_one - 0.5∂AB[up_one] + ∂²AB[up_one] / 12
+
+  #   ABᵢ₋½ = AB - 0.5∂AB[idx] + ∂²AB[idx] / 12
+
+  #   ABᵢ₊½[down_one] = ABᵢ₋½ # we need to make sure that ᵢ₊½ is stored along the low boundary
+  #   ABᵢ₊½[idx] = 0.5(ABᴸᵢ₊½ + ABᴿᵢ₊½)
+  # end
+
+  # upper_b1 = upper_boundary_indices(domain, axis, 0)  # last index on given boundary axis
+  # for idx in upper_b1
+  #   # down_one = down(idx, axis, 1) # i.e. [i-1, j, k]
+
+  #   AB = operator.(A[idx], B[idx]) # i.e. A[i,j,k] * B[i,j,k]
+  #   # AB_down_one = operator.(A[down_one], B[down_one]) # i.e, A[i+1, j, k] * B[i+1, j, k]
+
+  #   ABᴸᵢ₊½ = AB + 0.5∂AB[idx] + ∂²AB[idx] / 12
+
+  #   # ABᴸᵢ₋½ = AB_down_one + 0.5∂AB[down_one] + ∂²AB[down_one] / 12
+  #   # ABᴿᵢ₋½ = AB - 0.5∂AB[idx] + ∂²AB[idx] / 12
+
+  #   ABᵢ₊½[idx] = ABᴸᵢ₊½
+  # end
 
   # interpolate to the edge
   for idx in domain
@@ -581,21 +875,22 @@ end
 Compute a cell-centered term ∂ϕ∂ξ based on the MEG6 gradient scheme. Provide the axis to determine
 which direction
 """
-function _cell_center_metric(
-  scheme::MEG6Scheme{N,T}, ϕ::AbstractArray{T,N}, ∂ϕ∂ξ, axis::Int, domain
+function _cell_center_metric!(
+  ∂ϕ∂ξ, ϕ::AbstractArray{T,N}, ∂ϕ, ∂²ϕ, axis::Int, domain
 ) where {T,N}
   # intermediate-arrays
-  ∂ϕ = scheme.∂_cache
-  ∂²ϕ = scheme.∂²_cache
+  # ∂ϕ = scheme.∂_cache
+  # ∂²ϕ = scheme.∂²_cache
 
-  # expand the domain by 1 cell so we can get better
-  # gradients along the edge. This *ONLY* works when 
-  # we have functionally smooth definitions of the grid coordinates
-  # rather than a discrete array provided by a mesh type
-  extended_domain = expand(domain, 1)
+  # gradients for the boundaries require mixed and one-sided stencils
+  _boundary_∂!(∂ϕ, ϕ, axis, domain)
+
+  # since we already did the special boundary treatment, 
+  # shrink the domain where we apply the standard stencils below
+  inner_domain_m3 = expand(domain, axis, -3) # shrink by 3 boundary cells
 
   # cell-centered ∂ϕ
-  for idx in extended_domain
+  for idx in inner_domain_m3
     offset = 3
     # get i-3:i+3 on whichever axis, e.g. i, j, or k
     offset_idx = plus_minus(idx, axis, offset)
@@ -609,8 +904,13 @@ function _cell_center_metric(
     ∂ϕ[idx] = ∂(_ϕ)
   end
 
+  # gradients for the boundaries require mixed and one-sided stencils
+  _boundary_∂²!(∂²ϕ, ∂ϕ, axis, domain)
+
   # cell-centered ∂²ϕ
-  for idx in domain
+  inner_domain_m1 = expand(domain, axis, -1) # shrink by 3 boundary cells
+
+  for idx in inner_domain_m1
     offset = 1
     # get i-1:i+1 on whichever axis, e.g. i, j, or k
     offset_idx = plus_minus(idx, axis, offset)
@@ -629,12 +929,42 @@ function _cell_center_metric(
   # ------------------------------------------------------------------
   # now find ∂ϕ∂ξ
   # ------------------------------------------------------------------
-  #TODO: how to handle boundary ∂ terms?
-  for idx in domain
+  # the edge names say ᵢ₊½, but it could be i₊½, j₊½, or k₊½, it just means the "+/-" edge
+
+  # treat boundaries separately for the edge terms
+  lower_b1 = lower_boundary_indices(domain, axis, 0)  # first index on given boundary axis
+  for idx in lower_b1
+    up_one = up(idx, axis, 1) # i.e. [i+1, j, k]
+
+    ϕᴸᵢ₊½ = ϕ[idx] + 0.5∂ϕ[idx] + ∂²ϕ[idx] / 12
+    ϕᴿᵢ₊½ = ϕ[up_one] - 0.5∂ϕ[up_one] + ∂²ϕ[up_one] / 12
+
+    ϕᵢ₋½ = ϕ[idx] - 0.5∂ϕ[idx] + ∂²ϕ[idx] / 12
+
+    ϕᵢ₊½ = 0.5(ϕᴸᵢ₊½ + ϕᴿᵢ₊½)
+
+    ∂ϕ∂ξ[idx] = ϕᵢ₊½ - ϕᵢ₋½ # / Δξ, but Δξ = 1 by definition
+  end
+
+  upper_b1 = upper_boundary_indices(domain, axis, 0)  # last index on given boundary axis
+  for idx in upper_b1
+    down_one = down(idx, axis, 1) # i.e. [i-1, j, k]
+
+    ϕᵢ₊½ = ϕ[idx] + 0.5∂ϕ[idx] + ∂²ϕ[idx] / 12
+
+    ϕᴸᵢ₋½ = ϕ[down_one] + 0.5∂ϕ[down_one] + ∂²ϕ[down_one] / 12
+    ϕᴿᵢ₋½ = ϕ[idx] - 0.5∂ϕ[idx] + ∂²ϕ[idx] / 12
+
+    ϕᵢ₋½ = 0.5(ϕᴸᵢ₋½ + ϕᴿᵢ₋½)
+
+    ∂ϕ∂ξ[idx] = ϕᵢ₊½ - ϕᵢ₋½ # / Δξ, but Δξ = 1 by definition
+  end
+
+  inner_domain_m1 = expand(domain, axis, -1) # shrink by 1 boundary cell
+  for idx in inner_domain_m1
     up_one = up(idx, axis, 1) # i.e. [i+1, j, k]
     down_one = down(idx, axis, 1) # i.e. [i-1, j, k]
 
-    # the name says ᵢ₊½, but it could be i₊½, j₊½, or k₊½, it just means the "+/-" edge
     ϕᴸᵢ₊½ = ϕ[idx] + 0.5∂ϕ[idx] + ∂²ϕ[idx] / 12
     ϕᴸᵢ₋½ = ϕ[down_one] + 0.5∂ϕ[down_one] + ∂²ϕ[down_one] / 12
 
@@ -649,61 +979,3 @@ function _cell_center_metric(
 
   return nothing
 end
-
-# function _cell_centered_mixed_derivative_outer_ζ(scheme)
-
-#   #(y_η⋅z)_ζ, where the _η means ∂/∂η
-#   @inbounds for idx in mesh.iterators.cell.domain
-#     i, j, k = idx.I
-
-#     yηzₖ₊½ = yηzₖ₋½ = 0
-#     yηz_ζ[i, j, k] = yηzₖ₊½ - yηzₖ₋½ # / Δζ, but Δζ = 1 by definition
-#   end
-
-#   return nothing
-# end
-
-# function cons()
-#   yξz = (
-#     (2282 / 2880) * (y[i + 1, j, k] - y[i - 1, j, k]) * z[i, j, k] +
-#     (-546 / 2880) * (y[i + 2, j, k] - y[i - 2, j, k]) * z[i, j, k] +
-#     (89 / 2880) * (y[i + 3, j, k] - y[i - 3, j, k]) * z[i, j, k] +
-#     (-3 / 2880) * (y[i + 4, j, k] - y[i - 4, j, k]) * z[i, j, k] +
-#     (-1 / 2880) * (y[i + 5, j, k] - y[i - 5, j, k]) * z[i, j, k]
-#   )
-
-#   yηz = (
-#     (2282 / 2880) * (y[i, j + 1, k] - y[i, j - 1, k]) * z[i, j, k] +
-#     (-546 / 2880) * (y[i, j + 2, k] - y[i, j - 2, k]) * z[i, j, k] +
-#     (89 / 2880) * (y[i, j + 3, k] - y[i, j - 3, k]) * z[i, j, k] +
-#     (-3 / 2880) * (y[i, j + 4, k] - y[i, j - 4, k]) * z[i, j, k] +
-#     (-1 / 2880) * (y[i, j + 5, k] - y[i, j - 5, k]) * z[i, j, k]
-#   )
-
-#   yζz = (
-#     (2282 / 2880) * (y[i, j, k + 1] - y[i, j, k - 1]) * z[i, j, k] +
-#     (-546 / 2880) * (y[i, j, k + 2] - y[i, j, k - 2]) * z[i, j, k] +
-#     (89 / 2880) * (y[i, j, k + 3] - y[i, j, k - 3]) * z[i, j, k] +
-#     (-3 / 2880) * (y[i, j, k + 4] - y[i, j, k - 4]) * z[i, j, k] +
-#     (-1 / 2880) * (y[i, j, k + 5] - y[i, j, k - 5]) * z[i, j, k]
-#   )
-
-#   return nothing
-# end
-
-# for mixed derivatives, like ξ̂x = (y_η z)_ζ − (y_ζ z)_η, we have 
-# the y_η terms already computed, and the normal x,y,z terms as well.
-# For the outer derivatives, we need to interpolate the product of 
-# the inner terms to the edges and take the derivative there.
-
-# ξ̂x = (y_η z)_ζ − (y_ζ z)_η
-# η̂x = (y_ζ z)_ξ − (y_ξ z)_ζ
-# ζ̂x = (y_ξ z)_η − (y_η z)_ξ
-
-# ξ̂y = (z_η x)_ζ − (z_ζ x)_η
-# η̂y = (z_ζ x)_ξ − (z_ξ x)_ζ
-# ζ̂y = (z_ξ x)_η − (z_η x)_ξ
-
-# ξ̂z = (x_η y)_ζ − (x_ζ y)_η
-# η̂z = (x_ζ y)_ξ − (x_ξ y)_ζ
-# ζ̂z = (x_ξ y)_η − (x_η y)_ξ
