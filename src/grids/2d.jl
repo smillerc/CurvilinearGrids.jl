@@ -69,25 +69,40 @@ function CurvilinearGrid2D(
   )
 
   if cache
-    _metric = (
-      J=zero(T),
-      ξx=zero(T),
+    _edge_metric = (
+      # J=zero(T),
+      # ξx=zero(T),
       ξ̂x=zero(T),
-      ξy=zero(T),
+      # ξy=zero(T),
       ξ̂y=zero(T),
-      ηx=zero(T),
+      # ηx=zero(T),
       η̂x=zero(T),
-      ηy=zero(T),
+      # ηy=zero(T),
       η̂y=zero(T),
       ξt=zero(T),
       ηt=zero(T),
     )
 
-    M = typeof(_metric)
-    cell_center_metrics = Matrix{M}(undef, ncells .+ 2nhalo)
+    _cell_metric = (
+      J=zero(T),
+      ξx=zero(T),
+      # ξ̂x=zero(T),
+      ξy=zero(T),
+      # ξ̂y=zero(T),
+      ηx=zero(T),
+      # η̂x=zero(T),
+      ηy=zero(T),
+      # η̂y=zero(T),
+      ξt=zero(T),
+      ηt=zero(T),
+    )
+
+    EM = typeof(_edge_metric)
+    CM = typeof(_cell_metric)
+    cell_center_metrics = Matrix{CM}(undef, ncells .+ 2nhalo)
 
     edge_metrics = (
-      i₊½=Matrix{M}(undef, ncells .+ 2nhalo), j₊½=Matrix{M}(undef, ncells .+ 2nhalo)
+      i₊½=Matrix{EM}(undef, ncells .+ 2nhalo), j₊½=Matrix{EM}(undef, ncells .+ 2nhalo)
     )
 
     xcoords = zeros(T, nnodes .+ 2nhalo)
@@ -122,12 +137,93 @@ function CurvilinearGrid2D(
     use_autodiff,
   )
 
-  update_metrics!(m)
+  update_metrics_meg!(m)
 
   return m
 end
 
-function update_metrics!(m::CurvilinearGrid2D)
+function update_metrics_meg!(m::CurvilinearGrid2D)
+  cswh = cellsize_withhalo(m)
+  meg6_metrics = MEG6Scheme(cswh)
+
+  # centroids
+  xc = zeros(cswh)
+  yc = zeros(cswh)
+  for idx in CartesianIndices(xc)
+    i, j = idx.I
+    xc[idx] = m.x_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5) # x
+    yc[idx] = m.y_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5) # y
+  end
+
+  domain = m.iterators.cell.domain
+
+  MetricDiscretizationSchemes.update_metrics!(meg6_metrics, xc, yc, domain)
+
+  # cell centroid metrics
+  _J = J(meg6_metrics)
+  _ξx = ξx(meg6_metrics)
+  _ξy = ξy(meg6_metrics)
+  _ηx = ηx(meg6_metrics)
+  _ηy = ηy(meg6_metrics)
+  for idx in m.iterators.cell.domain
+    _metric = (
+      J=_J[idx], #
+      ξx=_ξx[idx], #
+      ξy=_ξy[idx], #
+      ηx=_ηx[idx], #
+      ηy=_ηy[idx], #
+      ξt=zero(Float64),
+      ηt=zero(Float64),
+    )
+
+    m.cell_center_metrics[idx] = _metric
+  end
+
+  ilo, ihi, jlo, jhi = m.domain_limits.cell
+
+  j₊½CI = CartesianIndices((ilo:ihi, (jlo - 1):jhi))
+  i₊½CI = CartesianIndices(((ilo - 1):ihi, jlo:jhi))
+
+  _ξ̂xᵢ₊½ = ξ̂xᵢ₊½(meg6_metrics)
+  _η̂xᵢ₊½ = η̂xᵢ₊½(meg6_metrics)
+  _ξ̂yᵢ₊½ = ξ̂yᵢ₊½(meg6_metrics)
+  _η̂yᵢ₊½ = η̂yᵢ₊½(meg6_metrics)
+
+  _ξ̂xⱼ₊½ = ξ̂xⱼ₊½(meg6_metrics)
+  _η̂xⱼ₊½ = η̂xⱼ₊½(meg6_metrics)
+  _ξ̂yⱼ₊½ = ξ̂yⱼ₊½(meg6_metrics)
+  _η̂yⱼ₊½ = η̂yⱼ₊½(meg6_metrics)
+
+  for idx in i₊½CI
+    i₊½_metric = (
+      ξ̂x=_ξ̂xᵢ₊½[idx],
+      ξ̂y=_ξ̂yᵢ₊½[idx],
+      η̂x=_η̂xᵢ₊½[idx],
+      η̂y=_η̂yᵢ₊½[idx],
+      ξt=zero(Float64),
+      ηt=zero(Float64),
+    )
+
+    m.edge_metrics.i₊½[idx] = i₊½_metric
+  end
+
+  for idx in j₊½CI
+    j₊½_metric = (
+      ξ̂x=_ξ̂xⱼ₊½[idx],
+      ξ̂y=_ξ̂yⱼ₊½[idx],
+      η̂x=_η̂xⱼ₊½[idx],
+      η̂y=_η̂yⱼ₊½[idx],
+      ξt=zero(Float64),
+      ηt=zero(Float64),
+    )
+
+    m.edge_metrics.j₊½[idx] = j₊½_metric
+  end
+
+  return nothing
+end
+
+function update_metrics_old!(m::CurvilinearGrid2D)
   function _get_metrics(m, (i, j))
     _jacobian_matrix = m.jacobian_matrix_func(i, j)
     inv_jacobian_matrix = inv(_jacobian_matrix)
@@ -138,6 +234,8 @@ function update_metrics!(m::CurvilinearGrid2D)
     ηy = inv_jacobian_matrix[2, 2]
     return (J, ξx, ξy, ηx, ηy)
   end
+
+  metrics = MEG6Scheme(cellsize_withhalo(mesh))
 
   # cell centroid metrics
   for idx in m.iterators.cell.domain

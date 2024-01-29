@@ -14,7 +14,6 @@ export J
 export ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz
 
 export xξ, xη, xζ, yξ, yη, yζ, zξ, zη, zζ
-
 export ξ̂x, η̂x, ζ̂x, ξ̂y, η̂y, ζ̂y, ξ̂z, η̂z, ζ̂z
 
 export ξ̂xᵢ₊½, η̂xᵢ₊½, ζ̂xᵢ₊½, ξ̂yᵢ₊½, η̂yᵢ₊½, ζ̂yᵢ₊½, ξ̂zᵢ₊½, η̂zᵢ₊½, ζ̂zᵢ₊½

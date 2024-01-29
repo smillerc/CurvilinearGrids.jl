@@ -47,7 +47,7 @@ function MEG6Scheme(celldims::NTuple{N,Int}; T=Float64) where {N}
     edge_cache = nothing
   end
 
-  return MEG6Scheme(∂ϕᵢ, ∂²ϕᵢ, Jᵢ, ∂x∂ξᵢ, ∂ξ∂xᵢ, ∂ξ̂∂xᵢ, ∂ξ̂∂xᵢ₊½)
+  return MEG6Scheme(∂ϕᵢ, ∂²ϕᵢ, Jᵢ, ∂x∂ξᵢ, ∂ξ∂xᵢ, ∂ξ̂∂xᵢ, ∂ξ̂∂xᵢ₊½, edge_cache)
 end
 
 # 3D version
@@ -73,15 +73,15 @@ function update_metrics!(
   ∂²_cache = scheme.∂²_cache
   ∂x∂ξᵢ = scheme.∂x∂ξᵢ
 
-  _cell_center_metric(∂x∂ξᵢ.∂x₁.∂ξ₁, xc, ∂_cache, ∂²_cache, ξ_ax, domain) # ∂x/∂ξ
-  _cell_center_metric(∂x∂ξᵢ.∂x₁.∂ξ₂, xc, ∂_cache, ∂²_cache, η_ax, domain) # ∂x/∂η
-  _cell_center_metric(∂x∂ξᵢ.∂x₁.∂ξ₃, xc, ∂_cache, ∂²_cache, ζ_ax, domain) # ∂x/∂ζ
-  _cell_center_metric(∂x∂ξᵢ.∂x₂.∂ξ₁, yc, ∂_cache, ∂²_cache, ξ_ax, domain) # ∂y/∂ξ
-  _cell_center_metric(∂x∂ξᵢ.∂x₂.∂ξ₂, yc, ∂_cache, ∂²_cache, η_ax, domain) # ∂y/∂η
-  _cell_center_metric(∂x∂ξᵢ.∂x₂.∂ξ₃, yc, ∂_cache, ∂²_cache, ζ_ax, domain) # ∂y/∂ζ
-  _cell_center_metric(∂x∂ξᵢ.∂x₃.∂ξ₁, zc, ∂_cache, ∂²_cache, ξ_ax, domain) # ∂z/∂ξ
-  _cell_center_metric(∂x∂ξᵢ.∂x₃.∂ξ₂, zc, ∂_cache, ∂²_cache, η_ax, domain) # ∂z/∂η
-  _cell_center_metric(∂x∂ξᵢ.∂x₃.∂ξ₃, zc, ∂_cache, ∂²_cache, ζ_ax, domain) # ∂z/∂ζ
+  _cell_center_metric!(∂x∂ξᵢ.∂x₁.∂ξ₁, xc, ∂_cache, ∂²_cache, ξ_ax, domain) # ∂x/∂ξ
+  _cell_center_metric!(∂x∂ξᵢ.∂x₁.∂ξ₂, xc, ∂_cache, ∂²_cache, η_ax, domain) # ∂x/∂η
+  _cell_center_metric!(∂x∂ξᵢ.∂x₁.∂ξ₃, xc, ∂_cache, ∂²_cache, ζ_ax, domain) # ∂x/∂ζ
+  _cell_center_metric!(∂x∂ξᵢ.∂x₂.∂ξ₁, yc, ∂_cache, ∂²_cache, ξ_ax, domain) # ∂y/∂ξ
+  _cell_center_metric!(∂x∂ξᵢ.∂x₂.∂ξ₂, yc, ∂_cache, ∂²_cache, η_ax, domain) # ∂y/∂η
+  _cell_center_metric!(∂x∂ξᵢ.∂x₂.∂ξ₃, yc, ∂_cache, ∂²_cache, ζ_ax, domain) # ∂y/∂ζ
+  _cell_center_metric!(∂x∂ξᵢ.∂x₃.∂ξ₁, zc, ∂_cache, ∂²_cache, ξ_ax, domain) # ∂z/∂ξ
+  _cell_center_metric!(∂x∂ξᵢ.∂x₃.∂ξ₂, zc, ∂_cache, ∂²_cache, η_ax, domain) # ∂z/∂η
+  _cell_center_metric!(∂x∂ξᵢ.∂x₃.∂ξ₃, zc, ∂_cache, ∂²_cache, ζ_ax, domain) # ∂z/∂ζ
 
   # compute the inverse metrics, i.e., ∂ξᵢ/∂xᵢ (or ξₓ). To do this
   # the jacobian matrix has to be assembled and then inverted
@@ -291,7 +291,7 @@ function update_metrics!(scheme::MEG6Scheme{1}, xc::AbstractArray{T,1}, domain) 
   # arbitrary dimensions, so we need to define what axis we're working on
   ξ_ax = 1
 
-  _cell_center_metric(scheme, xc, scheme.∂xᵢ∂ξᵢ.x.ξ, ξ_ax, domain) # ∂x/∂ξ
+  _cell_center_metric!(scheme, xc, scheme.∂xᵢ∂ξᵢ.x.ξ, ξ_ax, domain) # ∂x/∂ξ
 
   # compute the inverse metrics, i.e., ∂ξᵢ/∂xᵢ (or ξₓ). To do this
   # the jacobian matrix has to be assembled and then inverted
@@ -327,18 +327,20 @@ function _boundary_∂!(
 
   # Do 1st derivatives first...
   # one-sided forward ∂ϕ
-  for idx in lower_b1
-    imp = (0, 2) # i.e offset of 0:2 
-    offset_idx = plus_minus(idx, axis, imp)
-    _ϕ = OffsetVector(SVector{3}(view(ϕ, offset_idx)), 0:2)
-    ∂ϕ[idx] = forward_∂_2nd_order(_ϕ)
-  end
+  # for idx in lower_b1
+  #   imp = (0, 2) # i.e offset of 0:2 
+  #   offset_idx = plus_minus(idx, axis, imp)
+  #   _ϕ = OffsetVector(SVector{3}(view(ϕ, offset_idx)), 0:2)
+  #   ∂ϕ[idx] = forward_∂_2nd_order(_ϕ)
+  # end
 
-  for idx in lower_b2
-    imp = (0, 4) # i.e offset of 0:4
-    offset_idx = plus_minus(idx, axis, imp)
-    _ϕ = OffsetVector(SVector{5}(view(ϕ, offset_idx)), 0:4)
-    ∂ϕ[idx] = forward_mixed_∂_4th_order(_ϕ)
+  for b in (lower_b1, lower_b2)
+    for idx in b
+      imp = (0, 4) # i.e offset of 0:4
+      offset_idx = plus_minus(idx, axis, imp)
+      _ϕ = OffsetVector(SVector{5}(view(ϕ, offset_idx)), 0:4)
+      ∂ϕ[idx] = forward_mixed_∂_4th_order(_ϕ)
+    end
   end
 
   for idx in lower_b3
@@ -356,19 +358,21 @@ function _boundary_∂!(
     ∂ϕ[idx] = central_∂_4th_order(_ϕ)
   end
 
-  for idx in upper_b2
-    imp = (4, 0) # i.e offset of 0:4
-    offset_idx = plus_minus(idx, axis, imp)
-    _ϕ = OffsetVector(SVector{5}(view(ϕ, offset_idx)), -4:0)
-    ∂ϕ[idx] = backward_mixed_∂_4th_order(_ϕ)
+  for b in (upper_b2, upper_b1)
+    for idx in b
+      imp = (4, 0) # i.e offset of -4:0
+      offset_idx = plus_minus(idx, axis, imp)
+      _ϕ = OffsetVector(SVector{5}(view(ϕ, offset_idx)), -4:0)
+      ∂ϕ[idx] = backward_mixed_∂_4th_order(_ϕ)
+    end
   end
 
-  for idx in upper_b1
-    imp = (2, 0) # i.e offset of 0:4
-    offset_idx = plus_minus(idx, axis, imp)
-    _ϕ = OffsetVector(SVector{3}(view(ϕ, offset_idx)), -2:0)
-    ∂ϕ[idx] = backward_∂_2nd_order(_ϕ)
-  end
+  # for idx in upper_b1
+  #   imp = (2, 0) # i.e offset of -2:0
+  #   offset_idx = plus_minus(idx, axis, imp)
+  #   _ϕ = OffsetVector(SVector{3}(view(ϕ, offset_idx)), -2:0)
+  #   ∂ϕ[idx] = backward_∂_2nd_order(_ϕ)
+  # end
 
   return nothing
 end
