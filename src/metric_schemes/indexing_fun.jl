@@ -62,6 +62,24 @@ function expand(
   )
 end
 
+function expand_upper(
+  domain::CartesianIndices{N,NTuple{N,UnitRange{T}}}, axis::Int, n::Int
+) where {N,T}
+  axis_mask = ntuple(j -> j == axis ? n : 0, N)
+  return CartesianIndices(
+    UnitRange.(first.(domain.indices), last.(domain.indices) .+ axis_mask)
+  )
+end
+
+function expand_lower(
+  domain::CartesianIndices{N,NTuple{N,UnitRange{T}}}, axis::Int, n::Int
+) where {N,T}
+  axis_mask = ntuple(j -> j == axis ? n : 0, N)
+  return CartesianIndices(
+    UnitRange.(first.(domain.indices) .- axis_mask, last.(domain.indices))
+  )
+end
+
 """
 Expand the CartesianIndices ranges by `n` on all axes
 """
