@@ -1,5 +1,8 @@
 module CurvilinearGrids
 
+include("metrics.jl")
+using .MetricTypes
+
 include("metric_schemes/metric_schemes.jl")
 using .MetricDiscretizationSchemes
 export MEG6Scheme, update_metrics!
