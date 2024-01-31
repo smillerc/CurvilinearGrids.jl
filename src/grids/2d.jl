@@ -137,7 +137,8 @@ function CurvilinearGrid2D(
     use_autodiff,
   )
 
-  update_metrics_meg!(m)
+  # update_metrics_meg!(m)
+  update_metrics_old!(m)
 
   return m
 end
@@ -235,8 +236,6 @@ function update_metrics_old!(m::CurvilinearGrid2D)
     return (J, ξx, ξy, ηx, ηy)
   end
 
-  metrics = MEG6Scheme(cellsize_withhalo(mesh))
-
   # cell centroid metrics
   for idx in m.iterators.cell.domain
     node_idx = idx.I .- m.nhalo
@@ -246,13 +245,13 @@ function update_metrics_old!(m::CurvilinearGrid2D)
     _metric = (
       J=J,
       ξx=ξx,
-      ξ̂x=ξx / J,
+      # ξ̂x=ξx / J,
       ξy=ξy,
-      ξ̂y=ξy / J,
+      # ξ̂y=ξy / J,
       ηx=ηx,
-      η̂x=ηx / J,
+      # η̂x=ηx / J,
       ηy=ηy,
-      η̂y=ηy / J,
+      # η̂y=ηy / J,
       ξt=zero(J),
       ηt=zero(J),
     )
@@ -289,15 +288,15 @@ function update_metrics_old!(m::CurvilinearGrid2D)
     J_i₊½, ξx_i₊½, ξy_i₊½, ηx_i₊½, ηy_i₊½ = _get_metrics(m, i₊½_node_idx)
 
     i₊½_metric = (
-      J=J_i₊½,
-      ξx=ξx_i₊½,
-      ξ̂x=ξx_i₊½ / J_i₊½,
-      ξy=ξy_i₊½,
-      ξ̂y=ξy_i₊½ / J_i₊½,
-      ηx=ηx_i₊½,
-      η̂x=ηx_i₊½ / J_i₊½,
-      ηy=ηy_i₊½,
-      η̂y=ηy_i₊½ / J_i₊½,
+      # J=J_i₊½,
+      # ξx=ξx_i₊½,
+      ξ̂x=ξx_i₊½ * J_i₊½,
+      # ξy=ξy_i₊½,
+      ξ̂y=ξy_i₊½ * J_i₊½,
+      # ηx=ηx_i₊½,
+      η̂x=ηx_i₊½ * J_i₊½,
+      # ηy=ηy_i₊½,
+      η̂y=ηy_i₊½ * J_i₊½,
       ξt=zero(J_i₊½),
       ηt=zero(J_i₊½),
     )
@@ -312,15 +311,15 @@ function update_metrics_old!(m::CurvilinearGrid2D)
     J_j₊½, ξx_j₊½, ξy_j₊½, ηx_j₊½, ηy_j₊½ = _get_metrics(m, j₊½_node_idx)
 
     j₊½_metric = (
-      J=J_j₊½,
-      ξx=ξx_j₊½,
-      ξ̂x=ξx_j₊½ / J_j₊½,
-      ξy=ξy_j₊½,
-      ξ̂y=ξy_j₊½ / J_j₊½,
-      ηx=ηx_j₊½,
-      η̂x=ηx_j₊½ / J_j₊½,
-      ηy=ηy_j₊½,
-      η̂y=ηy_j₊½ / J_j₊½,
+      # J=J_j₊½,
+      # ξx=ξx_j₊½,
+      ξ̂x=ξx_j₊½ * J_j₊½,
+      # ξy=ξy_j₊½,
+      ξ̂y=ξy_j₊½ * J_j₊½,
+      # ηx=ηx_j₊½,
+      η̂x=ηx_j₊½ * J_j₊½,
+      # ηy=ηy_j₊½,
+      η̂y=ηy_j₊½ * J_j₊½,
       ξt=zero(J_j₊½),
       ηt=zero(J_j₊½),
     )
@@ -336,17 +335,19 @@ end
   _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   J = det(_jacobian_matrix)
+  J⁻¹ = det(inv_jacobian_matrix)
 
+  # @show J, J⁻¹
   ξx = inv_jacobian_matrix[1, 1]
   ξy = inv_jacobian_matrix[1, 2]
   ηx = inv_jacobian_matrix[2, 1]
   ηy = inv_jacobian_matrix[2, 2]
 
   return (
-    ξ̂x=ξx / J,
-    ξ̂y=ξy / J,
-    η̂x=ηx / J,
-    η̂y=ηy / J,
+    ξ̂x=ξx / J⁻¹,
+    ξ̂y=ξy / J⁻¹,
+    η̂x=ηx / J⁻¹,
+    η̂y=ηy / J⁻¹,
     ξt=zero(eltype(_jacobian_matrix)),
     ηt=zero(eltype(_jacobian_matrix)),
   )
