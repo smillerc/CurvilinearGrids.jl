@@ -79,9 +79,9 @@ Forward transformation, or $T: (\xi,\eta,\zeta) \rightarrow (x,y,z)$. These func
 $$
 \textbf{J} = 
 \begin{bmatrix}
-x_\xi & y_\xi & z_\xi \\
-x_\eta & y_\eta & z_\eta \\
-x_\zeta & y_\zeta & z_\zeta
+x_\xi & x_\eta & x_\zeta \\
+y_\xi & y_\eta & y_\zeta \\
+z_\xi & z_\eta & z_\zeta
 \end{bmatrix}
 $$
 
@@ -94,9 +94,9 @@ Inverse transformation $T^{-1}$: $(x,y,z) \rightarrow (\xi,\eta,\zeta)$ :
 $$
 \textbf{J}^{-1} = 
 \begin{bmatrix}
-\xi_x & \eta_x & \zeta_x \\
-\xi_y & \eta_y & \zeta_y \\
-\xi_z & \eta_z & \zeta_z
+\xi_x   & \xi_y   & \xi_z   \\
+\eta_x  & \eta_y  & \eta_z  \\
+\zeta_x & \zeta_y & \zeta_z
 \end{bmatrix}
 $$
 
