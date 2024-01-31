@@ -1,3 +1,5 @@
+using OffsetArrays
+using StaticArrays
 
 # 1st derivative operator
 @inline function forward_∂_2nd_order(ϕ::OffsetVector{T,SVector{3,T}}) where {T}

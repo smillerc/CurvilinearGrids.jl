@@ -12,10 +12,13 @@ CurvilinearGrid3D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CurvilinearGrid3D{F1,F2,F3,EM,CCM,F4,F5,L,CI} <: AbstractCurvilinearGrid
-  x::F1 # x(ijk)
-  y::F2 # y(ijk)
-  z::F3 # z(ijk)
+struct CurvilinearGrid3D{F1,F2,F3,EM,CCM,F4,F5,L,CI,AA} <: AbstractCurvilinearGrid
+  x_func::F1 # x(ijk)
+  y_func::F2 # y(ijk)
+  z_func::F3 # z(ijk)
+  x_coord::AA # stored x-coordinate location
+  y_coord::AA # stored y-coordinate location
+  z_coord::AA # stored y-coordinate location
   edge_metrics::EM
   cell_center_metrics::CCM
   jacobian_matrix_func::F4 # jacobian_matrix(ξ,η,ζ)
@@ -138,48 +141,73 @@ function CurvilinearGrid3D(
   )
 
   if cache
-    _metric = (
-      J=zero(T),
-      ξx=zero(T),
+    _edge_metric = (
       ξ̂x=zero(T),
-      ξy=zero(T),
       ξ̂y=zero(T),
-      ξz=zero(T),
       ξ̂z=zero(T),
-      ηx=zero(T),
       η̂x=zero(T),
-      ηy=zero(T),
       η̂y=zero(T),
-      ηz=zero(T),
       η̂z=zero(T),
-      ζx=zero(T),
       ζ̂x=zero(T),
-      ζy=zero(T),
       ζ̂y=zero(T),
-      ζz=zero(T),
       ζ̂z=zero(T),
       ξt=zero(T),
       ηt=zero(T),
       ζt=zero(T),
     )
 
-    M = typeof(_metric)
-    cell_center_metrics = Array{M,3}(undef, ncells .+ 2nhalo)
+    _cell_metric = (
+      J=zero(T),
+      ξx=zero(T),
+      ξy=zero(T),
+      ξz=zero(T),
+      ηx=zero(T),
+      ηy=zero(T),
+      ηz=zero(T),
+      ζx=zero(T),
+      ζy=zero(T),
+      ζz=zero(T),
+      ξt=zero(T),
+      ηt=zero(T),
+      ζt=zero(T),
+    )
+
+    EM = typeof(_edge_metric)
+    CM = typeof(_cell_metric)
+    cell_center_metrics = Array{CM,3}(undef, ncells .+ 2nhalo)
 
     edge_metrics = (
-      i₊½=Array{M,3}(undef, ncells .+ 2nhalo),
-      j₊½=Array{M,3}(undef, ncells .+ 2nhalo),
-      k₊½=Array{M,3}(undef, ncells .+ 2nhalo),
+      i₊½=Array{EM,3}(undef, ncells .+ 2nhalo),
+      j₊½=Array{EM,3}(undef, ncells .+ 2nhalo),
+      k₊½=Array{EM,3}(undef, ncells .+ 2nhalo),
     )
+
+    xcoords = zeros(T, nnodes .+ 2nhalo)
+    ycoords = zeros(T, nnodes .+ 2nhalo)
+    zcoords = zeros(T, nnodes .+ 2nhalo)
+
+    for k in axes(xcoords, 3)
+      for j in axes(xcoords, 2)
+        for i in axes(xcoords, 1)
+          xcoords[i, j, k] = x(i - nhalo, j - nhalo, k - nhalo)
+          ycoords[i, j, k] = y(i - nhalo, j - nhalo, k - nhalo)
+          zcoords[i, j, k] = z(i - nhalo, j - nhalo, k - nhalo)
+        end
+      end
+    end
   else
     edge_metrics = nothing
     cell_center_metrics = nothing
+    xcoords = ycoords = zcoords = nothing
   end
 
   m = CurvilinearGrid3D(
     x,
     y,
     z,
+    xcoords,
+    ycoords,
+    zcoords,
     edge_metrics,
     cell_center_metrics,
     jacobian_matrix_func,
@@ -190,12 +218,195 @@ function CurvilinearGrid3D(
     _iterators,
   )
 
-  update_metrics!(m)
-
+  update_metrics_meg!(m)
+  sanity_checks(m)
   return m
 end
 
-function update_metrics!(m::CurvilinearGrid3D)
+function update_metrics_meg!(m::CurvilinearGrid3D)
+  cswh = cellsize_withhalo(m)
+  meg6_metrics = MEG6Scheme(cswh)
+
+  # centroids
+  xc = zeros(cswh)
+  yc = zeros(cswh)
+  zc = zeros(cswh)
+  for idx in CartesianIndices(xc)
+    i, j, k = idx.I
+    xc[idx] = m.x_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5, k - m.nhalo + 0.5) # x
+    yc[idx] = m.y_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5, k - m.nhalo + 0.5) # y
+    zc[idx] = m.z_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5, k - m.nhalo + 0.5) # y
+  end
+
+  domain = m.iterators.cell.domain
+
+  MetricDiscretizationSchemes.update_metrics!(meg6_metrics, xc, yc, zc, domain)
+
+  _J = J(meg6_metrics)
+  _ξx = ξx(meg6_metrics)
+  _ξy = ξy(meg6_metrics)
+  _ξz = ξz(meg6_metrics)
+  _ηx = ηx(meg6_metrics)
+  _ηy = ηy(meg6_metrics)
+  _ηz = ηz(meg6_metrics)
+  _ζx = ζx(meg6_metrics)
+  _ζy = ζy(meg6_metrics)
+  _ζz = ζz(meg6_metrics)
+
+  # cell centroid metrics
+  for idx in domain
+    _metric = (
+      J=_J[idx],
+      ξx=_ξx[idx],
+      ξy=_ξy[idx],
+      ξz=_ξz[idx],
+      ηx=_ηx[idx],
+      ηy=_ηy[idx],
+      ηz=_ηz[idx],
+      ζx=_ζx[idx],
+      ζy=_ζy[idx],
+      ζz=_ζz[idx],
+      ξt=zero(Float64),
+      ηt=zero(Float64),
+      ζt=zero(Float64),
+    )
+
+    m.cell_center_metrics[idx] = _metric
+  end
+
+  _ξ̂xᵢ₊½ = ξ̂xᵢ₊½(meg6_metrics)
+  _ξ̂yᵢ₊½ = ξ̂yᵢ₊½(meg6_metrics)
+  _ξ̂zᵢ₊½ = ξ̂zᵢ₊½(meg6_metrics)
+  _η̂xᵢ₊½ = η̂xᵢ₊½(meg6_metrics)
+  _η̂yᵢ₊½ = η̂yᵢ₊½(meg6_metrics)
+  _η̂zᵢ₊½ = η̂zᵢ₊½(meg6_metrics)
+  _ζ̂xᵢ₊½ = ζ̂xᵢ₊½(meg6_metrics)
+  _ζ̂yᵢ₊½ = ζ̂yᵢ₊½(meg6_metrics)
+  _ζ̂zᵢ₊½ = ζ̂zᵢ₊½(meg6_metrics)
+
+  _ξ̂xⱼ₊½ = ξ̂xⱼ₊½(meg6_metrics)
+  _ξ̂yⱼ₊½ = ξ̂yⱼ₊½(meg6_metrics)
+  _ξ̂zⱼ₊½ = ξ̂zⱼ₊½(meg6_metrics)
+  _η̂xⱼ₊½ = η̂xⱼ₊½(meg6_metrics)
+  _η̂yⱼ₊½ = η̂yⱼ₊½(meg6_metrics)
+  _η̂zⱼ₊½ = η̂zⱼ₊½(meg6_metrics)
+  _ζ̂xⱼ₊½ = ζ̂xⱼ₊½(meg6_metrics)
+  _ζ̂yⱼ₊½ = ζ̂yⱼ₊½(meg6_metrics)
+  _ζ̂zⱼ₊½ = ζ̂zⱼ₊½(meg6_metrics)
+
+  _ξ̂xₖ₊½ = ξ̂xₖ₊½(meg6_metrics)
+  _ξ̂yₖ₊½ = ξ̂yₖ₊½(meg6_metrics)
+  _ξ̂zₖ₊½ = ξ̂zₖ₊½(meg6_metrics)
+  _η̂xₖ₊½ = η̂xₖ₊½(meg6_metrics)
+  _η̂yₖ₊½ = η̂yₖ₊½(meg6_metrics)
+  _η̂zₖ₊½ = η̂zₖ₊½(meg6_metrics)
+  _ζ̂xₖ₊½ = ζ̂xₖ₊½(meg6_metrics)
+  _ζ̂yₖ₊½ = ζ̂yₖ₊½(meg6_metrics)
+  _ζ̂zₖ₊½ = ζ̂zₖ₊½(meg6_metrics)
+
+  i₊½CI = MetricDiscretizationSchemes.expand_lower(domain, 1, 1)
+  j₊½CI = MetricDiscretizationSchemes.expand_lower(domain, 2, 1)
+  k₊½CI = MetricDiscretizationSchemes.expand_lower(domain, 3, 1)
+
+  @show domain
+  @show i₊½CI
+  @show j₊½CI
+  @show k₊½CI
+  for idx in i₊½CI
+    i₊½_metric = (
+      ξ̂x=_ξ̂xᵢ₊½[idx],
+      ξ̂y=_ξ̂yᵢ₊½[idx],
+      ξ̂z=_ξ̂zᵢ₊½[idx],
+      η̂x=_η̂xᵢ₊½[idx],
+      η̂y=_η̂yᵢ₊½[idx],
+      η̂z=_η̂zᵢ₊½[idx],
+      ζ̂x=_ζ̂xᵢ₊½[idx],
+      ζ̂y=_ζ̂yᵢ₊½[idx],
+      ζ̂z=_ζ̂zᵢ₊½[idx],
+      ξt=0.0,
+      ηt=0.0,
+      ζt=0.0,
+    )
+
+    m.edge_metrics.i₊½[idx] = i₊½_metric
+  end
+
+  for idx in j₊½CI
+    j₊½_metric = (
+      ξ̂x=_ξ̂xⱼ₊½[idx],
+      ξ̂y=_ξ̂yⱼ₊½[idx],
+      ξ̂z=_ξ̂zⱼ₊½[idx],
+      η̂x=_η̂xⱼ₊½[idx],
+      η̂y=_η̂yⱼ₊½[idx],
+      η̂z=_η̂zⱼ₊½[idx],
+      ζ̂x=_ζ̂xⱼ₊½[idx],
+      ζ̂y=_ζ̂yⱼ₊½[idx],
+      ζ̂z=_ζ̂zⱼ₊½[idx],
+      ξt=0.0,
+      ηt=0.0,
+      ζt=0.0,
+    )
+
+    m.edge_metrics.j₊½[idx] = j₊½_metric
+  end
+
+  for idx in k₊½CI
+    k₊½_metric = (
+      ξ̂x=_ξ̂xₖ₊½[idx],
+      ξ̂y=_ξ̂yₖ₊½[idx],
+      ξ̂z=_ξ̂zₖ₊½[idx],
+      η̂x=_η̂xₖ₊½[idx],
+      η̂y=_η̂yₖ₊½[idx],
+      η̂z=_η̂zₖ₊½[idx],
+      ζ̂x=_ζ̂xₖ₊½[idx],
+      ζ̂y=_ζ̂yₖ₊½[idx],
+      ζ̂z=_ζ̂zₖ₊½[idx],
+      ξt=0.0,
+      ηt=0.0,
+      ζt=0.0,
+    )
+
+    m.edge_metrics.k₊½[idx] = k₊½_metric
+  end
+
+  return nothing
+end
+
+function sanity_checks(m)
+  domain = m.iterators.cell.domain
+
+  i₊½CI = MetricDiscretizationSchemes.expand_lower(domain, 1, 1)
+  j₊½CI = MetricDiscretizationSchemes.expand_lower(domain, 2, 1)
+  k₊½CI = MetricDiscretizationSchemes.expand_lower(domain, 3, 1)
+
+  # cell centroid metrics
+  for idx in domain
+    for v in m.cell_center_metrics[idx]
+      if !(isfinite(v))
+        @show idx
+        @show m.cell_center_metrics[idx]
+        error("Invalid grid metrics")
+      end
+    end
+  end
+
+  for (em, dom) in zip(m.edge_metrics, (i₊½CI, j₊½CI, k₊½CI))
+    @show dom
+    for idx in dom
+      @show em[idx]
+      for v in em[idx]
+        if !(isfinite(v))
+          @show idx
+          error("Invalid grid metrics")
+        end
+      end
+    end
+  end
+
+  return nothing
+end
+
+function update_metrics_old!(m::CurvilinearGrid3D)
   function _get_metrics(m, (i, j, k))
     _jacobian_matrix = m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo)
 
@@ -627,9 +838,9 @@ function coords(m::CurvilinearGrid3D, T=Float64)
   xyz = zeros(T, 3, dims...)
   @inbounds for I in CartesianIndices(dims)
     i, j, k = Tuple(I)
-    xyz[1, i, j, k] = m.x(i, j, k)
-    xyz[2, i, j, k] = m.y(i, j, k)
-    xyz[3, i, j, k] = m.z(i, j, k)
+    xyz[1, i, j, k] = m.x_func(i, j, k)
+    xyz[2, i, j, k] = m.y_func(i, j, k)
+    xyz[3, i, j, k] = m.z_func(i, j, k)
   end
 
   return xyz

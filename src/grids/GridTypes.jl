@@ -5,6 +5,8 @@ using StaticArrays
 using ForwardDiff
 using UnPack
 
+using ..MetricDiscretizationSchemes
+
 export AbstractCurvilinearGrid
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
 export CylindricalGrid1D, SphericalGrid1D
@@ -116,8 +118,8 @@ centroid(m::CurvilinearGrid1D, i) = m.x(i - m.nhalo + 0.5)
 
 function centroid(m::CurvilinearGrid2D, (i, j)::NTuple{2,Int})
   @SVector [
-    m.x(i - m.nhalo + 0.5, j - m.nhalo + 0.5), # x
-    m.y(i - m.nhalo + 0.5, j - m.nhalo + 0.5), # y
+    m.x_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5), # x
+    m.y_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5), # y
   ]
 end
 

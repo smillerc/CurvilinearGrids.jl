@@ -1,30 +1,62 @@
-# @testset "3D Mesh - Sphere Sector" begin
-include("common.jl")
+using Test
 
-function sphere_grid(nr, ntheta, nphi)
-  r0, r1 = (1, 3)
-  (θ0, θ1) = deg2rad.((35, 180 - 35))
-  (ϕ0, ϕ1) = deg2rad.((45, 360 - 45))
+using CurvilinearGrids
+using StaticArrays
+using Test
+using BenchmarkTools
+using WriteVTK
 
-  r(ξ) = r0 + (r1 - r0) * ((ξ - 1) / (nr - 1))
-  θ(η) = θ0 + (θ1 - θ0) * ((η - 1) / (ntheta - 1))
-  ϕ(ζ) = ϕ0 + (ϕ1 - ϕ0) * ((ζ - 1) / (nphi - 1))
+function save_vtk(mesh)
+  fn = "wavy"
+  @info "Writing to $fn.vti"
 
-  x(ξ, η, ζ) = r(ξ) * sin(θ(η)) * cos(ϕ(ζ))
-  y(ξ, η, ζ) = r(ξ) * sin(θ(η)) * sin(ϕ(ζ))
-  z(ξ, η, ζ) = r(ξ) * cos(θ(η))
+  xyz_n = CurvilinearGrids.coords(mesh)
+  domain = mesh.iterators.cell.domain
+
+  @views begin
+    J = [m.J for m in mesh.cell_center_metrics[domain]]
+    ξx = [m.ξx for m in mesh.cell_center_metrics[domain]]
+    ξ̂xᵢ₊½ = [m.ξ̂x for m in mesh.edge_metrics.i₊½[domain]]
+    ηy = [m.ηy for m in mesh.cell_center_metrics[domain]]
+  end
+
+  vtk_grid(fn, xyz_n) do vtk
+
+    # w1 = [x[1] for idx in eachindex(f.char_state.W[ilo:ihi, jlo:jhi]
+
+    vtk["J"] = J
+    vtk["ξx"] = ξx
+    vtk["ξ̂xᵢ₊½"] = ξ̂xᵢ₊½
+    vtk["ηy"] = ηy
+  end
+end
+
+function wavy_grid(ni, nj, nk)
+  Lx = Ly = Lz = 4.0
+
+  xmin = -Lx / 2
+  ymin = -Ly / 2
+  zmin = -Lz / 2
+
+  Δx0 = Lx / ni
+  Δy0 = Ly / nj
+  Δz0 = Lz / nk
+
+  x(i, j, k) = xmin + Δx0 * ((i - 1) + sinpi((j - 1) * Δy0) * sinpi((k - 1) * Δz0))
+  y(i, j, k) = ymin + Δy0 * ((j - 1) + sinpi((k - 1) * Δz0) * sinpi((i - 1) * Δx0))
+  z(i, j, k) = zmin + Δz0 * ((k - 1) + sinpi((i - 1) * Δx0) * sinpi((j - 1) * Δy0))
 
   return (x, y, z)
 end
 
-ni, nj, nk = (5, 9, 11)
-nhalo = 0
-x, y, z = sphere_grid(ni, nj, nk)
-mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
+ni = nj = nk = 20
+nhalo = 4
+x, y, z = wavy_grid(ni, nj, nk)
+mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo);
 
-#   @test_nowarn CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
-# end
+save_vtk(mesh);
 
-metrics = MEG6Scheme(cellsize_withhalo(mesh));
-domain = mesh.iterators.cell.domain
-update_metrics!(metrics, mesh.x_coord, mesh.y_coord, mesh.z_coord, domain)
+ξ̂xᵢ₊½ = [m.ξ̂x for m in mesh.edge_metrics.k₊½]
+size(ξ̂xᵢ₊½)
+using Plots
+heatmap(ξ̂xᵢ₊½[:, :, 3])

@@ -13,7 +13,7 @@ struct MEG6Scheme{N,T,AA<:AbstractArray{T,N},B,C,D,E,F} <: AbstractMetricScheme
   ∂ξ∂xᵢ::C # cell-centered metrics ∂(ξ,η,ζ)/∂z, ∂(ξ,η,ζ)∂y, ∂(ξ,η,ζ)∂z
   ∂ξ̂∂xᵢ::D # cell-centered conservative metrics, where ξ̂ = ξ/J; ∂(ξ,η,ζ)/∂z, ∂(ξ,η,ζ)∂y, ∂(ξ,η,ζ)∂z
   ∂ξ̂∂xᵢ₊½::E # conservative metrics at the cell edges ((i,j,k)+1/2), where ξ̂ = ξ/J; ∂(ξ,η,ζ)/∂z, ∂(ξ,η,ζ)∂y, ∂(ξ,η,ζ)∂z
-  edge_cachea::F
+  edge_cache::F
 end
 
 # MEG6Scheme Constructor
@@ -61,6 +61,7 @@ function update_metrics!(
   xc::AbstractArray{T,3},
   yc::AbstractArray{T,3},
   zc::AbstractArray{T,3},
+  domain,
 ) where {T}
   # compute the ∂x/∂ξ|ᵢ, ∂x/∂η|ᵢ terms
 
@@ -85,7 +86,7 @@ function update_metrics!(
 
   # compute the inverse metrics, i.e., ∂ξᵢ/∂xᵢ (or ξₓ). To do this
   # the jacobian matrix has to be assembled and then inverted
-  _inverse_metrics_3d(scheme, domain)
+  _inverse_metrics(scheme, domain)
 
   # Next we find the **conservative** metrics which are a pain in the
   # arse and need to be found a la ξ̂x = (y_η z)_ζ − (y_ζ z)_η; 
@@ -106,95 +107,96 @@ function update_metrics!(
   y_ζz_ηⱼ₊½ = scheme.edge_cache[2]
   _iterp_mixed_terms_to_edge(y_ηz_ζₖ₊½, ∂x∂ξᵢ.∂x₂.∂ξ₂, zc, ∂_cache, ∂²_cache, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
   _iterp_mixed_terms_to_edge(y_ζz_ηⱼ₊½, ∂x∂ξᵢ.∂x₂.∂ξ₃, zc, ∂_cache, ∂²_cache, η_ax, domain, *) # interp to j+½, since the outer deriv is in η 
-  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ₁.∂x₁, (y_ηz_ζₖ₊½, y_ζz_ηⱼ₊½), (ζ_ax, η_ax), domain) # -> ξ̂x
+  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ̂₁.∂x₁, (y_ηz_ζₖ₊½, y_ζz_ηⱼ₊½), (ζ_ax, η_ax), domain) # -> ξ̂x
 
   # η̂x = (y_ζ z)_ξ − (y_ξ z)_ζ
   y_ζz_ξᵢ₊½ = scheme.edge_cache[1]
   y_ξz_ζₖ₊½ = scheme.edge_cache[2]
   _iterp_mixed_terms_to_edge(y_ζz_ξᵢ₊½, ∂x∂ξᵢ.∂x₂.∂ξ₃, zc, ∂_cache, ∂²_cache, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
   _iterp_mixed_terms_to_edge(y_ξz_ζₖ₊½, ∂x∂ξᵢ.∂x₂.∂ξ₁, zc, ∂_cache, ∂²_cache, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
-  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ₂.∂x₁ , (y_ζz_ξᵢ₊½, y_ξz_ζₖ₊½), (ξ_ax, ζ_ax), domain) # -> η̂x
+  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ̂₂.∂x₁ , (y_ζz_ξᵢ₊½, y_ξz_ζₖ₊½), (ξ_ax, ζ_ax), domain) # -> η̂x
 
   # ζ̂x = (y_ξ z)_η − (y_η z)_ξ
   y_ξz_ηⱼ₊½ = scheme.edge_cache[1]
   y_ηz_ξᵢ₊½ = scheme.edge_cache[2]
   _iterp_mixed_terms_to_edge(y_ξz_ηⱼ₊½, ∂x∂ξᵢ.∂x₂.∂ξ₁, zc, ∂_cache, ∂²_cache, η_ax, domain, *) # interp to j+½, since the outer deriv is in η
   _iterp_mixed_terms_to_edge(y_ηz_ξᵢ₊½, ∂x∂ξᵢ.∂x₂.∂ξ₂, zc, ∂_cache, ∂²_cache, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
-  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ₃.∂x₁ , (y_ξz_ηⱼ₊½, y_ηz_ξᵢ₊½), (η_ax, ξ_ax), domain) # -> ζ̂x
+  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ̂₃.∂x₁ , (y_ξz_ηⱼ₊½, y_ηz_ξᵢ₊½), (η_ax, ξ_ax), domain) # -> ζ̂x
 
   # ξ̂y = (z_η x)_ζ − (z_ζ x)_η
   z_ηx_ζₖ₊½ = scheme.edge_cache[1]
   z_ζx_ηⱼ₊½ = scheme.edge_cache[2]
   _iterp_mixed_terms_to_edge(z_ηx_ζₖ₊½, ∂x∂ξᵢ.∂x₃.∂ξ₂, xc, ∂_cache, ∂²_cache, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
   _iterp_mixed_terms_to_edge(z_ζx_ηⱼ₊½, ∂x∂ξᵢ.∂x₃.∂ξ₃, xc, ∂_cache, ∂²_cache, η_ax, domain, *) # interp to j+½, since the outer deriv is in η 
-  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ₁.∂x₂ , (z_ηx_ζₖ₊½, z_ζx_ηⱼ₊½), (ζ_ax, η_ax), domain) # -> ξ̂y
+  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ̂₁.∂x₂ , (z_ηx_ζₖ₊½, z_ζx_ηⱼ₊½), (ζ_ax, η_ax), domain) # -> ξ̂y
 
   # η̂y = (z_ζ x)_ξ − (z_ξ x)_ζ
   z_ζx_ξᵢ₊½ = scheme.edge_cache[1]
   z_ξx_ζₖ₊½ = scheme.edge_cache[2]
   _iterp_mixed_terms_to_edge(z_ζx_ξᵢ₊½, ∂x∂ξᵢ.∂x₃.∂ξ₃, xc, ∂_cache, ∂²_cache, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
   _iterp_mixed_terms_to_edge(z_ξx_ζₖ₊½, ∂x∂ξᵢ.∂x₃.∂ξ₁, xc, ∂_cache, ∂²_cache, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
-  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ₂.∂x₂, (z_ζx_ξᵢ₊½, z_ξx_ζₖ₊½), (ξ_ax, ζ_ax), domain) # -> η̂y
+  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ̂₂.∂x₂, (z_ζx_ξᵢ₊½, z_ξx_ζₖ₊½), (ξ_ax, ζ_ax), domain) # -> η̂y
 
   # ζ̂y = (z_ξ x)_η − (z_η x)_ξ
   z_ξx_ηⱼ₊½ = scheme.edge_cache[1]
   z_ηx_ξᵢ₊½ = scheme.edge_cache[2]
   _iterp_mixed_terms_to_edge(z_ξx_ηⱼ₊½, ∂x∂ξᵢ.∂x₃.∂ξ₁, xc, ∂_cache, ∂²_cache, η_ax, domain, *) # interp to j+½, since the outer deriv is in η
   _iterp_mixed_terms_to_edge(z_ηx_ξᵢ₊½, ∂x∂ξᵢ.∂x₃.∂ξ₂, xc, ∂_cache, ∂²_cache, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
-  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ₃.∂x₂, (z_ξx_ηⱼ₊½, z_ηx_ξᵢ₊½), (η_ax, ξ_ax), domain) # -> ζ̂y
+  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ̂₃.∂x₂, (z_ξx_ηⱼ₊½, z_ηx_ξᵢ₊½), (η_ax, ξ_ax), domain) # -> ζ̂y
 
   # ξ̂z = (x_η y)_ζ − (x_ζ y)_η
   x_ηy_ζₖ₊½ = scheme.edge_cache[1]
   x_ζy_ηⱼ₊½ = scheme.edge_cache[2]
   _iterp_mixed_terms_to_edge(x_ηy_ζₖ₊½, ∂x∂ξᵢ.∂x₁.∂ξ₂, yc, ∂_cache, ∂²_cache, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
   _iterp_mixed_terms_to_edge(x_ζy_ηⱼ₊½, ∂x∂ξᵢ.∂x₁.∂ξ₃, yc, ∂_cache, ∂²_cache, η_ax, domain, *) # interp to j+½, since the outer deriv is in η 
-  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ₁.∂x₃, (x_ηy_ζₖ₊½, x_ζy_ηⱼ₊½), (ζ_ax, η_ax), domain) # -> ξ̂z
+  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ̂₁.∂x₃, (x_ηy_ζₖ₊½, x_ζy_ηⱼ₊½), (ζ_ax, η_ax), domain) # -> ξ̂z
 
   # η̂z = (x_ζ y)_ξ − (x_ξ y)_ζ 
   x_ζy_ξᵢ₊½ = scheme.edge_cache[1]
   x_ξy_ζₖ₊½ = scheme.edge_cache[2]
   _iterp_mixed_terms_to_edge(x_ζy_ξᵢ₊½, ∂x∂ξᵢ.∂x₁.∂ξ₃, yc, ∂_cache, ∂²_cache, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
   _iterp_mixed_terms_to_edge(x_ξy_ζₖ₊½, ∂x∂ξᵢ.∂x₁.∂ξ₁, yc, ∂_cache, ∂²_cache, ζ_ax, domain, *) # interp to k+½, since the outer deriv is in ζ
-  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ₂.∂x₃, (x_ζy_ξᵢ₊½, x_ξy_ζₖ₊½), (ξ_ax, ζ_ax), domain) # -> η̂z
+  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ̂₂.∂x₃, (x_ζy_ξᵢ₊½, x_ξy_ζₖ₊½), (ξ_ax, ζ_ax), domain) # -> η̂z
 
   # ζ̂z = (x_ξ y)_η − (x_η y)_ξ
   x_ξy_ηⱼ₊½ = scheme.edge_cache[1]
   x_ηy_ξᵢ₊½ = scheme.edge_cache[2]
   _iterp_mixed_terms_to_edge(x_ξy_ηⱼ₊½, ∂x∂ξᵢ.∂x₁.∂ξ₁, yc, ∂_cache, ∂²_cache, η_ax, domain, *) # interp to j+½, since the outer deriv is in η
   _iterp_mixed_terms_to_edge(x_ηy_ξᵢ₊½, ∂x∂ξᵢ.∂x₁.∂ξ₂, yc, ∂_cache, ∂²_cache, ξ_ax, domain, *) # interp to i+½, since the outer deriv is in ξ
-  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ₃.∂x₃, (x_ξy_ηⱼ₊½, x_ηy_ξᵢ₊½), (η_ax, ξ_ax), domain) # -> ζ̂z
+  _conserved_metric_term!(∂ξ̂∂xᵢ.∂ξ̂₃.∂x₃, (x_ξy_ηⱼ₊½, x_ηy_ξᵢ₊½), (η_ax, ξ_ax), domain) # -> ζ̂z
   #! format: on
 
   # Now interpolate the conserved metrics to the edges
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₁.i₊½, ξ̂x, ∂_cache, ∂²_cache, ξ_ax, domain) # -> ξ̂x_i₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.i₊½, η̂x, ∂_cache, ∂²_cache, ξ_ax, domain) # -> η̂x_i₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₁.i₊½, ζ̂x, ∂_cache, ∂²_cache, ξ_ax, domain) # -> ζ̂x_i₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₂.i₊½, ξ̂y, ∂_cache, ∂²_cache, ξ_ax, domain) # -> ξ̂y_i₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.i₊½, η̂y, ∂_cache, ∂²_cache, ξ_ax, domain) # -> η̂y_i₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₂.i₊½, ζ̂y, ∂_cache, ∂²_cache, ξ_ax, domain) # -> ζ̂y_i₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₃.i₊½, ξ̂z, ∂_cache, ∂²_cache, ξ_ax, domain) # -> ξ̂z_i₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₃.i₊½, η̂z, ∂_cache, ∂²_cache, ξ_ax, domain) # -> η̂z_i₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₃.i₊½, ζ̂z, ∂_cache, ∂²_cache, ξ_ax, domain) # -> ζ̂z_i₊½
+  ∂ξ̂∂xᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₁.i₊½, ∂ξ̂∂xᵢ.∂ξ̂₁.∂x₁, ∂_cache, ∂²_cache, ξ_ax, domain) # -> ξ̂x_i₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.i₊½, ∂ξ̂∂xᵢ.∂ξ̂₂.∂x₁, ∂_cache, ∂²_cache, ξ_ax, domain) # -> η̂x_i₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₁.i₊½, ∂ξ̂∂xᵢ.∂ξ̂₃.∂x₁, ∂_cache, ∂²_cache, ξ_ax, domain) # -> ζ̂x_i₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₂.i₊½, ∂ξ̂∂xᵢ.∂ξ̂₁.∂x₂, ∂_cache, ∂²_cache, ξ_ax, domain) # -> ξ̂y_i₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.i₊½, ∂ξ̂∂xᵢ.∂ξ̂₂.∂x₂, ∂_cache, ∂²_cache, ξ_ax, domain) # -> η̂y_i₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₂.i₊½, ∂ξ̂∂xᵢ.∂ξ̂₃.∂x₂, ∂_cache, ∂²_cache, ξ_ax, domain) # -> ζ̂y_i₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₃.i₊½, ∂ξ̂∂xᵢ.∂ξ̂₁.∂x₃, ∂_cache, ∂²_cache, ξ_ax, domain) # -> ξ̂z_i₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₃.i₊½, ∂ξ̂∂xᵢ.∂ξ̂₂.∂x₃, ∂_cache, ∂²_cache, ξ_ax, domain) # -> η̂z_i₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₃.i₊½, ∂ξ̂∂xᵢ.∂ξ̂₃.∂x₃, ∂_cache, ∂²_cache, ξ_ax, domain) # -> ζ̂z_i₊½
 
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₁.j₊½, ξ̂x, ∂_cache, ∂²_cache, η_ax, domain) # -> ξ̂x_j₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.j₊½, η̂x, ∂_cache, ∂²_cache, η_ax, domain) # -> η̂x_j₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₁.j₊½, ζ̂x, ∂_cache, ∂²_cache, η_ax, domain) # -> ζ̂x_j₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₂.j₊½, ξ̂y, ∂_cache, ∂²_cache, η_ax, domain) # -> ξ̂y_j₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.j₊½, η̂y, ∂_cache, ∂²_cache, η_ax, domain) # -> η̂y_j₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₂.j₊½, ζ̂y, ∂_cache, ∂²_cache, η_ax, domain) # -> ζ̂y_j₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₃.j₊½, ξ̂z, ∂_cache, ∂²_cache, η_ax, domain) # -> ξ̂z_j₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₃.j₊½, η̂z, ∂_cache, ∂²_cache, η_ax, domain) # -> η̂z_j₊½
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₃.j₊½, ζ̂z, ∂_cache, ∂²_cache, η_ax, domain) # -> ζ̂z_j₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₁.j₊½, ∂ξ̂∂xᵢ.∂ξ̂₁.∂x₁, ∂_cache, ∂²_cache, η_ax, domain) # -> ξ̂x_j₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.j₊½, ∂ξ̂∂xᵢ.∂ξ̂₂.∂x₁, ∂_cache, ∂²_cache, η_ax, domain) # -> η̂x_j₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₁.j₊½, ∂ξ̂∂xᵢ.∂ξ̂₃.∂x₁, ∂_cache, ∂²_cache, η_ax, domain) # -> ζ̂x_j₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₂.j₊½, ∂ξ̂∂xᵢ.∂ξ̂₁.∂x₂, ∂_cache, ∂²_cache, η_ax, domain) # -> ξ̂y_j₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.j₊½, ∂ξ̂∂xᵢ.∂ξ̂₂.∂x₂, ∂_cache, ∂²_cache, η_ax, domain) # -> η̂y_j₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₂.j₊½, ∂ξ̂∂xᵢ.∂ξ̂₃.∂x₂, ∂_cache, ∂²_cache, η_ax, domain) # -> ζ̂y_j₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₃.j₊½, ∂ξ̂∂xᵢ.∂ξ̂₁.∂x₃, ∂_cache, ∂²_cache, η_ax, domain) # -> ξ̂z_j₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₃.j₊½, ∂ξ̂∂xᵢ.∂ξ̂₂.∂x₃, ∂_cache, ∂²_cache, η_ax, domain) # -> η̂z_j₊½
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₃.j₊½, ∂ξ̂∂xᵢ.∂ξ̂₃.∂x₃, ∂_cache, ∂²_cache, η_ax, domain) # -> ζ̂z_j₊½
 
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₁.k₊½, ξ̂x, ∂_cache, ∂²_cache, ζ_ax, domain) # -> ξ̂x_k₊½ 
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.k₊½, η̂x, ∂_cache, ∂²_cache, ζ_ax, domain) # -> η̂x_k₊½ 
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₁.k₊½, ζ̂x, ∂_cache, ∂²_cache, ζ_ax, domain) # -> ζ̂x_k₊½ 
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₂.k₊½, ξ̂y, ∂_cache, ∂²_cache, ζ_ax, domain) # -> ξ̂y_k₊½ 
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.k₊½, η̂y, ∂_cache, ∂²_cache, ζ_ax, domain) # -> η̂y_k₊½ 
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₂.k₊½, ζ̂y, ∂_cache, ∂²_cache, ζ_ax, domain) # -> ζ̂y_k₊½ 
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₃.k₊½, ξ̂z, ∂_cache, ∂²_cache, ζ_ax, domain) # -> ξ̂z_k₊½ 
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₃.k₊½, η̂z, ∂_cache, ∂²_cache, ζ_ax, domain) # -> η̂z_k₊½ 
-  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₃.k₊½, ζ̂z, ∂_cache, ∂²_cache, ζ_ax, domain) # -> ζ̂z_k₊½ 
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₁.k₊½, ∂ξ̂∂xᵢ.∂ξ̂₁.∂x₁, ∂_cache, ∂²_cache, ζ_ax, domain) # -> ξ̂x_k₊½ 
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.k₊½, ∂ξ̂∂xᵢ.∂ξ̂₂.∂x₁, ∂_cache, ∂²_cache, ζ_ax, domain) # -> η̂x_k₊½ 
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₁.k₊½, ∂ξ̂∂xᵢ.∂ξ̂₃.∂x₁, ∂_cache, ∂²_cache, ζ_ax, domain) # -> ζ̂x_k₊½ 
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₂.k₊½, ∂ξ̂∂xᵢ.∂ξ̂₁.∂x₂, ∂_cache, ∂²_cache, ζ_ax, domain) # -> ξ̂y_k₊½ 
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.k₊½, ∂ξ̂∂xᵢ.∂ξ̂₂.∂x₂, ∂_cache, ∂²_cache, ζ_ax, domain) # -> η̂y_k₊½ 
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₂.k₊½, ∂ξ̂∂xᵢ.∂ξ̂₃.∂x₂, ∂_cache, ∂²_cache, ζ_ax, domain) # -> ζ̂y_k₊½ 
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₃.k₊½, ∂ξ̂∂xᵢ.∂ξ̂₁.∂x₃, ∂_cache, ∂²_cache, ζ_ax, domain) # -> ξ̂z_k₊½ 
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₃.k₊½, ∂ξ̂∂xᵢ.∂ξ̂₂.∂x₃, ∂_cache, ∂²_cache, ζ_ax, domain) # -> η̂z_k₊½ 
+  _iterp_to_edge!(∂ξ̂∂xᵢ₊½.∂ξ₃.∂x₃.k₊½, ∂ξ̂∂xᵢ.∂ξ̂₃.∂x₃, ∂_cache, ∂²_cache, ζ_ax, domain) # -> ζ̂z_k₊½ 
 
   return nothing
 end
@@ -215,18 +217,12 @@ function update_metrics!(
   # arbitrary dimensions, so we need to define what axis we're working on
   ξ_ax, η_ax = (1, 2)
 
-  _cell_center_metric!(
-    scheme.∂x∂ξᵢ.∂x₁.∂ξ₁, xc, scheme.∂_cache, scheme.∂²_cache, ξ_ax, domain
-  ) # ∂x/∂ξ
-  _cell_center_metric!(
-    scheme.∂x∂ξᵢ.∂x₁.∂ξ₂, xc, scheme.∂_cache, scheme.∂²_cache, η_ax, domain
-  ) # ∂x/∂η
-  _cell_center_metric!(
-    scheme.∂x∂ξᵢ.∂x₂.∂ξ₁, yc, scheme.∂_cache, scheme.∂²_cache, ξ_ax, domain
-  ) # ∂y/∂ξ
-  _cell_center_metric!(
-    scheme.∂x∂ξᵢ.∂x₂.∂ξ₂, yc, scheme.∂_cache, scheme.∂²_cache, η_ax, domain
-  ) # ∂y/∂η
+  ∂_cache = scheme.∂_cache
+  ∂²_cache = scheme.∂²_cache
+  _cell_center_metric!(scheme.∂x∂ξᵢ.∂x₁.∂ξ₁, xc, ∂_cache, ∂²_cache, ξ_ax, domain) # ∂x/∂ξ
+  _cell_center_metric!(scheme.∂x∂ξᵢ.∂x₁.∂ξ₂, xc, ∂_cache, ∂²_cache, η_ax, domain) # ∂x/∂η
+  _cell_center_metric!(scheme.∂x∂ξᵢ.∂x₂.∂ξ₁, yc, ∂_cache, ∂²_cache, ξ_ax, domain) # ∂y/∂ξ
+  _cell_center_metric!(scheme.∂x∂ξᵢ.∂x₂.∂ξ₂, yc, ∂_cache, ∂²_cache, η_ax, domain) # ∂y/∂η
 
   # compute the inverse metrics, i.e., ∂ξᵢ/∂xᵢ (or ξₓ). To do this
   # the jacobian matrix has to be assembled and then inverted
@@ -235,49 +231,39 @@ function update_metrics!(
   # Next we find the **conservative** metrics. This is much more
   # complicated in 3D...
 
-  # ξ̂x = ξx / J
   ξx = scheme.∂ξ∂xᵢ.∂ξ₁.∂x₁
+  ηx = scheme.∂ξ∂xᵢ.∂ξ₂.∂x₁
+  ξy = scheme.∂ξ∂xᵢ.∂ξ₁.∂x₂
+  ηy = scheme.∂ξ∂xᵢ.∂ξ₂.∂x₂
+
   ξ̂xᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₁.i₊½
+  ξ̂yᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₂.i₊½
+  η̂xᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.i₊½
+  η̂yᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.i₊½
+
   ξ̂xⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₁.j₊½
-  _iterp_mixed_terms_to_edge(
-    ξ̂xᵢ₊½, ξx, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, ξ_ax, domain, /
-  )
-  _iterp_mixed_terms_to_edge(
-    ξ̂xⱼ₊½, ξx, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, η_ax, domain, /
-  )
+  ξ̂yⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₁.∂x₂.j₊½
+  η̂xⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.j₊½
+  η̂yⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.j₊½
+
+  opp = /
+
+  # ξ̂x = ξx / J
+  _iterp_mixed_terms_to_edge(ξ̂xᵢ₊½, ξx, scheme.Jᵢ, ∂_cache, ∂²_cache, ξ_ax, domain, opp)
+  _iterp_mixed_terms_to_edge(ξ̂xⱼ₊½, ξx, scheme.Jᵢ, ∂_cache, ∂²_cache, η_ax, domain, opp)
 
   # η̂x = ηx / J
-  ηx = scheme.∂ξ∂xᵢ.∂ξ₂.∂x₁
-  η̂xᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.i₊½
-  η̂xⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.j₊½
-  _iterp_mixed_terms_to_edge(
-    η̂xᵢ₊½, ηx, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, ξ_ax, domain, /
-  )
-  _iterp_mixed_terms_to_edge(
-    η̂xⱼ₊½, ηx, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, η_ax, domain, /
-  )
+  _iterp_mixed_terms_to_edge(η̂xᵢ₊½, ηx, scheme.Jᵢ, ∂_cache, ∂²_cache, ξ_ax, domain, opp)
+  _iterp_mixed_terms_to_edge(η̂xⱼ₊½, ηx, scheme.Jᵢ, ∂_cache, ∂²_cache, η_ax, domain, opp)
 
   # ξ̂y = ξy / J
-  ξy = scheme.∂ξ∂xᵢ.∂ξ₁.∂x₂
-  ξ̂yᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.i₊½
-  ξ̂yⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₁.j₊½
-  _iterp_mixed_terms_to_edge(
-    ξ̂yᵢ₊½, ξy, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, ξ_ax, domain, /
-  )
-  _iterp_mixed_terms_to_edge(
-    ξ̂yⱼ₊½, ξy, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, η_ax, domain, /
-  )
+  _iterp_mixed_terms_to_edge(ξ̂yᵢ₊½, ξy, scheme.Jᵢ, ∂_cache, ∂²_cache, ξ_ax, domain, opp)
+  _iterp_mixed_terms_to_edge(ξ̂yⱼ₊½, ξy, scheme.Jᵢ, ∂_cache, ∂²_cache, η_ax, domain, opp)
 
   # η̂y = ηy / J
-  ηy = scheme.∂ξ∂xᵢ.∂ξ₂.∂x₂
-  η̂yᵢ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.i₊½
-  η̂yⱼ₊½ = scheme.∂ξ̂∂xᵢ₊½.∂ξ₂.∂x₂.j₊½
-  _iterp_mixed_terms_to_edge(
-    η̂yᵢ₊½, ηy, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, ξ_ax, domain, /
-  )
-  _iterp_mixed_terms_to_edge(
-    η̂yⱼ₊½, ηy, scheme.Jᵢ, scheme.∂_cache, scheme.∂²_cache, η_ax, domain, /
-  )
+
+  _iterp_mixed_terms_to_edge(η̂yᵢ₊½, ηy, scheme.Jᵢ, ∂_cache, ∂²_cache, ξ_ax, domain, opp)
+  _iterp_mixed_terms_to_edge(η̂yⱼ₊½, ηy, scheme.Jᵢ, ∂_cache, ∂²_cache, η_ax, domain, opp)
 
   return nothing
 end
@@ -559,7 +545,7 @@ function _conserved_metric_term!(
   # In the loop below, ϕ1 is (y_η z)ₖ₊½ and ϕ2 is (y_ζ z)ⱼ₊½
 
   # This is a stupidly simple loop, but it works for arbitrary dimensions
-  @inbounds for idx in domain1
+  @inbounds for idx in domain
     # Sticking with the example for (y_η z)_ζ = ((y_η z)ₖ₊½ - (y_η z)ₖ₋½) / Δζ,
     # but this will work for arbitrary axes
     k₋½ = down(idx, ax1, 1)# i.e. k₋½ is simply k₊½ at [i, j, k-1]
@@ -579,35 +565,35 @@ end
 # 3D version
 function _inverse_metrics(scheme::MEG6Scheme{3}, domain)
   @inbounds for idx in domain
-    xξ = scheme.∂x∂ξᵢ.x₁.ξ₁[idx] # ∂x/∂ξ
-    yξ = scheme.∂x∂ξᵢ.x₂.ξ₁[idx] # ∂y/∂ξ
-    zξ = scheme.∂x∂ξᵢ.x₃.ξ₁[idx] # ∂z/∂ξ
-    xη = scheme.∂x∂ξᵢ.x₁.ξ₂[idx] # ∂x/∂η
-    yη = scheme.∂x∂ξᵢ.x₂.ξ₂[idx] # ∂y/∂η
-    zη = scheme.∂x∂ξᵢ.x₃.ξ₂[idx] # ∂z/∂η
-    xζ = scheme.∂x∂ξᵢ.x₁.ξ₃[idx] # ∂x/∂ζ
-    yζ = scheme.∂x∂ξᵢ.x₂.ξ₃[idx] # ∂y/∂ζ
-    zζ = scheme.∂x∂ξᵢ.x₃.ξ₃[idx] # ∂z/∂ζ
+    xξ = scheme.∂x∂ξᵢ.∂x₁.∂ξ₁[idx] # ∂x/∂ξ
+    yξ = scheme.∂x∂ξᵢ.∂x₂.∂ξ₁[idx] # ∂y/∂ξ
+    zξ = scheme.∂x∂ξᵢ.∂x₃.∂ξ₁[idx] # ∂z/∂ξ
+    xη = scheme.∂x∂ξᵢ.∂x₁.∂ξ₂[idx] # ∂x/∂η
+    yη = scheme.∂x∂ξᵢ.∂x₂.∂ξ₂[idx] # ∂y/∂η
+    zη = scheme.∂x∂ξᵢ.∂x₃.∂ξ₂[idx] # ∂z/∂η
+    xζ = scheme.∂x∂ξᵢ.∂x₁.∂ξ₃[idx] # ∂x/∂ζ
+    yζ = scheme.∂x∂ξᵢ.∂x₂.∂ξ₃[idx] # ∂y/∂ζ
+    zζ = scheme.∂x∂ξᵢ.∂x₃.∂ξ₃[idx] # ∂z/∂ζ
 
     # inverse jacobian matrix
     J⁻¹ = @SMatrix [
-      xξ yξ zξ
-      xη yη zη
-      xζ yζ zζ
+      xξ xη xζ
+      yξ yη yζ
+      zξ zη zζ
     ]
 
     J = inv(J⁻¹) # jacobian matrix
     scheme.Jᵢ[idx] = det(J) # "the Jacobian"... why can't we use different names??
 
-    scheme.∂ξ∂xᵢ.ξ₁.x₁[idx] = J[1, 1] # ∂ξ/∂x
-    scheme.∂ξ∂xᵢ.ξ₁.x₂[idx] = J[1, 2] # ∂ξ/∂y
-    scheme.∂ξ∂xᵢ.ξ₁.x₃[idx] = J[1, 3] # ∂ξ/∂z
-    scheme.∂ξ∂xᵢ.ξ₂.x₁[idx] = J[2, 1] # ∂η/∂x
-    scheme.∂ξ∂xᵢ.ξ₂.x₂[idx] = J[2, 2] # ∂η/∂y
-    scheme.∂ξ∂xᵢ.ξ₂.x₃[idx] = J[2, 3] # ∂η/∂z
-    scheme.∂ξ∂xᵢ.ξ₃.x₁[idx] = J[3, 1] # ∂ζ/∂x
-    scheme.∂ξ∂xᵢ.ξ₃.x₂[idx] = J[3, 2] # ∂ζ/∂y
-    scheme.∂ξ∂xᵢ.ξ₃.x₃[idx] = J[3, 3] # ∂ζ/∂z
+    scheme.∂ξ∂xᵢ.∂ξ₁.∂x₁[idx] = J[1, 1] # ∂ξ/∂x
+    scheme.∂ξ∂xᵢ.∂ξ₁.∂x₂[idx] = J[1, 2] # ∂ξ/∂y
+    scheme.∂ξ∂xᵢ.∂ξ₁.∂x₃[idx] = J[1, 3] # ∂ξ/∂z
+    scheme.∂ξ∂xᵢ.∂ξ₂.∂x₁[idx] = J[2, 1] # ∂η/∂x
+    scheme.∂ξ∂xᵢ.∂ξ₂.∂x₂[idx] = J[2, 2] # ∂η/∂y
+    scheme.∂ξ∂xᵢ.∂ξ₂.∂x₃[idx] = J[2, 3] # ∂η/∂z
+    scheme.∂ξ∂xᵢ.∂ξ₃.∂x₁[idx] = J[3, 1] # ∂ζ/∂x
+    scheme.∂ξ∂xᵢ.∂ξ₃.∂x₂[idx] = J[3, 2] # ∂ζ/∂y
+    scheme.∂ξ∂xᵢ.∂ξ₃.∂x₃[idx] = J[3, 3] # ∂ζ/∂z
   end
 
   return nothing
@@ -622,19 +608,33 @@ function _inverse_metrics(scheme::MEG6Scheme{2}, domain)
     yξ = scheme.∂x∂ξᵢ.∂x₂.∂ξ₁[idx] # ∂y/∂ξ
     yη = scheme.∂x∂ξᵢ.∂x₂.∂ξ₂[idx] # ∂y/∂η
 
-    # inverse jacobian matrix
-    J⁻¹ = @SMatrix [
-      xξ yξ
-      xη yη
+    # correct jacobian definition
+    J = @SMatrix [
+      xξ xη
+      yξ yη
     ]
 
-    J = inv(J⁻¹)
+    J⁻¹ = inv(J)
     scheme.Jᵢ[idx] = det(J) # "the Jacobian".... why can't we use different names??
 
-    scheme.∂ξ∂xᵢ.∂ξ₁.∂x₁[idx] = J[1, 1] # ∂ξ/∂x
-    scheme.∂ξ∂xᵢ.∂ξ₁.∂x₂[idx] = J[1, 2] # ∂ξ/∂y
-    scheme.∂ξ∂xᵢ.∂ξ₂.∂x₁[idx] = J[2, 1] # ∂η/∂x
-    scheme.∂ξ∂xᵢ.∂ξ₂.∂x₂[idx] = J[2, 2] # ∂η/∂y
+    scheme.∂ξ∂xᵢ.∂ξ₁.∂x₁[idx] = J⁻¹[1, 1] # ∂ξ/∂x
+    scheme.∂ξ∂xᵢ.∂ξ₁.∂x₂[idx] = J⁻¹[1, 2] # ∂ξ/∂y
+    scheme.∂ξ∂xᵢ.∂ξ₂.∂x₁[idx] = J⁻¹[2, 1] # ∂η/∂x
+    scheme.∂ξ∂xᵢ.∂ξ₂.∂x₂[idx] = J⁻¹[2, 2] # ∂η/∂y
+
+    # # inverse jacobian matrix
+    # J⁻¹ = @SMatrix [
+    #   xξ yξ
+    #   xη yη
+    # ]
+
+    # J = inv(J⁻¹)
+    # scheme.Jᵢ[idx] = det(J) # "the Jacobian".... why can't we use different names??
+
+    # scheme.∂ξ∂xᵢ.∂ξ₁.∂x₁[idx] = J[1, 1] # ∂ξ/∂x
+    # scheme.∂ξ∂xᵢ.∂ξ₁.∂x₂[idx] = J[1, 2] # ∂ξ/∂y
+    # scheme.∂ξ∂xᵢ.∂ξ₂.∂x₁[idx] = J[2, 1] # ∂η/∂x
+    # scheme.∂ξ∂xᵢ.∂ξ₂.∂x₂[idx] = J[2, 2] # ∂η/∂y
   end
 
   return nothing
@@ -674,7 +674,6 @@ function _iterp_mixed_terms_to_edge(
   # ∂²AB = scheme.∂²_cache
   # gradients for the boundaries require mixed and one-sided stencils
   _boundary_∂AB!(∂AB, A, B, axis, domain, operator)
-
   # since we already did the special boundary treatment, 
   # shrink the domain where we apply the standard stencils below
   inner_domain_m3 = expand(domain, axis, -3) # shrink by 3 boundary cells
@@ -795,7 +794,7 @@ function _iterp_to_edge!(
 
     # Use an offset vector so the cell in question is always at 0,
     # and its convienient to use -n:n indices for stencil operatios
-    ∂A[idx] = ∂ϕ(A_stencil)
+    ∂A[idx] = ∂(A_stencil)
   end
 
   # -----------------------------------
@@ -823,7 +822,7 @@ function _iterp_to_edge!(
       (-offset):offset,
     )
 
-    ∂²A[idx] = ∂²ϕ(A_stencil, ∂A_stencil)
+    ∂²A[idx] = ∂²(A_stencil, ∂A_stencil)
   end
 
   # -----------------------------------
