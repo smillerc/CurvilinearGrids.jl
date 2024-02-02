@@ -1,3 +1,4 @@
+using Test
 
 @testset "3D Mesh - Rectangular Mesh" begin
   include("common.jl")
@@ -15,28 +16,36 @@
   end
 
   ni, nj, nk = (5, 9, 13)
-  nhalo = 2
+  nhalo = 5
   x, y, z = rect_grid(ni, nj, nk)
 
+  # TODO: impost
   mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 
-  metrics(mesh, (2, 3, 4))
-  # conservative_metrics(mesh, (2, 3, 4))
+  domain = mesh.iterators.cell.domain
 
-  # metrics(mesh, (2, 3, 4)) == (
-  #   ξx=2.0,
-  #   ξy=0.0,
-  #   ξz=0.0,
-  #   ηx=0.0,
-  #   ηy=4.0,
-  #   ηz=0.0,
-  #   ζx=0.0,
-  #   ζy=0.0,
-  #   ζz=4.0,
-  #   ξt=0.0,
-  #   ηt=0.0,
-  #   ζt=0.0,
+  @test all(mesh.cell_center_metrics.ξx[domain] .== 2.0)
+  @test all(mesh.cell_center_metrics.ξx[domain] .== 2.0)
+
+  cell_volume = 0.5 * 0.25 * 0.25
+
+  @test all(mesh.cell_center_metrics.J[domain] .== cell_volume)
+  @test all(mesh.cell_center_metrics.ξx[domain] .== 2.0)
+  @test all(mesh.cell_center_metrics.ξy[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ξz[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ηx[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ηy[domain] .== 4.0)
+  @test all(mesh.cell_center_metrics.ηz[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ζx[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ζy[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ζz[domain] .== 4.0)
+  @test all(mesh.cell_center_metrics.ξt[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ηt[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ζt[domain] .== 0.0)
   # )
+
+  # display(mesh.edge_metrics.i₊½.J[domain])
+  # display(mesh.edge_metrics.i₊½.ξ̂x[domain])
 
   # conservative_metrics(mesh, (2, 3, 4)) == (
   #   ξ̂x=0.0625,

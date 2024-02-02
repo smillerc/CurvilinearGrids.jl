@@ -1,53 +1,24 @@
 
 include("operators.jl")
 
+const ξ = 1
+const η = 2
+const ζ = 3
+
 """
 A Monotone Explicit 6th Order Gradient (MEG6) scheme to discretize
 the grid metrics
 """
-struct MEG6Scheme{N,T,AA<:AbstractArray{T,N},B,C,D,E,F} <: AbstractMetricScheme
-  ∂_cache::AA # cache array for derivative terms of any scalar term ϕ 
-  ∂²_cache::AA # cache array for 2nd derivative terms of any scalar term ϕ 
-  Jᵢ::AA # cell-centered Jacobian (det(jacobian matrix))
-  ∂x∂ξᵢ::B # cell-centered inverse metrics ∂x/∂(ξ,η,ζ), ∂y/∂(ξ,η,ζ), ∂z/∂(ξ,η,ζ)
-  ∂ξ∂xᵢ::C # cell-centered metrics ∂(ξ,η,ζ)/∂z, ∂(ξ,η,ζ)∂y, ∂(ξ,η,ζ)∂z
-  ∂ξ̂∂xᵢ::D # cell-centered conservative metrics, where ξ̂ = ξ/J; ∂(ξ,η,ζ)/∂z, ∂(ξ,η,ζ)∂y, ∂(ξ,η,ζ)∂z
-  ∂ξ̂∂xᵢ₊½::E # conservative metrics at the cell edges ((i,j,k)+1/2), where ξ̂ = ξ/J; ∂(ξ,η,ζ)/∂z, ∂(ξ,η,ζ)∂y, ∂(ξ,η,ζ)∂z
-  edge_cache::F
+struct MEG6Scheme{C} <: AbstractMetricScheme
+  cache::C
 end
 
 # MEG6Scheme Constructor
 function MEG6Scheme(celldims::NTuple{N,Int}; T=Float64) where {N}
-  ∂ϕᵢ = zeros(T, celldims)
-  Jᵢ = zeros(T, celldims)
-  ∂²ϕᵢ = zeros(T, celldims)
-
-  ∂x∂ξᵢ = NamedTuple{(x_names(celldims))}( # (∂x, ∂y, ∂z)
-    nested_tuple(celldims, ξ_names, T) for i in 1:N  # (∂ξ, ∂η, ∂ζ)
+  cache = (
+    ξ̂=zeros(T, celldims), mixed_deriv1=zeros(T, celldims), mixed_deriv2=zeros(T, celldims)
   )
-
-  ∂ξ∂xᵢ = NamedTuple{(ξ_names(celldims))}( # (∂ξ, ∂η, ∂ζ)
-    nested_tuple(celldims, x_names, T) for i in 1:N # (∂x, ∂y, ∂z)
-  )
-
-  ∂ξ̂∂xᵢ = NamedTuple{(ξ̂_names(celldims))}( # (∂ξ, ∂η, ∂ζ)
-    nested_tuple(celldims, x_names, T) for i in 1:N # (∂x, ∂y, ∂z)
-  )
-
-  ∂ξ̂∂xᵢ₊½ = NamedTuple{(ξ_names(celldims))}( # (∂ξ, ∂η, ∂ζ)
-    NamedTuple{(x_names(celldims))}( # (∂x, ∂y, ∂z)
-      nested_tuple(celldims, edge_names, T) for i in 1:N # (i₊½, j₊½, k₊½)
-    ) for j in 1:N
-  )
-
-  if N == 3
-    # 3D needs another cache array for edge interpolation
-    edge_cache = (zeros(T, celldims), zeros(T, celldims))
-  else
-    edge_cache = nothing
-  end
-
-  return MEG6Scheme(∂ϕᵢ, ∂²ϕᵢ, Jᵢ, ∂x∂ξᵢ, ∂ξ∂xᵢ, ∂ξ̂∂xᵢ, ∂ξ̂∂xᵢ₊½, edge_cache)
+  return MEG6Scheme(cache)
 end
 
 # Inner partial product, i.e. (∂x/∂ξ)z
@@ -223,13 +194,16 @@ function conserved_metric(
   return ξ̂_x
 end
 
-function update_metrics!(m::MEG6Scheme{3}, (xc, yc, zc), cell_center_metrics, edge_metrics)
-  update_cell_center_metrics!(m, (xc, yc, zc), cell_center_metrics, edge_metrics)
-  return update_edge_metrics!(m, (xc, yc, zc), cell_center_metrics, edge_metrics)
+function update_metrics_3d!(
+  m::MEG6Scheme, centroid_coords, cell_center_metrics, edge_metrics
+)
+  update_cell_center_metrics_3d!(m, centroid_coords, cell_center_metrics, edge_metrics)
+  update_edge_metrics_3d!(m, centroid_coords, cell_center_metrics, edge_metrics)
+  return nothing
 end
 
-function update_cell_center_metrics!(
-  ::MEG6Scheme{3}, (xc, yc, zc), cell_center_metrics, edge_metrics
+function update_cell_center_metrics_3d!(
+  ::MEG6Scheme, centroid_coords, cell_center_metrics, edge_metrics
 )
   xξ = @views cell_center_metrics.ξx
   yξ = @views cell_center_metrics.ξy
@@ -242,17 +216,17 @@ function update_cell_center_metrics!(
   zζ = @views cell_center_metrics.ζz
 
   # First compute the inverse metrics (and store in the forward metric arrays for now)
-  inner∂!(cell_center_metrics.ξx, x, ξ) # xξ
-  inner∂!(cell_center_metrics.ξy, y, ξ) # yξ
-  inner∂!(cell_center_metrics.ξz, z, ξ) # zξ
-  inner∂!(cell_center_metrics.ηx, x, η) # xη
-  inner∂!(cell_center_metrics.ηy, y, η) # yη
-  inner∂!(cell_center_metrics.ηz, z, η) # zη
-  inner∂!(cell_center_metrics.ζx, x, ζ) # xζ
-  inner∂!(cell_center_metrics.ζy, y, ζ) # yζ
-  inner∂!(cell_center_metrics.ζz, z, ζ) # zζ
+  inner∂!(cell_center_metrics.ξx, centroid_coords.x, ξ) # xξ
+  inner∂!(cell_center_metrics.ξy, centroid_coords.y, ξ) # yξ
+  inner∂!(cell_center_metrics.ξz, centroid_coords.z, ξ) # zξ
+  inner∂!(cell_center_metrics.ηx, centroid_coords.x, η) # xη
+  inner∂!(cell_center_metrics.ηy, centroid_coords.y, η) # yη
+  inner∂!(cell_center_metrics.ηz, centroid_coords.z, η) # zη
+  inner∂!(cell_center_metrics.ζx, centroid_coords.x, ζ) # xζ
+  inner∂!(cell_center_metrics.ζy, centroid_coords.y, ζ) # yζ
+  inner∂!(cell_center_metrics.ζz, centroid_coords.z, ζ) # zζ
 
-  domain = CartesianIndices(x)
+  domain = CartesianIndices(centroid_coords.x)
 
   # Now compute the jacobian matrix for each entry, and store the proper
   # metric back in it's place
@@ -263,9 +237,9 @@ function update_cell_center_metrics!(
       zξ[idx] zη[idx] zζ[idx]
     ]
 
-    _inv_jacobian = inv(_jacobian)
-    J[idx] = det(_jacobian)
+    cell_center_metrics.J[idx] = det(_jacobian)
 
+    _inv_jacobian = inv(_jacobian)
     cell_center_metrics.ξx[idx] = _inv_jacobian[1, 1]
     cell_center_metrics.ξy[idx] = _inv_jacobian[1, 2]
     cell_center_metrics.ξz[idx] = _inv_jacobian[1, 3]
@@ -280,68 +254,70 @@ function update_cell_center_metrics!(
   return nothing
 end
 
-function update_edge_metrics!(
-  m::MEG6Scheme{3}, (xc, yc, zc), cell_center_metrics, edge_metrics
+function update_edge_metrics_3d!(
+  m::MEG6Scheme, centroid_coords, cell_center_metrics, edge_metrics
 )
-  ξ, η, ζ = (1, 2, 3)
+  xc = centroid_coords.x
+  yc = centroid_coords.y
+  zc = centroid_coords.z
 
-  to_edge!(edge_metrics.ᵢ₊½.J, cell_center_metrics.J, ξ)
-  to_edge!(edge_metrics.ⱼ₊½.J, cell_center_metrics.J, η)
-  to_edge!(edge_metrics.ₖ₊½.J, cell_center_metrics.J, ζ)
+  to_edge!(edge_metrics.i₊½.J, cell_center_metrics.J, ξ)
+  to_edge!(edge_metrics.j₊½.J, cell_center_metrics.J, η)
+  to_edge!(edge_metrics.k₊½.J, cell_center_metrics.J, ζ)
 
-  ξ̂_x = m.ξ̂cache
+  ξ̂_x = m.cache.ξ̂
   conserved_metric(ξ̂_x, (yc, zc), (η, ζ), m.cache)
-  to_edge!(edge_metrics.ᵢ₊½.ξ̂x, ξ̂_x, ξ)
-  to_edge!(edge_metrics.ⱼ₊½.ξ̂x, ξ̂_x, η)
-  to_edge!(edge_metrics.ₖ₊½.ξ̂x, ξ̂_x, ζ)
+  to_edge!(edge_metrics.i₊½.ξ̂x, ξ̂_x, ξ)
+  to_edge!(edge_metrics.j₊½.ξ̂x, ξ̂_x, η)
+  to_edge!(edge_metrics.k₊½.ξ̂x, ξ̂_x, ζ)
 
-  η̂_x = m.ξ̂cache
+  η̂_x = m.cache.ξ̂
   conserved_metric(η̂_x, (yc, zc), (ζ, ξ), m.cache)
-  to_edge!(edge_metrics.ᵢ₊½.η̂x, η̂_x, ξ)
-  to_edge!(edge_metrics.ⱼ₊½.η̂x, η̂_x, η)
-  to_edge!(edge_metrics.ₖ₊½.η̂x, η̂_x, ζ)
+  to_edge!(edge_metrics.i₊½.η̂x, η̂_x, ξ)
+  to_edge!(edge_metrics.j₊½.η̂x, η̂_x, η)
+  to_edge!(edge_metrics.k₊½.η̂x, η̂_x, ζ)
 
-  ζ̂_x = m.ξ̂cache
+  ζ̂_x = m.cache.ξ̂
   conserved_metric(ζ̂_x, (yc, zc), (ξ, η), m.cache)
-  to_edge!(edge_metrics.ᵢ₊½.ζ̂x, ζ̂_x, ξ)
-  to_edge!(edge_metrics.ⱼ₊½.ζ̂x, ζ̂_x, η)
-  to_edge!(edge_metrics.ₖ₊½.ζ̂x, ζ̂_x, ζ)
+  to_edge!(edge_metrics.i₊½.ζ̂x, ζ̂_x, ξ)
+  to_edge!(edge_metrics.j₊½.ζ̂x, ζ̂_x, η)
+  to_edge!(edge_metrics.k₊½.ζ̂x, ζ̂_x, ζ)
 
-  ξ̂_y = m.ξ̂cache
+  ξ̂_y = m.cache.ξ̂
   conserved_metric(ξ̂_y, (zc, xc), (η, ζ), m.cache)
-  to_edge!(edge_metrics.ᵢ₊½.ξ̂y, ξ̂_y, ξ)
-  to_edge!(edge_metrics.ⱼ₊½.ξ̂y, ξ̂_y, η)
-  to_edge!(edge_metrics.ₖ₊½.ξ̂y, ξ̂_y, ζ)
+  to_edge!(edge_metrics.i₊½.ξ̂y, ξ̂_y, ξ)
+  to_edge!(edge_metrics.j₊½.ξ̂y, ξ̂_y, η)
+  to_edge!(edge_metrics.k₊½.ξ̂y, ξ̂_y, ζ)
 
-  η̂_y = m.ξ̂cache
+  η̂_y = m.cache.ξ̂
   conserved_metric(η̂_y, (zc, xc), (ζ, ξ), m.cache)
-  to_edge!(edge_metrics.ᵢ₊½.η̂y, η̂_y, ξ)
-  to_edge!(edge_metrics.ⱼ₊½.η̂y, η̂_y, η)
-  to_edge!(edge_metrics.ₖ₊½.η̂y, η̂_y, ζ)
+  to_edge!(edge_metrics.i₊½.η̂y, η̂_y, ξ)
+  to_edge!(edge_metrics.j₊½.η̂y, η̂_y, η)
+  to_edge!(edge_metrics.k₊½.η̂y, η̂_y, ζ)
 
-  ζ̂_y = m.ξ̂cache
+  ζ̂_y = m.cache.ξ̂
   conserved_metric(ζ̂_y, (zc, xc), (ξ, η), m.cache)
-  to_edge!(edge_metrics.ᵢ₊½.ζ̂y, ζ̂_y, ξ)
-  to_edge!(edge_metrics.ⱼ₊½.ζ̂y, ζ̂_y, η)
-  to_edge!(edge_metrics.ₖ₊½.ζ̂y, ζ̂_y, ζ)
+  to_edge!(edge_metrics.i₊½.ζ̂y, ζ̂_y, ξ)
+  to_edge!(edge_metrics.j₊½.ζ̂y, ζ̂_y, η)
+  to_edge!(edge_metrics.k₊½.ζ̂y, ζ̂_y, ζ)
 
-  ξ̂_z = m.ξ̂cache
+  ξ̂_z = m.cache.ξ̂
   conserved_metric(ξ̂_z, (xc, yc), (η, ζ), m.cache)
-  to_edge!(edge_metrics.ᵢ₊½.ξ̂z, ξ̂_z, ξ)
-  to_edge!(edge_metrics.ⱼ₊½.ξ̂z, ξ̂_z, η)
-  to_edge!(edge_metrics.ₖ₊½.ξ̂z, ξ̂_z, ζ)
+  to_edge!(edge_metrics.i₊½.ξ̂z, ξ̂_z, ξ)
+  to_edge!(edge_metrics.j₊½.ξ̂z, ξ̂_z, η)
+  to_edge!(edge_metrics.k₊½.ξ̂z, ξ̂_z, ζ)
 
-  η̂_z = m.ξ̂cache
+  η̂_z = m.cache.ξ̂
   conserved_metric(η̂_z, (xc, yc), (ζ, ξ), m.cache)
-  to_edge!(edge_metrics.ᵢ₊½.η̂z, η̂_z, ξ)
-  to_edge!(edge_metrics.ⱼ₊½.η̂z, η̂_z, η)
-  to_edge!(edge_metrics.ₖ₊½.η̂z, η̂_z, ζ)
+  to_edge!(edge_metrics.i₊½.η̂z, η̂_z, ξ)
+  to_edge!(edge_metrics.j₊½.η̂z, η̂_z, η)
+  to_edge!(edge_metrics.k₊½.η̂z, η̂_z, ζ)
 
-  ζ̂_z = m.ξ̂cache
+  ζ̂_z = m.cache.ξ̂
   conserved_metric(ζ̂_z, (xc, yc), (ξ, η), m.cache)
-  to_edge!(edge_metrics.ᵢ₊½.ζ̂z, ζ̂_z, ξ)
-  to_edge!(edge_metrics.ⱼ₊½.ζ̂z, ζ̂_z, η)
-  to_edge!(edge_metrics.ₖ₊½.ζ̂z, ζ̂_z, ζ)
+  to_edge!(edge_metrics.i₊½.ζ̂z, ζ̂_z, ξ)
+  to_edge!(edge_metrics.j₊½.ζ̂z, ζ̂_z, η)
+  to_edge!(edge_metrics.k₊½.ζ̂z, ζ̂_z, ζ)
 
   return nothing
 end

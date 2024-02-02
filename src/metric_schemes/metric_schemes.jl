@@ -1,5 +1,6 @@
 module MetricDiscretizationSchemes
 
+using Polyester
 using ChunkSplitters, KernelAbstractions
 using OffsetArrays, StaticArrays
 using .Threads, LinearAlgebra

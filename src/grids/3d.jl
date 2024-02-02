@@ -12,21 +12,17 @@ CurvilinearGrid3D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CurvilinearGrid3D{F1,F2,F3,EM,CCM,F4,F5,L,CI,AA} <: AbstractCurvilinearGrid
-  x_func::F1 # x(ijk)
-  y_func::F2 # y(ijk)
-  z_func::F3 # z(ijk)
-  x_coord::AA # stored x-coordinate location
-  y_coord::AA # stored y-coordinate location
-  z_coord::AA # stored y-coordinate location
+struct CurvilinearGrid3D{A,B,EM,CCM,F4,L,CI,DS} <: AbstractCurvilinearGrid
+  coord_funcs::A
+  centroids::B
   edge_metrics::EM
   cell_center_metrics::CCM
   jacobian_matrix_func::F4 # jacobian_matrix(ξ,η,ζ)
-  conserv_metric_func::F5 # f(ξ,η,ζ) to get ξ̂x, ξ̂y, ...
-  nhalo::Int # number of halo cells (for all dimensions)
+  nhalo::Int
   nnodes::NTuple{3,Int}
   domain_limits::L
   iterators::CI
+  discretization_scheme::DS
 end
 
 function CurvilinearGrid3D(
@@ -54,7 +50,7 @@ function CurvilinearGrid3D(
   end
 
   # jacobian_matrix_func = _setup_jacobian_func(x, y, z)
-  cons_metric_func = _setup_conservative_metrics_func(x, y, z)
+  # cons_metric_func = _setup_conservative_metrics_func(x, y, z)
   nnodes = (n_ξ, n_η, n_ζ)
   ncells = nnodes .- 1
   ni_cells = n_ξ - 1
@@ -210,7 +206,7 @@ function CurvilinearGrid3D(
     z=zeros(T, _iterators.cell.full.indices),
   )
 
-  @inbounds for idx in _iterators.cell.full.indices
+  @inbounds for idx in _iterators.cell.full
     cell_idx = @. idx.I - nhalo + 0.5
 
     _centroids.x[idx] = x(cell_idx...)
@@ -218,19 +214,20 @@ function CurvilinearGrid3D(
     _centroids.z[idx] = z(cell_idx...)
   end
 
+  discretization_scheme = MEG6Scheme(size(_iterators.cell.full))
+  @assert nhalo == 5
+
   m = CurvilinearGrid3D(
-    x,
-    y,
-    z,
+    (; x, y, z),
     _centroids,
     edge_metrics,
     cell_center_metrics,
     jacobian_matrix_func,
-    cons_metric_func,
     nhalo,
     nnodes,
     limits,
     _iterators,
+    discretization_scheme,
   )
 
   update_metrics!(m)
@@ -238,206 +235,214 @@ function CurvilinearGrid3D(
   return m
 end
 
-function update_metrics!(m::CurvilinearGrid3D, t=0)
-
-  # cell metrics
-  @inbounds for idx in m.iterators.cell.full
-    cell_idx = idx.I .+ 0.5
-    @unpack J, ξ, η, ζ = metrics(m, cell_idx, t)
-
-    m.cell_center_metrics.ξ[idx] = ξ
-    m.cell_center_metrics.η[idx] = η
-    m.cell_center_metrics.ζ[idx] = ζ
-    m.cell_center_metrics.J[idx] = J
-  end
-
-  # # i₊½ conserved metrics
-  # @inbounds for idx in m.iterators.cell.full
-  #   i, j, k = idx.I .+ 0.5 # centroid index
-
-  #   # get the conserved metrics at (i₊½, j)
-  #   @unpack ξ̂, η̂, ζ̂ = conservative_metrics(m, (i + 1 / 2, j, k), t)
-
-  #   m.edge_metrics.i₊½.ξ̂[idx] = ξ̂
-  #   m.edge_metrics.i₊½.η̂[idx] = η̂
-  #   m.edge_metrics.i₊½.ζ̂[idx] = ζ̂
-  # end
-
-  # # j₊½ conserved metrics
-  # @inbounds for idx in m.iterators.cell.full
-  #   i, j, k = idx.I .+ 0.5 # centroid index
-
-  #   # get the conserved metrics at (i₊½, j)
-  #   @unpack ξ̂, η̂, ζ̂ = conservative_metrics(m, (i, j + 1 / 2, k), t)
-
-  #   m.edge_metrics.j₊½.ξ̂[idx] = ξ̂
-  #   m.edge_metrics.j₊½.η̂[idx] = η̂
-  #   m.edge_metrics.j₊½.ζ̂[idx] = ζ̂
-  # end
-
-  # # k₊½ conserved metrics
-  # @inbounds for idx in m.iterators.cell.full
-  #   i, j, k = idx.I .+ 0.5 # centroid index
-
-  #   # get the conserved metrics at (i₊½, j)
-  #   @unpack ξ̂, η̂, ζ̂ = conservative_metrics(m, (i, j, k + 1 / 2), t)
-
-  #   m.edge_metrics.k₊½.ξ̂[idx] = ξ̂
-  #   m.edge_metrics.k₊½.η̂[idx] = η̂
-  #   m.edge_metrics.k₊½.ζ̂[idx] = ζ̂
-  # end
+function update_metrics!(m::CurvilinearGrid3D)
+  MetricDiscretizationSchemes.update_metrics_3d!(
+    m.discretization_scheme, m.centroids, m.cell_center_metrics, m.edge_metrics
+  )
 
   return nothing
 end
 
-function update_metrics_meg!(m::CurvilinearGrid3D)
-  cswh = cellsize_withhalo(m)
-  meg6_metrics = MEG6Scheme(cswh)
+# function update_metrics!(m::CurvilinearGrid3D, t=0)
 
-  # centroids
-  xc = zeros(cswh)
-  yc = zeros(cswh)
-  zc = zeros(cswh)
-  for idx in CartesianIndices(xc)
-    i, j, k = idx.I
-    xc[idx] = m.x_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5, k - m.nhalo + 0.5) # x
-    yc[idx] = m.y_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5, k - m.nhalo + 0.5) # y
-    zc[idx] = m.z_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5, k - m.nhalo + 0.5) # y
-  end
+#   # cell metrics
+#   @inbounds for idx in m.iterators.cell.full
+#     cell_idx = idx.I .+ 0.5
+#     @unpack J, ξ, η, ζ = metrics(m, cell_idx, t)
 
-  domain = m.iterators.cell.domain
+#     m.cell_center_metrics.ξ[idx] = ξ
+#     m.cell_center_metrics.η[idx] = η
+#     m.cell_center_metrics.ζ[idx] = ζ
+#     m.cell_center_metrics.J[idx] = J
+#   end
 
-  MetricDiscretizationSchemes.update_metrics!(meg6_metrics, xc, yc, zc, domain)
+#   # # i₊½ conserved metrics
+#   # @inbounds for idx in m.iterators.cell.full
+#   #   i, j, k = idx.I .+ 0.5 # centroid index
 
-  _J = J(meg6_metrics)
-  _ξx = ξx(meg6_metrics)
-  _ξy = ξy(meg6_metrics)
-  _ξz = ξz(meg6_metrics)
-  _ηx = ηx(meg6_metrics)
-  _ηy = ηy(meg6_metrics)
-  _ηz = ηz(meg6_metrics)
-  _ζx = ζx(meg6_metrics)
-  _ζy = ζy(meg6_metrics)
-  _ζz = ζz(meg6_metrics)
+#   #   # get the conserved metrics at (i₊½, j)
+#   #   @unpack ξ̂, η̂, ζ̂ = conservative_metrics(m, (i + 1 / 2, j, k), t)
 
-  # cell centroid metrics
-  for idx in domain
-    _metric = (
-      J=_J[idx],
-      ξx=_ξx[idx],
-      ξy=_ξy[idx],
-      ξz=_ξz[idx],
-      ηx=_ηx[idx],
-      ηy=_ηy[idx],
-      ηz=_ηz[idx],
-      ζx=_ζx[idx],
-      ζy=_ζy[idx],
-      ζz=_ζz[idx],
-      ξt=zero(Float64),
-      ηt=zero(Float64),
-      ζt=zero(Float64),
-    )
+#   #   m.edge_metrics.i₊½.ξ̂[idx] = ξ̂
+#   #   m.edge_metrics.i₊½.η̂[idx] = η̂
+#   #   m.edge_metrics.i₊½.ζ̂[idx] = ζ̂
+#   # end
 
-    m.cell_center_metrics[idx] = _metric
-  end
+#   # # j₊½ conserved metrics
+#   # @inbounds for idx in m.iterators.cell.full
+#   #   i, j, k = idx.I .+ 0.5 # centroid index
 
-  _ξ̂xᵢ₊½ = ξ̂xᵢ₊½(meg6_metrics)
-  _ξ̂yᵢ₊½ = ξ̂yᵢ₊½(meg6_metrics)
-  _ξ̂zᵢ₊½ = ξ̂zᵢ₊½(meg6_metrics)
-  _η̂xᵢ₊½ = η̂xᵢ₊½(meg6_metrics)
-  _η̂yᵢ₊½ = η̂yᵢ₊½(meg6_metrics)
-  _η̂zᵢ₊½ = η̂zᵢ₊½(meg6_metrics)
-  _ζ̂xᵢ₊½ = ζ̂xᵢ₊½(meg6_metrics)
-  _ζ̂yᵢ₊½ = ζ̂yᵢ₊½(meg6_metrics)
-  _ζ̂zᵢ₊½ = ζ̂zᵢ₊½(meg6_metrics)
+#   #   # get the conserved metrics at (i₊½, j)
+#   #   @unpack ξ̂, η̂, ζ̂ = conservative_metrics(m, (i, j + 1 / 2, k), t)
 
-  _ξ̂xⱼ₊½ = ξ̂xⱼ₊½(meg6_metrics)
-  _ξ̂yⱼ₊½ = ξ̂yⱼ₊½(meg6_metrics)
-  _ξ̂zⱼ₊½ = ξ̂zⱼ₊½(meg6_metrics)
-  _η̂xⱼ₊½ = η̂xⱼ₊½(meg6_metrics)
-  _η̂yⱼ₊½ = η̂yⱼ₊½(meg6_metrics)
-  _η̂zⱼ₊½ = η̂zⱼ₊½(meg6_metrics)
-  _ζ̂xⱼ₊½ = ζ̂xⱼ₊½(meg6_metrics)
-  _ζ̂yⱼ₊½ = ζ̂yⱼ₊½(meg6_metrics)
-  _ζ̂zⱼ₊½ = ζ̂zⱼ₊½(meg6_metrics)
+#   #   m.edge_metrics.j₊½.ξ̂[idx] = ξ̂
+#   #   m.edge_metrics.j₊½.η̂[idx] = η̂
+#   #   m.edge_metrics.j₊½.ζ̂[idx] = ζ̂
+#   # end
 
-  _ξ̂xₖ₊½ = ξ̂xₖ₊½(meg6_metrics)
-  _ξ̂yₖ₊½ = ξ̂yₖ₊½(meg6_metrics)
-  _ξ̂zₖ₊½ = ξ̂zₖ₊½(meg6_metrics)
-  _η̂xₖ₊½ = η̂xₖ₊½(meg6_metrics)
-  _η̂yₖ₊½ = η̂yₖ₊½(meg6_metrics)
-  _η̂zₖ₊½ = η̂zₖ₊½(meg6_metrics)
-  _ζ̂xₖ₊½ = ζ̂xₖ₊½(meg6_metrics)
-  _ζ̂yₖ₊½ = ζ̂yₖ₊½(meg6_metrics)
-  _ζ̂zₖ₊½ = ζ̂zₖ₊½(meg6_metrics)
+#   # # k₊½ conserved metrics
+#   # @inbounds for idx in m.iterators.cell.full
+#   #   i, j, k = idx.I .+ 0.5 # centroid index
 
-  i₊½CI = MetricDiscretizationSchemes.expand_lower(domain, 1, 1)
-  j₊½CI = MetricDiscretizationSchemes.expand_lower(domain, 2, 1)
-  k₊½CI = MetricDiscretizationSchemes.expand_lower(domain, 3, 1)
+#   #   # get the conserved metrics at (i₊½, j)
+#   #   @unpack ξ̂, η̂, ζ̂ = conservative_metrics(m, (i, j, k + 1 / 2), t)
 
-  @show domain
-  @show i₊½CI
-  @show j₊½CI
-  @show k₊½CI
-  for idx in i₊½CI
-    i₊½_metric = (
-      ξ̂x=_ξ̂xᵢ₊½[idx],
-      ξ̂y=_ξ̂yᵢ₊½[idx],
-      ξ̂z=_ξ̂zᵢ₊½[idx],
-      η̂x=_η̂xᵢ₊½[idx],
-      η̂y=_η̂yᵢ₊½[idx],
-      η̂z=_η̂zᵢ₊½[idx],
-      ζ̂x=_ζ̂xᵢ₊½[idx],
-      ζ̂y=_ζ̂yᵢ₊½[idx],
-      ζ̂z=_ζ̂zᵢ₊½[idx],
-      ξt=0.0,
-      ηt=0.0,
-      ζt=0.0,
-    )
+#   #   m.edge_metrics.k₊½.ξ̂[idx] = ξ̂
+#   #   m.edge_metrics.k₊½.η̂[idx] = η̂
+#   #   m.edge_metrics.k₊½.ζ̂[idx] = ζ̂
+#   # end
 
-    m.edge_metrics.i₊½[idx] = i₊½_metric
-  end
+#   return nothing
+# end
 
-  for idx in j₊½CI
-    j₊½_metric = (
-      ξ̂x=_ξ̂xⱼ₊½[idx],
-      ξ̂y=_ξ̂yⱼ₊½[idx],
-      ξ̂z=_ξ̂zⱼ₊½[idx],
-      η̂x=_η̂xⱼ₊½[idx],
-      η̂y=_η̂yⱼ₊½[idx],
-      η̂z=_η̂zⱼ₊½[idx],
-      ζ̂x=_ζ̂xⱼ₊½[idx],
-      ζ̂y=_ζ̂yⱼ₊½[idx],
-      ζ̂z=_ζ̂zⱼ₊½[idx],
-      ξt=0.0,
-      ηt=0.0,
-      ζt=0.0,
-    )
+# function update_metrics_meg!(m::CurvilinearGrid3D)
+#   cswh = cellsize_withhalo(m)
+#   meg6_metrics = MEG6Scheme(cswh)
 
-    m.edge_metrics.j₊½[idx] = j₊½_metric
-  end
+#   # centroids
+#   xc = zeros(cswh)
+#   yc = zeros(cswh)
+#   zc = zeros(cswh)
+#   for idx in CartesianIndices(xc)
+#     i, j, k = idx.I
+#     xc[idx] = m.x_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5, k - m.nhalo + 0.5) # x
+#     yc[idx] = m.y_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5, k - m.nhalo + 0.5) # y
+#     zc[idx] = m.z_func(i - m.nhalo + 0.5, j - m.nhalo + 0.5, k - m.nhalo + 0.5) # y
+#   end
 
-  for idx in k₊½CI
-    k₊½_metric = (
-      ξ̂x=_ξ̂xₖ₊½[idx],
-      ξ̂y=_ξ̂yₖ₊½[idx],
-      ξ̂z=_ξ̂zₖ₊½[idx],
-      η̂x=_η̂xₖ₊½[idx],
-      η̂y=_η̂yₖ₊½[idx],
-      η̂z=_η̂zₖ₊½[idx],
-      ζ̂x=_ζ̂xₖ₊½[idx],
-      ζ̂y=_ζ̂yₖ₊½[idx],
-      ζ̂z=_ζ̂zₖ₊½[idx],
-      ξt=0.0,
-      ηt=0.0,
-      ζt=0.0,
-    )
+#   domain = m.iterators.cell.domain
 
-    m.edge_metrics.k₊½[idx] = k₊½_metric
-  end
+#   MetricDiscretizationSchemes.update_metrics!(meg6_metrics, xc, yc, zc, domain)
 
-  return nothing
-end
+#   _J = J(meg6_metrics)
+#   _ξx = ξx(meg6_metrics)
+#   _ξy = ξy(meg6_metrics)
+#   _ξz = ξz(meg6_metrics)
+#   _ηx = ηx(meg6_metrics)
+#   _ηy = ηy(meg6_metrics)
+#   _ηz = ηz(meg6_metrics)
+#   _ζx = ζx(meg6_metrics)
+#   _ζy = ζy(meg6_metrics)
+#   _ζz = ζz(meg6_metrics)
+
+#   # cell centroid metrics
+#   for idx in domain
+#     _metric = (
+#       J=_J[idx],
+#       ξx=_ξx[idx],
+#       ξy=_ξy[idx],
+#       ξz=_ξz[idx],
+#       ηx=_ηx[idx],
+#       ηy=_ηy[idx],
+#       ηz=_ηz[idx],
+#       ζx=_ζx[idx],
+#       ζy=_ζy[idx],
+#       ζz=_ζz[idx],
+#       ξt=zero(Float64),
+#       ηt=zero(Float64),
+#       ζt=zero(Float64),
+#     )
+
+#     m.cell_center_metrics[idx] = _metric
+#   end
+
+#   _ξ̂xᵢ₊½ = ξ̂xᵢ₊½(meg6_metrics)
+#   _ξ̂yᵢ₊½ = ξ̂yᵢ₊½(meg6_metrics)
+#   _ξ̂zᵢ₊½ = ξ̂zᵢ₊½(meg6_metrics)
+#   _η̂xᵢ₊½ = η̂xᵢ₊½(meg6_metrics)
+#   _η̂yᵢ₊½ = η̂yᵢ₊½(meg6_metrics)
+#   _η̂zᵢ₊½ = η̂zᵢ₊½(meg6_metrics)
+#   _ζ̂xᵢ₊½ = ζ̂xᵢ₊½(meg6_metrics)
+#   _ζ̂yᵢ₊½ = ζ̂yᵢ₊½(meg6_metrics)
+#   _ζ̂zᵢ₊½ = ζ̂zᵢ₊½(meg6_metrics)
+
+#   _ξ̂xⱼ₊½ = ξ̂xⱼ₊½(meg6_metrics)
+#   _ξ̂yⱼ₊½ = ξ̂yⱼ₊½(meg6_metrics)
+#   _ξ̂zⱼ₊½ = ξ̂zⱼ₊½(meg6_metrics)
+#   _η̂xⱼ₊½ = η̂xⱼ₊½(meg6_metrics)
+#   _η̂yⱼ₊½ = η̂yⱼ₊½(meg6_metrics)
+#   _η̂zⱼ₊½ = η̂zⱼ₊½(meg6_metrics)
+#   _ζ̂xⱼ₊½ = ζ̂xⱼ₊½(meg6_metrics)
+#   _ζ̂yⱼ₊½ = ζ̂yⱼ₊½(meg6_metrics)
+#   _ζ̂zⱼ₊½ = ζ̂zⱼ₊½(meg6_metrics)
+
+#   _ξ̂xₖ₊½ = ξ̂xₖ₊½(meg6_metrics)
+#   _ξ̂yₖ₊½ = ξ̂yₖ₊½(meg6_metrics)
+#   _ξ̂zₖ₊½ = ξ̂zₖ₊½(meg6_metrics)
+#   _η̂xₖ₊½ = η̂xₖ₊½(meg6_metrics)
+#   _η̂yₖ₊½ = η̂yₖ₊½(meg6_metrics)
+#   _η̂zₖ₊½ = η̂zₖ₊½(meg6_metrics)
+#   _ζ̂xₖ₊½ = ζ̂xₖ₊½(meg6_metrics)
+#   _ζ̂yₖ₊½ = ζ̂yₖ₊½(meg6_metrics)
+#   _ζ̂zₖ₊½ = ζ̂zₖ₊½(meg6_metrics)
+
+#   i₊½CI = MetricDiscretizationSchemes.expand_lower(domain, 1, 1)
+#   j₊½CI = MetricDiscretizationSchemes.expand_lower(domain, 2, 1)
+#   k₊½CI = MetricDiscretizationSchemes.expand_lower(domain, 3, 1)
+
+#   @show domain
+#   @show i₊½CI
+#   @show j₊½CI
+#   @show k₊½CI
+#   for idx in i₊½CI
+#     i₊½_metric = (
+#       ξ̂x=_ξ̂xᵢ₊½[idx],
+#       ξ̂y=_ξ̂yᵢ₊½[idx],
+#       ξ̂z=_ξ̂zᵢ₊½[idx],
+#       η̂x=_η̂xᵢ₊½[idx],
+#       η̂y=_η̂yᵢ₊½[idx],
+#       η̂z=_η̂zᵢ₊½[idx],
+#       ζ̂x=_ζ̂xᵢ₊½[idx],
+#       ζ̂y=_ζ̂yᵢ₊½[idx],
+#       ζ̂z=_ζ̂zᵢ₊½[idx],
+#       ξt=0.0,
+#       ηt=0.0,
+#       ζt=0.0,
+#     )
+
+#     m.edge_metrics.i₊½[idx] = i₊½_metric
+#   end
+
+#   for idx in j₊½CI
+#     j₊½_metric = (
+#       ξ̂x=_ξ̂xⱼ₊½[idx],
+#       ξ̂y=_ξ̂yⱼ₊½[idx],
+#       ξ̂z=_ξ̂zⱼ₊½[idx],
+#       η̂x=_η̂xⱼ₊½[idx],
+#       η̂y=_η̂yⱼ₊½[idx],
+#       η̂z=_η̂zⱼ₊½[idx],
+#       ζ̂x=_ζ̂xⱼ₊½[idx],
+#       ζ̂y=_ζ̂yⱼ₊½[idx],
+#       ζ̂z=_ζ̂zⱼ₊½[idx],
+#       ξt=0.0,
+#       ηt=0.0,
+#       ζt=0.0,
+#     )
+
+#     m.edge_metrics.j₊½[idx] = j₊½_metric
+#   end
+
+#   for idx in k₊½CI
+#     k₊½_metric = (
+#       ξ̂x=_ξ̂xₖ₊½[idx],
+#       ξ̂y=_ξ̂yₖ₊½[idx],
+#       ξ̂z=_ξ̂zₖ₊½[idx],
+#       η̂x=_η̂xₖ₊½[idx],
+#       η̂y=_η̂yₖ₊½[idx],
+#       η̂z=_η̂zₖ₊½[idx],
+#       ζ̂x=_ζ̂xₖ₊½[idx],
+#       ζ̂y=_ζ̂yₖ₊½[idx],
+#       ζ̂z=_ζ̂zₖ₊½[idx],
+#       ξt=0.0,
+#       ηt=0.0,
+#       ζt=0.0,
+#     )
+
+#     m.edge_metrics.k₊½[idx] = k₊½_metric
+#   end
+
+#   return nothing
+# end
 
 function sanity_checks(m)
   domain = m.iterators.cell.domain
