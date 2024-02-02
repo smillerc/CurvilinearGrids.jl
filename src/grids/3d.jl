@@ -140,74 +140,89 @@ function CurvilinearGrid3D(
     ),
   )
 
-  if cache
-    _edge_metric = (
-      ξ̂x=zero(T),
-      ξ̂y=zero(T),
-      ξ̂z=zero(T),
-      η̂x=zero(T),
-      η̂y=zero(T),
-      η̂z=zero(T),
-      ζ̂x=zero(T),
-      ζ̂y=zero(T),
-      ζ̂z=zero(T),
-      ξt=zero(T),
-      ηt=zero(T),
-      ζt=zero(T),
-    )
+  cell_center_metrics = (
+    J=zeros(T, _iterators.cell.full.indices),
+    ξx=zeros(T, _iterators.cell.full.indices),
+    ξy=zeros(T, _iterators.cell.full.indices),
+    ξz=zeros(T, _iterators.cell.full.indices),
+    ξt=zeros(T, _iterators.cell.full.indices),
+    ηx=zeros(T, _iterators.cell.full.indices),
+    ηy=zeros(T, _iterators.cell.full.indices),
+    ηz=zeros(T, _iterators.cell.full.indices),
+    ηt=zeros(T, _iterators.cell.full.indices),
+    ζx=zeros(T, _iterators.cell.full.indices),
+    ζy=zeros(T, _iterators.cell.full.indices),
+    ζz=zeros(T, _iterators.cell.full.indices),
+    ζt=zeros(T, _iterators.cell.full.indices),
+  )
 
-    _cell_metric = (
-      J=zero(T),
-      ξx=zero(T),
-      ξy=zero(T),
-      ξz=zero(T),
-      ηx=zero(T),
-      ηy=zero(T),
-      ηz=zero(T),
-      ζx=zero(T),
-      ζy=zero(T),
-      ζz=zero(T),
-      ξt=zero(T),
-      ηt=zero(T),
-      ζt=zero(T),
-    )
+  edge_metrics = (
+    i₊½=(
+      J=zeros(T, _iterators.cell.full.indices),
+      ξ̂x=zeros(T, _iterators.cell.full.indices),
+      ξ̂y=zeros(T, _iterators.cell.full.indices),
+      ξ̂z=zeros(T, _iterators.cell.full.indices),
+      ξ̂t=zeros(T, _iterators.cell.full.indices),
+      η̂x=zeros(T, _iterators.cell.full.indices),
+      η̂y=zeros(T, _iterators.cell.full.indices),
+      η̂z=zeros(T, _iterators.cell.full.indices),
+      η̂t=zeros(T, _iterators.cell.full.indices),
+      ζ̂x=zeros(T, _iterators.cell.full.indices),
+      ζ̂y=zeros(T, _iterators.cell.full.indices),
+      ζ̂z=zeros(T, _iterators.cell.full.indices),
+      ζ̂t=zeros(T, _iterators.cell.full.indices),
+    ),
+    j₊½=(
+      J=zeros(T, _iterators.cell.full.indices),
+      ξ̂x=zeros(T, _iterators.cell.full.indices),
+      ξ̂y=zeros(T, _iterators.cell.full.indices),
+      ξ̂z=zeros(T, _iterators.cell.full.indices),
+      ξ̂t=zeros(T, _iterators.cell.full.indices),
+      η̂x=zeros(T, _iterators.cell.full.indices),
+      η̂y=zeros(T, _iterators.cell.full.indices),
+      η̂z=zeros(T, _iterators.cell.full.indices),
+      η̂t=zeros(T, _iterators.cell.full.indices),
+      ζ̂x=zeros(T, _iterators.cell.full.indices),
+      ζ̂y=zeros(T, _iterators.cell.full.indices),
+      ζ̂z=zeros(T, _iterators.cell.full.indices),
+      ζ̂t=zeros(T, _iterators.cell.full.indices),
+    ),
+    k₊½=(
+      J=zeros(T, _iterators.cell.full.indices),
+      ξ̂x=zeros(T, _iterators.cell.full.indices),
+      ξ̂y=zeros(T, _iterators.cell.full.indices),
+      ξ̂z=zeros(T, _iterators.cell.full.indices),
+      ξ̂t=zeros(T, _iterators.cell.full.indices),
+      η̂x=zeros(T, _iterators.cell.full.indices),
+      η̂y=zeros(T, _iterators.cell.full.indices),
+      η̂z=zeros(T, _iterators.cell.full.indices),
+      η̂t=zeros(T, _iterators.cell.full.indices),
+      ζ̂x=zeros(T, _iterators.cell.full.indices),
+      ζ̂y=zeros(T, _iterators.cell.full.indices),
+      ζ̂z=zeros(T, _iterators.cell.full.indices),
+      ζ̂t=zeros(T, _iterators.cell.full.indices),
+    ),
+  )
 
-    EM = typeof(_edge_metric)
-    CM = typeof(_cell_metric)
-    cell_center_metrics = Array{CM,3}(undef, ncells .+ 2nhalo)
+  _centroids = (
+    x=zeros(T, _iterators.cell.full.indices),
+    y=zeros(T, _iterators.cell.full.indices),
+    z=zeros(T, _iterators.cell.full.indices),
+  )
 
-    edge_metrics = (
-      i₊½=Array{EM,3}(undef, ncells .+ 2nhalo),
-      j₊½=Array{EM,3}(undef, ncells .+ 2nhalo),
-      k₊½=Array{EM,3}(undef, ncells .+ 2nhalo),
-    )
+  @inbounds for idx in _iterators.cell.full.indices
+    cell_idx = @. idx.I - nhalo + 0.5
 
-    xcoords = zeros(T, nnodes .+ 2nhalo)
-    ycoords = zeros(T, nnodes .+ 2nhalo)
-    zcoords = zeros(T, nnodes .+ 2nhalo)
-
-    for k in axes(xcoords, 3)
-      for j in axes(xcoords, 2)
-        for i in axes(xcoords, 1)
-          xcoords[i, j, k] = x(i - nhalo, j - nhalo, k - nhalo)
-          ycoords[i, j, k] = y(i - nhalo, j - nhalo, k - nhalo)
-          zcoords[i, j, k] = z(i - nhalo, j - nhalo, k - nhalo)
-        end
-      end
-    end
-  else
-    edge_metrics = nothing
-    cell_center_metrics = nothing
-    xcoords = ycoords = zcoords = nothing
+    _centroids.x[idx] = x(cell_idx...)
+    _centroids.y[idx] = y(cell_idx...)
+    _centroids.z[idx] = z(cell_idx...)
   end
 
   m = CurvilinearGrid3D(
     x,
     y,
     z,
-    xcoords,
-    ycoords,
-    zcoords,
+    _centroids,
     edge_metrics,
     cell_center_metrics,
     jacobian_matrix_func,
@@ -218,9 +233,61 @@ function CurvilinearGrid3D(
     _iterators,
   )
 
-  update_metrics_meg!(m)
-  sanity_checks(m)
+  update_metrics!(m)
+
   return m
+end
+
+function update_metrics!(m::CurvilinearGrid3D, t=0)
+
+  # cell metrics
+  @inbounds for idx in m.iterators.cell.full
+    cell_idx = idx.I .+ 0.5
+    @unpack J, ξ, η, ζ = metrics(m, cell_idx, t)
+
+    m.cell_center_metrics.ξ[idx] = ξ
+    m.cell_center_metrics.η[idx] = η
+    m.cell_center_metrics.ζ[idx] = ζ
+    m.cell_center_metrics.J[idx] = J
+  end
+
+  # # i₊½ conserved metrics
+  # @inbounds for idx in m.iterators.cell.full
+  #   i, j, k = idx.I .+ 0.5 # centroid index
+
+  #   # get the conserved metrics at (i₊½, j)
+  #   @unpack ξ̂, η̂, ζ̂ = conservative_metrics(m, (i + 1 / 2, j, k), t)
+
+  #   m.edge_metrics.i₊½.ξ̂[idx] = ξ̂
+  #   m.edge_metrics.i₊½.η̂[idx] = η̂
+  #   m.edge_metrics.i₊½.ζ̂[idx] = ζ̂
+  # end
+
+  # # j₊½ conserved metrics
+  # @inbounds for idx in m.iterators.cell.full
+  #   i, j, k = idx.I .+ 0.5 # centroid index
+
+  #   # get the conserved metrics at (i₊½, j)
+  #   @unpack ξ̂, η̂, ζ̂ = conservative_metrics(m, (i, j + 1 / 2, k), t)
+
+  #   m.edge_metrics.j₊½.ξ̂[idx] = ξ̂
+  #   m.edge_metrics.j₊½.η̂[idx] = η̂
+  #   m.edge_metrics.j₊½.ζ̂[idx] = ζ̂
+  # end
+
+  # # k₊½ conserved metrics
+  # @inbounds for idx in m.iterators.cell.full
+  #   i, j, k = idx.I .+ 0.5 # centroid index
+
+  #   # get the conserved metrics at (i₊½, j)
+  #   @unpack ξ̂, η̂, ζ̂ = conservative_metrics(m, (i, j, k + 1 / 2), t)
+
+  #   m.edge_metrics.k₊½.ξ̂[idx] = ξ̂
+  #   m.edge_metrics.k₊½.η̂[idx] = η̂
+  #   m.edge_metrics.k₊½.ζ̂[idx] = ζ̂
+  # end
+
+  return nothing
 end
 
 function update_metrics_meg!(m::CurvilinearGrid3D)
@@ -602,115 +669,158 @@ function update_metrics_old!(m::CurvilinearGrid3D)
   return nothing
 end
 
-@inline function conservative_metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
-  _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))
-  inv_jacobian_matrix = inv(_jacobian_matrix)
-  J = jacobian(m, (i, j, k))
-  return (
-    ξ̂x=inv_jacobian_matrix[1, 1] / J,
-    ξ̂y=inv_jacobian_matrix[1, 2] / J,
-    ξ̂z=inv_jacobian_matrix[1, 3] / J,
-    η̂x=inv_jacobian_matrix[2, 1] / J,
-    η̂y=inv_jacobian_matrix[2, 2] / J,
-    η̂z=inv_jacobian_matrix[2, 3] / J,
-    ζ̂x=inv_jacobian_matrix[3, 1] / J,
-    ζ̂y=inv_jacobian_matrix[3, 2] / J,
-    ζ̂z=inv_jacobian_matrix[3, 3] / J,
-    ξt=zero(eltype(_jacobian_matrix)),
-    ηt=zero(eltype(_jacobian_matrix)),
-    ζt=zero(eltype(_jacobian_matrix)),
-  )
-
-  # M1, M2, M3 = m.conserv_metric_func(i - m.nhalo, j - m.nhalo, k - m.nhalo) # get the matrices
-
-  # yξzη = M1[1, 2] # ∂(z ∂y/∂ξ)/∂η
-  # yξzζ = M1[1, 3] # ∂(z ∂y/∂ξ)/∂ζ
-  # yηzξ = M1[2, 1] # ∂(z ∂y/∂η)/∂ξ
-  # yηzζ = M1[2, 3] # ∂(z ∂y/∂η)/∂ζ
-  # yζzξ = M1[3, 1] # ∂(z ∂y/∂ζ)/∂ξ
-  # yζzη = M1[3, 2] # ∂(z ∂y/∂ζ)/∂η
-
-  # zξxη = M2[1, 2] # ∂(x ∂z/∂ξ)/∂η
-  # zξxζ = M2[1, 3] # ∂(x ∂z/∂ξ)/∂ζ
-  # zηxξ = M2[2, 1] # ∂(x ∂z/∂η)/∂ξ
-  # zηxζ = M2[2, 3] # ∂(x ∂z/∂η)/∂ζ
-  # zζxξ = M2[3, 1] # ∂(x ∂z/∂ζ)/∂ξ
-  # zζxη = M2[3, 2] # ∂(x ∂z/∂ζ)/∂η
-
-  # xξyη = M3[1, 2] # ∂(y ∂x/∂ξ)/∂η
-  # xξyζ = M3[1, 3] # ∂(y ∂x/∂ξ)/∂ζ
-  # xηyξ = M3[2, 1] # ∂(y ∂x/∂η)/∂ξ
-  # xηyζ = M3[2, 3] # ∂(y ∂x/∂η)/∂ζ
-  # xζyξ = M3[3, 1] # ∂(y ∂x/∂ζ)/∂ξ
-  # xζyη = M3[3, 2] # ∂(y ∂x/∂ζ)/∂η
-
-  # return (
-  #   ξ̂x=yηzζ - yζzη,
-  #   ξ̂y=zηxζ - zζxη,
-  #   ξ̂z=xηyζ - xζyη,
-  #   η̂x=yζzξ - yξzζ,
-  #   η̂y=zζxξ - zξxζ,
-  #   η̂z=xζyξ - xξyζ,
-  #   ζ̂x=yξzη - yηzξ,
-  #   ζ̂y=zξxη - zηxξ,
-  #   ζ̂z=xξyη - xηyξ,
-  #   ξt=zero(eltype(M1)),
-  #   ηt=zero(eltype(M1)),
-  #   ζt=zero(eltype(M1)),
-  # )
-end
+@inline conservative_metrics(m::CurvilinearGrid3D, idx) = conservative_metrics(m, idx, 0)
 
 @inline function conservative_metrics(
-  m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, (vx, vy, vz)
+  m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real
 )
-  static = conservative_metrics(m, (i, j, k))
-  @unpack ξ̂x, ξ̂y, ξ̂z, η̂x, η̂y, η̂z, ζ̂x, ζ̂y, ζ̂z = static
+  # hidx = (i - m.nhalo, j - m.nhalo, k - m.nhalo)
 
-  return merge(
-    static,
-    (
-      ξt=-(vx * ξ̂x + vy * ξ̂y + vz * ξ̂z), # dynamic / moving mesh terms
-      ηt=-(vx * η̂x + vy * η̂y + vz * η̂z), # dynamic / moving mesh terms
-      ζt=-(vx * ζ̂x + vy * ζ̂y + vz * ζ̂z), # dynamic / moving mesh terms
-    ),
-  )
-end
-
-# Get the grid metrics for a static grid
-@inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
   _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))
+  T = eltype(_jacobian_matrix)
+  J = det(_jacobian_matrix)
+
   inv_jacobian_matrix = inv(_jacobian_matrix)
 
-  return (
-    ξx=inv_jacobian_matrix[1, 1],
-    ξy=inv_jacobian_matrix[1, 2],
-    ξz=inv_jacobian_matrix[1, 3],
-    ηx=inv_jacobian_matrix[2, 1],
-    ηy=inv_jacobian_matrix[2, 2],
-    ηz=inv_jacobian_matrix[2, 3],
-    ζx=inv_jacobian_matrix[3, 1],
-    ζy=inv_jacobian_matrix[3, 2],
-    ζz=inv_jacobian_matrix[3, 3],
-    ξt=zero(eltype(_jacobian_matrix)),
-    ηt=zero(eltype(_jacobian_matrix)),
-    ζt=zero(eltype(_jacobian_matrix)),
-    J=det(_jacobian_matrix),
-  )
+  ξx = inv_jacobian_matrix[1, 1]
+  ξy = inv_jacobian_matrix[1, 2]
+  ξz = inv_jacobian_matrix[1, 3]
+  ηx = inv_jacobian_matrix[2, 1]
+  ηy = inv_jacobian_matrix[2, 2]
+  ηz = inv_jacobian_matrix[2, 3]
+  ζx = inv_jacobian_matrix[3, 1]
+  ζy = inv_jacobian_matrix[3, 2]
+  ζz = inv_jacobian_matrix[3, 3]
+
+  xξ = _jacobian_matrix[1, 1]
+  yξ = _jacobian_matrix[2, 1]
+  zξ = _jacobian_matrix[3, 1]
+  xη = _jacobian_matrix[1, 2]
+  yη = _jacobian_matrix[2, 2]
+  zη = _jacobian_matrix[3, 2]
+  xζ = _jacobian_matrix[1, 3]
+  yζ = _jacobian_matrix[2, 3]
+  zζ = _jacobian_matrix[3, 3]
+
+  ξt = zero(T)
+  ηt = zero(T)
+  ζt = zero(T)
+
+  # ξ̂ = Metric3D(ξx * J, ξy * J, ξz * J, ξt * J)
+  # η̂ = Metric3D(ηx * J, ηy * J, ηz * J, ηt * J)
+  # ζ̂ = Metric3D(ζx * J, ζy * J, ζz * J, ζt * J)
+
+  M1, M2, M3 = m.conserv_metric_func(i - m.nhalo, j - m.nhalo, k - m.nhalo) # get the matrices
+
+  ∂ξ = 1
+  ∂η = 2
+  ∂ζ = 3
+  yξzη = M1[∂ξ, ∂η] # ∂(z ∂y/∂ξ)/∂η
+  yξzζ = M1[∂ξ, ∂ζ] # ∂(z ∂y/∂ξ)/∂ζ
+
+  yηzξ = M1[∂η, ∂ξ] # ∂(z ∂y/∂η)/∂ξ
+  yηzζ = M1[∂η, ∂ζ] # ∂(z ∂y/∂η)/∂ζ
+
+  yζzξ = M1[∂ζ, ∂ξ] # ∂(z ∂y/∂ζ)/∂ξ
+  yζzη = M1[∂ζ, ∂η] # ∂(z ∂y/∂ζ)/∂η
+
+  zξxη = M2[∂ξ, ∂η] # ∂(x ∂z/∂ξ)/∂η
+  zξxζ = M2[∂ξ, ∂ζ] # ∂(x ∂z/∂ξ)/∂ζ
+  zηxξ = M2[∂η, ∂ξ] # ∂(x ∂z/∂η)/∂ξ
+  zηxζ = M2[∂η, ∂ζ] # ∂(x ∂z/∂η)/∂ζ
+  zζxξ = M2[∂ζ, ∂ξ] # ∂(x ∂z/∂ζ)/∂ξ
+  zζxη = M2[∂ζ, ∂η] # ∂(x ∂z/∂ζ)/∂η
+
+  xξyη = M3[∂ξ, ∂η] # ∂(y ∂x/∂ξ)/∂η
+  xξyζ = M3[∂ξ, ∂ζ] # ∂(y ∂x/∂ξ)/∂ζ
+  xηyξ = M3[∂η, ∂ξ] # ∂(y ∂x/∂η)/∂ξ
+  xηyζ = M3[∂η, ∂ζ] # ∂(y ∂x/∂η)/∂ζ
+  xζyξ = M3[∂ζ, ∂ξ] # ∂(y ∂x/∂ζ)/∂ξ
+  xζyη = M3[∂ζ, ∂η] # ∂(y ∂x/∂ζ)/∂η
+
+  ξ̂x = yηzζ - yζzη
+
+  ξ̂x1 = yη * zζ - yζ * zη
+  # @show abs(ξ̂x1 - ξ̂x)
+
+  ξ̂y = zηxζ - zζxη
+  ξ̂z = xηyζ - xζyη
+
+  η̂x = yζzξ - yξzζ
+  η̂y = zζxξ - zξxζ
+  η̂z = xζyξ - xξyζ
+
+  ζ̂x = yξzη - yηzξ
+  ζ̂y = zξxη - zηxξ
+  ζ̂z = xξyη - xηyξ
+  # @show abs(ξ̂x - ξx * J), abs(ξ̂y - ξy * J), abs(ξ̂z - ξz * J)
+  # @show abs(η̂x - ηx * J), abs(η̂y - ηy * J), abs(η̂z - ηz * J)
+
+  ξ̂ = Metric3D(ξ̂x, ξ̂y, ξ̂z, ξt)
+  η̂ = Metric3D(η̂x, η̂y, η̂z, ηt)
+  ζ̂ = Metric3D(ζ̂x, ζ̂y, ζ̂z, ζt)
+  # @show hidx, ξ̂
+
+  return (; ξ̂, η̂, ζ̂)
 end
 
-@inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, (vx, vy, vz))
-  static = metrics(m, (i, j, k))
-  @unpack ξx, ξy, ξz, ηx, ηy, ηz, ζx, ζy, ζz = static
+# @inline function conservative_metrics(
+#   m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, (vx, vy, vz)
+# )
+#   static = conservative_metrics(m, (i, j, k))
+#   @unpack ξ̂x, ξ̂y, ξ̂z, η̂x, η̂y, η̂z, ζ̂x, ζ̂y, ζ̂z = static
 
-  return merge(
-    static,
-    (
-      ξt=-(vx * ξx + vy * ξy + vz * ξz), # dynamic / moving mesh terms
-      ηt=-(vx * ηx + vy * ηy + vz * ηz), # dynamic / moving mesh terms
-      ζt=-(vx * ζx + vy * ζy + vz * ζz), # dynamic / moving mesh terms
-    ),
-  )
+#   return merge(
+#     static,
+#     (
+#       ξt=-(vx * ξ̂x + vy * ξ̂y + vz * ξ̂z), # dynamic / moving mesh terms
+#       ηt=-(vx * η̂x + vy * η̂y + vz * η̂z), # dynamic / moving mesh terms
+#       ζt=-(vx * ζ̂x + vy * ζ̂y + vz * ζ̂z), # dynamic / moving mesh terms
+#     ),
+#   )
+# end
+
+# Get the grid metrics for a static grid
+@inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real)
+  _jacobian_matrix = checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))
+  J = det(_jacobian_matrix)
+
+  inv_jacobian_matrix = inv(_jacobian_matrix)
+
+  ξx = inv_jacobian_matrix[1, 1]
+  ξy = inv_jacobian_matrix[1, 2]
+  ξz = inv_jacobian_matrix[1, 3]
+  ηx = inv_jacobian_matrix[2, 1]
+  ηy = inv_jacobian_matrix[2, 2]
+  ηz = inv_jacobian_matrix[2, 3]
+  ζx = inv_jacobian_matrix[3, 1]
+  ζy = inv_jacobian_matrix[3, 2]
+  ζz = inv_jacobian_matrix[3, 3]
+
+  ξt = zero(eltype(_jacobian_matrix))
+  ηt = zero(eltype(_jacobian_matrix))
+  ζt = zero(eltype(_jacobian_matrix))
+
+  ξ = Metric3D(ξx, ξy, ξz, ξt)
+  η = Metric3D(ηx, ηy, ηz, ηt)
+  ζ = Metric3D(ζx, ζy, ζz, ζt)
+
+  return (; ξ, η, ζ, J)
 end
+
+# @inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, (vx, vy, vz))
+#   static = metrics(m, (i, j, k))
+#   @unpack ξx, ξy, ξz, ηx, ηy, ηz, ζx, ζy, ζz = static
+
+#   return merge(
+#     static,
+#     (
+#       ξt=-(vx * ξx + vy * ξy + vz * ξz), # dynamic / moving mesh terms
+#       ηt=-(vx * ηx + vy * ηy + vz * ηz), # dynamic / moving mesh terms
+#       ζt=-(vx * ζx + vy * ζy + vz * ζz), # dynamic / moving mesh terms
+#     ),
+#   )
+# end
 
 function jacobian_matrix(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
   # return checkeps(m.jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))

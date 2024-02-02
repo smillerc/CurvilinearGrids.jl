@@ -5,6 +5,7 @@ using StaticArrays
 using ForwardDiff
 using UnPack
 
+using ..MetricTypes
 using ..MetricDiscretizationSchemes
 
 export AbstractCurvilinearGrid

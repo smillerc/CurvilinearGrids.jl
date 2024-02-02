@@ -150,9 +150,9 @@ end
 # @test size(xy_coords) == (2, 5, 9)
 # # end
 
+using Test
 @testset "2D wavy mesh" begin
-  using Test
-  using Plots
+  # using Plots
   include("common.jl")
   # begin
   # include("../../src/grids/finitediff_metrics.jl")
@@ -193,92 +193,23 @@ end
     m_i₋½ = conservative_metrics(mesh, (i - 0.5, j))
     m_j₋½ = conservative_metrics(mesh, (i, j - 0.5))
 
-    I₁ = (m_i₊½.ξ̂x - m_i₋½.ξ̂x) + (m_j₊½.η̂x - m_j₋½.η̂x)
-    I₂ = (m_i₊½.ξ̂y - m_i₋½.ξ̂y) + (m_j₊½.η̂y - m_j₋½.η̂y)
+    I₁ = (m_i₊½.ξ̂.x - m_i₋½.ξ̂.x) + (m_j₊½.η̂.x - m_j₋½.η̂.x)
+    I₂ = (m_i₊½.ξ̂.y - m_i₋½.ξ̂.y) + (m_j₊½.η̂.y - m_j₋½.η̂.y)
+
     I₁_passes = abs(I₁) < eps()
     I₂_passes = abs(I₂) < eps()
+    if !(I₁_passes && I₂_passes)
+      break
+    end
   end
   @test I₁_passes
   @test I₂_passes
-  # # cm_ij = conservative_metrics(mesh, (20.5, 20.5))
-  # cm_ip1 = conservative_metrics(mesh, (21, 20))
 
-  # cm_jm1 = conservative_metrics(mesh, (20, 20))
-  # cm_jp1 = conservative_metrics(mesh, (20, 21))
-
-  # # Jij = CurvilinearGrids.jacobian(mesh, (20, 20))
-  # Jip1 = inv(CurvilinearGrids.jacobian(mesh, (21, 20)))
-  # Jim1 = inv(CurvilinearGrids.jacobian(mesh, (20, 20)))
-  # Jjp1 = inv(CurvilinearGrids.jacobian(mesh, (20, 21)))
-  # Jjm1 = inv(CurvilinearGrids.jacobian(mesh, (20, 20)))
-
-  # # @show Jip1, Jim1, Jjp1, Jjm1
-
-  # m_jm1 = metrics(mesh, (20, 20))
-  # m_jp1 = metrics(mesh, (20, 21))
-  # m_im1 = metrics(mesh, (20, 20))
-  # m_ip1 = metrics(mesh, (21, 20))
-  # @show (m_ip1.ξx / Jip1), cm_ip1.ξ̂x
-  # # @show m_ij.J
-
-  # m = (m_ip1.ξx / Jip1 - m_im1.ξx / Jim1) + (m_jp1.ηx / Jjp1 - m_jm1.ηx / Jjm1)
-  # cm = (cm_ip1.ξ̂x - cm_im1.ξ̂x) + (cm_jp1.η̂x - cm_jm1.η̂x)
-
-  # @show m cm
-  # (m_ip1.ξx / Jip1 - m_im1.ξx / Jim1)
-  # (cm_ip1.ξ̂x - cm_im1.ξ̂x)
-
-  # @show m_ip1.ξx, Jip1
-  # @show cm_ip1.ξ̂x
-
-  # @show cm
-  # @show m
-  # @show m_ip1.ξx * Jip1
-  # @show m_ip1.ξx / Jip1
-
-  # Jm = jacobian_matrix(mesh, (20, 20))
-  # J⁻¹ = det(inv(Jm))
-  # _J = det(Jm)
-  # ξx = Jm[1, 1]
-  # _ξ̂x = ξx * J⁻¹
-  # _ξ̂x = ξx / _J
-
-  # Jinv = inv(Jm)
-  # # Jinv * det(Jinv)
-
-  # cm_im1
-
-  # CI = cell_indices(mesh)
-  # total_area = 0.0
-  # for idx in CI
-  #   global total_area += jacobian(mesh, idx)
-  # end
-  # @test total_area ≈ 1.0
-
-  # xyn = coords(mesh)
-
-  # xn = @view xyn[1, :, :]
-  # yn = @view xyn[2, :, :]
-
-  # ∂x_∂ξ, ∂x_∂η = _fd_metrics(xn, 4)
-  # ∂y_∂ξ, ∂y_∂η = _fd_metrics(yn, 4)
-
-  # ∂x_∂ξ⁶, ∂x_∂η⁶ = _fd_metrics(xn, 6)
-  # ∂y_∂ξ⁶, ∂y_∂η⁶ = _fd_metrics(yn, 6)
-  # p1 = heatmap(∂x_∂ξ'; title="∂x_∂ξ")
-  # p2 = heatmap(∂x_∂η'; title="∂x_∂η")
-  # p3 = heatmap(∂y_∂ξ'; title="∂y_∂ξ")
-  # p4 = heatmap(∂y_∂η'; title="∂y_∂η")
-
-  # l = @layout [a b; c d]
-
-  # pall = plot(p1, p2, p3, p4; layout=l)
-  # display(pall)
-
-  # metric_diff = ∂x_∂ξ⁶ .- ∂x_∂ξ
-  # pdiff = heatmap(metric_diff; title="4th - 6th")
-
-  # println(extrema(metric_diff))
-  # pdiff
   nothing
+
+  # display(heatmap([ξ.x for ξ in mesh.cell_center_metrics.ξ]; title="ξx"))
+  # display(heatmap([ξ.y for ξ in mesh.cell_center_metrics.ξ]; title="ξy"))
+  # display(heatmap([ξ.x for ξ in mesh.cell_center_metrics.η]; title="ηx"))
+  # display(heatmap([ξ.y for ξ in mesh.cell_center_metrics.η]; title="ηy"))
+  # display(heatmap(mesh.cell_center_metrics.J; title="J"))
 end
