@@ -60,18 +60,14 @@ function expand(domain::CartesianIndices{N}, axis::Int, n::Int) where {N}
   )
 end
 
-function expand_upper(
-  domain::CartesianIndices{N,NTuple{N,UnitRange{T}}}, axis::Int, n::Int
-) where {N,T}
+function expand_upper(domain::CartesianIndices{N}, axis::Int, n::Int) where {N}
   axis_mask = ntuple(j -> j == axis ? n : 0, N)
   return CartesianIndices(
     UnitRange.(first.(domain.indices), last.(domain.indices) .+ axis_mask)
   )
 end
 
-function expand_lower(
-  domain::CartesianIndices{N,NTuple{N,UnitRange{T}}}, axis::Int, n::Int
-) where {N,T}
+function expand_lower(domain::CartesianIndices{N}, axis::Int, n::Int) where {N}
   axis_mask = ntuple(j -> j == axis ? n : 0, N)
   return CartesianIndices(
     UnitRange.(first.(domain.indices) .- axis_mask, last.(domain.indices))
@@ -90,18 +86,14 @@ end
 """
 Expand the CartesianIndices starting index by `-n` on all axes
 """
-function expand_lower(
-  domain::CartesianIndices{N,NTuple{N,UnitRange{T}}}, n::Int
-) where {N,T}
+function expand_lower(domain::CartesianIndices{N}, n::Int) where {N}
   return CartesianIndices(UnitRange.(first.(domain.indices) .- n, last.(domain.indices)))
 end
 
 """
 Expand the CartesianIndices ending index by `+n` on all axes
 """
-function expand_upper(
-  domain::CartesianIndices{N,NTuple{N,UnitRange{T}}}, n::Int
-) where {N,T}
+function expand_upper(domain::CartesianIndices{N}, n::Int) where {N}
   return CartesianIndices(UnitRange.(first.(domain.indices), last.(domain.indices) .+ n))
 end
 
@@ -119,9 +111,7 @@ CartesianIndices((1:10, 4:4))
 ```
 
 """
-function lower_boundary_indices(
-  domain::CartesianIndices{N,NTuple{N,UnitRange{T}}}, axis::Int, n::Int
-) where {N,T}
+function lower_boundary_indices(domain::CartesianIndices{N}, axis::Int, n::Int) where {N}
   bc = first(domain.indices[axis]) + n
 
   idx = ntuple(j -> j == axis ? UnitRange(bc, bc) : domain.indices[j], N)
@@ -143,9 +133,7 @@ CartesianIndices((1:10, 8:8))
 ```
 
 """
-function upper_boundary_indices(
-  domain::CartesianIndices{N,NTuple{N,UnitRange{T}}}, axis::Int, n::Int
-) where {N,T}
+function upper_boundary_indices(domain::CartesianIndices{N}, axis::Int, n::Int) where {N}
   bc = last(domain.indices[axis]) + n
 
   idx = ntuple(j -> j == axis ? UnitRange(bc, bc) : domain.indices[j], N)
