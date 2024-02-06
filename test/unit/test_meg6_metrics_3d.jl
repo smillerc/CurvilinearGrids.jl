@@ -25,9 +25,9 @@ function save_vtk(mesh, I)
     # w1 = [x[1] for idx in eachindex(f.char_state.W[ilo:ihi, jlo:jhi]
 
     vtk["J"] = mesh.cell_center_metrics.J[domain]
-    vtk["ξx"] = ξx
-    vtk["ξ̂xᵢ₊½"] = ξ̂xᵢ₊½
-    vtk["I"] = I[domain]
+    # vtk["ξx"] = ξx
+    # vtk["ξ̂xᵢ₊½"] = ξ̂xᵢ₊½
+    # vtk["I"] = I[domain]
     # vtk["ηy"] = ηy
   end
 end
@@ -53,7 +53,7 @@ function wavy_grid(ni, nj, nk)
 end
 
 ni = nj = nk = 20
-nhalo = 4
+nhalo = 5
 x, y, z = wavy_grid(ni, nj, nk)
 mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 

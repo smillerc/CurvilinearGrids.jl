@@ -214,7 +214,9 @@ function CurvilinearGrid3D(
     _centroids.z[idx] = z(cell_idx...)
   end
 
-  discretization_scheme = MEG6Scheme(size(_iterators.cell.full))
+  discretization_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
+    _iterators.cell.full
+  )
   @assert nhalo == 5
 
   m = CurvilinearGrid3D(
@@ -236,8 +238,11 @@ function CurvilinearGrid3D(
 end
 
 function update_metrics!(m::CurvilinearGrid3D)
-  MetricDiscretizationSchemes.update_metrics_3d!(
-    m.discretization_scheme, m.centroids, m.cell_center_metrics, m.edge_metrics
+  # Update the metrics within the non-halo region, e.g., the domain
+  domain = m.iterators.cell.full
+
+  MetricDiscretizationSchemes.update_metrics!(
+    m.discretization_scheme, m.centroids, m.cell_center_metrics, m.edge_metrics, domain
   )
 
   return nothing
@@ -953,9 +958,9 @@ function coords(m::CurvilinearGrid3D, T=Float64)
   xyz = zeros(T, 3, dims...)
   @inbounds for I in CartesianIndices(dims)
     i, j, k = Tuple(I)
-    xyz[1, i, j, k] = m.x_func(i, j, k)
-    xyz[2, i, j, k] = m.y_func(i, j, k)
-    xyz[3, i, j, k] = m.z_func(i, j, k)
+    xyz[1, i, j, k] = m.coord_funcs.x(i, j, k)
+    xyz[2, i, j, k] = m.coord_funcs.y(i, j, k)
+    xyz[3, i, j, k] = m.coord_funcs.z(i, j, k)
   end
 
   return xyz
