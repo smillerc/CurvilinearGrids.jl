@@ -108,12 +108,12 @@ function metrics()
   mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
   ξ, η, ζ = (1, 2, 3)
 
-  @inline xc(idx) = mesh.x_coord[idx]
-  @inline yc(idx) = mesh.y_coord[idx]
-  @inline zc(idx) = mesh.z_coord[idx]
-  # xc(idx) = mesh.x_coord[(idx.I .+ 0.5)...]
-  # yc(idx) = mesh.y_coord[(idx.I .+ 0.5)...]
-  # zc(idx) = mesh.z_coord[(idx.I .+ 0.5)...]
+  # @inline xc(idx) = mesh.x_coord[idx]
+  # @inline yc(idx) = mesh.y_coord[idx]
+  # @inline zc(idx) = mesh.z_coord[idx]
+  xc(idx) = mesh.coord_funcs.x((idx.I .+ 0.5)...)
+  yc(idx) = mesh.coord_funcs.y((idx.I .+ 0.5)...)
+  zc(idx) = mesh.coord_funcs.z((idx.I .+ 0.5)...)
 
   xζy(idx) = ∂ϕ(xc, idx, ζ) * yc(idx)
   xηy(idx) = ∂ϕ(xc, idx, η) * yc(idx)
@@ -157,13 +157,15 @@ function metrics()
   ζ̂z(idx) = xξy_η(idx) - xηy_ξ(idx)
 
   ξ̂xᵢ₊½(idx) = ϕᵢ₊½(ξ̂x, idx, ξ)
-  η̂xᵢ₊½(idx) = ϕᵢ₊½(η̂x, idx, η)
-  ζ̂xᵢ₊½(idx) = ϕᵢ₊½(ζ̂x, idx, ζ)
-  ξ̂yⱼ₊½(idx) = ϕᵢ₊½(ξ̂y, idx, ξ)
+  η̂xᵢ₊½(idx) = ϕᵢ₊½(η̂x, idx, ξ)
+  ζ̂xᵢ₊½(idx) = ϕᵢ₊½(ζ̂x, idx, ξ)
+
+  ξ̂yⱼ₊½(idx) = ϕᵢ₊½(ξ̂y, idx, η)
   η̂yⱼ₊½(idx) = ϕᵢ₊½(η̂y, idx, η)
-  ζ̂yⱼ₊½(idx) = ϕᵢ₊½(ζ̂y, idx, ζ)
-  ξ̂zₖ₊½(idx) = ϕᵢ₊½(ξ̂z, idx, ξ)
-  η̂zₖ₊½(idx) = ϕᵢ₊½(η̂z, idx, η)
+  ζ̂yⱼ₊½(idx) = ϕᵢ₊½(ζ̂y, idx, η)
+
+  ξ̂zₖ₊½(idx) = ϕᵢ₊½(ξ̂z, idx, ζ)
+  η̂zₖ₊½(idx) = ϕᵢ₊½(η̂z, idx, ζ)
   ζ̂zₖ₊½(idx) = ϕᵢ₊½(ζ̂z, idx, ζ)
 
   ∂ξ̂x∂ξ(idx) = ∂ϕ(ξ̂x, idx, ξ)
@@ -230,14 +232,14 @@ end
 
 @benchmark $m.ξ̂yⱼ₊½($idx)
 
-@time begin
-  @batch for idx in small
-    I₁ = m.∂ξ̂x∂ξ(idx) + m.∂η̂x∂η(idx) + m.∂ζ̂x∂ζ(idx)
-    I₂ = m.∂ξ̂y∂ξ(idx) + m.∂η̂y∂η(idx) + m.∂ζ̂y∂ζ(idx)
-    I₃ = m.∂ξ̂z∂ξ(idx) + m.∂η̂z∂η(idx) + m.∂ζ̂z∂ζ(idx)
-    # @show I₁, I₂, I₃
-  end
+# @time begin
+for idx in small
+  I₁ = m.∂ξ̂x∂ξ(idx) + m.∂η̂x∂η(idx) + m.∂ζ̂x∂ζ(idx)
+  I₂ = m.∂ξ̂y∂ξ(idx) + m.∂η̂y∂η(idx) + m.∂ζ̂y∂ζ(idx)
+  I₃ = m.∂ξ̂z∂ξ(idx) + m.∂η̂z∂η(idx) + m.∂ζ̂z∂ζ(idx)
+  @show I₁, I₂, I₃
 end
+# end
 # @benchmark ∂ξ̂x∂ξ($idx)
 
 # map(∂ξ̂x∂ξ, domain)
