@@ -1,13 +1,8 @@
 
-using Test
-
 @testset "MEG6 Gradients + Edges" begin
   using ForwardDiff
   using LinearAlgebra
 
-  # include("../../src/metric_schemes/indexing_fun.jl")
-  # include("../../src/metric_schemes/6th_order_explicit/gradients.jl")
-  # include("../../src/metric_schemes/6th_order_explicit/interpolation.jl")
   using CurvilinearGrids.MetricDiscretizationSchemes.MonotoneExplicit6thOrderScheme:
     ∂!, ∂²!, toedge!
 
@@ -65,16 +60,11 @@ using Test
   # plot!(xc, ∂²f.(xc); label="AD ∂²f")
   # plot!(xc, ∂fdata; ms=2, marker=:square, label="MEG6 ∂f")
   # plot!(xc, ∂²fdata; ms=2, marker=:square, label="MEG6 ∂²f")
-  # fhalf
 end
 
-@testset "Gradients" begin
+@testset "MEG6 Gradients + Edges + CurvilinearGrid3D" begin
   include("common.jl")
-  # include("../../src/metric_schemes/indexing_fun.jl")
-  # include("../../src/metric_schemes/6th_order_explicit/gradients.jl")
-  # include("../../src/metric_schemes/6th_order_explicit/interpolation.jl")
 
-  # include("../../src/metric_schemes/6th_order_explicit/MonotoneExplicit6thOrderScheme.jl")
   using CurvilinearGrids.MetricDiscretizationSchemes.MonotoneExplicit6thOrderScheme:
     ∂!, ∂²!, ∂x∂ξ!, toedge!, conserved_metric!
 
@@ -97,7 +87,6 @@ end
   mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
   full_domain = mesh.iterators.cell.domain
 
-  # @show mesh.iterators.cell.full
   meg6 = mesh.discretization_scheme
 
   ∂x_∂ξ = meg6.cache.metric
@@ -136,16 +125,11 @@ end
       ∂²!(∂²x, ∂x, _x, full_domain, ax)
       passes = all(iszero.(∂²x[full_domain]))
       if !passes
-        #   @show extrema(∂²x[full_domain])
         @error "∂²$(dim)/∂$(n) failed"
         @test passes
-        #   # break
       end
     end
   end
-
-  # toedge!(xᵢ₊½, ∂²x, ∂x, x, full_domain, 3)
-  # display(xᵢ₊½)
 
   ∂x∂ξ!(meg6, ∂x_∂ξ, x, full_domain, 1) # xξ
   @test all(∂x_∂ξ[mesh.iterators.cell.domain] .≈ 0.5)
@@ -172,31 +156,5 @@ end
   ξ̂x = meg6.cache.metric
   conserved_metric!(meg6, ξ̂x, y, η, z, ζ, full_domain)
 
-  # expanded_dom = expand(mesh.iterators.cell.domain, +1)
-  # @show ξ̂x[expanded_dom]
   @test all(ξ̂x[mesh.iterators.cell.domain] .≈ 0.0625)
-
-  # toedge!(xᵢ₊½, ∂²x, ∂x, ξ̂x, expand(full_domain, ξ, -1), ξ)
-  # @test all(xᵢ₊½[mesh.iterators.cell.domain] .≈ 0.0625)
-
-  # toedge!(xᵢ₊½, ∂²x, ∂x, ξ̂x, expand(full_domain, η, -1), η)
-  # @test all(xᵢ₊½[mesh.iterators.cell.domain] .≈ 0.0625)
-
-  # toedge!(xᵢ₊½, ∂²x, ∂x, ξ̂x, expand(full_domain, ζ, -1), ζ)
-  # @test all(xᵢ₊½[mesh.iterators.cell.domain] .≈ 0.0625)
-
-  # # @show xᵢ₊½
-  # # toedge!(xᵢ₊½, ∂²x, ∂x, ξ̂x, full_domain, η)
-  # # toedge!(xᵢ₊½, ∂²x, ∂x, ξ̂x, full_domain, ζ)
-
-  # η̂y = meg6.cache.metric
-  # conserved_metric!(meg6, η̂y, z, ζ, x, ξ, full_domain)
-  # @test all(η̂y[mesh.iterators.cell.domain] .≈ 0.125)
-
-  # ζ̂z = meg6.cache.metric
-  # conserved_metric!(meg6, ζ̂z, x, ξ, y, η, full_domain)
-  # @test all(ζ̂z[mesh.iterators.cell.domain] .≈ 0.125)
-
-  # @show extrema(ξ̂x[mesh.iterators.cell.domain])
-  # ∂!(∂x, x, domain, 3)
 end

@@ -15,4 +15,24 @@ function to_vtk(mesh::AbstractCurvilinearGrid, filename)
   end
 end
 
+function save_vtk(mesh)
+  fn = "wavy"
+  @info "Writing to $fn.vti"
+
+  xyz_n = CurvilinearGrids.coords(mesh)
+  domain = mesh.iterators.cell.domain
+
+  @views vtk_grid(fn, xyz_n) do vtk
+    for (k, v) in pairs(mesh.cell_center_metrics)
+      vtk["$k"] = v[domain]
+    end
+
+    for (edge_name, data) in pairs(mesh.edge_metrics)
+      for (k, v) in pairs(data)
+        vtk["$(k)_$(edge_name)"] = v[domain]
+      end
+    end
+  end
+end
+
 end

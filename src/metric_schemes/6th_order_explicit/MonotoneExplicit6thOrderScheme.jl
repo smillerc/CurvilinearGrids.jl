@@ -108,15 +108,6 @@ function update_edge_conserved_metrics!(
   # ξ̂x = (y_η z)_ζ − (y_ζ z)_η
   ξ̂x = m.cache.metric
   conserved_metric!(m, ξ̂x, y, η, z, ζ, domain)
-
-  # @show extrema(ξ̂x[domain])
-  # @show extrema(ξ̂x[expand_lower(domain, +1)])
-  # @show extrema(ξ̂x[expand_upper(domain, +1)])
-  # @show extrema(ξ̂x[expand_lower(domain, -1)])
-  # @show extrema(ξ̂x[expand_upper(domain, -1)])
-  # @show extrema(ξ̂x[expand(domain, -1)])
-  # @show extrema(ξ̂x[expand(domain, +1)])
-
   toedge!(edge_metrics.i₊½.ξ̂x, ∂²x, ∂x, ξ̂x, i₊½_domain, ξ)
   toedge!(edge_metrics.j₊½.ξ̂x, ∂²x, ∂x, ξ̂x, j₊½_domain, η)
   toedge!(edge_metrics.k₊½.ξ̂x, ∂²x, ∂x, ξ̂x, k₊½_domain, ζ)
@@ -234,5 +225,3 @@ function update_cell_center_metrics!(
 end
 
 end
-
-# c isa @NamedTuple{x::Array{T,3}, y::Array{T,3}, z::Array{T,3}} where {T}

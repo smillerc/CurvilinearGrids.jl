@@ -1,6 +1,5 @@
-using Test
 
-@testset "3D Mesh - Rectangular Mesh" begin
+@testset "3D Rectangular Mesh Metrics, Conserved Metrics, GCL" begin
   include("common.jl")
   include("../../src/metric_schemes/indexing_fun.jl")
 
@@ -149,89 +148,13 @@ using Test
   # @test size(xyz_coords) == (3, 5, 9, 13)
 end
 
-@testset "3D Wavy Mesh Conserved Metrics GCL" begin
+@testset "3D Wavy Mesh GCL" begin
   using CurvilinearGrids
   using WriteVTK
   using CurvilinearGrids.MetricDiscretizationSchemes.MonotoneExplicit6thOrderScheme:
     conserved_metric!
 
   include("../../src/metric_schemes/indexing_fun.jl")
-
-  @inline function ∂(ϕ, idx, dim)
-    @inbounds begin
-      f1 = 3 / 4
-      f2 = 3 / 20
-      f3 = 1 / 60
-
-      ᵢ₊₁ = up(idx, dim, 1)
-      ᵢ₊₂ = up(idx, dim, 2)
-      ᵢ₊₃ = up(idx, dim, 3)
-      ᵢ₋₁ = down(idx, dim, 1)
-      ᵢ₋₂ = down(idx, dim, 2)
-      ᵢ₋₃ = down(idx, dim, 3)
-
-      ϕᵢ₊₁ = ϕ(ᵢ₊₁)
-      ϕᵢ₊₂ = ϕ(ᵢ₊₂)
-      ϕᵢ₊₃ = ϕ(ᵢ₊₃)
-      ϕᵢ₋₁ = ϕ(ᵢ₋₁)
-      ϕᵢ₋₂ = ϕ(ᵢ₋₂)
-      ϕᵢ₋₃ = ϕ(ᵢ₋₃)
-
-      ∂ϕ = (f1 * (ϕᵢ₊₁ - ϕᵢ₋₁) - f2 * (ϕᵢ₊₂ - ϕᵢ₋₂) + f3 * (ϕᵢ₊₃ - ϕᵢ₋₃))
-    end
-    return ∂ϕ
-  end
-
-  @inline function ∂²(ϕ, idx, dim)
-    @inbounds begin
-      f1 = 1 / 2
-
-      ᵢ₊₁ = up(idx, dim, 1)
-      ᵢ₋₁ = down(idx, dim, 1)
-      ϕᵢ₊₁ = ϕ(ᵢ₊₁)
-      ϕᵢ = ϕ(idx)
-      ϕᵢ₋₁ = ϕ(ᵢ₋₁)
-
-      ∂ϕᵢ₊₁ = ∂(ϕ, ᵢ₊₁, dim)
-      ∂ϕᵢ₋₁ = ∂(ϕ, ᵢ₋₁, dim)
-
-      ∂²ϕ = (2(ϕᵢ₊₁ - 2ϕᵢ + ϕᵢ₋₁) - f1 * (∂ϕᵢ₊₁ - ∂ϕᵢ₋₁))
-    end
-    return ∂²ϕ
-  end
-
-  function ∂ϕ(ϕ, idx, dim)
-    @inbounds begin
-      ᵢ₊₁ = up(idx, dim, 1)
-      ᵢ₋₁ = down(idx, dim, 1)
-
-      xᵢ = ϕ(idx)
-      xᵢ₊₁ = ϕ(ᵢ₊₁)
-      xᵢ₋₁ = ϕ(ᵢ₋₁)
-
-      xᴸᵢ₊½ = xᵢ + 0.5∂(ϕ, idx, dim) + ∂²(ϕ, idx, dim) / 12
-      xᴿᵢ₊½ = xᵢ₊₁ - 0.5∂(ϕ, ᵢ₊₁, dim) + ∂²(ϕ, ᵢ₊₁, dim) / 12
-      xᵢ₊½ = (xᴿᵢ₊½ + xᴸᵢ₊½) / 2
-
-      xᴸᵢ₋½ = xᵢ₋₁ + 0.5∂(ϕ, ᵢ₋₁, dim) + ∂²(ϕ, ᵢ₋₁, dim) / 12
-      xᴿᵢ₋½ = xᵢ - 0.5∂(ϕ, idx, dim) + ∂²(ϕ, idx, dim) / 12
-
-      xᵢ₋½ = (xᴿᵢ₋½ + xᴸᵢ₋½) / 2
-    end
-    return xᵢ₊½ - xᵢ₋½
-  end
-
-  function ϕᵢ₊½(ϕ, idx, dim)
-    @inbounds begin
-      ᵢ₊₁ = up(idx, dim, 1)
-      xᵢ = ϕ(idx)
-      xᵢ₊₁ = ϕ(ᵢ₊₁)
-      xᴸᵢ₊½ = xᵢ + 0.5∂(ϕ, idx, dim) + ∂²(ϕ, idx, dim) / 12
-      xᴿᵢ₊½ = xᵢ₊₁ - 0.5∂(ϕ, ᵢ₊₁, dim) + ∂²(ϕ, ᵢ₊₁, dim) / 12
-      xᵢ₊½ = (xᴿᵢ₊½ + xᴸᵢ₊½) / 2
-    end
-    return xᵢ₊½
-  end
 
   function save_vtk(mesh)
     fn = "wavy"
@@ -280,134 +203,7 @@ end
   x, y, z = wavy_grid(ni, nj, nk)
   mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 
-  xc(idx) = mesh.coord_funcs.x((idx.I .+ 0.5 .- nhalo)...)
-  yc(idx) = mesh.coord_funcs.y((idx.I .+ 0.5 .- nhalo)...)
-  zc(idx) = mesh.coord_funcs.z((idx.I .+ 0.5 .- nhalo)...)
-  # xc(idx) = mesh.centroids.x[idx]
-  # yc(idx) = mesh.centroids.y[idx]
-  # zc(idx) = mesh.centroids.z[idx]
-
-  xζ(idx) = ∂ϕ(xc, idx, ζ)
-  xη(idx) = ∂ϕ(xc, idx, η)
-  xξ(idx) = ∂ϕ(xc, idx, ξ)
-  yζ(idx) = ∂ϕ(yc, idx, ζ)
-  yη(idx) = ∂ϕ(yc, idx, η)
-  yξ(idx) = ∂ϕ(yc, idx, ξ)
-  zζ(idx) = ∂ϕ(zc, idx, ζ)
-  zη(idx) = ∂ϕ(zc, idx, η)
-  zξ(idx) = ∂ϕ(zc, idx, ξ)
-
-  xζy(idx) = ∂ϕ(xc, idx, ζ) * yc(idx)
-  xηy(idx) = ∂ϕ(xc, idx, η) * yc(idx)
-  xξy(idx) = ∂ϕ(xc, idx, ξ) * yc(idx)
-  yζz(idx) = ∂ϕ(yc, idx, ζ) * zc(idx)
-  yηz(idx) = ∂ϕ(yc, idx, η) * zc(idx)
-  yξz(idx) = ∂ϕ(yc, idx, ξ) * zc(idx)
-  zζx(idx) = ∂ϕ(zc, idx, ζ) * xc(idx)
-  zηx(idx) = ∂ϕ(zc, idx, η) * xc(idx)
-  zξx(idx) = ∂ϕ(zc, idx, ξ) * xc(idx)
-
-  xζy_η(idx) = ∂ϕ(xζy, idx, η)
-  xζy_ξ(idx) = ∂ϕ(xζy, idx, ξ)
-  xηy_ζ(idx) = ∂ϕ(xηy, idx, ζ)
-  xηy_ξ(idx) = ∂ϕ(xηy, idx, ξ)
-  xξy_ζ(idx) = ∂ϕ(xξy, idx, ζ)
-  xξy_η(idx) = ∂ϕ(xξy, idx, η)
-  yζz_η(idx) = ∂ϕ(yζz, idx, η)
-  yζz_ξ(idx) = ∂ϕ(yζz, idx, ξ)
-  yηz_ζ(idx) = ∂ϕ(yηz, idx, ζ)
-  yηz_ξ(idx) = ∂ϕ(yηz, idx, ξ)
-  yξz_ζ(idx) = ∂ϕ(yξz, idx, ζ)
-  yξz_η(idx) = ∂ϕ(yξz, idx, η)
-  zζx_η(idx) = ∂ϕ(zζx, idx, η)
-  zζx_ξ(idx) = ∂ϕ(zζx, idx, ξ)
-  zηx_ζ(idx) = ∂ϕ(zηx, idx, ζ)
-  zηx_ξ(idx) = ∂ϕ(zηx, idx, ξ)
-  zξx_ζ(idx) = ∂ϕ(zξx, idx, ζ)
-  zξx_η(idx) = ∂ϕ(zξx, idx, η)
-
-  ξ̂x(idx) = yηz_ζ(idx) - yζz_η(idx)
-  ξ̂y(idx) = zηx_ζ(idx) - zζx_η(idx)
-  ξ̂z(idx) = xηy_ζ(idx) - xζy_η(idx)
-
-  η̂x(idx) = yζz_ξ(idx) - yξz_ζ(idx)
-  η̂y(idx) = zζx_ξ(idx) - zξx_ζ(idx)
-  η̂z(idx) = xζy_ξ(idx) - xξy_ζ(idx)
-
-  ζ̂x(idx) = yξz_η(idx) - yηz_ξ(idx)
-  ζ̂y(idx) = zξx_η(idx) - zηx_ξ(idx)
-  ζ̂z(idx) = xξy_η(idx) - xηy_ξ(idx)
-
-  ξ̂xᵢ₊½(idx) = ϕᵢ₊½(ξ̂x, idx, ξ)
-  η̂xᵢ₊½(idx) = ϕᵢ₊½(η̂x, idx, ξ)
-  ζ̂xᵢ₊½(idx) = ϕᵢ₊½(ζ̂x, idx, ξ)
-
-  ξ̂yⱼ₊½(idx) = ϕᵢ₊½(ξ̂y, idx, η)
-  η̂yⱼ₊½(idx) = ϕᵢ₊½(η̂y, idx, η)
-  ζ̂yⱼ₊½(idx) = ϕᵢ₊½(ζ̂y, idx, η)
-
-  ξ̂zₖ₊½(idx) = ϕᵢ₊½(ξ̂z, idx, ζ)
-  η̂zₖ₊½(idx) = ϕᵢ₊½(η̂z, idx, ζ)
-  ζ̂zₖ₊½(idx) = ϕᵢ₊½(ζ̂z, idx, ζ)
-
-  ∂ξ̂x∂ξ(idx) = ∂ϕ(ξ̂x, idx, ξ)
-  ∂η̂x∂η(idx) = ∂ϕ(η̂x, idx, η)
-  ∂ζ̂x∂ζ(idx) = ∂ϕ(ζ̂x, idx, ζ)
-  ∂ξ̂y∂ξ(idx) = ∂ϕ(ξ̂y, idx, ξ)
-  ∂η̂y∂η(idx) = ∂ϕ(η̂y, idx, η)
-  ∂ζ̂y∂ζ(idx) = ∂ϕ(ζ̂y, idx, ζ)
-  ∂ξ̂z∂ξ(idx) = ∂ϕ(ξ̂z, idx, ξ)
-  ∂η̂z∂η(idx) = ∂ϕ(η̂z, idx, η)
-  ∂ζ̂z∂ζ(idx) = ∂ϕ(ζ̂z, idx, ζ)
-
   save_vtk(mesh)
-  # domain = mesh.iterators.cell.full
-
-  # i, j, k = (6, 16, 15)
-  # idx = CartesianIndex(i, j, k)
-
-  # ξ̂_x = similar(mesh.cell_center_metrics.J)
-  # η_axis = 2
-  # ζ_axis = 3
-
-  # println("woohoo!")
-
-  # conserved_metric!(
-  #   mesh.discretization_scheme,
-  #   ξ̂_x,
-  #   mesh.centroids.y,
-  #   η_axis,
-  #   mesh.centroids.z,
-  #   ζ_axis,
-  #   domain,
-  # )
-
-  # _yη = @views mesh.discretization_scheme.cache.inner_deriv1
-  # _yηz_ζ = @views mesh.discretization_scheme.cache.outer_deriv1
-  # _yζ = @views mesh.discretization_scheme.cache.inner_deriv2
-  # _yζz_η = @views mesh.discretization_scheme.cache.outer_deriv2
-
-  # # @show domain
-  # # for idx in domain
-  # @show yη(idx) - _yη[idx]
-  # @show yηz(idx) - _yη[idx] * zc(idx)
-  # @show yηz_ζ(idx) - _yηz_ζ[idx]
-
-  # # println()
-
-  # d = yζ(idx) - _yζ[idx]
-  # # @show yζz(idx) - _yζ[idx] * zc(idx)
-  # # @show yζz_η(idx) - _yζz_η[idx] # here's where the error shows up for some reason!
-
-  # # d = ξ̂x(idx) - ξ̂_x[idx]
-  # if abs(d) > 1e-14
-  #   @show idx, d
-  #   # break
-  # end
-  # # end
-
-  # # @show ξ̂xᵢ₊½(idx) - mesh.edge_metrics.i₊½.ξ̂x[idx]
-  # # @show η̂xᵢ₊½(idx), mesh.edge_metrics.i₊½.η̂x[idx]
 
   conserved_metrics_pass = false
   for idx in mesh.iterators.cell.domain
@@ -434,25 +230,13 @@ end
 
     conserved_metrics_pass = iszero(I₁) && iszero(I₂) && iszero(I₃)
     if !conserved_metrics_pass
-      e = 1
-      cm = conservative_metrics(mesh, (i, j, k))
-      cmip1 = conservative_metrics(mesh, (i + e, j, k))
-      cmjp1 = conservative_metrics(mesh, (i, j + e, k))
-      cmkp1 = conservative_metrics(mesh, (i, j, k + e))
-      @show mesh.iterators.cell.domain
-      @show idx, I₁, I₂, I₃
-
-      I1_AD = ((cmip1.ξ̂.x - cm.ξ̂.x) + (cmjp1.η̂.x - cm.η̂.x) + (cmkp1.ζ̂.x - cm.ζ̂.x))
-      @show I1_AD
       break
     end
   end
   @test conserved_metrics_pass
-
-  # display(mesh.edge_metrics.i₊½.ξ̂x[mesh.iterators.cell.domain])
 end
 
-@testset "3D Mesh - Sphere Sector" begin
+@testset "3D Sphere Sector Mesh Construction" begin
   include("common.jl")
 
   function sphere_grid(nr, ntheta, nphi)
@@ -476,5 +260,3 @@ end
   x, y, z = sphere_grid(ni, nj, nk)
   @test_nowarn CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 end
-
-nothing
