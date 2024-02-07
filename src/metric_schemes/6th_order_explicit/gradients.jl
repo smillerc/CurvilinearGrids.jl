@@ -12,7 +12,7 @@ function ∂!(
   ∂_at_lobc!(∂x, x, domain, axis)
   ∂_at_hibc!(∂x, x, domain, axis)
 
-  # coefficients; T() is used to convert to the appropriate datatype, 
+  # coefficients; T() is used to convert to the appropriate datatype,
   # which is more impactful on GPUs, e.g. Float32 is significantly faster.
   # These are all compile-time constants, so the cost is nothing!
   a = T(3 / 4)
@@ -21,7 +21,7 @@ function ∂!(
 
   if 2 < size(domain, axis) <= 4 # 2nd order
     inner_domain = expand(domain, axis, -1)
-    @info "2nd order"
+    # @info "2nd order"
     for i in inner_domain
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₊₁ = up(i, axis, 1)
@@ -30,7 +30,7 @@ function ∂!(
     end
 
   elseif 4 < size(domain, axis) <= 7 # 4th order
-    @info "4th order"
+    # @info "4th order"
     inner_domain = expand(domain, axis, -2)
     for i in inner_domain
       ᵢ₋₂ = down(i, axis, 2)
@@ -98,7 +98,7 @@ function ∂_at_lobc!(
   ∂x::AbstractArray{T,N}, x::AbstractArray{T,N}, domain, axis::Int, ϵ=2eps(T)
 ) where {T,N}
 
-  # coefficients; T() is used to convert to the appropriate datatype, 
+  # coefficients; T() is used to convert to the appropriate datatype,
   # which is more impactful on GPUs, e.g. Float32 is significantly faster.
   # These are all compile-time constants, so the cost is nothing!
   a = T(1 / 4)
@@ -151,7 +151,7 @@ function ∂_at_hibc!(
   ∂x::AbstractArray{T,N}, x::AbstractArray{T,N}, domain, axis::Int, ϵ=2eps(T)
 ) where {T,N}
 
-  # coefficients; T() is used to convert to the appropriate datatype, 
+  # coefficients; T() is used to convert to the appropriate datatype,
   # which is more impactful on GPUs, e.g. Float32 is significantly faster.
   # These are all compile-time constants, so the cost is nothing!
   a = T(1 / 4)
@@ -209,7 +209,7 @@ function ∂²_at_lobc!(
   ϵ=2eps(T),
 ) where {T,N}
 
-  # coefficients; T() is used to convert to the appropriate datatype, 
+  # coefficients; T() is used to convert to the appropriate datatype,
   # which is more impactful on GPUs, e.g. Float32 is significantly faster.
   # These are all compile-time constants, so the cost is nothing!
   a = T(1 / 4)
@@ -264,7 +264,7 @@ function ∂²_at_hibc!(
   ϵ=2eps(T),
 ) where {T,N}
 
-  # coefficients; T() is used to convert to the appropriate datatype, 
+  # coefficients; T() is used to convert to the appropriate datatype,
   # which is more impactful on GPUs, e.g. Float32 is significantly faster.
   # These are all compile-time constants, so the cost is nothing!
   a = T(1 / 4)

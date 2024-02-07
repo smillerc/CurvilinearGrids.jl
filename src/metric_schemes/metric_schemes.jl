@@ -13,7 +13,7 @@ export MonotoneExplicit6thOrderDiscretization
 export update_edge_conserved_metrics!, update_cell_center_metrics!
 
 function update_metrics!(scheme, centroids, cell_center_metrics, edge_metrics, domain)
-  update_cell_center_metrics!(scheme, cell_center_metrics, centroids, domain)
+  # update_cell_center_metrics!(scheme, cell_center_metrics, centroids, domain)
   update_edge_conserved_metrics!(scheme, edge_metrics, centroids, domain)
 
   return nothing

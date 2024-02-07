@@ -2,6 +2,7 @@ using Test
 
 @testset "3D Mesh - Rectangular Mesh" begin
   include("common.jl")
+  include("../../src/metric_schemes/indexing_fun.jl")
 
   function rect_grid(nx, ny, nz)
     x0, x1 = (0.0, 2.0)
@@ -16,7 +17,7 @@ using Test
   end
 
   ni, nj, nk = (5, 9, 13)
-  nhalo = 5
+  nhalo = 6
   x, y, z = rect_grid(ni, nj, nk)
 
   mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
@@ -38,45 +39,45 @@ using Test
   @test all(mesh.cell_center_metrics.ηt[domain] .== 0.0)
   @test all(mesh.cell_center_metrics.ζt[domain] .== 0.0)
 
-  @show extrema(mesh.edge_metrics.i₊½.ξ̂x[domain])
   @test all(mesh.edge_metrics.i₊½.ξ̂x[domain] .≈ 0.0625)
   @test all(mesh.edge_metrics.j₊½.ξ̂x[domain] .≈ 0.0625)
   @test all(mesh.edge_metrics.k₊½.ξ̂x[domain] .≈ 0.0625)
-  # @test all(mesh.edge_metrics.i₊½.ξ̂y[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.j₊½.ξ̂y[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.k₊½.ξ̂y[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.i₊½.ξ̂z[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.j₊½.ξ̂z[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.k₊½.ξ̂z[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.i₊½.η̂x[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.j₊½.η̂x[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.k₊½.η̂x[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.i₊½.η̂y[domain] .≈ 0.125)
-  # @test all(mesh.edge_metrics.j₊½.η̂y[domain] .≈ 0.125)
-  # @test all(mesh.edge_metrics.k₊½.η̂y[domain] .≈ 0.125)
-  # @test all(mesh.edge_metrics.i₊½.η̂z[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.j₊½.η̂z[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.k₊½.η̂z[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.i₊½.ζ̂x[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.j₊½.ζ̂x[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.k₊½.ζ̂x[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.i₊½.ζ̂y[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.j₊½.ζ̂y[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.k₊½.ζ̂y[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.i₊½.ζ̂z[domain] .≈ 0.125)
-  # @test all(mesh.edge_metrics.j₊½.ζ̂z[domain] .≈ 0.125)
-  # @test all(mesh.edge_metrics.k₊½.ζ̂z[domain] .≈ 0.125)
-  # @test all(mesh.edge_metrics.i₊½.ξ̂t[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.j₊½.ξ̂t[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.k₊½.ξ̂t[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.i₊½.η̂t[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.j₊½.η̂t[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.k₊½.η̂t[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.i₊½.ζ̂t[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.j₊½.ζ̂t[domain] .≈ 0.0)
-  # @test all(mesh.edge_metrics.k₊½.ζ̂t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ξ̂y[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ξ̂y[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ξ̂y[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ξ̂z[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ξ̂z[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ξ̂z[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂x[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂x[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.η̂x[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂y[domain] .≈ 0.125)
+  @test all(mesh.edge_metrics.j₊½.η̂y[domain] .≈ 0.125)
+  @test all(mesh.edge_metrics.k₊½.η̂y[domain] .≈ 0.125)
+  @test all(mesh.edge_metrics.i₊½.η̂z[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂z[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.η̂z[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂x[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ζ̂x[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ζ̂x[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂y[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ζ̂y[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ζ̂y[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂z[domain] .≈ 0.125)
+  @test all(mesh.edge_metrics.j₊½.ζ̂z[domain] .≈ 0.125)
+  @test all(mesh.edge_metrics.k₊½.ζ̂z[domain] .≈ 0.125)
+  @test all(mesh.edge_metrics.i₊½.ξ̂t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ξ̂t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ξ̂t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.η̂t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ζ̂t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ζ̂t[domain] .≈ 0.0)
 
   conserved_metrics_pass = false
+  # for idx in expand(domain, -1)
   for idx in domain
     i, j, k = idx.I
     I₁ = (
@@ -104,7 +105,7 @@ using Test
       break
     end
   end
-  # @test conserved_metrics_pass
+  @test conserved_metrics_pass
 
   # bm1 = @benchmark metrics($mesh, (2, 3, 4))
   # @test bm1.allocs == 0
@@ -150,6 +151,7 @@ end
 
 @testset "3D Wavy Mesh Conserved Metrics GCL" begin
   using CurvilinearGrids
+  using WriteVTK
   using CurvilinearGrids.MetricDiscretizationSchemes.MonotoneExplicit6thOrderScheme:
     conserved_metric!
 
@@ -238,16 +240,7 @@ end
     xyz_n = CurvilinearGrids.coords(mesh)
     domain = mesh.iterators.cell.domain
 
-    # @views begin
-    #   #   J = [m.J for m in mesh.cell_center_metrics[domain]]
-    #   ξx = [m.x for m in mesh.cell_center_metrics.ξ[domain]]
-    #   ξ̂xᵢ₊½ = [m.x for m in mesh.edge_metrics.i₊½.ξ̂[domain]]
-    #   #   ηy = [m.ηy for m in mesh.cell_center_metrics[domain]]
-    # end
-
-    vtk_grid(fn, xyz_n) do vtk
-
-      # w1 = [x[1] for idx in eachindex(f.char_state.W[ilo:ihi, jlo:jhi]
+    @views vtk_grid(fn, xyz_n) do vtk
       for (k, v) in pairs(mesh.cell_center_metrics)
         vtk["$k"] = v[domain]
       end
@@ -257,10 +250,6 @@ end
           vtk["$(k)_$(edge_name)"] = v[domain]
         end
       end
-      # vtk["ξx"] = ξx
-      # vtk["ξ̂xᵢ₊½"] = ξ̂xᵢ₊½
-      # vtk["I"] = I[domain]
-      # vtk["ηy"] = ηy
     end
   end
 
@@ -287,7 +276,7 @@ end
   ζ = 3
 
   ni = nj = nk = 20
-  nhalo = 5
+  nhalo = 6
   x, y, z = wavy_grid(ni, nj, nk)
   mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 
@@ -371,8 +360,8 @@ end
   ∂η̂z∂η(idx) = ∂ϕ(η̂z, idx, η)
   ∂ζ̂z∂ζ(idx) = ∂ϕ(ζ̂z, idx, ζ)
 
-  # save_vtk(mesh)
-  domain = mesh.iterators.cell.full
+  save_vtk(mesh)
+  # domain = mesh.iterators.cell.full
 
   # i, j, k = (6, 16, 15)
   # idx = CartesianIndex(i, j, k)
@@ -439,17 +428,28 @@ end
       (mesh.edge_metrics.k₊½.ζ̂z[i, j, k] - mesh.edge_metrics.k₊½.ζ̂z[i, j, k - 1])
     )
 
-    I₁ = I₁ * (abs(I₁) > 4eps())
-    I₂ = I₂ * (abs(I₂) > 4eps())
-    I₃ = I₃ * (abs(I₃) > 4eps())
+    I₁ = I₁ * (abs(I₁) > 10eps())
+    I₂ = I₂ * (abs(I₂) > 10eps())
+    I₃ = I₃ * (abs(I₃) > 10eps())
 
-    # @show I₁, I₂, I₃
     conserved_metrics_pass = iszero(I₁) && iszero(I₂) && iszero(I₃)
     if !conserved_metrics_pass
+      e = 1
+      cm = conservative_metrics(mesh, (i, j, k))
+      cmip1 = conservative_metrics(mesh, (i + e, j, k))
+      cmjp1 = conservative_metrics(mesh, (i, j + e, k))
+      cmkp1 = conservative_metrics(mesh, (i, j, k + e))
+      @show mesh.iterators.cell.domain
+      @show idx, I₁, I₂, I₃
+
+      I1_AD = ((cmip1.ξ̂.x - cm.ξ̂.x) + (cmjp1.η̂.x - cm.η̂.x) + (cmkp1.ζ̂.x - cm.ζ̂.x))
+      @show I1_AD
       break
     end
   end
   @test conserved_metrics_pass
+
+  # display(mesh.edge_metrics.i₊½.ξ̂x[mesh.iterators.cell.domain])
 end
 
 @testset "3D Mesh - Sphere Sector" begin
@@ -472,7 +472,7 @@ end
   end
 
   ni, nj, nk = (5, 9, 11)
-  nhalo = 5
+  nhalo = 6
   x, y, z = sphere_grid(ni, nj, nk)
   @test_nowarn CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 end

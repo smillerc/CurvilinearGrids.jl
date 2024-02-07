@@ -14,7 +14,7 @@ function toedge!(
   ∂!(∂x, x, domain, axis)
   ∂²!(∂²x, ∂x, x, domain, axis)
 
-  # coefficients; T() is used to convert to the appropriate datatype, 
+  # coefficients; T() is used to convert to the appropriate datatype,
   # which is more impactful on GPUs, e.g. Float32 is significantly faster.
   # These are all compile-time constants, so the cost is nothing!
 
@@ -46,7 +46,7 @@ function toedge_lobc!(
   axis::Int,
 ) where {T,N}
 
-  # coefficients; T() is used to convert to the appropriate datatype, 
+  # coefficients; T() is used to convert to the appropriate datatype,
   # which is more impactful on GPUs, e.g. Float32 is significantly faster.
   # These are all compile-time constants, so the cost is nothing!
   a = T(1 / 2)
@@ -63,7 +63,7 @@ function toedge_lobc!(
     xᴸᵢ₊½ = x[i] + a * ∂x[i] + b * ∂²x[i]
     xᴿᵢ₊½ = x[ᵢ₊₁] - a * ∂x[ᵢ₊₁] + b * ∂²x[ᵢ₊₁]
 
-    # xᵢ₊½[ᵢ₋₁] = x[i] - a * ∂x[i] + b * ∂²x[i]
+    xᵢ₊½[ᵢ₋₁] = x[i] - a * ∂x[i] + b * ∂²x[i]
 
     xᵢ₊½[i] = 0.5(xᴸᵢ₊½ + xᴿᵢ₊½)
   end
@@ -78,7 +78,7 @@ function toedge_hibc!(
   axis::Int,
 ) where {T,N}
 
-  # coefficients; T() is used to convert to the appropriate datatype, 
+  # coefficients; T() is used to convert to the appropriate datatype,
   # which is more impactful on GPUs, e.g. Float32 is significantly faster.
   # These are all compile-time constants, so the cost is nothing!
   a = T(1 / 2)
@@ -88,6 +88,7 @@ function toedge_hibc!(
 
   for i in b1
     xᵢ₊½[i] = x[i] + a * ∂x[i] + b * ∂²x[i]
+    # @show xᵢ₊½[i], x[i]
   end
 
   return nothing

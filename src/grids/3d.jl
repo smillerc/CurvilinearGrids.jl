@@ -217,7 +217,7 @@ function CurvilinearGrid3D(
   discretization_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
     _iterators.cell.full
   )
-  @assert nhalo == 5
+  @assert nhalo == 6
 
   m = CurvilinearGrid3D(
     (; x, y, z),
@@ -239,7 +239,36 @@ end
 
 function update_metrics!(m::CurvilinearGrid3D)
   # Update the metrics within the non-halo region, e.g., the domain
-  domain = m.iterators.cell.full
+  domain = m.iterators.cell.domain
+
+  # cell metrics
+  @inbounds for idx in m.iterators.cell.full
+    cell_idx = idx.I .+ 0.5
+    # @unpack J, ξ, η, ζ, x, y, z = metrics(m, cell_idx, 0)
+    @unpack J, ξ, η, ζ = metrics(m, cell_idx, 0)
+
+    m.cell_center_metrics.ξx[idx] = ξ.x
+    m.cell_center_metrics.ξy[idx] = ξ.y
+    m.cell_center_metrics.ξz[idx] = ξ.z
+    m.cell_center_metrics.ηx[idx] = η.x
+    m.cell_center_metrics.ηy[idx] = η.y
+    m.cell_center_metrics.ηz[idx] = η.z
+    m.cell_center_metrics.ζx[idx] = ζ.x
+    m.cell_center_metrics.ζy[idx] = ζ.y
+    m.cell_center_metrics.ζz[idx] = ζ.z
+
+    # m.cell_center_inv_metrics.xξ[idx] = x.ξ
+    # m.cell_center_inv_metrics.yξ[idx] = y.ξ
+    # m.cell_center_inv_metrics.zξ[idx] = z.ξ
+    # m.cell_center_inv_metrics.xη[idx] = x.η
+    # m.cell_center_inv_metrics.yη[idx] = y.η
+    # m.cell_center_inv_metrics.zη[idx] = z.η
+    # m.cell_center_inv_metrics.xζ[idx] = x.ζ
+    # m.cell_center_inv_metrics.yζ[idx] = y.ζ
+    # m.cell_center_inv_metrics.zζ[idx] = z.ζ
+
+    m.cell_center_metrics.J[idx] = J
+  end
 
   MetricDiscretizationSchemes.update_metrics!(
     m.discretization_scheme, m.centroids, m.cell_center_metrics, m.edge_metrics, domain
@@ -549,15 +578,15 @@ function update_metrics_old!(m::CurvilinearGrid3D)
   # The grid x,y functions define the NODE position
   # of the entire mesh, and do not know about halo cells
   # The `- m.nhalo` accounts for this and the `+ 1/2`
-  # is so we get the middle of the edge. 
+  # is so we get the middle of the edge.
 
   #             o-------------o
   #             |             |
   #             |             |
-  #     i₊½     X    (i,j)    |   
-  #   for the   |             |   
-  #   cell to   |             |   
-  #   the left  o------X------o   
+  #     i₊½     X    (i,j)    |
+  #   for the   |             |
+  #   cell to   |             |
+  #   the left  o------X------o
   #                   j₊½ for the cell below
   # the lower left corner node is (i,j) as well,
   # so this is why the ₊½ node indices seem backwards...
@@ -716,60 +745,60 @@ end
   ηt = zero(T)
   ζt = zero(T)
 
-  # ξ̂ = Metric3D(ξx * J, ξy * J, ξz * J, ξt * J)
-  # η̂ = Metric3D(ηx * J, ηy * J, ηz * J, ηt * J)
-  # ζ̂ = Metric3D(ζx * J, ζy * J, ζz * J, ζt * J)
+  ξ̂ = Metric3D(ξx * J, ξy * J, ξz * J, ξt * J)
+  η̂ = Metric3D(ηx * J, ηy * J, ηz * J, ηt * J)
+  ζ̂ = Metric3D(ζx * J, ζy * J, ζz * J, ζt * J)
 
-  M1, M2, M3 = m.conserv_metric_func(i - m.nhalo, j - m.nhalo, k - m.nhalo) # get the matrices
+  # M1, M2, M3 = m.conserv_metric_func(i - m.nhalo, j - m.nhalo, k - m.nhalo) # get the matrices
 
-  ∂ξ = 1
-  ∂η = 2
-  ∂ζ = 3
-  yξzη = M1[∂ξ, ∂η] # ∂(z ∂y/∂ξ)/∂η
-  yξzζ = M1[∂ξ, ∂ζ] # ∂(z ∂y/∂ξ)/∂ζ
+  # ∂ξ = 1
+  # ∂η = 2
+  # ∂ζ = 3
+  # yξzη = M1[∂ξ, ∂η] # ∂(z ∂y/∂ξ)/∂η
+  # yξzζ = M1[∂ξ, ∂ζ] # ∂(z ∂y/∂ξ)/∂ζ
 
-  yηzξ = M1[∂η, ∂ξ] # ∂(z ∂y/∂η)/∂ξ
-  yηzζ = M1[∂η, ∂ζ] # ∂(z ∂y/∂η)/∂ζ
+  # yηzξ = M1[∂η, ∂ξ] # ∂(z ∂y/∂η)/∂ξ
+  # yηzζ = M1[∂η, ∂ζ] # ∂(z ∂y/∂η)/∂ζ
 
-  yζzξ = M1[∂ζ, ∂ξ] # ∂(z ∂y/∂ζ)/∂ξ
-  yζzη = M1[∂ζ, ∂η] # ∂(z ∂y/∂ζ)/∂η
+  # yζzξ = M1[∂ζ, ∂ξ] # ∂(z ∂y/∂ζ)/∂ξ
+  # yζzη = M1[∂ζ, ∂η] # ∂(z ∂y/∂ζ)/∂η
 
-  zξxη = M2[∂ξ, ∂η] # ∂(x ∂z/∂ξ)/∂η
-  zξxζ = M2[∂ξ, ∂ζ] # ∂(x ∂z/∂ξ)/∂ζ
-  zηxξ = M2[∂η, ∂ξ] # ∂(x ∂z/∂η)/∂ξ
-  zηxζ = M2[∂η, ∂ζ] # ∂(x ∂z/∂η)/∂ζ
-  zζxξ = M2[∂ζ, ∂ξ] # ∂(x ∂z/∂ζ)/∂ξ
-  zζxη = M2[∂ζ, ∂η] # ∂(x ∂z/∂ζ)/∂η
+  # zξxη = M2[∂ξ, ∂η] # ∂(x ∂z/∂ξ)/∂η
+  # zξxζ = M2[∂ξ, ∂ζ] # ∂(x ∂z/∂ξ)/∂ζ
+  # zηxξ = M2[∂η, ∂ξ] # ∂(x ∂z/∂η)/∂ξ
+  # zηxζ = M2[∂η, ∂ζ] # ∂(x ∂z/∂η)/∂ζ
+  # zζxξ = M2[∂ζ, ∂ξ] # ∂(x ∂z/∂ζ)/∂ξ
+  # zζxη = M2[∂ζ, ∂η] # ∂(x ∂z/∂ζ)/∂η
 
-  xξyη = M3[∂ξ, ∂η] # ∂(y ∂x/∂ξ)/∂η
-  xξyζ = M3[∂ξ, ∂ζ] # ∂(y ∂x/∂ξ)/∂ζ
-  xηyξ = M3[∂η, ∂ξ] # ∂(y ∂x/∂η)/∂ξ
-  xηyζ = M3[∂η, ∂ζ] # ∂(y ∂x/∂η)/∂ζ
-  xζyξ = M3[∂ζ, ∂ξ] # ∂(y ∂x/∂ζ)/∂ξ
-  xζyη = M3[∂ζ, ∂η] # ∂(y ∂x/∂ζ)/∂η
+  # xξyη = M3[∂ξ, ∂η] # ∂(y ∂x/∂ξ)/∂η
+  # xξyζ = M3[∂ξ, ∂ζ] # ∂(y ∂x/∂ξ)/∂ζ
+  # xηyξ = M3[∂η, ∂ξ] # ∂(y ∂x/∂η)/∂ξ
+  # xηyζ = M3[∂η, ∂ζ] # ∂(y ∂x/∂η)/∂ζ
+  # xζyξ = M3[∂ζ, ∂ξ] # ∂(y ∂x/∂ζ)/∂ξ
+  # xζyη = M3[∂ζ, ∂η] # ∂(y ∂x/∂ζ)/∂η
 
-  ξ̂x = yηzζ - yζzη
+  # ξ̂x = yηzζ - yζzη
 
-  ξ̂x1 = yη * zζ - yζ * zη
-  # @show abs(ξ̂x1 - ξ̂x)
+  # ξ̂x1 = yη * zζ - yζ * zη
+  # # @show abs(ξ̂x1 - ξ̂x)
 
-  ξ̂y = zηxζ - zζxη
-  ξ̂z = xηyζ - xζyη
+  # ξ̂y = zηxζ - zζxη
+  # ξ̂z = xηyζ - xζyη
 
-  η̂x = yζzξ - yξzζ
-  η̂y = zζxξ - zξxζ
-  η̂z = xζyξ - xξyζ
+  # η̂x = yζzξ - yξzζ
+  # η̂y = zζxξ - zξxζ
+  # η̂z = xζyξ - xξyζ
 
-  ζ̂x = yξzη - yηzξ
-  ζ̂y = zξxη - zηxξ
-  ζ̂z = xξyη - xηyξ
-  # @show abs(ξ̂x - ξx * J), abs(ξ̂y - ξy * J), abs(ξ̂z - ξz * J)
-  # @show abs(η̂x - ηx * J), abs(η̂y - ηy * J), abs(η̂z - ηz * J)
+  # ζ̂x = yξzη - yηzξ
+  # ζ̂y = zξxη - zηxξ
+  # ζ̂z = xξyη - xηyξ
+  # # @show abs(ξ̂x - ξx * J), abs(ξ̂y - ξy * J), abs(ξ̂z - ξz * J)
+  # # @show abs(η̂x - ηx * J), abs(η̂y - ηy * J), abs(η̂z - ηz * J)
 
-  ξ̂ = Metric3D(ξ̂x, ξ̂y, ξ̂z, ξt)
-  η̂ = Metric3D(η̂x, η̂y, η̂z, ηt)
-  ζ̂ = Metric3D(ζ̂x, ζ̂y, ζ̂z, ζt)
-  # @show hidx, ξ̂
+  # ξ̂ = Metric3D(ξ̂x, ξ̂y, ξ̂z, ξt)
+  # η̂ = Metric3D(η̂x, η̂y, η̂z, ηt)
+  # ζ̂ = Metric3D(ζ̂x, ζ̂y, ζ̂z, ζt)
+  # # @show hidx, ξ̂
 
   return (; ξ̂, η̂, ζ̂)
 end

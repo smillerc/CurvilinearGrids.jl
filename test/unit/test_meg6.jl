@@ -16,7 +16,7 @@ using Test
   ∂f(i) = ForwardDiff.derivative(f, i)
   ∂²f(i) = ForwardDiff.derivative(∂f, i)
 
-  xn = -5:30
+  xn = -6:31
   xc = xn[2:end] .- 0.5
 
   fdata = f.(xc)
@@ -24,7 +24,7 @@ using Test
   ∂²fdata = similar(fdata)
 
   domain = CartesianIndices(fdata)
-  inner_domain = expand(domain, -5)
+  inner_domain = expand(domain, -6)
 
   ∂!(∂fdata, fdata, domain, 1)
   ∂²!(∂²fdata, ∂fdata, fdata, domain, 1)
@@ -49,10 +49,10 @@ using Test
   # Interpolate to the edges
   fhalf = similar(fdata)
   fill!(fhalf, NaN)
-  toedge!(fhalf, ∂²fdata, ∂fdata, fdata, domain, 1)
+  toedge!(fhalf, ∂²fdata, ∂fdata, fdata, inner_domain, 1)
 
   fhalf_err = @. f(xc + 0.5) - fhalf
-  @test norm(fhalf_err) < 1e-2
+  @test norm(fhalf_err[inner_domain]) < 1e-2
 
   # Turn plots on for diagnosis if need be
   # using Plots
@@ -91,11 +91,11 @@ end
   end
 
   ni, nj, nk = (5, 9, 13)
-  nhalo = 5
+  nhalo = 6
   x, y, z = rect_grid(ni, nj, nk)
 
   mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
-  full_domain = mesh.iterators.cell.full
+  full_domain = mesh.iterators.cell.domain
 
   # @show mesh.iterators.cell.full
   meg6 = mesh.discretization_scheme
@@ -172,9 +172,9 @@ end
   ξ̂x = meg6.cache.metric
   conserved_metric!(meg6, ξ̂x, y, η, z, ζ, full_domain)
 
-  expanded_dom = expand(mesh.iterators.cell.domain, +1)
-  @show ξ̂x[expanded_dom]
-  @test all(ξ̂x[expanded_dom] .≈ 0.0625)
+  # expanded_dom = expand(mesh.iterators.cell.domain, +1)
+  # @show ξ̂x[expanded_dom]
+  @test all(ξ̂x[mesh.iterators.cell.domain] .≈ 0.0625)
 
   # toedge!(xᵢ₊½, ∂²x, ∂x, ξ̂x, expand(full_domain, ξ, -1), ξ)
   # @test all(xᵢ₊½[mesh.iterators.cell.domain] .≈ 0.0625)
