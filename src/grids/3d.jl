@@ -205,12 +205,17 @@ function update_metrics!(m::CurvilinearGrid3D, t=0)
     m.cell_center_metrics.ξx[idx] = ξ.x
     m.cell_center_metrics.ξy[idx] = ξ.y
     m.cell_center_metrics.ξz[idx] = ξ.z
+    m.cell_center_metrics.ξt[idx] = ξ.t
+
     m.cell_center_metrics.ηx[idx] = η.x
     m.cell_center_metrics.ηy[idx] = η.y
     m.cell_center_metrics.ηz[idx] = η.z
+    m.cell_center_metrics.ηt[idx] = η.t
+
     m.cell_center_metrics.ζx[idx] = ζ.x
     m.cell_center_metrics.ζy[idx] = ζ.y
     m.cell_center_metrics.ζz[idx] = ζ.z
+    m.cell_center_metrics.ζt[idx] = ζ.t
 
     # m.cell_center_inv_metrics.xξ[idx] = x.ξ
     # m.cell_center_inv_metrics.yξ[idx] = y.ξ

@@ -136,13 +136,15 @@ function update_metrics!(m::CurvilinearGrid2D, t=0)
   # cell metrics
   @inbounds for idx in m.iterators.cell.full
     cell_idx = idx.I .+ 0.5
-    # @unpack J, ξ, η, x, y = metrics(m, cell_idx, 0)
+    # @unpack J, ξ, η, x, y = metrics(m, cell_idx, t)
     @unpack J, ξ, η = metrics(m, cell_idx, t)
 
     m.cell_center_metrics.ξx[idx] = ξ.x
     m.cell_center_metrics.ξy[idx] = ξ.y
+    m.cell_center_metrics.ξt[idx] = ξ.t
     m.cell_center_metrics.ηx[idx] = η.x
     m.cell_center_metrics.ηy[idx] = η.y
+    m.cell_center_metrics.ηt[idx] = η.t
 
     # m.cell_center_inv_metrics.xξ[idx] = x.ξ
     # m.cell_center_inv_metrics.yξ[idx] = y.ξ
@@ -157,12 +159,15 @@ function update_metrics!(m::CurvilinearGrid2D, t=0)
     i, j = idx.I .+ 0.5 # centroid index
 
     # get the conserved metrics at (i₊½, j)
-    @unpack ξ̂, η̂ = conservative_metrics(m, (i + 1 / 2, j), t)
+    @unpack ξ̂, η̂, J = conservative_metrics(m, (i + 1 / 2, j), t)
 
     m.edge_metrics.i₊½.ξ̂x[idx] = ξ̂.x
     m.edge_metrics.i₊½.ξ̂y[idx] = ξ̂.y
+    m.edge_metrics.i₊½.ξ̂t[idx] = ξ̂.t
     m.edge_metrics.i₊½.η̂x[idx] = η̂.x
     m.edge_metrics.i₊½.η̂y[idx] = η̂.y
+    m.edge_metrics.i₊½.η̂t[idx] = η̂.t
+    m.edge_metrics.i₊½.J[idx] = J
   end
 
   # j₊½ conserved metrics
@@ -170,12 +175,15 @@ function update_metrics!(m::CurvilinearGrid2D, t=0)
     i, j = idx.I .+ 0.5 # centroid index
 
     # get the conserved metrics at (i, j₊½)
-    @unpack ξ̂, η̂ = conservative_metrics(m, (i, j + 1 / 2), t)
+    @unpack ξ̂, η̂, J = conservative_metrics(m, (i, j + 1 / 2), t)
 
     m.edge_metrics.j₊½.ξ̂x[idx] = ξ̂.x
     m.edge_metrics.j₊½.ξ̂y[idx] = ξ̂.y
+    m.edge_metrics.j₊½.ξ̂t[idx] = ξ̂.t
     m.edge_metrics.j₊½.η̂x[idx] = η̂.x
     m.edge_metrics.j₊½.η̂y[idx] = η̂.y
+    m.edge_metrics.j₊½.η̂t[idx] = η̂.t
+    m.edge_metrics.j₊½.J[idx] = J
   end
 
   return nothing
@@ -228,7 +236,7 @@ end
   ξ̂ = Metric2D(ξx * J, ξy * J, ξt * J)
   η̂ = Metric2D(ηx * J, ηy * J, ηt * J)
 
-  return (; ξ̂, η̂)
+  return (; ξ̂, η̂, J)
 end
 
 # ------------------------------------------------------------------
