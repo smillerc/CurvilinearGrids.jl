@@ -1,5 +1,8 @@
 module CurvilinearGrids
 
+include("indexing_utils.jl")
+using .IndexingUtils
+
 include("metrics.jl")
 using .MetricTypes
 

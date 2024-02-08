@@ -1,9 +1,15 @@
-# Functions used to work on CartesianIndex and CartesianIndices 
-# to make looping and stencil creation easy for arbitary dimensions
-# and axes
+"""
+Functions used to work on CartesianIndex and CartesianIndices
+to make looping and stencil creation easy for arbitary dimensions
+and axes
+"""
+module IndexingUtils
+
+export plus_minus, up, down, expand, expand_upper, expand_lower
+export lower_boundary_indices, upper_boundary_indices
 
 """
-  Apply a delta function to the cartesian index on a specified axis. For 
+  Apply a delta function to the cartesian index on a specified axis. For
   example, `δ(3, CartesianIndex(1,2,3))` will give `CartesianIndex(0,0,1)`.
 """
 δ(axis, ::CartesianIndex{N}) where {N} = CartesianIndex(ntuple(j -> j == axis ? 1 : 0, N))
@@ -98,7 +104,7 @@ function expand_upper(domain::CartesianIndices{N}, n::Int) where {N}
 end
 
 """
-Take a given CartesianIndices and extract only the lower boundary indices at 
+Take a given CartesianIndices and extract only the lower boundary indices at
 an offset of `n` along a given `axis`.
 
 # Example
@@ -120,7 +126,7 @@ function lower_boundary_indices(domain::CartesianIndices{N}, axis::Int, n::Int) 
 end
 
 """
-Take a given CartesianIndices and extract only the upper boundary indices at 
+Take a given CartesianIndices and extract only the upper boundary indices at
 an offset of `n` along a given `axis`.
 
 # Example
@@ -139,4 +145,6 @@ function upper_boundary_indices(domain::CartesianIndices{N}, axis::Int, n::Int) 
   idx = ntuple(j -> j == axis ? UnitRange(bc, bc) : domain.indices[j], N)
 
   return CartesianIndices(idx)
+end
+
 end
