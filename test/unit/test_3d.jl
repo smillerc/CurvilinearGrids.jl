@@ -1,7 +1,5 @@
 
 @testset "3D Rectangular Mesh Metrics, Conserved Metrics, GCL" begin
-  include("common.jl")
-
   function rect_grid(nx, ny, nz)
     x0, x1 = (0.0, 2.0)
     y0, y1 = (1, 3)

@@ -1,6 +1,5 @@
 
 @testset "1D Mesh Rectlinear Mesh" begin
-  include("common.jl")
   function getmesh()
     nhalo = 3
     ni = 5
@@ -24,8 +23,6 @@
     [-1.25, -0.75, -0.25, 0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25]
 
   @test m.node_coordinates.x == [-1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
-
-  metrics(m, 1, 0)
 
   # @test metrics(m, 1) == (ξx=2.0, ξt=0.0)
   # @test conservative_metrics(m, 1) == (ξ̂x=4.0, ξt=0.0)

@@ -1,5 +1,4 @@
 @testset "Indexing functions" begin
-  # include("../../src/indexing_utils.jl")
   using CurvilinearGrids.IndexingUtils
   domain = CartesianIndices((1:10, 4:8))
 

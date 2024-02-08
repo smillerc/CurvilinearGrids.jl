@@ -1,7 +1,5 @@
 
 @testset "2D Rectangular mesh" begin
-  include("common.jl")
-
   function rect_grid(nx, ny)
     x0, x1 = (0, 2)
     y0, y1 = (1, 3)
@@ -66,8 +64,7 @@
   bm0 = @benchmark conservative_metrics($mesh, (2, 3))
   @test bm0.allocs == 0
 
-  t = 0
-  bm1 = @benchmark metrics($mesh, (2, 3), t)
+  bm1 = @benchmark metrics($mesh, (2, 3), 0)
   @test bm1.allocs == 0
 
   bm2 = @benchmark jacobian_matrix($mesh, (2, 2))

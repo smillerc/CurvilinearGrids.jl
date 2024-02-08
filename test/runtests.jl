@@ -1,5 +1,7 @@
 using CurvilinearGrids
 using Test
+using StaticArrays
+using BenchmarkTools
 
 @testset verbose = true "UnitTests" begin
   include("unit/test_indexing.jl")
