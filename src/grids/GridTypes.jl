@@ -145,9 +145,9 @@ end
 
 function coord(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
   @SVector [
-    m._coordinate_funcs.x((i - m.nhalo, j - m.nhalo, k - m.nhalo)),
-    m._coordinate_funcs.y((i - m.nhalo, j - m.nhalo, k - m.nhalo)),
-    m._coordinate_funcs.z((i - m.nhalo, j - m.nhalo, k - m.nhalo)),
+    m._coordinate_funcs.x(i - m.nhalo, j - m.nhalo, k - m.nhalo),
+    m._coordinate_funcs.y(i - m.nhalo, j - m.nhalo, k - m.nhalo),
+    m._coordinate_funcs.z(i - m.nhalo, j - m.nhalo, k - m.nhalo),
   ]
 end
 
