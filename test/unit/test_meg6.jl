@@ -94,9 +94,9 @@ end
   ∂x = meg6.cache.∂x
   ∂²x = meg6.cache.∂²x
 
-  x = mesh.centroids.x
-  y = mesh.centroids.y
-  z = mesh.centroids.z
+  x = mesh.centroid_coordinates.x
+  y = mesh.centroid_coordinates.y
+  z = mesh.centroid_coordinates.z
 
   ∂!(∂x, x, full_domain, 1)
   @test all(∂x[full_domain] .≈ 0.5)

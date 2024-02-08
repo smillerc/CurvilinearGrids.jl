@@ -6,7 +6,7 @@ using Test
 
   include("unit/test_meg6.jl")
 
-  # include("unit/test_2d.jl")
+  include("unit/test_2d.jl")
 
   include("unit/test_3d.jl")
 end

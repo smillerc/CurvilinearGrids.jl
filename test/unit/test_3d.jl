@@ -1,7 +1,6 @@
 
 @testset "3D Rectangular Mesh Metrics, Conserved Metrics, GCL" begin
   include("common.jl")
-  include("../../src/metric_schemes/indexing_fun.jl")
 
   function rect_grid(nx, ny, nz)
     x0, x1 = (0.0, 2.0)
@@ -154,7 +153,7 @@ end
   using CurvilinearGrids.MetricDiscretizationSchemes.MonotoneExplicit6thOrderScheme:
     conserved_metric!
 
-  include("../../src/metric_schemes/indexing_fun.jl")
+  # include("../../src/metric_schemes/indexing_fun.jl")
 
   function save_vtk(mesh)
     fn = "wavy"
