@@ -4,6 +4,8 @@ using LinearAlgebra
 using StaticArrays, MappedArrays
 using KernelAbstractions
 
+using ..IndexingUtils
+
 export MonotoneExplicit6thOrderDiscretization
 export update_edge_conserved_metrics!, update_cell_center_metrics!
 
@@ -11,7 +13,6 @@ const ξ = 1
 const η = 2
 const ζ = 3
 
-include("../indexing_fun.jl")
 include("gradients.jl")
 include("interpolation.jl")
 

@@ -1,5 +1,6 @@
 @testset "Indexing functions" begin
-  include("../../src/metric_schemes/indexing_fun.jl")
+  # include("../../src/indexing_utils.jl")
+  using CurvilinearGrids.IndexingUtils
   domain = CartesianIndices((1:10, 4:8))
 
   @test lower_boundary_indices(domain, 1, +1) == CartesianIndices((2:2, 4:8))
@@ -31,5 +32,6 @@
   @test plus_minus(CartesianIndex((4, 5, 6)), 2, (1, 0)) ==
     CartesianIndices((4:4, 4:5, 6:6))
 
-  @test δ(1, CartesianIndex((4, 5, 6))) == CartesianIndex((1, 0, 0))
+  # δ isn't exported...
+  @test IndexingUtils.δ(1, CartesianIndex((4, 5, 6))) == CartesianIndex((1, 0, 0))
 end

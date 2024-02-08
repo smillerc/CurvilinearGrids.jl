@@ -7,7 +7,10 @@ using .Threads, LinearAlgebra
 
 export update_metrics!
 
-include("6th_order_explicit/MonotoneExplicit6thOrderScheme.jl")
+include("../indexing_utils.jl")
+using .IndexingUtils
+
+include("meg6/MonotoneExplicit6thOrderScheme.jl")
 using .MonotoneExplicit6thOrderScheme
 export MonotoneExplicit6thOrderDiscretization
 export update_edge_conserved_metrics!, update_cell_center_metrics!
