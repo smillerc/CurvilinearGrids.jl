@@ -9,94 +9,206 @@ CurvilinearGrid1D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CurvilinearGrid1D{F1,F2} <: AbstractCurvilinearGrid
-  x::F1 # x(ξ)
-  ∂x∂ξ::F2 # ∂x∂ξ(ξ)
-  nhalo::Int # number of halo cells (for all dimensions)
-  nnodes::NTuple{1,Int}
-  limits::NamedTuple{(:ilo, :ihi),NTuple{2,Int}}
+struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,CF,DX} <: AbstractCurvilinearGrid
+  node_coordinates::CO
+  centroid_coordinates::CE
+  node_velocities::NV
+  edge_metrics::EM
+  cell_center_metrics::CM
+  nhalo::Int
+  nnodes::Int
+  domain_limits::DL
+  iterators::CI
+  _coordinate_funcs::CF
+  _∂x∂ξ::DX
 end
 
 """
     CurvilinearGrid1D(x::Function, (n_ξ,), nhalo)
 
-Create a `CurvilinearGrid1D` with a function `x(ξ)` and `nhalo` halo cells. `n_ξ` is the 
+Create a `CurvilinearGrid1D` with a function `x(ξ)` and `nhalo` halo cells. `n_ξ` is the
 total number of nodes/vertices (not including halo).
 """
-function CurvilinearGrid1D(x::F1, (n_ξ,), nhalo) where {F1<:Function}
-  ∂x∂ξ(ξ) = ForwardDiff.derivative(x, ξ)
-  F2 = typeof(∂x∂ξ)
-  nnodes = (n_ξ,)
-  ni_cells = n_ξ - 1
+# function CurvilinearGrid1D(x::F1, (n_ξ,), nhalo) where {F1<:Function}
+#   ∂x∂ξ(ξ) = ForwardDiff.derivative(x, ξ)
+#   F2 = typeof(∂x∂ξ)
+#   nnodes = (n_ξ,)
+#   ni_cells = n_ξ - 1
 
-  # limits used for looping to avoid using the halo regions
-  limits = (
-    ilo=nhalo + 1, # starting index
-    ihi=ni_cells + nhalo, # ending index
+#   # limits used for looping to avoid using the halo regions
+#   limits = (
+#     ilo=nhalo + 1, # starting index
+#     ihi=ni_cells + nhalo, # ending index
+#   )
+
+#   return CurvilinearGrid1D{F1,F2}(x, ∂x∂ξ, nhalo, nnodes, limits)
+# end
+
+function CurvilinearGrid1D(x::Function, ni, nhalo, T=Float64)
+  dim = 1
+  check_nargs(x, dim, :x)
+  test_coord_func(x, dim, :x)
+
+  ∂x∂ξ(ξ) = ForwardDiff.derivative(x, ξ)
+
+  nnodes = ni
+  ncells = nnodes - 1
+  ilo = nhalo + 1
+  limits = (node=(ilo=ilo, ihi=ni + nhalo), cell=(ilo=ilo, ihi=ncells + nhalo))
+
+  nodeCI = CartesianIndices((nnodes + 2nhalo,))
+  cellCI = CartesianIndices((ncells + 2nhalo,))
+
+  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
+
+  cell_center_metrics = (
+    J=zeros(T, domain_iterators.cell.full.indices),
+    ξx=zeros(T, domain_iterators.cell.full.indices),
+    ξt=zeros(T, domain_iterators.cell.full.indices),
   )
 
-  return CurvilinearGrid1D{F1,F2}(x, ∂x∂ξ, nhalo, nnodes, limits)
+  edge_metrics = (
+    i₊½=(
+      J=zeros(T, domain_iterators.cell.full.indices),
+      ξ̂x=zeros(T, domain_iterators.cell.full.indices),
+      ξ̂t=zeros(T, domain_iterators.cell.full.indices),
+    ),
+  )
+
+  coordinate_funcs = (; x)
+  centroids = (x=zeros(T, domain_iterators.cell.full.indices),)
+  _centroid_coordinates!(centroids, coordinate_funcs, domain_iterators.cell.full, nhalo)
+
+  coords = (x=zeros(T, domain_iterators.node.full.indices),)
+  _node_coordinates!(coords, coordinate_funcs, domain_iterators.node.full, nhalo)
+
+  node_velocities = (x=zeros(T, domain_iterators.node.full.indices),)
+
+  m = CurvilinearGrid1D(
+    coords,
+    centroids,
+    node_velocities,
+    edge_metrics,
+    cell_center_metrics,
+    nhalo,
+    nnodes,
+    limits,
+    domain_iterators,
+    coordinate_funcs,
+    ∂x∂ξ,
+  )
+
+  update_metrics!(m)
+  check_for_invalid_metrics(m)
+  return m
 end
 
-@inline function conservative_metrics(m::CurvilinearGrid1D, (i,)::Tuple{Real})
-  ξx = m.∂x∂ξ(i - m.nhalo)
-  return (ξ̂x=1 / (ξx * ξx), ξt=zero(eltype(ξx)))
+function update_metrics!(m::CurvilinearGrid1D, t=0)
+  # cell metrics
+  @inbounds for idx in m.iterators.cell.full
+    cell_idx, = idx.I .+ 0.5
+    # @unpack J, ξ, x = metrics(m, cell_idx, t)
+    @unpack J, ξ = metrics(m, cell_idx, t)
+    m.cell_center_metrics.ξx[idx] = ξ.x
+    # m.cell_center_inv_metrics.xξ[idx] = x.ξ
+    m.cell_center_metrics.J[idx] = J
+  end
+
+  # get the conserved metrics at (i₊½)
+  @inbounds for idx in m.iterators.cell.full
+    i, = idx.I .+ 0.5 # centroid index
+
+    @unpack ξ̂, J = conservative_metrics(m, i + 1 / 2, t)
+
+    m.edge_metrics.i₊½.ξ̂x[idx] = ξ̂.x
+    m.edge_metrics.i₊½.J[idx] = J
+  end
+
+  return nothing
 end
 
-@inline function conservative_metrics(m::CurvilinearGrid1D, (i,)::Tuple{Real}, vx)
-  # don't use (i - m.nhalo), since the static metrics() does it already
-  static_metrics = conservative_metrics(m::CurvilinearGrid1D, i)
-  return merge(static_metrics, (ξt=-(vx * static_metrics.ξx),))
+# ------------------------------------------------------------------
+# Grid Metrics
+# ------------------------------------------------------------------
+
+@inline function metrics(m::CurvilinearGrid1D, i::Real, t)
+  _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo))
+  inv_jacobian_matrix = inv(_jacobian_matrix)
+  ξx = inv_jacobian_matrix[1]
+  J = det(_jacobian_matrix)
+
+  vx = grid_velocities(m, i, t)
+  ξt = -(vx * ξx)
+
+  ξ = Metric1D(ξx, ξt)
+
+  return (; ξ, J)
 end
 
-@inline function metrics(m::CurvilinearGrid1D, (i,)::Tuple{Real})
-  ξx = m.∂x∂ξ(i - m.nhalo)
-  return (ξx=1 / ξx, ξt=zero(eltype(ξx)))
+# ------------------------------------------------------------------
+# Conservative Grid Metrics; e.g. ξ̂x = ξx * J
+# ------------------------------------------------------------------
+
+@inline function conservative_metrics(m::CurvilinearGrid1D, i::Real, t)
+  _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo))
+  inv_jacobian_matrix = inv(_jacobian_matrix)
+  ξx = inv_jacobian_matrix[1]
+  J = det(_jacobian_matrix)
+
+  vx = grid_velocities(m, i, t)
+  ξt = -(vx * ξx)
+
+  ξ̂ = Metric1D(ξx * J, ξt * J)
+
+  return (; ξ̂, J)
 end
 
-@inline function metrics(m::CurvilinearGrid1D, (i,)::Tuple{Real}, vx)
-  # don't use (i - m.nhalo), since the static metrics() does it already
-  static_metrics = metrics(m, i)
-  return merge(static_metrics, (ξt=-(vx * ξx),))
-end
+# ------------------------------------------------------------------
+# Jacobian related functions
+# ------------------------------------------------------------------
 
-@inline function jacobian_matrix(m::CurvilinearGrid1D, (i,)::Tuple{Real})
+@inline function jacobian_matrix(m::CurvilinearGrid1D, i::Real)
   return checkeps(SMatrix{1,1}(m.∂x∂ξ(i - m.nhalo)))
 end
 
-@inline function jacobian(m::CurvilinearGrid1D, (i,)::Tuple{Real})
-  return det(jacobian_matrix(m, i))
+@inline function jacobian(m::CurvilinearGrid1D, i::Real)
+  return abs(m.∂x∂ξ(i - m.nhalo))
 end
 
-"""
-    centroids(mesh::CurvilinearGrid1D, T=Float64) -> Vector{Real}
+# ------------------------------------------------------------------
+# Velocity Functions
+# ------------------------------------------------------------------
 
-Return the vector of centroid points. This does _not_ include halo regions
-since the geometry can be undefined.
-"""
-function centroids(mesh::CurvilinearGrid1D, T=Float64)
-  x = zeros(T, cellsize(mesh))
-  @inbounds for i in eachindex(x)
-    x[i] = mesh.x(i + 0.5)
+@inline grid_velocities(m::CurvilinearGrid1D, i, t) = 0.0
+# @inline centroid_velocities(m::CurvilinearGrid1D, i, t) = 0.0
+# @inline node_velocities(m::CurvilinearGrid1D, i, t) = 0.0
+
+# ------------------------------------------------------------------
+# Coordinate Functions
+# ------------------------------------------------------------------
+
+function _node_coordinates!(
+  coordinates::@NamedTuple{x::Vector{T}}, coordinate_functions, domain, nhalo
+) where {T}
+
+  # Populate the node coordinates
+  @inbounds for idx in domain
+    cell_idx = @. idx.I - nhalo
+    coordinates.x[idx] = coordinate_functions.x(cell_idx...)
   end
 
-  return x
+  return nothing
 end
 
-"""
-    coords(mesh::CurvilinearGrid1D, T=Float64) -> Vector{Real}
+function _centroid_coordinates!(
+  centroids::@NamedTuple{x::Vector{T}}, coordinate_functions, domain, nhalo
+) where {T}
 
-Return the vector of coordinate points. This does _not_ include halo regions
-since the geometry can be undefined.
-"""
-function coords(mesh::CurvilinearGrid1D, T=Float64)
-
-  # This doesn't account for halo regions in the indexing,
-  # because the x(ξ) function in the mesh doesn't either.
-  x = zeros(T, cellsize(mesh) .+ 1)
-  @inbounds for i in eachindex(x)
-    x[i] = mesh.x(i)
+  # Populate the centroid coordinates
+  @inbounds for idx in domain
+    cell_idx = @. idx.I - nhalo + 0.5
+    centroids.x[idx] = coordinate_functions.x(cell_idx...)
   end
 
-  return x
+  return nothing
 end
