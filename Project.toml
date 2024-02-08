@@ -20,10 +20,19 @@ UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
 
 [compat]
+ChunkSplitters = "2"
+FiniteDifferences = "0.12"
+FillArrays = "1"
+BenchmarkTools = "1"
 ForwardDiff = "0.10"
 Revise = "3"
+KernelAbstractions = "0.9"
+Polyester = "0.7"
+OffsetArrays = "1"
+MappedArrays = "0.4"
 StaticArrays = "1"
 UnPack = "1"
+WriteVTK = "1"
 julia = "1.7"
 
 [extras]
