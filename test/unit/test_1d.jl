@@ -14,8 +14,8 @@
   m.edge_metrics
 
   @test all(m.cell_center_metrics.J .≈ 0.5)
-  @test all(m.cell_center_metrics.ξx .≈ 2.0)
-  @test all(m.edge_metrics.i₊½.ξ̂x .≈ 1.0)
+  @test all(m.cell_center_metrics.ξ.x .≈ 2.0)
+  @test all(m.edge_metrics.i₊½.ξ̂.x .≈ 1.0)
   @test all(m.edge_metrics.i₊½.J .≈ 0.5)
 
   centroid(m, 4) ≈ 0.25

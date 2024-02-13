@@ -33,18 +33,18 @@
   @test mesh.domain_limits.cell == (ilo=3, ihi=6, jlo=3, jhi=10)
 
   @test all(mesh.cell_center_metrics.J .≈ 0.125)
-  @test all(mesh.cell_center_metrics.ξx .≈ 2.0)
-  @test all(mesh.cell_center_metrics.ξy .≈ -0.0)
-  @test all(mesh.cell_center_metrics.ηx .≈ -0.0)
-  @test all(mesh.cell_center_metrics.ηy .≈ 4.0)
-  @test all(mesh.cell_center_metrics.ξt .≈ 0.0)
-  @test all(mesh.cell_center_metrics.ηt .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ξ.x .≈ 2.0)
+  @test all(mesh.cell_center_metrics.ξ.y .≈ -0.0)
+  @test all(mesh.cell_center_metrics.η.x .≈ -0.0)
+  @test all(mesh.cell_center_metrics.η.y .≈ 4.0)
+  @test all(mesh.cell_center_metrics.ξ.t .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.t .≈ 0.0)
 
   @test all(mesh.edge_metrics.i₊½.J .≈ 0.125)
-  @test all(mesh.edge_metrics.i₊½.ξ̂x .≈ 0.25)
-  @test all(mesh.edge_metrics.i₊½.ξ̂y .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂x .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂y .≈ 0.5)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x .≈ 0.25)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.y .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.y .≈ 0.5)
 
   @test jacobian_matrix(mesh, (2, 2)) == @SMatrix [
     0.5 0.0

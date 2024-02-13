@@ -4,6 +4,8 @@ using LinearAlgebra
 using StaticArrays
 using ForwardDiff
 using UnPack
+using StructArrays
+using KernelAbstractions
 
 using ..IndexingUtils
 using ..MetricTypes

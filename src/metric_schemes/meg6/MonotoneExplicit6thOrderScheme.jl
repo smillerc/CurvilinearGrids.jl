@@ -1,7 +1,7 @@
 module MonotoneExplicit6thOrderScheme
 
 using LinearAlgebra
-using StaticArrays, MappedArrays
+using StaticArrays, MappedArrays, StructArrays
 using KernelAbstractions
 
 using ..IndexingUtils
@@ -91,7 +91,7 @@ end
 function update_edge_conserved_metrics!(
   m::MonotoneExplicit6thOrderDiscretization,
   edge_metrics,
-  centroid_coords::@NamedTuple{x::Array{T,3}, y::Array{T,3}, z::Array{T,3}},
+  centroid_coords::StructArray{T,3},
   domain,
 ) where {T}
   x = centroid_coords.x
@@ -109,120 +109,120 @@ function update_edge_conserved_metrics!(
   # ξ̂x = (y_η z)_ζ − (y_ζ z)_η
   ξ̂x = m.cache.metric
   conserved_metric!(m, ξ̂x, y, η, z, ζ, domain)
-  toedge!(edge_metrics.i₊½.ξ̂x, ∂²x, ∂x, ξ̂x, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.ξ̂x, ∂²x, ∂x, ξ̂x, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.ξ̂x, ∂²x, ∂x, ξ̂x, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.ξ̂.x, ∂²x, ∂x, ξ̂x, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ξ̂.x, ∂²x, ∂x, ξ̂x, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ξ̂.x, ∂²x, ∂x, ξ̂x, k₊½_domain, ζ)
 
   # η̂x = (y_ζ z)_ξ − (y_ξ z)_ζ
   η̂x = m.cache.metric
   conserved_metric!(m, η̂x, y, ζ, z, ξ, domain)
-  toedge!(edge_metrics.i₊½.η̂x, ∂²x, ∂x, η̂x, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.η̂x, ∂²x, ∂x, η̂x, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.η̂x, ∂²x, ∂x, η̂x, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.η̂.x, ∂²x, ∂x, η̂x, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.η̂.x, ∂²x, ∂x, η̂x, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.η̂.x, ∂²x, ∂x, η̂x, k₊½_domain, ζ)
 
   # ζ̂x = (y_ξ z)_η − (y_η z)_ξ
   ζ̂x = m.cache.metric
   conserved_metric!(m, ζ̂x, y, ξ, z, η, domain)
-  toedge!(edge_metrics.i₊½.ζ̂x, ∂²x, ∂x, ζ̂x, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.ζ̂x, ∂²x, ∂x, ζ̂x, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.ζ̂x, ∂²x, ∂x, ζ̂x, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.ζ̂.x, ∂²x, ∂x, ζ̂x, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ζ̂.x, ∂²x, ∂x, ζ̂x, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ζ̂.x, ∂²x, ∂x, ζ̂x, k₊½_domain, ζ)
 
   # ξ̂y = (z_η x)_ζ − (z_ζ x)_η
   ξ̂y = m.cache.metric
   conserved_metric!(m, ξ̂y, z, η, x, ζ, domain)
-  toedge!(edge_metrics.i₊½.ξ̂y, ∂²x, ∂x, ξ̂y, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.ξ̂y, ∂²x, ∂x, ξ̂y, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.ξ̂y, ∂²x, ∂x, ξ̂y, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.ξ̂.y, ∂²x, ∂x, ξ̂y, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ξ̂.y, ∂²x, ∂x, ξ̂y, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ξ̂.y, ∂²x, ∂x, ξ̂y, k₊½_domain, ζ)
 
   # η̂y = (z_ζ x)_ξ − (z_ξ x)_ζ
   η̂y = m.cache.metric
   conserved_metric!(m, η̂y, z, ζ, x, ξ, domain)
-  toedge!(edge_metrics.i₊½.η̂y, ∂²x, ∂x, η̂y, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.η̂y, ∂²x, ∂x, η̂y, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.η̂y, ∂²x, ∂x, η̂y, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.η̂.y, ∂²x, ∂x, η̂y, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.η̂.y, ∂²x, ∂x, η̂y, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.η̂.y, ∂²x, ∂x, η̂y, k₊½_domain, ζ)
 
   # ζ̂y = (z_ξ x)_η − (z_η x)_ξ
   ζ̂y = m.cache.metric
   conserved_metric!(m, ζ̂y, z, ξ, x, η, domain)
-  toedge!(edge_metrics.i₊½.ζ̂y, ∂²x, ∂x, ζ̂y, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.ζ̂y, ∂²x, ∂x, ζ̂y, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.ζ̂y, ∂²x, ∂x, ζ̂y, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.ζ̂.y, ∂²x, ∂x, ζ̂y, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ζ̂.y, ∂²x, ∂x, ζ̂y, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ζ̂.y, ∂²x, ∂x, ζ̂y, k₊½_domain, ζ)
 
   # ξ̂z = (x_η y)_ζ − (x_ζ y)_η
   ξ̂z = m.cache.metric
   conserved_metric!(m, ξ̂z, x, η, y, ζ, domain)
-  toedge!(edge_metrics.i₊½.ξ̂z, ∂²x, ∂x, ξ̂z, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.ξ̂z, ∂²x, ∂x, ξ̂z, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.ξ̂z, ∂²x, ∂x, ξ̂z, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.ξ̂.z, ∂²x, ∂x, ξ̂z, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ξ̂.z, ∂²x, ∂x, ξ̂z, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ξ̂.z, ∂²x, ∂x, ξ̂z, k₊½_domain, ζ)
 
   # η̂z = (x_ζ y)_ξ − (x_ξ y)_ζ
   η̂z = m.cache.metric
   conserved_metric!(m, η̂z, x, ζ, y, ξ, domain)
-  toedge!(edge_metrics.i₊½.η̂z, ∂²x, ∂x, η̂z, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.η̂z, ∂²x, ∂x, η̂z, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.η̂z, ∂²x, ∂x, η̂z, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.η̂.z, ∂²x, ∂x, η̂z, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.η̂.z, ∂²x, ∂x, η̂z, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.η̂.z, ∂²x, ∂x, η̂z, k₊½_domain, ζ)
 
   # ζ̂z = (x_ξ y)_η − (x_η y)_ξ
   ζ̂z = m.cache.metric
   conserved_metric!(m, ζ̂z, x, ξ, y, η, domain)
-  toedge!(edge_metrics.i₊½.ζ̂z, ∂²x, ∂x, ζ̂z, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.ζ̂z, ∂²x, ∂x, ζ̂z, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.ζ̂z, ∂²x, ∂x, ζ̂z, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.ζ̂.z, ∂²x, ∂x, ζ̂z, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ζ̂.z, ∂²x, ∂x, ζ̂z, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ζ̂.z, ∂²x, ∂x, ζ̂z, k₊½_domain, ζ)
 
   return nothing
 end
 
-function update_cell_center_metrics!(
-  m::MonotoneExplicit6thOrderDiscretization,
-  cell_center_metrics,
-  centroid_coords::@NamedTuple{x::Array{T,3}, y::Array{T,3}, z::Array{T,3}},
-  domain,
-) where {T}
-  xξ = @views cell_center_metrics.ξx
-  yξ = @views cell_center_metrics.ξy
-  zξ = @views cell_center_metrics.ξz
-  xη = @views cell_center_metrics.ηx
-  yη = @views cell_center_metrics.ηy
-  zη = @views cell_center_metrics.ηz
-  xζ = @views cell_center_metrics.ζx
-  yζ = @views cell_center_metrics.ζy
-  zζ = @views cell_center_metrics.ζz
+# function update_cell_center_metrics!(
+#   m::MonotoneExplicit6thOrderDiscretization,
+#   cell_center_metrics,
+#   centroid_coords::@NamedTuple{x::Array{T,3}, y::Array{T,3}, z::Array{T,3}},
+#   domain,
+# ) where {T}
+#   xξ = @views cell_center_metrics.ξx
+#   yξ = @views cell_center_metrics.ξy
+#   zξ = @views cell_center_metrics.ξz
+#   xη = @views cell_center_metrics.ηx
+#   yη = @views cell_center_metrics.ηy
+#   zη = @views cell_center_metrics.ηz
+#   xζ = @views cell_center_metrics.ζx
+#   yζ = @views cell_center_metrics.ζy
+#   zζ = @views cell_center_metrics.ζz
 
-  # First compute the inverse metrics (and store in the forward metric arrays for now)
-  ∂x∂ξ!(m, cell_center_metrics.ξx, centroid_coords.x, domain, ξ) # xξ
-  ∂x∂ξ!(m, cell_center_metrics.ξy, centroid_coords.y, domain, ξ) # yξ
-  ∂x∂ξ!(m, cell_center_metrics.ξz, centroid_coords.z, domain, ξ) # zξ
-  ∂x∂ξ!(m, cell_center_metrics.ηx, centroid_coords.x, domain, η) # xη
-  ∂x∂ξ!(m, cell_center_metrics.ηy, centroid_coords.y, domain, η) # yη
-  ∂x∂ξ!(m, cell_center_metrics.ηz, centroid_coords.z, domain, η) # zη
-  ∂x∂ξ!(m, cell_center_metrics.ζx, centroid_coords.x, domain, ζ) # xζ
-  ∂x∂ξ!(m, cell_center_metrics.ζy, centroid_coords.y, domain, ζ) # yζ
-  ∂x∂ξ!(m, cell_center_metrics.ζz, centroid_coords.z, domain, ζ) # zζ
+#   # First compute the inverse metrics (and store in the forward metric arrays for now)
+#   ∂x∂ξ!(m, cell_center_metrics.ξx, centroid_coords.x, domain, ξ) # xξ
+#   ∂x∂ξ!(m, cell_center_metrics.ξy, centroid_coords.y, domain, ξ) # yξ
+#   ∂x∂ξ!(m, cell_center_metrics.ξz, centroid_coords.z, domain, ξ) # zξ
+#   ∂x∂ξ!(m, cell_center_metrics.ηx, centroid_coords.x, domain, η) # xη
+#   ∂x∂ξ!(m, cell_center_metrics.ηy, centroid_coords.y, domain, η) # yη
+#   ∂x∂ξ!(m, cell_center_metrics.ηz, centroid_coords.z, domain, η) # zη
+#   ∂x∂ξ!(m, cell_center_metrics.ζx, centroid_coords.x, domain, ζ) # xζ
+#   ∂x∂ξ!(m, cell_center_metrics.ζy, centroid_coords.y, domain, ζ) # yζ
+#   ∂x∂ξ!(m, cell_center_metrics.ζz, centroid_coords.z, domain, ζ) # zζ
 
-  # Now compute the jacobian matrix for each entry, and store the proper
-  # metric back in it's place
-  for idx in domain
-    _jacobian = @SMatrix [
-      xξ[idx] xη[idx] xζ[idx]
-      yξ[idx] yη[idx] yζ[idx]
-      zξ[idx] zη[idx] zζ[idx]
-    ]
+#   # Now compute the jacobian matrix for each entry, and store the proper
+#   # metric back in it's place
+#   for idx in domain
+#     _jacobian = @SMatrix [
+#       xξ[idx] xη[idx] xζ[idx]
+#       yξ[idx] yη[idx] yζ[idx]
+#       zξ[idx] zη[idx] zζ[idx]
+#     ]
 
-    cell_center_metrics.J[idx] = det(_jacobian)
+#     cell_center_metrics.J[idx] = det(_jacobian)
 
-    _inv_jacobian = inv(_jacobian)
-    cell_center_metrics.ξx[idx] = _inv_jacobian[1, 1]
-    cell_center_metrics.ξy[idx] = _inv_jacobian[1, 2]
-    cell_center_metrics.ξz[idx] = _inv_jacobian[1, 3]
-    cell_center_metrics.ηx[idx] = _inv_jacobian[2, 1]
-    cell_center_metrics.ηy[idx] = _inv_jacobian[2, 2]
-    cell_center_metrics.ηz[idx] = _inv_jacobian[2, 3]
-    cell_center_metrics.ζx[idx] = _inv_jacobian[3, 1]
-    cell_center_metrics.ζy[idx] = _inv_jacobian[3, 2]
-    cell_center_metrics.ζz[idx] = _inv_jacobian[3, 3]
-  end
+#     _inv_jacobian = inv(_jacobian)
+#     cell_center_metrics.ξx[idx] = _inv_jacobian[1, 1]
+#     cell_center_metrics.ξy[idx] = _inv_jacobian[1, 2]
+#     cell_center_metrics.ξz[idx] = _inv_jacobian[1, 3]
+#     cell_center_metrics.ηx[idx] = _inv_jacobian[2, 1]
+#     cell_center_metrics.ηy[idx] = _inv_jacobian[2, 2]
+#     cell_center_metrics.ηz[idx] = _inv_jacobian[2, 3]
+#     cell_center_metrics.ζx[idx] = _inv_jacobian[3, 1]
+#     cell_center_metrics.ζy[idx] = _inv_jacobian[3, 2]
+#     cell_center_metrics.ζz[idx] = _inv_jacobian[3, 3]
+#   end
 
-  return nothing
-end
+#   return nothing
+# end
 
 end

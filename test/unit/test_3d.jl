@@ -22,74 +22,74 @@
   cell_volume = 0.5 * 0.25 * 0.25
 
   @test all(mesh.cell_center_metrics.J[domain] .== cell_volume)
-  @test all(mesh.cell_center_metrics.ξx[domain] .== 2.0)
-  @test all(mesh.cell_center_metrics.ξy[domain] .== 0.0)
-  @test all(mesh.cell_center_metrics.ξz[domain] .== 0.0)
-  @test all(mesh.cell_center_metrics.ηx[domain] .== 0.0)
-  @test all(mesh.cell_center_metrics.ηy[domain] .== 4.0)
-  @test all(mesh.cell_center_metrics.ηz[domain] .== 0.0)
-  @test all(mesh.cell_center_metrics.ζx[domain] .== 0.0)
-  @test all(mesh.cell_center_metrics.ζy[domain] .== 0.0)
-  @test all(mesh.cell_center_metrics.ζz[domain] .== 4.0)
-  @test all(mesh.cell_center_metrics.ξt[domain] .== 0.0)
-  @test all(mesh.cell_center_metrics.ηt[domain] .== 0.0)
-  @test all(mesh.cell_center_metrics.ζt[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ξ.x[domain] .== 2.0)
+  @test all(mesh.cell_center_metrics.ξ.y[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ξ.z[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.η.x[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.η.y[domain] .== 4.0)
+  @test all(mesh.cell_center_metrics.η.z[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ζ.x[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ζ.y[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ζ.z[domain] .== 4.0)
+  @test all(mesh.cell_center_metrics.ξ.t[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.η.t[domain] .== 0.0)
+  @test all(mesh.cell_center_metrics.ζ.t[domain] .== 0.0)
 
-  @test all(mesh.edge_metrics.i₊½.ξ̂x[domain] .≈ 0.0625)
-  @test all(mesh.edge_metrics.j₊½.ξ̂x[domain] .≈ 0.0625)
-  @test all(mesh.edge_metrics.k₊½.ξ̂x[domain] .≈ 0.0625)
-  @test all(mesh.edge_metrics.i₊½.ξ̂y[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.ξ̂y[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.ξ̂y[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.ξ̂z[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.ξ̂z[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.ξ̂z[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂x[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η̂x[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.η̂x[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂y[domain] .≈ 0.125)
-  @test all(mesh.edge_metrics.j₊½.η̂y[domain] .≈ 0.125)
-  @test all(mesh.edge_metrics.k₊½.η̂y[domain] .≈ 0.125)
-  @test all(mesh.edge_metrics.i₊½.η̂z[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η̂z[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.η̂z[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.ζ̂x[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.ζ̂x[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.ζ̂x[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.ζ̂y[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.ζ̂y[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.ζ̂y[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.ζ̂z[domain] .≈ 0.125)
-  @test all(mesh.edge_metrics.j₊½.ζ̂z[domain] .≈ 0.125)
-  @test all(mesh.edge_metrics.k₊½.ζ̂z[domain] .≈ 0.125)
-  @test all(mesh.edge_metrics.i₊½.ξ̂t[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.ξ̂t[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.ξ̂t[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂t[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η̂t[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.η̂t[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.ζ̂t[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.ζ̂t[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.ζ̂t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x[domain] .≈ 0.0625)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x[domain] .≈ 0.0625)
+  @test all(mesh.edge_metrics.k₊½.ξ̂.x[domain] .≈ 0.0625)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.y[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.y[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ξ̂.y[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.z[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.z[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ξ̂.z[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.x[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.η̂.x[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.y[domain] .≈ 0.125)
+  @test all(mesh.edge_metrics.j₊½.η̂.y[domain] .≈ 0.125)
+  @test all(mesh.edge_metrics.k₊½.η̂.y[domain] .≈ 0.125)
+  @test all(mesh.edge_metrics.i₊½.η̂.z[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.z[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.η̂.z[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂.x[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ζ̂.x[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ζ̂.x[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂.y[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ζ̂.y[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ζ̂.y[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂.z[domain] .≈ 0.125)
+  @test all(mesh.edge_metrics.j₊½.ζ̂.z[domain] .≈ 0.125)
+  @test all(mesh.edge_metrics.k₊½.ζ̂.z[domain] .≈ 0.125)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ξ̂.t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.η̂.t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂.t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ζ̂.t[domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ζ̂.t[domain] .≈ 0.0)
 
   conserved_metrics_pass = false
   # for idx in expand(domain, -1)
   for idx in domain
     i, j, k = idx.I
     I₁ = (
-      (mesh.edge_metrics.i₊½.ξ̂x[i, j, k] - mesh.edge_metrics.i₊½.ξ̂x[i - 1, j, k]) +
-      (mesh.edge_metrics.j₊½.η̂x[i, j, k] - mesh.edge_metrics.j₊½.η̂x[i, j - 1, k]) +
-      (mesh.edge_metrics.k₊½.ζ̂x[i, j, k] - mesh.edge_metrics.k₊½.ζ̂x[i, j, k - 1])
+      (mesh.edge_metrics.i₊½.ξ̂.x[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.x[i - 1, j, k]) +
+      (mesh.edge_metrics.j₊½.η̂.x[i, j, k] - mesh.edge_metrics.j₊½.η̂.x[i, j - 1, k]) +
+      (mesh.edge_metrics.k₊½.ζ̂.x[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x[i, j, k - 1])
     )
     I₂ = (
-      (mesh.edge_metrics.i₊½.ξ̂y[i, j, k] - mesh.edge_metrics.i₊½.ξ̂y[i - 1, j, k]) +
-      (mesh.edge_metrics.j₊½.η̂y[i, j, k] - mesh.edge_metrics.j₊½.η̂y[i, j - 1, k]) +
-      (mesh.edge_metrics.k₊½.ζ̂y[i, j, k] - mesh.edge_metrics.k₊½.ζ̂y[i, j, k - 1])
+      (mesh.edge_metrics.i₊½.ξ̂.y[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.y[i - 1, j, k]) +
+      (mesh.edge_metrics.j₊½.η̂.y[i, j, k] - mesh.edge_metrics.j₊½.η̂.y[i, j - 1, k]) +
+      (mesh.edge_metrics.k₊½.ζ̂.y[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.y[i, j, k - 1])
     )
     I₃ = (
-      (mesh.edge_metrics.i₊½.ξ̂z[i, j, k] - mesh.edge_metrics.i₊½.ξ̂z[i - 1, j, k]) +
-      (mesh.edge_metrics.j₊½.η̂z[i, j, k] - mesh.edge_metrics.j₊½.η̂z[i, j - 1, k]) +
-      (mesh.edge_metrics.k₊½.ζ̂z[i, j, k] - mesh.edge_metrics.k₊½.ζ̂z[i, j, k - 1])
+      (mesh.edge_metrics.i₊½.ξ̂.z[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.z[i - 1, j, k]) +
+      (mesh.edge_metrics.j₊½.η̂.z[i, j, k] - mesh.edge_metrics.j₊½.η̂.z[i, j - 1, k]) +
+      (mesh.edge_metrics.k₊½.ζ̂.z[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.z[i, j, k - 1])
     )
 
     I₁ = I₁ * (abs(I₁) > 4eps())
@@ -200,25 +200,25 @@ end
   x, y, z = wavy_grid(ni, nj, nk)
   mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 
-  save_vtk(mesh)
+  # save_vtk(mesh)
 
   conserved_metrics_pass = false
   for idx in mesh.iterators.cell.domain
     i, j, k = idx.I
     I₁ = (
-      (mesh.edge_metrics.i₊½.ξ̂x[i, j, k] - mesh.edge_metrics.i₊½.ξ̂x[i - 1, j, k]) +
-      (mesh.edge_metrics.j₊½.η̂x[i, j, k] - mesh.edge_metrics.j₊½.η̂x[i, j - 1, k]) +
-      (mesh.edge_metrics.k₊½.ζ̂x[i, j, k] - mesh.edge_metrics.k₊½.ζ̂x[i, j, k - 1])
+      (mesh.edge_metrics.i₊½.ξ̂.x[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.x[i - 1, j, k]) +
+      (mesh.edge_metrics.j₊½.η̂.x[i, j, k] - mesh.edge_metrics.j₊½.η̂.x[i, j - 1, k]) +
+      (mesh.edge_metrics.k₊½.ζ̂.x[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x[i, j, k - 1])
     )
     I₂ = (
-      (mesh.edge_metrics.i₊½.ξ̂y[i, j, k] - mesh.edge_metrics.i₊½.ξ̂y[i - 1, j, k]) +
-      (mesh.edge_metrics.j₊½.η̂y[i, j, k] - mesh.edge_metrics.j₊½.η̂y[i, j - 1, k]) +
-      (mesh.edge_metrics.k₊½.ζ̂y[i, j, k] - mesh.edge_metrics.k₊½.ζ̂y[i, j, k - 1])
+      (mesh.edge_metrics.i₊½.ξ̂.y[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.y[i - 1, j, k]) +
+      (mesh.edge_metrics.j₊½.η̂.y[i, j, k] - mesh.edge_metrics.j₊½.η̂.y[i, j - 1, k]) +
+      (mesh.edge_metrics.k₊½.ζ̂.y[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.y[i, j, k - 1])
     )
     I₃ = (
-      (mesh.edge_metrics.i₊½.ξ̂z[i, j, k] - mesh.edge_metrics.i₊½.ξ̂z[i - 1, j, k]) +
-      (mesh.edge_metrics.j₊½.η̂z[i, j, k] - mesh.edge_metrics.j₊½.η̂z[i, j - 1, k]) +
-      (mesh.edge_metrics.k₊½.ζ̂z[i, j, k] - mesh.edge_metrics.k₊½.ζ̂z[i, j, k - 1])
+      (mesh.edge_metrics.i₊½.ξ̂.z[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.z[i - 1, j, k]) +
+      (mesh.edge_metrics.j₊½.η̂.z[i, j, k] - mesh.edge_metrics.j₊½.η̂.z[i, j - 1, k]) +
+      (mesh.edge_metrics.k₊½.ζ̂.z[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.z[i, j, k - 1])
     )
 
     I₁ = I₁ * (abs(I₁) > 10eps())
