@@ -106,7 +106,7 @@ function CurvilinearGrid1D(x::Function, ni, nhalo; T=Float64, backend=CPU())
   )
 
   update_metrics!(m)
-  # check_for_invalid_metrics(m)
+  check_for_invalid_metrics(m)
   return m
 end
 
