@@ -1,7 +1,7 @@
 name = "CurvilinearGrids"
 uuid = "58b19789-dd19-4aa2-839c-c763a7b10301"
 authors = ["Sam Miller <smil@lle.rochester.edu> and contributors"]
-version = "0.3.0"
+version = "0.4.0"
 
 [deps]
 ChunkSplitters = "ae650224-84b6-46f8-82ea-d812ca08434e"
