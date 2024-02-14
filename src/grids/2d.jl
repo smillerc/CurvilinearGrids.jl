@@ -25,7 +25,9 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,CF,JF} <: AbstractCurvilinearGrid
   _jacobian_matrix_func::JF # jacobian_matrix(ξ,η)
 end
 
-function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo, T=Float64)
+function CurvilinearGrid2D(
+  x::Function, y::Function, (n_ξ, n_η), nhalo; T=Float64, backend=CPU()
+)
   dim = 2
   check_nargs(x, dim, :x)
   check_nargs(y, dim, :y)
@@ -63,54 +65,69 @@ function CurvilinearGrid2D(x::Function, y::Function, (n_ξ, n_η), nhalo, T=Floa
   #   error("Unknown discretization scheme to compute the conserved metrics")
   # end
 
+  celldims = size(domain_iterators.cell.full)
+  nodedims = size(domain_iterators.node.full)
+
   cell_center_metrics = (
-    J=zeros(T, domain_iterators.cell.full.indices),
-    ξx=zeros(T, domain_iterators.cell.full.indices),
-    ξy=zeros(T, domain_iterators.cell.full.indices),
-    ξt=zeros(T, domain_iterators.cell.full.indices),
-    ηx=zeros(T, domain_iterators.cell.full.indices),
-    ηy=zeros(T, domain_iterators.cell.full.indices),
-    ηt=zeros(T, domain_iterators.cell.full.indices),
+    J=KernelAbstractions.zeros(backend, T, celldims),
+    ξ=StructArray((
+      x=KernelAbstractions.zeros(backend, T, celldims),
+      y=KernelAbstractions.zeros(backend, T, celldims),
+      t=KernelAbstractions.zeros(backend, T, celldims),
+    )),
+    η=StructArray((
+      x=KernelAbstractions.zeros(backend, T, celldims),
+      y=KernelAbstractions.zeros(backend, T, celldims),
+      t=KernelAbstractions.zeros(backend, T, celldims),
+    )),
   )
 
   edge_metrics = (
     i₊½=(
-      J=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂x=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂y=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂t=zeros(T, domain_iterators.cell.full.indices),
-      η̂x=zeros(T, domain_iterators.cell.full.indices),
-      η̂y=zeros(T, domain_iterators.cell.full.indices),
-      η̂t=zeros(T, domain_iterators.cell.full.indices),
+      J=KernelAbstractions.zeros(backend, T, celldims),
+      ξ̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
+      η̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
     ),
     j₊½=(
-      J=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂x=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂y=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂t=zeros(T, domain_iterators.cell.full.indices),
-      η̂x=zeros(T, domain_iterators.cell.full.indices),
-      η̂y=zeros(T, domain_iterators.cell.full.indices),
-      η̂t=zeros(T, domain_iterators.cell.full.indices),
+      J=KernelAbstractions.zeros(backend, T, celldims),
+      ξ̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
+      η̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
     ),
   )
 
   coordinate_funcs = (; x, y)
-  centroids = (
-    x=zeros(T, domain_iterators.cell.full.indices),
-    y=zeros(T, domain_iterators.cell.full.indices),
-  )
+  centroids = StructArray((
+    x=KernelAbstractions.zeros(backend, T, celldims),
+    y=KernelAbstractions.zeros(backend, T, celldims),
+  ))
   _centroid_coordinates!(centroids, coordinate_funcs, domain_iterators.cell.full, nhalo)
 
-  coords = (
-    x=zeros(T, domain_iterators.node.full.indices),
-    y=zeros(T, domain_iterators.node.full.indices),
-  )
+  coords = StructArray((
+    x=KernelAbstractions.zeros(backend, T, nodedims),
+    y=KernelAbstractions.zeros(backend, T, nodedims),
+  ))
   _node_coordinates!(coords, coordinate_funcs, domain_iterators.node.full, nhalo)
 
-  node_velocities = (
-    x=zeros(T, domain_iterators.node.full.indices),
-    y=zeros(T, domain_iterators.node.full.indices),
-  )
+  node_velocities = StructArray((
+    x=KernelAbstractions.zeros(backend, T, nodedims),
+    y=KernelAbstractions.zeros(backend, T, nodedims),
+  ))
 
   m = CurvilinearGrid2D(
     coords,
@@ -139,12 +156,12 @@ function update_metrics!(m::CurvilinearGrid2D, t=0)
     # @unpack J, ξ, η, x, y = metrics(m, cell_idx, t)
     @unpack J, ξ, η = metrics(m, cell_idx, t)
 
-    m.cell_center_metrics.ξx[idx] = ξ.x
-    m.cell_center_metrics.ξy[idx] = ξ.y
-    m.cell_center_metrics.ξt[idx] = ξ.t
-    m.cell_center_metrics.ηx[idx] = η.x
-    m.cell_center_metrics.ηy[idx] = η.y
-    m.cell_center_metrics.ηt[idx] = η.t
+    m.cell_center_metrics.ξ.x[idx] = ξ.x
+    m.cell_center_metrics.ξ.y[idx] = ξ.y
+    m.cell_center_metrics.ξ.t[idx] = ξ.t
+    m.cell_center_metrics.η.x[idx] = η.x
+    m.cell_center_metrics.η.y[idx] = η.y
+    m.cell_center_metrics.η.t[idx] = η.t
 
     # m.cell_center_inv_metrics.xξ[idx] = x.ξ
     # m.cell_center_inv_metrics.yξ[idx] = y.ξ
@@ -161,12 +178,12 @@ function update_metrics!(m::CurvilinearGrid2D, t=0)
     # get the conserved metrics at (i₊½, j)
     @unpack ξ̂, η̂, J = conservative_metrics(m, (i + 1 / 2, j), t)
 
-    m.edge_metrics.i₊½.ξ̂x[idx] = ξ̂.x
-    m.edge_metrics.i₊½.ξ̂y[idx] = ξ̂.y
-    m.edge_metrics.i₊½.ξ̂t[idx] = ξ̂.t
-    m.edge_metrics.i₊½.η̂x[idx] = η̂.x
-    m.edge_metrics.i₊½.η̂y[idx] = η̂.y
-    m.edge_metrics.i₊½.η̂t[idx] = η̂.t
+    m.edge_metrics.i₊½.ξ̂.x[idx] = ξ̂.x
+    m.edge_metrics.i₊½.ξ̂.y[idx] = ξ̂.y
+    m.edge_metrics.i₊½.ξ̂.t[idx] = ξ̂.t
+    m.edge_metrics.i₊½.η̂.x[idx] = η̂.x
+    m.edge_metrics.i₊½.η̂.y[idx] = η̂.y
+    m.edge_metrics.i₊½.η̂.t[idx] = η̂.t
     m.edge_metrics.i₊½.J[idx] = J
   end
 
@@ -177,12 +194,12 @@ function update_metrics!(m::CurvilinearGrid2D, t=0)
     # get the conserved metrics at (i, j₊½)
     @unpack ξ̂, η̂, J = conservative_metrics(m, (i, j + 1 / 2), t)
 
-    m.edge_metrics.j₊½.ξ̂x[idx] = ξ̂.x
-    m.edge_metrics.j₊½.ξ̂y[idx] = ξ̂.y
-    m.edge_metrics.j₊½.ξ̂t[idx] = ξ̂.t
-    m.edge_metrics.j₊½.η̂x[idx] = η̂.x
-    m.edge_metrics.j₊½.η̂y[idx] = η̂.y
-    m.edge_metrics.j₊½.η̂t[idx] = η̂.t
+    m.edge_metrics.j₊½.ξ̂.x[idx] = ξ̂.x
+    m.edge_metrics.j₊½.ξ̂.y[idx] = ξ̂.y
+    m.edge_metrics.j₊½.ξ̂.t[idx] = ξ̂.t
+    m.edge_metrics.j₊½.η̂.x[idx] = η̂.x
+    m.edge_metrics.j₊½.η̂.y[idx] = η̂.y
+    m.edge_metrics.j₊½.η̂.t[idx] = η̂.t
     m.edge_metrics.j₊½.J[idx] = J
   end
 
@@ -263,10 +280,7 @@ end
 # ------------------------------------------------------------------
 
 function _node_coordinates!(
-  coordinates::@NamedTuple{x::Array{T,2}, y::Array{T,2}},
-  coordinate_functions,
-  domain,
-  nhalo,
+  coordinates::StructArray{T,2}, coordinate_functions, domain, nhalo
 ) where {T}
 
   # Populate the node coordinates
@@ -280,7 +294,7 @@ function _node_coordinates!(
 end
 
 function _centroid_coordinates!(
-  centroids::@NamedTuple{x::Array{T,2}, y::Array{T,2}}, coordinate_functions, domain, nhalo
+  centroids::StructArray{T,2}, coordinate_functions, domain, nhalo
 ) where {T}
 
   # Populate the centroid coordinates

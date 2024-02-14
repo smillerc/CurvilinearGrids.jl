@@ -33,8 +33,9 @@ function CurvilinearGrid3D(
   z::Function,
   (n_ξ, n_η, n_ζ),
   nhalo,
-  discretization_scheme=:MEG6,
+  discretization_scheme=:MEG6;
   T=Float64,
+  backend=CPU(),
 )
   dim = 3
   check_nargs(x, dim, :x)
@@ -87,90 +88,117 @@ function CurvilinearGrid3D(
     error("Unknown discretization scheme to compute the conserved metrics")
   end
 
+  celldims = size(domain_iterators.cell.full)
+  nodedims = size(domain_iterators.node.full)
+
   cell_center_metrics = (
     J=zeros(T, domain_iterators.cell.full.indices),
-    ξx=zeros(T, domain_iterators.cell.full.indices),
-    ξy=zeros(T, domain_iterators.cell.full.indices),
-    ξz=zeros(T, domain_iterators.cell.full.indices),
-    ξt=zeros(T, domain_iterators.cell.full.indices),
-    ηx=zeros(T, domain_iterators.cell.full.indices),
-    ηy=zeros(T, domain_iterators.cell.full.indices),
-    ηz=zeros(T, domain_iterators.cell.full.indices),
-    ηt=zeros(T, domain_iterators.cell.full.indices),
-    ζx=zeros(T, domain_iterators.cell.full.indices),
-    ζy=zeros(T, domain_iterators.cell.full.indices),
-    ζz=zeros(T, domain_iterators.cell.full.indices),
-    ζt=zeros(T, domain_iterators.cell.full.indices),
+    ξ=StructArray((
+      x=KernelAbstractions.zeros(backend, T, celldims),
+      y=KernelAbstractions.zeros(backend, T, celldims),
+      z=KernelAbstractions.zeros(backend, T, celldims),
+      t=KernelAbstractions.zeros(backend, T, celldims),
+    )),
+    η=StructArray((
+      x=KernelAbstractions.zeros(backend, T, celldims),
+      y=KernelAbstractions.zeros(backend, T, celldims),
+      z=KernelAbstractions.zeros(backend, T, celldims),
+      t=KernelAbstractions.zeros(backend, T, celldims),
+    )),
+    ζ=StructArray((
+      x=KernelAbstractions.zeros(backend, T, celldims),
+      y=KernelAbstractions.zeros(backend, T, celldims),
+      z=KernelAbstractions.zeros(backend, T, celldims),
+      t=KernelAbstractions.zeros(backend, T, celldims),
+    )),
   )
 
   edge_metrics = (
     i₊½=(
-      J=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂x=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂y=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂z=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂t=zeros(T, domain_iterators.cell.full.indices),
-      η̂x=zeros(T, domain_iterators.cell.full.indices),
-      η̂y=zeros(T, domain_iterators.cell.full.indices),
-      η̂z=zeros(T, domain_iterators.cell.full.indices),
-      η̂t=zeros(T, domain_iterators.cell.full.indices),
-      ζ̂x=zeros(T, domain_iterators.cell.full.indices),
-      ζ̂y=zeros(T, domain_iterators.cell.full.indices),
-      ζ̂z=zeros(T, domain_iterators.cell.full.indices),
-      ζ̂t=zeros(T, domain_iterators.cell.full.indices),
+      J=KernelAbstractions.zeros(backend, T, celldims),
+      ξ̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        z=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
+      η̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        z=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
+      ζ̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        z=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
     ),
     j₊½=(
-      J=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂x=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂y=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂z=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂t=zeros(T, domain_iterators.cell.full.indices),
-      η̂x=zeros(T, domain_iterators.cell.full.indices),
-      η̂y=zeros(T, domain_iterators.cell.full.indices),
-      η̂z=zeros(T, domain_iterators.cell.full.indices),
-      η̂t=zeros(T, domain_iterators.cell.full.indices),
-      ζ̂x=zeros(T, domain_iterators.cell.full.indices),
-      ζ̂y=zeros(T, domain_iterators.cell.full.indices),
-      ζ̂z=zeros(T, domain_iterators.cell.full.indices),
-      ζ̂t=zeros(T, domain_iterators.cell.full.indices),
+      J=KernelAbstractions.zeros(backend, T, celldims),
+      ξ̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        z=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
+      η̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        z=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
+      ζ̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        z=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
     ),
     k₊½=(
-      J=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂x=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂y=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂z=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂t=zeros(T, domain_iterators.cell.full.indices),
-      η̂x=zeros(T, domain_iterators.cell.full.indices),
-      η̂y=zeros(T, domain_iterators.cell.full.indices),
-      η̂z=zeros(T, domain_iterators.cell.full.indices),
-      η̂t=zeros(T, domain_iterators.cell.full.indices),
-      ζ̂x=zeros(T, domain_iterators.cell.full.indices),
-      ζ̂y=zeros(T, domain_iterators.cell.full.indices),
-      ζ̂z=zeros(T, domain_iterators.cell.full.indices),
-      ζ̂t=zeros(T, domain_iterators.cell.full.indices),
+      J=KernelAbstractions.zeros(backend, T, celldims),
+      ξ̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        z=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
+      η̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        z=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
+      ζ̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        y=KernelAbstractions.zeros(backend, T, celldims),
+        z=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
     ),
   )
 
   coordinate_funcs = (; x, y, z)
-  centroids = (
-    x=zeros(T, domain_iterators.cell.full.indices),
-    y=zeros(T, domain_iterators.cell.full.indices),
-    z=zeros(T, domain_iterators.cell.full.indices),
-  )
+  centroids = StructArray((
+    x=KernelAbstractions.zeros(backend, T, celldims),
+    y=KernelAbstractions.zeros(backend, T, celldims),
+    z=KernelAbstractions.zeros(backend, T, celldims),
+  ))
   _centroid_coordinates!(centroids, coordinate_funcs, domain_iterators.cell.full, nhalo)
 
-  coords = (
-    x=zeros(T, domain_iterators.node.full.indices),
-    y=zeros(T, domain_iterators.node.full.indices),
-    z=zeros(T, domain_iterators.node.full.indices),
-  )
+  coords = StructArray((
+    x=KernelAbstractions.zeros(backend, T, nodedims),
+    y=KernelAbstractions.zeros(backend, T, nodedims),
+    z=KernelAbstractions.zeros(backend, T, nodedims),
+  ))
   _node_coordinates!(coords, coordinate_funcs, domain_iterators.node.full, nhalo)
 
-  node_velocities = (
-    x=zeros(T, domain_iterators.node.full.indices),
-    y=zeros(T, domain_iterators.node.full.indices),
-    z=zeros(T, domain_iterators.node.full.indices),
-  )
+  node_velocities = StructArray((
+    x=KernelAbstractions.zeros(backend, T, nodedims),
+    y=KernelAbstractions.zeros(backend, T, nodedims),
+    z=KernelAbstractions.zeros(backend, T, nodedims),
+  ))
 
   m = CurvilinearGrid3D(
     coords,
@@ -202,20 +230,20 @@ function update_metrics!(m::CurvilinearGrid3D, t=0)
     # @unpack J, ξ, η, ζ, x, y, z = metrics(m, cell_idx, 0)
     @unpack J, ξ, η, ζ = metrics(m, cell_idx, t)
 
-    m.cell_center_metrics.ξx[idx] = ξ.x
-    m.cell_center_metrics.ξy[idx] = ξ.y
-    m.cell_center_metrics.ξz[idx] = ξ.z
-    m.cell_center_metrics.ξt[idx] = ξ.t
+    m.cell_center_metrics.ξ.x[idx] = ξ.x
+    m.cell_center_metrics.ξ.y[idx] = ξ.y
+    m.cell_center_metrics.ξ.z[idx] = ξ.z
+    m.cell_center_metrics.ξ.t[idx] = ξ.t
 
-    m.cell_center_metrics.ηx[idx] = η.x
-    m.cell_center_metrics.ηy[idx] = η.y
-    m.cell_center_metrics.ηz[idx] = η.z
-    m.cell_center_metrics.ηt[idx] = η.t
+    m.cell_center_metrics.η.x[idx] = η.x
+    m.cell_center_metrics.η.y[idx] = η.y
+    m.cell_center_metrics.η.z[idx] = η.z
+    m.cell_center_metrics.η.t[idx] = η.t
 
-    m.cell_center_metrics.ζx[idx] = ζ.x
-    m.cell_center_metrics.ζy[idx] = ζ.y
-    m.cell_center_metrics.ζz[idx] = ζ.z
-    m.cell_center_metrics.ζt[idx] = ζ.t
+    m.cell_center_metrics.ζ.x[idx] = ζ.x
+    m.cell_center_metrics.ζ.y[idx] = ζ.y
+    m.cell_center_metrics.ζ.z[idx] = ζ.z
+    m.cell_center_metrics.ζ.t[idx] = ζ.t
 
     # m.cell_center_inv_metrics.xξ[idx] = x.ξ
     # m.cell_center_inv_metrics.yξ[idx] = y.ξ
@@ -351,10 +379,7 @@ end
 # ------------------------------------------------------------------
 
 function _node_coordinates!(
-  coordinates::@NamedTuple{x::Array{T,3}, y::Array{T,3}, z::Array{T,3}},
-  coordinate_functions,
-  domain,
-  nhalo,
+  coordinates::StructArray{T,3}, coordinate_functions, domain, nhalo
 ) where {T}
 
   # Populate the node coordinates
@@ -369,10 +394,7 @@ function _node_coordinates!(
 end
 
 function _centroid_coordinates!(
-  centroids::@NamedTuple{x::Array{T,3}, y::Array{T,3}, z::Array{T,3}},
-  coordinate_functions,
-  domain,
-  nhalo,
+  centroids::StructArray{T,3}, coordinate_functions, domain, nhalo
 ) where {T}
 
   # Populate the centroid coordinates

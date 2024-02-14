@@ -4,6 +4,8 @@ using LinearAlgebra
 using StaticArrays
 using ForwardDiff
 using UnPack
+using StructArrays
+using KernelAbstractions
 
 using ..IndexingUtils
 using ..MetricTypes
@@ -227,11 +229,22 @@ function check_for_invalid_metrics(m::AbstractCurvilinearGrid)
 
   # cell centroid metrics
   invalid_cell_metrics = false
+  for idx in domain
+    if !(isfinite(m.cell_center_metrics.J[idx]))
+      @error("Invalid jacobian @ index $(idx)")
+      invalid_cell_metrics = true
+    end
+  end
+
   for (name, data) in pairs(m.cell_center_metrics)
-    for idx in domain
-      if !(isfinite(data[idx]))
-        @error("Invalid grid metric $(name) @ index $(idx)")
-        invalid_cell_metrics = true
+    if data isa StructArray
+      for idx in domain
+        for c in StructArrays.components(data)
+          if !(isfinite(c[idx]))
+            @error("Invalid grid metric $(name) @ index $(idx)")
+            invalid_cell_metrics = true
+          end
+        end
       end
     end
   end
@@ -251,11 +264,22 @@ function check_for_invalid_metrics(m::AbstractCurvilinearGrid)
   invalid_edge_metrics = false
   for (edge, edge_indices) in zip(m.edge_metrics, edge_iterators)
     for (name, data) in pairs(edge) # i₊½, j₊½, k₊½
-      # metric_set = edge[idx] # ξ̂x, η̂x, etc...
-      for i in eachindex(edge_indices)
-        if !(isfinite(data[i]))
-          @error("Invalid conserved grid metric $(name) @ index $(i) of $(data[i])")
-          invalid_edge_metrics = true
+      if data isa StructArray
+        # metric_set = edge[idx] # ξ̂x, η̂x, etc...
+        for c in StructArrays.components(data)
+          for i in eachindex(edge_indices)
+            if !(isfinite(c[i]))
+              @error("Invalid conserved grid metric $(name) @ index $(i) of $(c[i])")
+              invalid_edge_metrics = true
+            end
+          end
+        end
+      else
+        for i in eachindex(edge_indices)
+          if !(isfinite(data[i]))
+            @error("Invalid conserved grid metric $(name) @ index $(i) of $(data[i])")
+            invalid_edge_metrics = true
+          end
         end
       end
     end

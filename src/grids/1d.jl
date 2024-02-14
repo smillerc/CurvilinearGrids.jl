@@ -44,7 +44,7 @@ total number of nodes/vertices (not including halo).
 #   return CurvilinearGrid1D{F1,F2}(x, ∂x∂ξ, nhalo, nnodes, limits)
 # end
 
-function CurvilinearGrid1D(x::Function, ni, nhalo, T=Float64)
+function CurvilinearGrid1D(x::Function, ni, nhalo; T=Float64, backend=CPU())
   dim = 1
   check_nargs(x, dim, :x)
   test_coord_func(x, dim, :x)
@@ -61,28 +61,35 @@ function CurvilinearGrid1D(x::Function, ni, nhalo, T=Float64)
 
   domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
 
+  celldims = size(domain_iterators.cell.full)
+  nodedims = size(domain_iterators.node.full)
+
   cell_center_metrics = (
-    J=zeros(T, domain_iterators.cell.full.indices),
-    ξx=zeros(T, domain_iterators.cell.full.indices),
-    ξt=zeros(T, domain_iterators.cell.full.indices),
+    J=KernelAbstractions.zeros(backend, T, celldims),
+    ξ=StructArray((
+      x=KernelAbstractions.zeros(backend, T, celldims),
+      t=KernelAbstractions.zeros(backend, T, celldims),
+    )),
   )
 
   edge_metrics = (
     i₊½=(
-      J=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂x=zeros(T, domain_iterators.cell.full.indices),
-      ξ̂t=zeros(T, domain_iterators.cell.full.indices),
+      J=KernelAbstractions.zeros(backend, T, celldims),
+      ξ̂=StructArray((
+        x=KernelAbstractions.zeros(backend, T, celldims),
+        t=KernelAbstractions.zeros(backend, T, celldims),
+      )),
     ),
   )
 
   coordinate_funcs = (; x)
-  centroids = (x=zeros(T, domain_iterators.cell.full.indices),)
+  centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
   _centroid_coordinates!(centroids, coordinate_funcs, domain_iterators.cell.full, nhalo)
 
-  coords = (x=zeros(T, domain_iterators.node.full.indices),)
+  coords = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
   _node_coordinates!(coords, coordinate_funcs, domain_iterators.node.full, nhalo)
 
-  node_velocities = (x=zeros(T, domain_iterators.node.full.indices),)
+  node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
   m = CurvilinearGrid1D(
     coords,
@@ -109,7 +116,7 @@ function update_metrics!(m::CurvilinearGrid1D, t=0)
     cell_idx, = idx.I .+ 0.5
     # @unpack J, ξ, x = metrics(m, cell_idx, t)
     @unpack J, ξ = metrics(m, cell_idx, t)
-    m.cell_center_metrics.ξx[idx] = ξ.x
+    m.cell_center_metrics.ξ.x[idx] = ξ.x
     # m.cell_center_inv_metrics.xξ[idx] = x.ξ
     m.cell_center_metrics.J[idx] = J
   end
@@ -120,7 +127,7 @@ function update_metrics!(m::CurvilinearGrid1D, t=0)
 
     @unpack ξ̂, J = conservative_metrics(m, i + 1 / 2, t)
 
-    m.edge_metrics.i₊½.ξ̂x[idx] = ξ̂.x
+    m.edge_metrics.i₊½.ξ̂.x[idx] = ξ̂.x
     m.edge_metrics.i₊½.J[idx] = J
   end
 
@@ -188,7 +195,7 @@ end
 # ------------------------------------------------------------------
 
 function _node_coordinates!(
-  coordinates::@NamedTuple{x::Vector{T}}, coordinate_functions, domain, nhalo
+  coordinates::StructArray{T,1}, coordinate_functions, domain, nhalo
 ) where {T}
 
   # Populate the node coordinates
@@ -201,7 +208,7 @@ function _node_coordinates!(
 end
 
 function _centroid_coordinates!(
-  centroids::@NamedTuple{x::Vector{T}}, coordinate_functions, domain, nhalo
+  centroids::StructArray{T,1}, coordinate_functions, domain, nhalo
 ) where {T}
 
   # Populate the centroid coordinates
