@@ -76,8 +76,8 @@ function CurvilinearGrid3D(
   domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
 
   if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
-    if nhalo != 6
-      error("`nhalo` must = 6 when using the MEG6 discretization scheme")
+    if nhalo != 4
+      error("`nhalo` must = 4 when using the MEG6 discretization scheme")
     end
 
     discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(

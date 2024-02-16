@@ -44,7 +44,7 @@ total number of nodes/vertices (not including halo).
 #   return CurvilinearGrid1D{F1,F2}(x, ∂x∂ξ, nhalo, nnodes, limits)
 # end
 
-function CurvilinearGrid1D(x::Function, ni, nhalo; T=Float64, backend=CPU())
+function CurvilinearGrid1D(x::Function, ni::Int, nhalo; T=Float64, backend=CPU())
   dim = 1
   check_nargs(x, dim, :x)
   test_coord_func(x, dim, :x)
