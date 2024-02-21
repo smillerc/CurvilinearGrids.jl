@@ -13,7 +13,7 @@
   end
 
   ni, nj, nk = (5, 9, 13)
-  nhalo = 6
+  nhalo = 4
   x, y, z = rect_grid(ni, nj, nk)
 
   mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
@@ -196,7 +196,7 @@ end
   ζ = 3
 
   ni = nj = nk = 20
-  nhalo = 6
+  nhalo = 4
   x, y, z = wavy_grid(ni, nj, nk)
   mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 
@@ -253,7 +253,7 @@ end
   end
 
   ni, nj, nk = (5, 9, 11)
-  nhalo = 6
+  nhalo = 4
   x, y, z = sphere_grid(ni, nj, nk)
   @test_nowarn CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
 end
