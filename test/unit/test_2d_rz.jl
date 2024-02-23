@@ -18,6 +18,7 @@ begin
   r, z = rzmesh(nr, nz)
   mesh = RZAxisymmetricGrid2D(r, z, (nr, nz), nhalo)
   cmesh = CurvilinearGrid2D(r, z, (nr, nz), nhalo)
+  nothing
 end
 
 J = jacobian_matrix(mesh, (2, 1))
@@ -29,20 +30,20 @@ inv(jacobian_matrix(mesh, (2, 1, 2)))
 jacobian(mesh, (1, 2))
 jacobian(mesh, (1, 1, 2))
 
-metrics(mesh, (2, 2, 2))
+metrics(mesh, (2, 2, 2), 0)
 
 # Extract the 2D metrics, for use in a 2d axisymmetric fluid simulation. These are as if
 # the mesh is cartesian. The axisymmetry is enforced via a source term later...
 o = 1 + eps()
 
-metrics(mesh, (1, 2))
-metrics(mesh, (o, 2))
-metrics(mesh, (2, 2))
-metrics(mesh, (3, 2))
+metrics(mesh, (1, 2), 0)
+metrics(mesh, (o, 2), 0)
+metrics(mesh, (2, 2), 0)
+metrics(mesh, (3, 2), 0)
 
-metrics(cmesh, (1, 2))
-metrics(cmesh, (2, 2))
-metrics(cmesh, (3, 2))
+metrics(cmesh, (1, 2), 0)
+metrics(cmesh, (2, 2), 0)
+metrics(cmesh, (3, 2), 0)
 
 metrics(mesh, (1, 2))
 metrics(mesh, (1 + eps(), 1, 2))

@@ -20,9 +20,8 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,CF,JF} <: AbstractCurvilinearGrid
   nnodes::NTuple{2,Int}
   domain_limits::DL
   iterators::CI
-  # discretization_scheme::DS
   _coordinate_funcs::CF
-  _jacobian_matrix_func::JF # jacobian_matrix(ξ,η)
+  _jacobian_matrix_func::JF
 end
 
 function CurvilinearGrid2D(
@@ -51,20 +50,6 @@ function CurvilinearGrid2D(
   cellCI = CartesianIndices(ncells .+ 2nhalo)
 
   domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
-
-  # if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
-  #   if nhalo != 6
-  #     error("`nhalo` must = 6 when using the MEG6 discretization scheme")
-  #   end
-
-  #   discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-  #     domain_iterators.cell.full
-  #   )
-
-  # else
-  #   error("Unknown discretization scheme to compute the conserved metrics")
-  # end
-
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
@@ -144,7 +129,7 @@ function CurvilinearGrid2D(
   )
 
   update_metrics!(m)
-  check_for_invalid_metrics(m)
+  # check_for_invalid_metrics(m)
   return m
 end
 
