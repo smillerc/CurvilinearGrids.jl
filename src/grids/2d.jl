@@ -53,48 +53,7 @@ function CurvilinearGrid2D(
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  cell_center_metrics = (
-    J=KernelAbstractions.zeros(backend, T, celldims),
-    ξ=StructArray((
-      x=KernelAbstractions.zeros(backend, T, celldims),
-      y=KernelAbstractions.zeros(backend, T, celldims),
-      t=KernelAbstractions.zeros(backend, T, celldims),
-    )),
-    η=StructArray((
-      x=KernelAbstractions.zeros(backend, T, celldims),
-      y=KernelAbstractions.zeros(backend, T, celldims),
-      t=KernelAbstractions.zeros(backend, T, celldims),
-    )),
-  )
-
-  edge_metrics = (
-    i₊½=(
-      J=KernelAbstractions.zeros(backend, T, celldims),
-      ξ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      η̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-    ),
-    j₊½=(
-      J=KernelAbstractions.zeros(backend, T, celldims),
-      ξ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      η̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-    ),
-  )
+  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
   coordinate_funcs = (; x, y)
   centroids = StructArray((

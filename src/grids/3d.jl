@@ -91,93 +91,7 @@ function CurvilinearGrid3D(
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  cell_center_metrics = (
-    J=zeros(T, domain_iterators.cell.full.indices),
-    ξ=StructArray((
-      x=KernelAbstractions.zeros(backend, T, celldims),
-      y=KernelAbstractions.zeros(backend, T, celldims),
-      z=KernelAbstractions.zeros(backend, T, celldims),
-      t=KernelAbstractions.zeros(backend, T, celldims),
-    )),
-    η=StructArray((
-      x=KernelAbstractions.zeros(backend, T, celldims),
-      y=KernelAbstractions.zeros(backend, T, celldims),
-      z=KernelAbstractions.zeros(backend, T, celldims),
-      t=KernelAbstractions.zeros(backend, T, celldims),
-    )),
-    ζ=StructArray((
-      x=KernelAbstractions.zeros(backend, T, celldims),
-      y=KernelAbstractions.zeros(backend, T, celldims),
-      z=KernelAbstractions.zeros(backend, T, celldims),
-      t=KernelAbstractions.zeros(backend, T, celldims),
-    )),
-  )
-
-  edge_metrics = (
-    i₊½=(
-      J=KernelAbstractions.zeros(backend, T, celldims),
-      ξ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      η̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      ζ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-    ),
-    j₊½=(
-      J=KernelAbstractions.zeros(backend, T, celldims),
-      ξ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      η̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      ζ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-    ),
-    k₊½=(
-      J=KernelAbstractions.zeros(backend, T, celldims),
-      ξ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      η̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      ζ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-    ),
-  )
+  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
   coordinate_funcs = (; x, y, z)
   centroids = StructArray((
@@ -273,8 +187,8 @@ end
 # Grid Metrics
 # ------------------------------------------------------------------
 
-# Get the grid metrics for a static grid
-@inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real)
+# Get the grid metrics
+@inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0)
   _jacobian_matrix = checkeps(
     m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo)
   )

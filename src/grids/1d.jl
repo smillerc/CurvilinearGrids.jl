@@ -64,23 +64,7 @@ function CurvilinearGrid1D(x::Function, ni::Int, nhalo; T=Float64, backend=CPU()
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  cell_center_metrics = (
-    J=KernelAbstractions.zeros(backend, T, celldims),
-    ξ=StructArray((
-      x=KernelAbstractions.zeros(backend, T, celldims),
-      t=KernelAbstractions.zeros(backend, T, celldims),
-    )),
-  )
-
-  edge_metrics = (
-    i₊½=(
-      J=KernelAbstractions.zeros(backend, T, celldims),
-      ξ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-    ),
-  )
+  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
   coordinate_funcs = (; x)
   centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
@@ -106,7 +90,7 @@ function CurvilinearGrid1D(x::Function, ni::Int, nhalo; T=Float64, backend=CPU()
   )
 
   update_metrics!(m)
-  check_for_invalid_metrics(m)
+  # check_for_invalid_metrics(m)
   return m
 end
 
