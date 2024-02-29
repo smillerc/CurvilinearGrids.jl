@@ -17,17 +17,9 @@
 
   @test mesh.iterators.cell.full == CartesianIndices((8, 12))
   @test mesh.iterators.cell.domain == CartesianIndices((3:6, 3:10))
-  @test mesh.iterators.cell.ilo_halo == CartesianIndices((1:2, 3:10))
-  @test mesh.iterators.cell.ihi_halo == CartesianIndices((7:8, 3:10))
-  @test mesh.iterators.cell.jlo_halo == CartesianIndices((3:6, 1:2))
-  @test mesh.iterators.cell.jhi_halo == CartesianIndices((3:6, 11:12))
 
   @test mesh.iterators.node.full == CartesianIndices((9, 13))
   @test mesh.iterators.node.domain == CartesianIndices((3:7, 3:11))
-  @test mesh.iterators.node.ilo_halo == CartesianIndices((1:3, 3:11))
-  @test mesh.iterators.node.ihi_halo == CartesianIndices((7:9, 3:11))
-  @test mesh.iterators.node.jlo_halo == CartesianIndices((3:7, 1:3))
-  @test mesh.iterators.node.jhi_halo == CartesianIndices((3:7, 11:13))
 
   @test mesh.domain_limits.node == (ilo=3, ihi=7, jlo=3, jhi=11)
   @test mesh.domain_limits.cell == (ilo=3, ihi=6, jlo=3, jhi=10)

@@ -34,8 +34,9 @@ function CurvilinearGrid2D(
   test_coord_func(y, dim, :y)
 
   xy(i, j) = @SVector [x(i, j), y(i, j)]
-  jacobian_matrix_func(i, j) = ForwardDiff.jacobian(x -> xy(x[1], x[2]), @SVector [i, j])
-
+  function jacobian_matrix_func(i, j, t)
+    return ForwardDiff.jacobian(x -> xy(x[1], x[2]), @SVector [i, j])
+  end
   # jacobian_matrix_func = _setup_jacobian_func(x, y)
   nnodes = (n_ξ, n_η)
   ncells = nnodes .- 1
@@ -92,7 +93,7 @@ function CurvilinearGrid2D(
   return m
 end
 
-function update_metrics!(m::CurvilinearGrid2D, t=0)
+function update_metrics!(m::CurvilinearGrid2D, t::Real=0)
 
   # cell metrics
   @inbounds for idx in m.iterators.cell.full
@@ -154,8 +155,8 @@ end
 # Grid Metrics
 # ------------------------------------------------------------------
 
-@inline function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real)
-  _jacobian_matrix = checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo))
+@inline function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
+  _jacobian_matrix = checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, t))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   ξx = inv_jacobian_matrix[1, 1]
   ξy = inv_jacobian_matrix[1, 2]
@@ -178,10 +179,10 @@ end
 # Conservative Grid Metrics; e.g. ξ̂x = ξx * J
 # ------------------------------------------------------------------
 
-@inline conservative_metrics(m::CurvilinearGrid2D, idx) = conservative_metrics(m, idx, 0)
-
-@inline function conservative_metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real)
-  _jacobian_matrix = checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo))
+@inline function conservative_metrics(
+  m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0
+)
+  _jacobian_matrix = checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, t))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   ξx = inv_jacobian_matrix[1, 1]
   ξy = inv_jacobian_matrix[1, 2]
@@ -203,19 +204,19 @@ end
 # ------------------------------------------------------------------
 # Jacobian related functions
 # ------------------------------------------------------------------
-function jacobian_matrix(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
-  return checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo))
+function jacobian_matrix(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
+  return checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, t))
 end
 
-function jacobian(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
-  return det(jacobian_matrix(m, (i, j)))
+function jacobian(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
+  return det(jacobian_matrix(m, (i, j), t))
 end
 
 # ------------------------------------------------------------------
 # Velocity Functions
 # ------------------------------------------------------------------
 
-@inline grid_velocities(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t) = (0.0, 0.0)
+@inline grid_velocities(::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0) = (0.0, 0.0)
 # @inline centroid_velocities(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t) = (0.0, 0.0)
 # @inline node_velocities(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t) = (0.0, 0.0)
 

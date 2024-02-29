@@ -47,7 +47,7 @@ function CurvilinearGrid3D(
   test_coord_func(z, dim, :z)
 
   coord(i, j, k) = @SVector [x(i, j, k), y(i, j, k), z(i, j, k)]
-  function jacobian_matrix_func(i, j, k)
+  function jacobian_matrix_func(i, j, k, t)
     return ForwardDiff.jacobian(x -> coord(x[1], x[2], x[3]), @SVector [i, j, k])
   end
 
@@ -134,7 +134,7 @@ function CurvilinearGrid3D(
   return m
 end
 
-function update_metrics!(m::CurvilinearGrid3D, t=0)
+function update_metrics!(m::CurvilinearGrid3D, t::Real=0)
   # Update the metrics within the non-halo region, e.g., the domain
   domain = m.iterators.cell.domain
 
@@ -190,7 +190,7 @@ end
 # Get the grid metrics
 @inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0)
   _jacobian_matrix = checkeps(
-    m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo)
+    m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo, t)
   )
   J = det(_jacobian_matrix)
 
@@ -222,13 +222,11 @@ end
 # Conservative Grid Metrics; e.g. ξ̂x = ξx * J
 # ------------------------------------------------------------------
 
-@inline conservative_metrics(m::CurvilinearGrid3D, idx) = conservative_metrics(m, idx, 0)
-
 @inline function conservative_metrics(
-  m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real
+  m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0
 )
   _jacobian_matrix = checkeps(
-    m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo)
+    m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo, t)
   )
   J = det(_jacobian_matrix)
 
@@ -270,20 +268,20 @@ end
 # Jacobian related functions
 # ------------------------------------------------------------------
 
-function jacobian_matrix(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
+function jacobian_matrix(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0)
   # return checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))
-  return m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo)
+  return m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo, t)
 end
 
-function jacobian(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
-  return det(jacobian_matrix(m, (i, j, k)))
+function jacobian(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0)
+  return det(jacobian_matrix(m, (i, j, k), t))
 end
 
 # ------------------------------------------------------------------
 # Velocity Functions
 # ------------------------------------------------------------------
 
-@inline grid_velocities(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t) =
+@inline grid_velocities(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0) =
   (0.0, 0.0, 0.0)
 # @inline centroid_velocities(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t) = (0.0, 0.0, 0.0)
 # @inline node_velocities(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t) = (0.0, 0.0, 0.0)
