@@ -17,7 +17,7 @@ export CylindricalGrid1D, SphericalGrid1D
 export RZAxisymmetricGrid2D
 export coord, coords, coords!, cellsize, cellsize_withhalo
 export centroid, centroids
-export area, volume
+export cellvolume
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
@@ -29,9 +29,9 @@ abstract type AbstractCurvilinearGrid end
 # are used to "clean" the jacobian matrices, so we don't get
 # numbers like 1e-18, when in reality they should be 0.0
 # @inline checkeps(M) = M # non-Float version
-@inline function checkeps(M::AbstractArray{T}) where {T<:AbstractFloat}
+@inline function checkeps(M::AbstractArray{T}, ϵ=eps(T)) where {T<:AbstractFloat}
   # return M #@. M * (abs(M) >= eps(T))
-  return @. M * (abs(M) >= eps(T))
+  return @. M * (abs(M) >= ϵ)
 end
 @inline checkeps(M) = M
 
@@ -60,8 +60,10 @@ function test_coord_func(f, ndims, fname)
   end
 end
 
+include("metric_soa.jl")
 include("grid_iterators.jl")
 include("1d.jl")
+# include("1d_spherical.jl")
 include("1d_axisymmetric.jl")
 include("2d.jl")
 include("2d_axisymmetric.jl")
@@ -120,8 +122,9 @@ dimension, whereas the grid functions have no knowledge halos. Therefore, the `c
 applies a shift to the index for you.
 """
 coord(mesh, CI::CartesianIndex) = coord(mesh, CI.I)
-coord(m::CurvilinearGrid1D, i) = coord(m, (i,))
+coord(m, i::Real) = coord(m, (i,))
 coord(m::CurvilinearGrid1D, (i,)::NTuple{1,Real}) = m._coordinate_funcs.x(i - m.nhalo)
+coord(m::AxisymmetricGrid1D, (i,)::NTuple{1,Real}) = m._coordinate_funcs.r(i - m.nhalo)
 
 function coord(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
   @SVector [
@@ -163,7 +166,7 @@ whereas the grid functions have no knowledge halos. Therefore, the `coord` funct
 applies a shift to the index for you.
 """
 centroid(mesh, CI::CartesianIndex) = centroid(mesh, CI.I)
-centroid(m::CurvilinearGrid1D, i) = coord(m, i + 0.5)
+centroid(m, i::Real) = coord(m, i + 0.5)
 
 function centroid(m::CurvilinearGrid2D, (i, j)::NTuple{2,Int})
   return coord(m, (i, j) .+ 0.5)
@@ -173,56 +176,29 @@ function centroid(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Int})
   return coord(m, (i, j, k) .+ 0.5)
 end
 
-# """
-# Get the Jacobian matrix of the forward transformation (ξ,η,ζ) → (x,y,z).
-# """
-# jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
-# jacobian_matrix(mesh::CurvilinearGrid1D, i) = jacobian_matrix(mesh, (i,))
+"""
+Get the Jacobian matrix of the forward transformation (ξ,η,ζ) → (x,y,z).
+"""
+jacobian_matrix(mesh, CI::CartesianIndex, t::Real=0) = jacobian_matrix(mesh, CI.I, t)
+jacobian_matrix(mesh, i, t::Real=0) = jacobian_matrix(mesh, (i,), t)
 
-# """
-# Get the Jacobian of the forward transformation (ξ,η,ζ) → (x,y,z).
-# """
-# jacobian(mesh, CI::CartesianIndex) = jacobian(mesh, CI.I)
-# jacobian(mesh::CurvilinearGrid1D, i::Real) = jacobian(mesh, (i,))
+"""
+Get the Jacobian of the forward transformation (ξ,η,ζ) → (x,y,z).
+"""
+jacobian(mesh, CI::CartesianIndex, t::Real=0) = jacobian(mesh, CI.I, t)
+jacobian(mesh, i::Real, t::Real=0) = jacobian(mesh, (i,), t)
 
-# """
-# Query the mesh metrics at a particular index
-# """
-# metrics(mesh, CI::CartesianIndex) = metrics(mesh, CI.I...)
-# metrics(mesh::CurvilinearGrid1D, i::Real) = metrics(mesh, (i,))
+"""
+Query the mesh metrics at a particular index
+"""
+@inline metrics(mesh, CI::CartesianIndex, t::Real=0) = metrics(mesh, CI.I, t)
+@inline metrics(mesh, i::Real, t::Real=0) = metrics(mesh, (i,), t)
 
-# @inline function cell_metrics(m::CurvilinearGrid1D, i::Real)
-#   return metrics(m, i + 0.5)
-# end
-
-# @inline function cell_metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
-#   return metrics(m, (i + 0.5, j + 0.5))
-# end
-
-# @inline function cell_metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
-#   return metrics(m, (i + 0.5, j + 0.5, k + 0.5))
-# end
-
-# """
-# Query the conservative mesh metrics at a particular index that follow the GCL
-# """
-# conservative_metrics(mesh, CI::CartesianIndex) = conservative_metrics(mesh, CI.I...)
-# conservative_metrics(mesh::CurvilinearGrid1D, i::Real) = conservative_metrics(mesh, (i,))
-
-# function cell_indices(mesh::CurvilinearGrid1D)
-#   @unpack ilo, ihi = mesh.limits
-#   return CartesianIndices((ilo:ihi))
-# end
-
-# function cell_indices(mesh::CurvilinearGrid2D)
-#   @unpack ilo, ihi, jlo, jhi = mesh.limits
-#   return CartesianIndices((ilo:ihi, jlo:jhi))
-# end
-
-# function cell_indices(mesh::CurvilinearGrid3D)
-#   @unpack ilo, ihi, jlo, jhi, klo, khi = mesh.limits
-#   return CartesianIndices((ilo:ihi, jlo:jhi, klo:khi))
-# end
+"""
+Query the conservative mesh metrics at a particular index that follow the GCL
+"""
+@inline conservative_metrics(mesh, CI::CartesianIndex) = conservative_metrics(mesh, CI.I, t)
+@inline conservative_metrics(mesh, i::Real, t::Real=0) = conservative_metrics(mesh, (i,), t)
 
 function check_for_invalid_metrics(m::AbstractCurvilinearGrid)
   domain = m.iterators.cell.domain

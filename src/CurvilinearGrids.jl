@@ -30,4 +30,6 @@ export conservative_metrics
 export metrics_with_jacobian
 export cell_metrics, cell_indices
 
+export cellvolume
+
 end
