@@ -14,7 +14,6 @@ struct Metric2D{T} <: FieldVector{2,T}
   x::T
   y::T
   t::T
-  # Metric2D{T}(x, y) where {T} = new(x, y, zero(T))
 end
 
 struct Metric3D{T} <: FieldVector{3,T}
@@ -22,8 +21,6 @@ struct Metric3D{T} <: FieldVector{3,T}
   y::T
   z::T
   t::T
-  # Metric3D{T}(x, y, z) where {T} = new(x, y, z, zero(T))
-  # Metric3D{T}(x, y, z, t) where {T} = new(x, y, z, t)
 end
 
 # Default constructors for Metrics
