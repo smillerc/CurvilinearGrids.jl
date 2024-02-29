@@ -7,6 +7,8 @@ using BenchmarkTools
   include("unit/test_indexing.jl")
 
   include("unit/test_1d.jl")
+  include("unit/test_1d_axisymmetric.jl")
+
   include("unit/test_2d.jl")
   include("unit/test_3d.jl")
 
