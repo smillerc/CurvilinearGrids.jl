@@ -15,7 +15,7 @@ struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS,CF,JF} <: AbstractCurvilinearGr
   _jacobian_matrix_func::JF
 end
 
-struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS,CF,JF} <: AbstractCurvilinearGrid
+struct SphericalGrid1D{CO,CE,NV,EM,CM,CI,DS,CF,JF} <: AbstractCurvilinearGrid
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -23,13 +23,14 @@ struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS,CF,JF} <: AbstractCurvilinearGrid
   cell_center_metrics::CM
   nhalo::Int
   nnodes::Int
-  domain_limits::DL
+  # domain_limits::DL
   iterators::CI
   dθ::Float64
   dϕ::Float64
   discretization_scheme::DS
   _coordinate_funcs::CF
   _jacobian_matrix_func::JF
+  _nhalo::Int
 end
 
 AxisymmetricGrid1D = Union{CylindricalGrid1D,SphericalGrid1D}
@@ -48,21 +49,19 @@ function SphericalGrid1D(r::Function, ni::Int, nhalo; T=Float64, backend=CPU())
 
   # leave the π off so we can use the more accurate cospi/sinpi functions
   # we want the cell to stradle the x-axis
-  θ0, θ1 = 1 / 4, 3 / 4 # center θ on the x-axis
-  ϕ0, ϕ1 = -1 / 4, 1 / 4 # center ϕ on the x-axis
-  # θ0, θ1 = deg2rad.((89, 91)) ./ π # center θ on the x-axis
-  # ϕ0, ϕ1 = deg2rad.((359, 1)) ./ π # center ϕ on the x-axis
 
+  # δ = 1
   # θ0, θ1 = 1 / 4, 3 / 4 # center θ on the x-axis
-  # _dϕ = acos(1 / sqrt(3)) ./ pi
-  # ϕ0, ϕ1 = (-_dϕ, _dϕ)  # center ϕ on the x-axis
+  # ϕ0, ϕ1 = -1 / 4, 1 / 4 # center ϕ on the x-axis
+  θ0, θ1 = deg2rad.((89.5, 90.5)) ./ π # center θ on the x-axis
+  ϕ0, ϕ1 = deg2rad.((-0.5, 0.5)) ./ π # center ϕ on the x-axis
 
   dϕ = abs(ϕ1 - ϕ0) * π
   dθ = abs(θ1 - θ0) * π
   # if the θ is 0:π and ϕ is 0:2π, the grid metrics will be NaNs, 
   # since the Jacobian will have zero terms (and the inv() will produce NaNs)
 
-  nj, nk = (2, 2)
+  nj, nk = (4, 4)
   θ(j) = @. θ0 + (θ1 - θ0) * ((j - 1) / (nj - 1))
   ϕ(k) = @. ϕ0 + (ϕ1 - ϕ0) * ((k - 1) / (nk - 1))
 
@@ -81,30 +80,30 @@ function SphericalGrid1D(r::Function, ni::Int, nhalo; T=Float64, backend=CPU())
 
   nnodes = (ni, nj, nk)
   ncells = nnodes .- 1
-  ni_cells = ni - 1
-  nj_cells = 1
-  nk_cells = 1
-  lo = nhalo + 1
+  # ni_cells = ni - 1
+  # nj_cells = 1
+  # nk_cells = 1
+  # lo = nhalo + 1
 
-  limits = (
-    node=(ilo=lo, ihi=ni + nhalo, jlo=lo, jhi=nj + nhalo, klo=lo, khi=nk + nhalo),
-    cell=(
-      ilo=lo,
-      ihi=ni_cells + nhalo,
-      jlo=lo,
-      jhi=nj_cells + nhalo,
-      klo=lo,
-      khi=nk_cells + nhalo,
-    ),
-  )
+  # limits = (
+  #   node=(ilo=lo, ihi=ni + nhalo, jlo=lo, jhi=nj + nhalo, klo=lo, khi=nk + nhalo),
+  #   cell=(
+  #     ilo=lo,
+  #     ihi=ni_cells + nhalo,
+  #     jlo=lo,
+  #     jhi=nj_cells + nhalo,
+  #     klo=lo,
+  #     khi=nk_cells + nhalo,
+  #   ),
+  # )
 
   nodeCI = CartesianIndices(nnodes .+ 2nhalo)
   cellCI = CartesianIndices(ncells .+ 2nhalo)
 
-  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
+  node_iter, cell_iter = get_node_cell_iterators(nodeCI, cellCI, nhalo)
 
-  celldims = size(domain_iterators.cell.full)
-  nodedims = size(domain_iterators.node.full)
+  celldims = size(cell_iter.full)
+  nodedims = size(node_iter.full)
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
@@ -119,11 +118,10 @@ function SphericalGrid1D(r::Function, ni::Int, nhalo; T=Float64, backend=CPU())
     ),
   )
 
-  # centroids = StructArray((r=KernelAbstractions.zeros(backend, T, celldims[1]),))
   _axisym_centroid_coordinates!(
-    centroids, coordinate_funcs, domain_iterators.cell.full.indices[1], nhalo
+    centroids, coordinate_funcs, cell_iter.full.indices[1], nhalo
   )
-  _centroid_coordinates!(centroids.xyz, coordinate_funcs, domain_iterators.cell.full, nhalo)
+  _centroid_coordinates!(centroids.xyz, coordinate_funcs, cell_iter.full, nhalo)
 
   coords = (
     r=KernelAbstractions.zeros(backend, T, nodedims[1]),
@@ -133,16 +131,23 @@ function SphericalGrid1D(r::Function, ni::Int, nhalo; T=Float64, backend=CPU())
       z=KernelAbstractions.zeros(backend, T, nodedims),
     ),
   )
-  _axisym_node_coordinates!(
-    coords, coordinate_funcs, domain_iterators.node.full.indices[1], nhalo
-  )
-  _node_coordinates!(coords.xyz, coordinate_funcs, domain_iterators.node.full, nhalo)
+  _axisym_node_coordinates!(coords, coordinate_funcs, node_iter.full.indices[1], nhalo)
+  _node_coordinates!(coords.xyz, coordinate_funcs, node_iter.full, nhalo)
 
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
   discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full
+    cell_iter.full
   )
+
+  inner_cell_dom = expand(cell_iter.domain, -1)
+  inner_node_dom = expand(node_iter.domain, -1)
+
+  domain_iterators = (node=node_iter, cell=cell_iter)
+  # domain_iterators = (
+  #   node=(full=node_iter.full, domain=inner_node_dom),
+  #   cell=(full=cell_iter.full, domain=inner_cell_dom),
+  # )
 
   m = SphericalGrid1D(
     coords,
@@ -152,17 +157,17 @@ function SphericalGrid1D(r::Function, ni::Int, nhalo; T=Float64, backend=CPU())
     cell_center_metrics,
     nhalo,
     nnodes[1],
-    limits,
     domain_iterators,
     dθ, # θ wedge angle in radians (with π included)
     dϕ, # ϕ wedge angle in radians (with π included)
     discr_scheme,
     coordinate_funcs,
     jacobian_matrix_func,
+    1,
   )
 
   update_metrics!(m)
-  # check_for_invalid_metrics(m)
+  check_for_invalid_metrics(m)
   return m
 end
 
@@ -226,10 +231,10 @@ function CylindricalGrid1D(r::Function, ni::Int, nhalo; T=Float64, backend=CPU()
   nodeCI = CartesianIndices(nnodes .+ 2nhalo)
   cellCI = CartesianIndices(ncells .+ 2nhalo)
 
-  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
+  node_iter, cell_iter = get_node_cell_iterators(nodeCI, cellCI, nhalo)
 
-  celldims = size(domain_iterators.cell.full)
-  nodedims = size(domain_iterators.node.full)
+  celldims = size(cell_iter.full)
+  nodedims = size(node_iter.full)
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
@@ -246,9 +251,9 @@ function CylindricalGrid1D(r::Function, ni::Int, nhalo; T=Float64, backend=CPU()
 
   # centroids = StructArray((r=KernelAbstractions.zeros(backend, T, celldims[1]),))
   _axisym_centroid_coordinates!(
-    centroids, coordinate_funcs, domain_iterators.cell.full.indices[1], nhalo
+    centroids, coordinate_funcs, cell_iter.full.indices[1], nhalo
   )
-  _centroid_coordinates!(centroids.xyz, coordinate_funcs, domain_iterators.cell.full, nhalo)
+  _centroid_coordinates!(centroids.xyz, coordinate_funcs, cell_iter.full, nhalo)
 
   coords = (
     r=KernelAbstractions.zeros(backend, T, nodedims[1]),
@@ -258,17 +263,16 @@ function CylindricalGrid1D(r::Function, ni::Int, nhalo; T=Float64, backend=CPU()
       z=KernelAbstractions.zeros(backend, T, nodedims),
     ),
   )
-  _axisym_node_coordinates!(
-    coords, coordinate_funcs, domain_iterators.node.full.indices[1], nhalo
-  )
-  _node_coordinates!(coords.xyz, coordinate_funcs, domain_iterators.node.full, nhalo)
+  _axisym_node_coordinates!(coords, coordinate_funcs, node_iter.full.indices[1], nhalo)
+  _node_coordinates!(coords.xyz, coordinate_funcs, node_iter.full, nhalo)
 
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
   discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full
+    cell_iter.full
   )
 
+  domain_iterators = (node=node_iter, cell=cell_iter)
   m = CylindricalGrid1D(
     coords,
     centroids,
@@ -316,13 +320,19 @@ function update_metrics!(m::AxisymmetricGrid1D, t::Real=0)
     m.cell_center_metrics.J[idx] = J
   end
 
+  θ_domain = expand(m.iterators.cell.domain, 2, +1)
+  θϕ_domain = expand(θ_domain, 3, +1)
+  full_m1 = expand(m.iterators.cell.full, -1)
+  m.centroid_coordinates.xyz[full_m1]
+  @show full_m1
   MetricDiscretizationSchemes.update_metrics!(
     m.discretization_scheme,
     m.centroid_coordinates.xyz,
     m.cell_center_metrics,
     m.edge_metrics,
-    domain,
+    full_m1,
   )
+
   # i₊½ conserved metrics
   @inbounds for idx in m.iterators.cell.full
     i, j, k = idx.I .+ 0.5 # centroid index

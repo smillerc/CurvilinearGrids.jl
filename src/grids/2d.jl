@@ -74,7 +74,7 @@ function CurvilinearGrid2D(
     y=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  m = CurvilinearGrid2D(
+  mesh = CurvilinearGrid2D(
     coords,
     centroids,
     node_velocities,
@@ -88,64 +88,64 @@ function CurvilinearGrid2D(
     jacobian_matrix_func,
   )
 
-  update_metrics!(m)
-  # check_for_invalid_metrics(m)
-  return m
+  update_metrics!(mesh)
+  # check_for_invalid_metrics(mesh)
+  return mesh
 end
 
-function update_metrics!(m::CurvilinearGrid2D, t::Real=0)
+function update_metrics!(mesh::CurvilinearGrid2D, t::Real=0)
 
   # cell metrics
-  @inbounds for idx in m.iterators.cell.full
+  @inbounds for idx in mesh.iterators.cell.full
     cell_idx = idx.I .+ 0.5
-    # @unpack J, ξ, η, x, y = metrics(m, cell_idx, t)
-    @unpack J, ξ, η = metrics(m, cell_idx, t)
+    # @unpack J, ξ, η, x, y = metrics(mesh, cell_idx, t)
+    @unpack J, ξ, η = metrics(mesh, cell_idx, t)
 
-    m.cell_center_metrics.ξ.x[idx] = ξ.x
-    m.cell_center_metrics.ξ.y[idx] = ξ.y
-    m.cell_center_metrics.ξ.t[idx] = ξ.t
-    m.cell_center_metrics.η.x[idx] = η.x
-    m.cell_center_metrics.η.y[idx] = η.y
-    m.cell_center_metrics.η.t[idx] = η.t
+    mesh.cell_center_metrics.ξ.x₁[idx] = ξ.x₁
+    mesh.cell_center_metrics.ξ.x₂[idx] = ξ.x₂
+    mesh.cell_center_metrics.ξ.t[idx] = ξ.t
+    mesh.cell_center_metrics.η.x₁[idx] = η.x₁
+    mesh.cell_center_metrics.η.x₂[idx] = η.x₂
+    mesh.cell_center_metrics.η.t[idx] = η.t
 
-    # m.cell_center_inv_metrics.xξ[idx] = x.ξ
-    # m.cell_center_inv_metrics.yξ[idx] = y.ξ
-    # m.cell_center_inv_metrics.xη[idx] = x.η
-    # m.cell_center_inv_metrics.yη[idx] = y.η
+    # mesh.cell_center_inv_metrics.xξ[idx] = x.ξ
+    # mesh.cell_center_inv_metrics.yξ[idx] = y.ξ
+    # mesh.cell_center_inv_metrics.xη[idx] = x.η
+    # mesh.cell_center_inv_metrics.yη[idx] = y.η
 
-    m.cell_center_metrics.J[idx] = J
+    mesh.cell_center_metrics.J[idx] = J
   end
 
   # i₊½ conserved metrics
-  @inbounds for idx in m.iterators.cell.full
+  @inbounds for idx in mesh.iterators.cell.full
     i, j = idx.I .+ 0.5 # centroid index
 
     # get the conserved metrics at (i₊½, j)
-    @unpack ξ̂, η̂, J = conservative_metrics(m, (i + 1 / 2, j), t)
+    @unpack ξ̂, η̂, J = conservative_metrics(mesh, (i + 1 / 2, j), t)
 
-    m.edge_metrics.i₊½.ξ̂.x[idx] = ξ̂.x
-    m.edge_metrics.i₊½.ξ̂.y[idx] = ξ̂.y
-    m.edge_metrics.i₊½.ξ̂.t[idx] = ξ̂.t
-    m.edge_metrics.i₊½.η̂.x[idx] = η̂.x
-    m.edge_metrics.i₊½.η̂.y[idx] = η̂.y
-    m.edge_metrics.i₊½.η̂.t[idx] = η̂.t
-    m.edge_metrics.i₊½.J[idx] = J
+    mesh.edge_metrics.i₊½.ξ̂.x₁[idx] = ξ̂.x₁
+    mesh.edge_metrics.i₊½.ξ̂.x₂[idx] = ξ̂.x₂
+    mesh.edge_metrics.i₊½.ξ̂.t[idx] = ξ̂.t
+    mesh.edge_metrics.i₊½.η̂.x₁[idx] = η̂.x₁
+    mesh.edge_metrics.i₊½.η̂.x₂[idx] = η̂.x₂
+    mesh.edge_metrics.i₊½.η̂.t[idx] = η̂.t
+    mesh.edge_metrics.i₊½.J[idx] = J
   end
 
   # j₊½ conserved metrics
-  @inbounds for idx in m.iterators.cell.full
+  @inbounds for idx in mesh.iterators.cell.full
     i, j = idx.I .+ 0.5 # centroid index
 
     # get the conserved metrics at (i, j₊½)
-    @unpack ξ̂, η̂, J = conservative_metrics(m, (i, j + 1 / 2), t)
+    @unpack ξ̂, η̂, J = conservative_metrics(mesh, (i, j + 1 / 2), t)
 
-    m.edge_metrics.j₊½.ξ̂.x[idx] = ξ̂.x
-    m.edge_metrics.j₊½.ξ̂.y[idx] = ξ̂.y
-    m.edge_metrics.j₊½.ξ̂.t[idx] = ξ̂.t
-    m.edge_metrics.j₊½.η̂.x[idx] = η̂.x
-    m.edge_metrics.j₊½.η̂.y[idx] = η̂.y
-    m.edge_metrics.j₊½.η̂.t[idx] = η̂.t
-    m.edge_metrics.j₊½.J[idx] = J
+    mesh.edge_metrics.j₊½.ξ̂.x₁[idx] = ξ̂.x₁
+    mesh.edge_metrics.j₊½.ξ̂.x₂[idx] = ξ̂.x₂
+    mesh.edge_metrics.j₊½.ξ̂.t[idx] = ξ̂.t
+    mesh.edge_metrics.j₊½.η̂.x₁[idx] = η̂.x₁
+    mesh.edge_metrics.j₊½.η̂.x₂[idx] = η̂.x₂
+    mesh.edge_metrics.j₊½.η̂.t[idx] = η̂.t
+    mesh.edge_metrics.j₊½.J[idx] = J
   end
 
   return nothing
@@ -155,8 +155,8 @@ end
 # Grid Metrics
 # ------------------------------------------------------------------
 
-@inline function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
-  _jacobian_matrix = checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, t))
+@inline function metrics(mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
+  _jacobian_matrix = checkeps(mesh._jacobian_matrix_func(i - mesh.nhalo, j - mesh.nhalo, t))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   ξx = inv_jacobian_matrix[1, 1]
   ξy = inv_jacobian_matrix[1, 2]
@@ -165,7 +165,7 @@ end
 
   J = det(_jacobian_matrix)
 
-  vx, vy = grid_velocities(m, (i, j), t)
+  vx, vy = grid_velocities(mesh, (i, j), t)
   ξt = -(vx * ξx + vy * ξy)
   ηt = -(vx * ηx + vy * ηy)
 
@@ -180,9 +180,9 @@ end
 # ------------------------------------------------------------------
 
 @inline function conservative_metrics(
-  m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0
+  mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0
 )
-  _jacobian_matrix = checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, t))
+  _jacobian_matrix = checkeps(mesh._jacobian_matrix_func(i - mesh.nhalo, j - mesh.nhalo, t))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   ξx = inv_jacobian_matrix[1, 1]
   ξy = inv_jacobian_matrix[1, 2]
@@ -191,7 +191,7 @@ end
 
   J = det(_jacobian_matrix)
 
-  vx, vy = grid_velocities(m, (i, j), t)
+  vx, vy = grid_velocities(mesh, (i, j), t)
   ξt = -(vx * ξx + vy * ξy)
   ηt = -(vx * ηx + vy * ηy)
 
@@ -204,12 +204,12 @@ end
 # ------------------------------------------------------------------
 # Jacobian related functions
 # ------------------------------------------------------------------
-function jacobian_matrix(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
-  return checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, t))
+function jacobian_matrix(mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
+  return checkeps(mesh._jacobian_matrix_func(i - mesh.nhalo, j - mesh.nhalo, t))
 end
 
-function jacobian(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
-  return det(jacobian_matrix(m, (i, j), t))
+function jacobian(mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
+  return det(jacobian_matrix(mesh, (i, j), t))
 end
 
 # ------------------------------------------------------------------
@@ -217,8 +217,8 @@ end
 # ------------------------------------------------------------------
 
 @inline grid_velocities(::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0) = (0.0, 0.0)
-# @inline centroid_velocities(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t) = (0.0, 0.0)
-# @inline node_velocities(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t) = (0.0, 0.0)
+# @inline centroid_velocities(mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t) = (0.0, 0.0)
+# @inline node_velocities(mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t) = (0.0, 0.0)
 
 # ------------------------------------------------------------------
 # Coordinate Functions

@@ -1,12 +1,4 @@
 
-using CurvilinearGrids
-using Test
-using StaticArrays
-using LinearAlgebra
-using StructArrays
-using WriteVTK
-using UnPack
-
 function save_vtk(mesh)
   fn = "mesh"
   @info "Writing to $fn.vti"
@@ -104,6 +96,72 @@ end
   @test conserved_metrics_pass
 end
 
+# @testset "1D Spherical Mesh GCL"
+using Test
+begin
+  using CurvilinearGrids
+
+  function getmesh()
+    nhalo = 5
+    ni = 25
+    x0, x1 = (0.0, 5.0)
+    x(i) = x0 + (x1 - x0) * ((i - 1) / (ni - 1))
+    return SphericalGrid1D(x, ni, nhalo)
+  end
+
+  mesh = getmesh()
+  save_vtk(mesh)
+
+  conserved_metrics_pass = false
+  @show mesh.nhalo
+  domain = mesh.iterators.cell.domain
+  @show domain
+  # @show mesh.edge_metrics.i₊½.ξ̂.x[domain]
+  # @show mesh.edge_metrics.i₊½.ξ̂.y[domain]
+  # @show mesh.edge_metrics.i₊½.ξ̂.z[domain]
+
+  # @show mesh.edge_metrics.i₊½.η̂.x[domain]
+  # @show mesh.edge_metrics.i₊½.η̂.y[domain]
+  # @show mesh.edge_metrics.i₊½.η̂.z[domain]
+
+  # @show mesh.edge_metrics.i₊½.ζ̂.x[domain]
+  # @show mesh.edge_metrics.i₊½.ζ̂.y[domain]
+  # @show mesh.edge_metrics.i₊½.ζ̂.z[domain]
+
+  # for idx in expand(domain, -1)
+  for idx in domain
+    i, j, k = idx.I
+    I₁ = (
+      (mesh.edge_metrics.i₊½.ξ̂.x[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.x[i - 1, j, k]) +
+      (mesh.edge_metrics.j₊½.η̂.x[i, j, k] - mesh.edge_metrics.j₊½.η̂.x[i, j - 1, k]) +
+      (mesh.edge_metrics.k₊½.ζ̂.x[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x[i, j, k - 1])
+    )
+    I₂ = (
+      (mesh.edge_metrics.i₊½.ξ̂.y[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.y[i - 1, j, k]) +
+      (mesh.edge_metrics.j₊½.η̂.y[i, j, k] - mesh.edge_metrics.j₊½.η̂.y[i, j - 1, k]) +
+      (mesh.edge_metrics.k₊½.ζ̂.y[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.y[i, j, k - 1])
+    )
+    I₃ = (
+      (mesh.edge_metrics.i₊½.ξ̂.z[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.z[i - 1, j, k]) +
+      (mesh.edge_metrics.j₊½.η̂.z[i, j, k] - mesh.edge_metrics.j₊½.η̂.z[i, j - 1, k]) +
+      (mesh.edge_metrics.k₊½.ζ̂.z[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.z[i, j, k - 1])
+    )
+
+    # _J = mesh.edge_metrics.i₊½.J[i, j, k]
+    # @show mesh.edge_metrics.i₊½.η̂[i, j, k]
+    # @show mesh.edge_metrics.i₊½.ζ̂[i, j, k]
+    I₁ = I₁ * (abs(I₁) > 5e-15)
+    I₂ = I₂ * (abs(I₂) > 5e-15)
+    I₃ = I₃ * (abs(I₃) > 5e-15)
+    # @show I₁, I₂, I₃
+    conserved_metrics_pass = iszero(I₁) && iszero(I₂) && iszero(I₃)
+    if !conserved_metrics_pass
+      # break
+    end
+  end
+  @test conserved_metrics_pass
+end
+
 @testset "1D Cylindrical Mesh" begin
   function getmesh()
     nhalo = 2
@@ -189,3 +247,11 @@ end
   end
   @test conserved_metrics_pass
 end
+
+using MappedArrays
+
+# mesh._coordinate_funcs.XYZ(10, 4, 1)
+
+# full = mesh.iterators.cell.full |> collect
+# 
+# xc = mappedarray(mesh._coordinate_funcs.x, full)

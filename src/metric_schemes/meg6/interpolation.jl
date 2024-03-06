@@ -6,6 +6,7 @@ function toedge!(
   x::AbstractArray{T,N},
   domain,
   axis::Int,
+  ϵ=10eps(T),
 ) where {T,N}
 
   # Compute the derivatives first
@@ -31,7 +32,9 @@ function toedge!(
     xᴸᵢ₊½ = x[i] + a * ∂x[i] + b * ∂²x[i]
     xᴿᵢ₊½ = x[ᵢ₊₁] - a * ∂x[ᵢ₊₁] + b * ∂²x[ᵢ₊₁]
 
-    xᵢ₊½[i] = a * (xᴿᵢ₊½ + xᴸᵢ₊½)
+    # xᵢ₊½[i] = a * (xᴿᵢ₊½ + xᴸᵢ₊½)
+    _xᵢ₊½ = xᴿᵢ₊½ + xᴸᵢ₊½
+    xᵢ₊½[i] = a * (_xᵢ₊½ * (abs(_xᵢ₊½) >= ϵ))
   end
 
   return nothing

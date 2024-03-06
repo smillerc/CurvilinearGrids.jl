@@ -25,6 +25,7 @@ function MonotoneExplicit6thOrderDiscretization(
 ) where {N}
   cellsize = size(domain)
 
+  @show cellsize
   if any(cellsize .<= 3)
     error(
       "Domain size ($(cellsize)) is too small (must be > 3 cells on all axes) for a 6th order scheme to work...",
@@ -45,7 +46,14 @@ function MonotoneExplicit6thOrderDiscretization(
   return MonotoneExplicit6thOrderDiscretization(cache)
 end
 
-function ∂x∂ξ!(m::MonotoneExplicit6thOrderDiscretization, ∂x_∂ξ, x, domain, axis)
+function ∂x∂ξ!(
+  m::MonotoneExplicit6thOrderDiscretization,
+  ∂x_∂ξ::AbstractArray{T},
+  x,
+  domain,
+  axis,
+  ϵ=10eps(T),
+) where {T}
   xᵢ₊½ = m.cache.xᵢ₊½
   ∂²x = m.cache.∂²x
   ∂x = m.cache.∂x
@@ -55,15 +63,26 @@ function ∂x∂ξ!(m::MonotoneExplicit6thOrderDiscretization, ∂x_∂ξ, x, do
   inner_domain = expand(domain, axis, 0)
   for i in inner_domain
     ᵢ₋₁ = down(i, axis, 1)
-    ∂x_∂ξ[i] = xᵢ₊½[i] - xᵢ₊½[ᵢ₋₁]
+    # ∂x_∂ξ[i] = xᵢ₊½[i] - xᵢ₊½[ᵢ₋₁]
+    # ∂x_∂ξ[i] = xᵢ₊½[i] - xᵢ₊½[ᵢ₋₁]
+    _∂x = xᵢ₊½[i] - xᵢ₊½[ᵢ₋₁]
+
+    ∂x_∂ξ[i] = _∂x * (abs(_∂x) >= ϵ)
   end
 
   return nothing
 end
 
 function conserved_metric!(
-  m::MonotoneExplicit6thOrderDiscretization, ξ̂x, y, η_axis, z, ζ_axis, domain
-)
+  m::MonotoneExplicit6thOrderDiscretization,
+  ξ̂x::AbstractArray{T},
+  y,
+  η_axis,
+  z,
+  ζ_axis,
+  domain,
+  ϵ=10eps(T),
+) where {T}
 
   # 1st term
   yη = m.cache.inner_deriv1
@@ -82,7 +101,9 @@ function conserved_metric!(
   ∂x∂ξ!(m, yζz_η, yζz, domain, η_axis)
 
   for i in domain
-    ξ̂x[i] = yηz_ζ[i] - yζz_η[i]
+    # ξ̂x[i] = yηz_ζ[i] - yζz_η[i]
+    _ξ̂x = yηz_ζ[i] - yζz_η[i]
+    ξ̂x[i] = _ξ̂x * (abs(_ξ̂x) >= ϵ)
   end
 
   return nothing

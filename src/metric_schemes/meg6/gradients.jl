@@ -1,9 +1,10 @@
 function ∂!(
-  ∂x::AbstractArray{T,N}, x::AbstractArray{T,N}, domain, axis::Int, ϵ=2eps(T)
+  ∂x::AbstractArray{T,N}, x::AbstractArray{T,N}, domain, axis::Int, ϵ=5eps(T)
 ) where {T,N}
 
   # for small domains, skip, since the deriv will be zero
   if size(domain, axis) <= 2
+    error("domain too small!!!!")
     fill!(∂x, 0)
     return nothing
   end
@@ -67,7 +68,7 @@ function ∂²!(
   x::AbstractArray{T,N},
   domain,
   axis::Int,
-  ϵ=2eps(T),
+  ϵ=10eps(T),
 ) where {T,N}
 
   # for small domains, skip, since the deriv will be zero
@@ -95,7 +96,7 @@ function ∂²!(
 end
 
 function ∂_at_lobc!(
-  ∂x::AbstractArray{T,N}, x::AbstractArray{T,N}, domain, axis::Int, ϵ=2eps(T)
+  ∂x::AbstractArray{T,N}, x::AbstractArray{T,N}, domain, axis::Int, ϵ=5eps(T)
 ) where {T,N}
 
   # coefficients; T() is used to convert to the appropriate datatype,
@@ -108,6 +109,9 @@ function ∂_at_lobc!(
   e = T(1 / 12)
   f = T(2 / 3)
 
+  if size(domain, axis) <= 2
+    error("a;lakjsdfa")
+  end
   if size(domain, axis) > 2
     b1 = lower_boundary_indices(domain, axis, 0)  # first index on given boundary axis
     for i in b1
@@ -148,7 +152,7 @@ function ∂_at_lobc!(
 end
 
 function ∂_at_hibc!(
-  ∂x::AbstractArray{T,N}, x::AbstractArray{T,N}, domain, axis::Int, ϵ=2eps(T)
+  ∂x::AbstractArray{T,N}, x::AbstractArray{T,N}, domain, axis::Int, ϵ=5eps(T)
 ) where {T,N}
 
   # coefficients; T() is used to convert to the appropriate datatype,
@@ -206,7 +210,7 @@ function ∂²_at_lobc!(
   x::AbstractArray{T,N},
   domain,
   axis::Int,
-  ϵ=2eps(T),
+  ϵ=10eps(T),
 ) where {T,N}
 
   # coefficients; T() is used to convert to the appropriate datatype,
@@ -261,7 +265,7 @@ function ∂²_at_hibc!(
   x::AbstractArray{T,N},
   domain,
   axis::Int,
-  ϵ=2eps(T),
+  ϵ=10eps(T),
 ) where {T,N}
 
   # coefficients; T() is used to convert to the appropriate datatype,
