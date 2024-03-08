@@ -270,7 +270,11 @@ function check_for_invalid_metrics(mesh::AbstractCurvilinearGrid)
   # i₊½CI = expand_lower(domain, iaxis, 1)
   # j₊½CI = expand_lower(domain, jaxis, 1)
   # k₊½CI = expand_lower(domain, kaxis, 1)
-  edge_iterators = ntuple(i -> expand_lower(domain, i, 1), length(mesh.nnodes))
+  if mesh.nhalo > 0
+    edge_iterators = ntuple(i -> expand_lower(domain, i, 1), length(mesh.nnodes))
+  else
+    edge_iterators = ntuple(i -> domain, length(mesh.nnodes))
+  end
 
   # edge metrics
   invalid_edge_metrics = false
