@@ -102,7 +102,7 @@ function update_metrics!(m::CurvilinearGrid1D, t::Real=0)
     cell_idx, = idx.I .+ 0.5
     # @unpack J, ξ, x = metrics(m, cell_idx, t)
     @unpack J, ξ = metrics(m, cell_idx, t)
-    m.cell_center_metrics.ξ.x[idx] = ξ.x
+    m.cell_center_metrics.ξ.x₁[idx] = ξ.x₁
     # m.cell_center_inv_metrics.xξ[idx] = x.ξ
     m.cell_center_metrics.J[idx] = J
   end
@@ -113,7 +113,7 @@ function update_metrics!(m::CurvilinearGrid1D, t::Real=0)
 
     @unpack ξ̂, J = conservative_metrics(m, i + 1 / 2, t)
 
-    m.edge_metrics.i₊½.ξ̂.x[idx] = ξ̂.x
+    m.edge_metrics.i₊½.ξ̂.x₁[idx] = ξ̂.x₁
     m.edge_metrics.i₊½.J[idx] = J
   end
 

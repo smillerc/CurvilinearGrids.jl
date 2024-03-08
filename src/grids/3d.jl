@@ -144,19 +144,19 @@ function update_metrics!(m::CurvilinearGrid3D, t::Real=0)
     # @unpack J, ξ, η, ζ, x, y, z = metrics(m, cell_idx, 0)
     @unpack J, ξ, η, ζ = metrics(m, cell_idx, t)
 
-    m.cell_center_metrics.ξ.x[idx] = ξ.x
-    m.cell_center_metrics.ξ.y[idx] = ξ.y
-    m.cell_center_metrics.ξ.z[idx] = ξ.z
+    m.cell_center_metrics.ξ.x₁[idx] = ξ.x₁
+    m.cell_center_metrics.ξ.x₂[idx] = ξ.x₂
+    m.cell_center_metrics.ξ.x₃[idx] = ξ.x₃
     m.cell_center_metrics.ξ.t[idx] = ξ.t
 
-    m.cell_center_metrics.η.x[idx] = η.x
-    m.cell_center_metrics.η.y[idx] = η.y
-    m.cell_center_metrics.η.z[idx] = η.z
+    m.cell_center_metrics.η.x₁[idx] = η.x₁
+    m.cell_center_metrics.η.x₂[idx] = η.x₂
+    m.cell_center_metrics.η.x₃[idx] = η.x₃
     m.cell_center_metrics.η.t[idx] = η.t
 
-    m.cell_center_metrics.ζ.x[idx] = ζ.x
-    m.cell_center_metrics.ζ.y[idx] = ζ.y
-    m.cell_center_metrics.ζ.z[idx] = ζ.z
+    m.cell_center_metrics.ζ.x₁[idx] = ζ.x₁
+    m.cell_center_metrics.ζ.x₂[idx] = ζ.x₂
+    m.cell_center_metrics.ζ.x₃[idx] = ζ.x₃
     m.cell_center_metrics.ζ.t[idx] = ζ.t
 
     # m.cell_center_inv_metrics.xξ[idx] = x.ξ

@@ -25,7 +25,6 @@ function MonotoneExplicit6thOrderDiscretization(
 ) where {N}
   cellsize = size(domain)
 
-  @show cellsize
   if any(cellsize .<= 3)
     error(
       "Domain size ($(cellsize)) is too small (must be > 3 cells on all axes) for a 6th order scheme to work...",
@@ -130,65 +129,65 @@ function update_edge_conserved_metrics!(
   # ξ̂x = (y_η z)_ζ − (y_ζ z)_η
   ξ̂x = m.cache.metric
   conserved_metric!(m, ξ̂x, y, η, z, ζ, domain)
-  toedge!(edge_metrics.i₊½.ξ̂.x, ∂²x, ∂x, ξ̂x, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.ξ̂.x, ∂²x, ∂x, ξ̂x, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.ξ̂.x, ∂²x, ∂x, ξ̂x, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.ξ̂.x₁, ∂²x, ∂x, ξ̂x, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ξ̂.x₁, ∂²x, ∂x, ξ̂x, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ξ̂.x₁, ∂²x, ∂x, ξ̂x, k₊½_domain, ζ)
 
   # η̂x = (y_ζ z)_ξ − (y_ξ z)_ζ
   η̂x = m.cache.metric
   conserved_metric!(m, η̂x, y, ζ, z, ξ, domain)
-  toedge!(edge_metrics.i₊½.η̂.x, ∂²x, ∂x, η̂x, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.η̂.x, ∂²x, ∂x, η̂x, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.η̂.x, ∂²x, ∂x, η̂x, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.η̂.x₁, ∂²x, ∂x, η̂x, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.η̂.x₁, ∂²x, ∂x, η̂x, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.η̂.x₁, ∂²x, ∂x, η̂x, k₊½_domain, ζ)
 
   # ζ̂x = (y_ξ z)_η − (y_η z)_ξ
   ζ̂x = m.cache.metric
   conserved_metric!(m, ζ̂x, y, ξ, z, η, domain)
-  toedge!(edge_metrics.i₊½.ζ̂.x, ∂²x, ∂x, ζ̂x, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.ζ̂.x, ∂²x, ∂x, ζ̂x, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.ζ̂.x, ∂²x, ∂x, ζ̂x, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.ζ̂.x₁, ∂²x, ∂x, ζ̂x, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ζ̂.x₁, ∂²x, ∂x, ζ̂x, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ζ̂.x₁, ∂²x, ∂x, ζ̂x, k₊½_domain, ζ)
 
   # ξ̂y = (z_η x)_ζ − (z_ζ x)_η
   ξ̂y = m.cache.metric
   conserved_metric!(m, ξ̂y, z, η, x, ζ, domain)
-  toedge!(edge_metrics.i₊½.ξ̂.y, ∂²x, ∂x, ξ̂y, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.ξ̂.y, ∂²x, ∂x, ξ̂y, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.ξ̂.y, ∂²x, ∂x, ξ̂y, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.ξ̂.x₂, ∂²x, ∂x, ξ̂y, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ξ̂.x₂, ∂²x, ∂x, ξ̂y, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ξ̂.x₂, ∂²x, ∂x, ξ̂y, k₊½_domain, ζ)
 
   # η̂y = (z_ζ x)_ξ − (z_ξ x)_ζ
   η̂y = m.cache.metric
   conserved_metric!(m, η̂y, z, ζ, x, ξ, domain)
-  toedge!(edge_metrics.i₊½.η̂.y, ∂²x, ∂x, η̂y, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.η̂.y, ∂²x, ∂x, η̂y, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.η̂.y, ∂²x, ∂x, η̂y, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.η̂.x₂, ∂²x, ∂x, η̂y, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.η̂.x₂, ∂²x, ∂x, η̂y, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.η̂.x₂, ∂²x, ∂x, η̂y, k₊½_domain, ζ)
 
   # ζ̂y = (z_ξ x)_η − (z_η x)_ξ
   ζ̂y = m.cache.metric
   conserved_metric!(m, ζ̂y, z, ξ, x, η, domain)
-  toedge!(edge_metrics.i₊½.ζ̂.y, ∂²x, ∂x, ζ̂y, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.ζ̂.y, ∂²x, ∂x, ζ̂y, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.ζ̂.y, ∂²x, ∂x, ζ̂y, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.ζ̂.x₂, ∂²x, ∂x, ζ̂y, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ζ̂.x₂, ∂²x, ∂x, ζ̂y, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ζ̂.x₂, ∂²x, ∂x, ζ̂y, k₊½_domain, ζ)
 
   # ξ̂z = (x_η y)_ζ − (x_ζ y)_η
   ξ̂z = m.cache.metric
   conserved_metric!(m, ξ̂z, x, η, y, ζ, domain)
-  toedge!(edge_metrics.i₊½.ξ̂.z, ∂²x, ∂x, ξ̂z, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.ξ̂.z, ∂²x, ∂x, ξ̂z, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.ξ̂.z, ∂²x, ∂x, ξ̂z, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.ξ̂.x₃, ∂²x, ∂x, ξ̂z, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ξ̂.x₃, ∂²x, ∂x, ξ̂z, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ξ̂.x₃, ∂²x, ∂x, ξ̂z, k₊½_domain, ζ)
 
   # η̂z = (x_ζ y)_ξ − (x_ξ y)_ζ
   η̂z = m.cache.metric
   conserved_metric!(m, η̂z, x, ζ, y, ξ, domain)
-  toedge!(edge_metrics.i₊½.η̂.z, ∂²x, ∂x, η̂z, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.η̂.z, ∂²x, ∂x, η̂z, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.η̂.z, ∂²x, ∂x, η̂z, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.η̂.x₃, ∂²x, ∂x, η̂z, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.η̂.x₃, ∂²x, ∂x, η̂z, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.η̂.x₃, ∂²x, ∂x, η̂z, k₊½_domain, ζ)
 
   # ζ̂z = (x_ξ y)_η − (x_η y)_ξ
   ζ̂z = m.cache.metric
   conserved_metric!(m, ζ̂z, x, ξ, y, η, domain)
-  toedge!(edge_metrics.i₊½.ζ̂.z, ∂²x, ∂x, ζ̂z, i₊½_domain, ξ)
-  toedge!(edge_metrics.j₊½.ζ̂.z, ∂²x, ∂x, ζ̂z, j₊½_domain, η)
-  toedge!(edge_metrics.k₊½.ζ̂.z, ∂²x, ∂x, ζ̂z, k₊½_domain, ζ)
+  toedge!(edge_metrics.i₊½.ζ̂.x₃, ∂²x, ∂x, ζ̂z, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ζ̂.x₃, ∂²x, ∂x, ζ̂z, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ζ̂.x₃, ∂²x, ∂x, ζ̂z, k₊½_domain, ζ)
 
   return nothing
 end

@@ -38,16 +38,4 @@ Metric1D(x, t) = Metric1D(promote(x, t)...)
 Metric2D(x, y, t) = Metric2D(promote(x, y, t)...)
 Metric3D(x, y, z, t) = Metric3D(promote(x, y, z, t)...)
 
-# function contravariant_velocity(m::Metric1D, v)
-#   return m.t + m.x * v
-# end
-
-# function contravariant_velocity(m::Metric2D, v⃗::SVector{2,T}) where {T}
-#   return m.t + (m.x * v⃗.x + m.y * v⃗.y)
-# end
-
-# function contravariant_velocity(m::Metric3D, v⃗::SVector{3,T}) where {T}
-#   return m.t + (m.x * v⃗.x + m.y * v⃗.y + m.z * v⃗.z)
-# end
-
 end

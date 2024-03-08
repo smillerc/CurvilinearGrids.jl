@@ -55,7 +55,7 @@ end
   #   m_i₊½ = conservative_metrics(mesh, i + 0.5)
   #   m_i₋½ = conservative_metrics(mesh, i - 0.5)
 
-  #   I₁ = (m_i₊½.ξ̂.x - m_i₋½.ξ̂.x)
+  #   I₁ = (m_i₊½.ξ̂.x₁- m_i₋½.ξ̂.x)
   #   # @show I₁, m_i₊½.ξ̂.x, m_i₋½.ξ̂.x
   #   I₁_passes = abs(I₁) < eps()
   #   if !(I₁_passes)
@@ -207,7 +207,7 @@ end
   # #   m_i₊½ = conservative_metrics(mesh, i + 0.5)
   # #   m_i₋½ = conservative_metrics(mesh, i - 0.5)
 
-  # #   I₁ = (m_i₊½.ξ̂.x - m_i₋½.ξ̂.x)
+  # #   I₁ = (m_i₊½.ξ̂.x₁- m_i₋½.ξ̂.x)
   # #   # @show I₁, m_i₊½.ξ̂.x, m_i₋½.ξ̂.x
   # #   I₁_passes = abs(I₁) < eps()
   # #   if !(I₁_passes)
@@ -253,5 +253,5 @@ using MappedArrays
 # mesh._coordinate_funcs.XYZ(10, 4, 1)
 
 # full = mesh.iterators.cell.full |> collect
-# 
+#
 # xc = mappedarray(mesh._coordinate_funcs.x, full)
