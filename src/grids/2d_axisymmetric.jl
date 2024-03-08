@@ -10,9 +10,10 @@ CylindricalGrid2D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CylindricalGrid2D{CO,CE,NV,EM,CM,CI,CF,JF} <: AbstractCurvilinearGrid
+struct CylindricalGrid2D{CO,CE,EMC,NV,EM,CM,CI,CF,JF} <: AbstractCurvilinearGrid
   node_coordinates::CO
   centroid_coordinates::CE
+  edge_midpoint_coordinates::EMC
   node_velocities::NV
   edge_metrics::EM
   cell_center_metrics::CM
@@ -54,13 +55,22 @@ function CylindricalGrid2D(
     r=KernelAbstractions.zeros(backend, T, celldims),
     z=KernelAbstractions.zeros(backend, T, celldims),
   ))
-  _rz_centroid_coordinates!(centroids, coordinate_funcs, domain_iterators.cell.full, nhalo)
 
   coords = StructArray((
     r=KernelAbstractions.zeros(backend, T, nodedims),
     z=KernelAbstractions.zeros(backend, T, nodedims),
   ))
-  _rz_node_coordinates!(coords, coordinate_funcs, domain_iterators.node.full, nhalo)
+
+  edge_coords = (
+    i₊½=StructArray((
+      r=KernelAbstractions.zeros(backend, T, celldims),
+      z=KernelAbstractions.zeros(backend, T, celldims),
+    )),
+    j₊½=StructArray((
+      r=KernelAbstractions.zeros(backend, T, celldims),
+      z=KernelAbstractions.zeros(backend, T, celldims),
+    )),
+  )
 
   node_velocities = StructArray((
     r=KernelAbstractions.zeros(backend, T, nodedims),
@@ -70,6 +80,7 @@ function CylindricalGrid2D(
   m = CylindricalGrid2D(
     coords,
     centroids,
+    edge_coords,
     node_velocities,
     edge_metrics,
     cell_center_metrics,
@@ -80,9 +91,33 @@ function CylindricalGrid2D(
     jacobian_matrix_func,
   )
 
+  update_coordinates(m)
   update_metrics!(m)
   check_for_invalid_metrics(m)
   return m
+end
+
+function update_coordinates(mesh::CylindricalGrid2D)
+  update_coordinates(
+    mesh.centroid_coordinates,
+    mesh.node_coordinates,
+    mesh.edge_midpoint_coordinates,
+    mesh._coordinate_funcs,
+    mesh.iterators,
+    mesh.nhalo,
+  )
+
+  return nothing
+end
+
+function update_coordinates(
+  centroids, coords, edge_coords, coordinate_funcs, domain_iterators, nhalo
+)
+  _rz_centroid_coordinates!(centroids, coordinate_funcs, domain_iterators.cell.full, nhalo)
+  _rz_node_coordinates!(coords, coordinate_funcs, domain_iterators.node.full, nhalo)
+  _rz_edge_coordinates!(edge_coords, coordinate_funcs, domain_iterators.cell.full, nhalo)
+
+  return nothing
 end
 
 function update_metrics!(mesh::CylindricalGrid2D, t::Real=0)
@@ -221,7 +256,7 @@ function _rz_node_coordinates!(
 ) where {T}
 
   # Populate the node coordinates
-  @inbounds for idx in domain
+  for idx in domain
     cell_idx = @. idx.I - nhalo
     coordinates.r[idx] = coordinate_functions.r(cell_idx...)
     coordinates.z[idx] = coordinate_functions.z(cell_idx...)
@@ -235,10 +270,28 @@ function _rz_centroid_coordinates!(
 ) where {T}
 
   # Populate the centroid coordinates
-  @inbounds for idx in domain
+  for idx in domain
     cell_idx = @. idx.I - nhalo + 0.5
     centroids.r[idx] = coordinate_functions.r(cell_idx...)
     centroids.z[idx] = coordinate_functions.z(cell_idx...)
+  end
+
+  return nothing
+end
+
+function _rz_edge_coordinates!(edge_coords, coordinate_functions, domain, nhalo)
+
+  # Populate the centroid coordinates
+  for idx in domain
+    cell_idx = @. idx.I - nhalo + 0.5
+
+    i₊½ = cell_idx .+ (0.5, 0)
+    j₊½ = cell_idx .+ (0, 0.5)
+    edge_coords.i₊½.r[idx] = coordinate_functions.r(i₊½...)
+    edge_coords.i₊½.z[idx] = coordinate_functions.z(i₊½...)
+
+    edge_coords.j₊½.r[idx] = coordinate_functions.r(j₊½...)
+    edge_coords.j₊½.z[idx] = coordinate_functions.z(j₊½...)
   end
 
   return nothing
