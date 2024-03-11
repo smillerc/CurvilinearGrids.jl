@@ -20,12 +20,17 @@ struct CylindricalGrid2D{CO,CE,EMC,NV,EM,CM,CI,CF,JF} <: AbstractCurvilinearGrid
   nhalo::Int
   nnodes::NTuple{2,Int}
   iterators::CI
+  snap_to_axis::Bool
   _coordinate_funcs::CF
   _jacobian_matrix_func::JF
 end
 
+"""
+    CylindricalGrid2D(r, z, (ni, nj), nhalo, snap_to_axis; T=Float64, backend=CPU())
+
+"""
 function CylindricalGrid2D(
-  r::Function, z::Function, (ni, nj), nhalo; T=Float64, backend=CPU()
+  r::Function, z::Function, (ni, nj), nhalo, snap_to_axis; T=Float64, backend=CPU()
 )
   dim = 2
   check_nargs(r, dim, :r)
@@ -87,6 +92,7 @@ function CylindricalGrid2D(
     nhalo,
     nnodes,
     domain_iterators,
+    snap_to_axis,
     coordinate_funcs,
     jacobian_matrix_func,
   )
@@ -105,16 +111,22 @@ function update_coordinates(mesh::CylindricalGrid2D)
     mesh._coordinate_funcs,
     mesh.iterators,
     mesh.nhalo,
+    mesh.snap_to_axis,
   )
 
   return nothing
 end
 
 function update_coordinates(
-  centroids, coords, edge_coords, coordinate_funcs, domain_iterators, nhalo
+  centroids, coords, edge_coords, coordinate_funcs, domain_iterators, nhalo, snap_to_axis
 )
   _rz_centroid_coordinates!(centroids, coordinate_funcs, domain_iterators.cell.full, nhalo)
   _rz_node_coordinates!(coords, coordinate_funcs, domain_iterators.node.full, nhalo)
+
+  if snap_to_axis
+    _check_nodes_along_axis(coords, domain_iterators.node.domain)
+  end
+
   _rz_edge_coordinates!(edge_coords, coordinate_funcs, domain_iterators.cell.full, nhalo)
 
   return nothing
@@ -295,4 +307,15 @@ function _rz_edge_coordinates!(edge_coords, coordinate_functions, domain, nhalo)
   end
 
   return nothing
+end
+
+function _check_nodes_along_axis(nodes, inner_domain)
+  @views begin
+    axis_domain = inner_domain[1, :]
+    if any(!iszero(nodes.r[axis_domain]))
+      error(
+        "Nodes not aligned to axis of symmetry (`snap_to_axis = true`). Set snap_to_axis = false to disable checks",
+      )
+    end
+  end
 end

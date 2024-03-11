@@ -15,7 +15,8 @@
   nr, nz = (5, 11)
   nhalo = 0
   r, z = rzmesh(nr, nz)
-  mesh = CylindricalGrid2D(r, z, (nr, nz), nhalo)
+  snap_to_axis = true
+  mesh = CylindricalGrid2D(r, z, (nr, nz), nhalo, snap_to_axis)
   # cmesh = CurvilinearGrid2D(r, z, (nr, nz), nhalo)
   # nothing
   # end
