@@ -10,7 +10,7 @@ CylindricalGrid2D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CylindricalGrid2D{CO,CE,EMC,NV,EM,CM,CI,CF,JF} <: AbstractCurvilinearGrid
+struct CylindricalGrid2D{CO,CE,EMC,NV,EM,CM,CI,CF,JF} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
   edge_midpoint_coordinates::EMC

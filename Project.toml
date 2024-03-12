@@ -4,6 +4,7 @@ authors = ["Sam Miller <smil@lle.rochester.edu> and contributors"]
 version = "0.4.0"
 
 [deps]
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 ChunkSplitters = "ae650224-84b6-46f8-82ea-d812ca08434e"
 FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
 FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
@@ -19,6 +20,7 @@ UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
 
 [compat]
+Adapt = "4"
 ChunkSplitters = "2"
 FillArrays = "1"
 FiniteDifferences = "0.12"

@@ -32,4 +32,6 @@ export cell_metrics, cell_indices
 export radius
 export cellvolume
 
+include("adapt_to_gpu.jl")
+
 end

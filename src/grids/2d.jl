@@ -10,7 +10,7 @@ CurvilinearGrid2D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,CF,JF} <: AbstractCurvilinearGrid
+struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,CF,JF} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
