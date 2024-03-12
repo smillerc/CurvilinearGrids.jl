@@ -9,7 +9,7 @@ CurvilinearGrid1D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,CF,DX} <: AbstractCurvilinearGrid
+struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,CF,DX} <: AbstractCurvilinearGrid1D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -96,7 +96,7 @@ function CurvilinearGrid1D(x::Function, ni::Int, nhalo; T=Float64, backend=CPU()
   return m
 end
 
-function update_metrics!(m::CurvilinearGrid1D, t::Real=0)
+function update_metrics!(m::AbstractCurvilinearGrid1D, t::Real=0)
   # cell metrics
   @inbounds for idx in m.iterators.cell.full
     cell_idx, = idx.I .+ 0.5
@@ -124,7 +124,7 @@ end
 # Grid Metrics
 # ------------------------------------------------------------------
 
-@inline function metrics(m::CurvilinearGrid1D, i::Real, t::Real=0)
+@inline function metrics(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
   _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo, t))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   ξx = inv_jacobian_matrix[1]
@@ -142,7 +142,7 @@ end
 # Conservative Grid Metrics; e.g. ξ̂x = ξx * J
 # ------------------------------------------------------------------
 
-@inline function conservative_metrics(m::CurvilinearGrid1D, i::Real, t::Real=0)
+@inline function conservative_metrics(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
   _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo, t))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   ξx = inv_jacobian_matrix[1]
@@ -160,11 +160,11 @@ end
 # Jacobian related functions
 # ------------------------------------------------------------------
 
-@inline function jacobian_matrix(m::CurvilinearGrid1D, i::Real, t::Real=0)
+@inline function jacobian_matrix(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
   return checkeps(SMatrix{1,1}(m.∂x∂ξ(i - m.nhalo, t)))
 end
 
-@inline function jacobian(m::CurvilinearGrid1D, i::Real, t::Real=0)
+@inline function jacobian(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
   return abs(m.∂x∂ξ(i - m.nhalo, t))
 end
 
@@ -172,9 +172,9 @@ end
 # Velocity Functions
 # ------------------------------------------------------------------
 
-@inline grid_velocities(m::CurvilinearGrid1D, i, t::Real=0) = 0.0
-# @inline centroid_velocities(m::CurvilinearGrid1D, i, t) = 0.0
-# @inline node_velocities(m::CurvilinearGrid1D, i, t) = 0.0
+@inline grid_velocities(m::AbstractCurvilinearGrid1D, i, t::Real=0) = 0.0
+# @inline centroid_velocities(m::AbstractCurvilinearGrid1D, i, t) = 0.0
+# @inline node_velocities(m::AbstractCurvilinearGrid1D, i, t) = 0.0
 
 # ------------------------------------------------------------------
 # Coordinate Functions

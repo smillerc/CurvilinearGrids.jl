@@ -25,6 +25,9 @@ export metrics_with_jacobian
 export cell_metrics, cell_indices
 
 abstract type AbstractCurvilinearGrid end
+abstract type AbstractCurvilinearGrid1D <: AbstractCurvilinearGrid end
+abstract type AbstractCurvilinearGrid2D <: AbstractCurvilinearGrid end
+abstract type AbstractCurvilinearGrid3D <: AbstractCurvilinearGrid end
 
 # Helper functions to eliminate floating point values below ϵ; these
 # are used to "clean" the jacobian matrices, so we don't get
@@ -64,7 +67,6 @@ end
 include("metric_soa.jl")
 include("grid_iterators.jl")
 include("1d.jl")
-# include("1d_spherical.jl")
 include("1d_axisymmetric.jl")
 include("2d.jl")
 include("2d_axisymmetric.jl")
