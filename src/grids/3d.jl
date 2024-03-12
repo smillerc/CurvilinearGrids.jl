@@ -47,7 +47,7 @@ function CurvilinearGrid3D(
   test_coord_func(z, dim, :z)
 
   coord(i, j, k) = @SVector [x(i, j, k), y(i, j, k), z(i, j, k)]
-  function jacobian_matrix_func(i, j, k)
+  function jacobian_matrix_func(i, j, k, t)
     return ForwardDiff.jacobian(x -> coord(x[1], x[2], x[3]), @SVector [i, j, k])
   end
 
@@ -91,93 +91,7 @@ function CurvilinearGrid3D(
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  cell_center_metrics = (
-    J=zeros(T, domain_iterators.cell.full.indices),
-    ξ=StructArray((
-      x=KernelAbstractions.zeros(backend, T, celldims),
-      y=KernelAbstractions.zeros(backend, T, celldims),
-      z=KernelAbstractions.zeros(backend, T, celldims),
-      t=KernelAbstractions.zeros(backend, T, celldims),
-    )),
-    η=StructArray((
-      x=KernelAbstractions.zeros(backend, T, celldims),
-      y=KernelAbstractions.zeros(backend, T, celldims),
-      z=KernelAbstractions.zeros(backend, T, celldims),
-      t=KernelAbstractions.zeros(backend, T, celldims),
-    )),
-    ζ=StructArray((
-      x=KernelAbstractions.zeros(backend, T, celldims),
-      y=KernelAbstractions.zeros(backend, T, celldims),
-      z=KernelAbstractions.zeros(backend, T, celldims),
-      t=KernelAbstractions.zeros(backend, T, celldims),
-    )),
-  )
-
-  edge_metrics = (
-    i₊½=(
-      J=KernelAbstractions.zeros(backend, T, celldims),
-      ξ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      η̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      ζ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-    ),
-    j₊½=(
-      J=KernelAbstractions.zeros(backend, T, celldims),
-      ξ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      η̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      ζ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-    ),
-    k₊½=(
-      J=KernelAbstractions.zeros(backend, T, celldims),
-      ξ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      η̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      ζ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        z=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-    ),
-  )
+  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
   coordinate_funcs = (; x, y, z)
   centroids = StructArray((
@@ -220,7 +134,7 @@ function CurvilinearGrid3D(
   return m
 end
 
-function update_metrics!(m::CurvilinearGrid3D, t=0)
+function update_metrics!(m::CurvilinearGrid3D, t::Real=0)
   # Update the metrics within the non-halo region, e.g., the domain
   domain = m.iterators.cell.domain
 
@@ -230,19 +144,19 @@ function update_metrics!(m::CurvilinearGrid3D, t=0)
     # @unpack J, ξ, η, ζ, x, y, z = metrics(m, cell_idx, 0)
     @unpack J, ξ, η, ζ = metrics(m, cell_idx, t)
 
-    m.cell_center_metrics.ξ.x[idx] = ξ.x
-    m.cell_center_metrics.ξ.y[idx] = ξ.y
-    m.cell_center_metrics.ξ.z[idx] = ξ.z
+    m.cell_center_metrics.ξ.x₁[idx] = ξ.x₁
+    m.cell_center_metrics.ξ.x₂[idx] = ξ.x₂
+    m.cell_center_metrics.ξ.x₃[idx] = ξ.x₃
     m.cell_center_metrics.ξ.t[idx] = ξ.t
 
-    m.cell_center_metrics.η.x[idx] = η.x
-    m.cell_center_metrics.η.y[idx] = η.y
-    m.cell_center_metrics.η.z[idx] = η.z
+    m.cell_center_metrics.η.x₁[idx] = η.x₁
+    m.cell_center_metrics.η.x₂[idx] = η.x₂
+    m.cell_center_metrics.η.x₃[idx] = η.x₃
     m.cell_center_metrics.η.t[idx] = η.t
 
-    m.cell_center_metrics.ζ.x[idx] = ζ.x
-    m.cell_center_metrics.ζ.y[idx] = ζ.y
-    m.cell_center_metrics.ζ.z[idx] = ζ.z
+    m.cell_center_metrics.ζ.x₁[idx] = ζ.x₁
+    m.cell_center_metrics.ζ.x₂[idx] = ζ.x₂
+    m.cell_center_metrics.ζ.x₃[idx] = ζ.x₃
     m.cell_center_metrics.ζ.t[idx] = ζ.t
 
     # m.cell_center_inv_metrics.xξ[idx] = x.ξ
@@ -273,10 +187,10 @@ end
 # Grid Metrics
 # ------------------------------------------------------------------
 
-# Get the grid metrics for a static grid
-@inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real)
+# Get the grid metrics
+@inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0)
   _jacobian_matrix = checkeps(
-    m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo)
+    m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo, t)
   )
   J = det(_jacobian_matrix)
 
@@ -308,13 +222,11 @@ end
 # Conservative Grid Metrics; e.g. ξ̂x = ξx * J
 # ------------------------------------------------------------------
 
-@inline conservative_metrics(m::CurvilinearGrid3D, idx) = conservative_metrics(m, idx, 0)
-
 @inline function conservative_metrics(
-  m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real
+  m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0
 )
   _jacobian_matrix = checkeps(
-    m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo)
+    m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo, t)
   )
   J = det(_jacobian_matrix)
 
@@ -356,20 +268,20 @@ end
 # Jacobian related functions
 # ------------------------------------------------------------------
 
-function jacobian_matrix(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
+function jacobian_matrix(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0)
   # return checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))
-  return m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo)
+  return m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo, t)
 end
 
-function jacobian(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
-  return det(jacobian_matrix(m, (i, j, k)))
+function jacobian(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0)
+  return det(jacobian_matrix(m, (i, j, k), t))
 end
 
 # ------------------------------------------------------------------
 # Velocity Functions
 # ------------------------------------------------------------------
 
-@inline grid_velocities(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t) =
+@inline grid_velocities(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0) =
   (0.0, 0.0, 0.0)
 # @inline centroid_velocities(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t) = (0.0, 0.0, 0.0)
 # @inline node_velocities(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t) = (0.0, 0.0, 0.0)

@@ -20,9 +20,8 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,CF,JF} <: AbstractCurvilinearGrid
   nnodes::NTuple{2,Int}
   domain_limits::DL
   iterators::CI
-  # discretization_scheme::DS
   _coordinate_funcs::CF
-  _jacobian_matrix_func::JF # jacobian_matrix(ξ,η)
+  _jacobian_matrix_func::JF
 end
 
 function CurvilinearGrid2D(
@@ -35,8 +34,9 @@ function CurvilinearGrid2D(
   test_coord_func(y, dim, :y)
 
   xy(i, j) = @SVector [x(i, j), y(i, j)]
-  jacobian_matrix_func(i, j) = ForwardDiff.jacobian(x -> xy(x[1], x[2]), @SVector [i, j])
-
+  function jacobian_matrix_func(i, j, t)
+    return ForwardDiff.jacobian(x -> xy(x[1], x[2]), @SVector [i, j])
+  end
   # jacobian_matrix_func = _setup_jacobian_func(x, y)
   nnodes = (n_ξ, n_η)
   ncells = nnodes .- 1
@@ -51,65 +51,10 @@ function CurvilinearGrid2D(
   cellCI = CartesianIndices(ncells .+ 2nhalo)
 
   domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
-
-  # if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
-  #   if nhalo != 6
-  #     error("`nhalo` must = 6 when using the MEG6 discretization scheme")
-  #   end
-
-  #   discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-  #     domain_iterators.cell.full
-  #   )
-
-  # else
-  #   error("Unknown discretization scheme to compute the conserved metrics")
-  # end
-
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  cell_center_metrics = (
-    J=KernelAbstractions.zeros(backend, T, celldims),
-    ξ=StructArray((
-      x=KernelAbstractions.zeros(backend, T, celldims),
-      y=KernelAbstractions.zeros(backend, T, celldims),
-      t=KernelAbstractions.zeros(backend, T, celldims),
-    )),
-    η=StructArray((
-      x=KernelAbstractions.zeros(backend, T, celldims),
-      y=KernelAbstractions.zeros(backend, T, celldims),
-      t=KernelAbstractions.zeros(backend, T, celldims),
-    )),
-  )
-
-  edge_metrics = (
-    i₊½=(
-      J=KernelAbstractions.zeros(backend, T, celldims),
-      ξ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      η̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-    ),
-    j₊½=(
-      J=KernelAbstractions.zeros(backend, T, celldims),
-      ξ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      η̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        y=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-    ),
-  )
+  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
   coordinate_funcs = (; x, y)
   centroids = StructArray((
@@ -129,7 +74,7 @@ function CurvilinearGrid2D(
     y=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  m = CurvilinearGrid2D(
+  mesh = CurvilinearGrid2D(
     coords,
     centroids,
     node_velocities,
@@ -143,64 +88,64 @@ function CurvilinearGrid2D(
     jacobian_matrix_func,
   )
 
-  update_metrics!(m)
-  check_for_invalid_metrics(m)
-  return m
+  update_metrics!(mesh)
+  # check_for_invalid_metrics(mesh)
+  return mesh
 end
 
-function update_metrics!(m::CurvilinearGrid2D, t=0)
+function update_metrics!(mesh::CurvilinearGrid2D, t::Real=0)
 
   # cell metrics
-  @inbounds for idx in m.iterators.cell.full
+  @inbounds for idx in mesh.iterators.cell.full
     cell_idx = idx.I .+ 0.5
-    # @unpack J, ξ, η, x, y = metrics(m, cell_idx, t)
-    @unpack J, ξ, η = metrics(m, cell_idx, t)
+    # @unpack J, ξ, η, x, y = metrics(mesh, cell_idx, t)
+    @unpack J, ξ, η = metrics(mesh, cell_idx, t)
 
-    m.cell_center_metrics.ξ.x[idx] = ξ.x
-    m.cell_center_metrics.ξ.y[idx] = ξ.y
-    m.cell_center_metrics.ξ.t[idx] = ξ.t
-    m.cell_center_metrics.η.x[idx] = η.x
-    m.cell_center_metrics.η.y[idx] = η.y
-    m.cell_center_metrics.η.t[idx] = η.t
+    mesh.cell_center_metrics.ξ.x₁[idx] = ξ.x₁
+    mesh.cell_center_metrics.ξ.x₂[idx] = ξ.x₂
+    mesh.cell_center_metrics.ξ.t[idx] = ξ.t
+    mesh.cell_center_metrics.η.x₁[idx] = η.x₁
+    mesh.cell_center_metrics.η.x₂[idx] = η.x₂
+    mesh.cell_center_metrics.η.t[idx] = η.t
 
-    # m.cell_center_inv_metrics.xξ[idx] = x.ξ
-    # m.cell_center_inv_metrics.yξ[idx] = y.ξ
-    # m.cell_center_inv_metrics.xη[idx] = x.η
-    # m.cell_center_inv_metrics.yη[idx] = y.η
+    # mesh.cell_center_inv_metrics.xξ[idx] = x.ξ
+    # mesh.cell_center_inv_metrics.yξ[idx] = y.ξ
+    # mesh.cell_center_inv_metrics.xη[idx] = x.η
+    # mesh.cell_center_inv_metrics.yη[idx] = y.η
 
-    m.cell_center_metrics.J[idx] = J
+    mesh.cell_center_metrics.J[idx] = J
   end
 
   # i₊½ conserved metrics
-  @inbounds for idx in m.iterators.cell.full
+  @inbounds for idx in mesh.iterators.cell.full
     i, j = idx.I .+ 0.5 # centroid index
 
     # get the conserved metrics at (i₊½, j)
-    @unpack ξ̂, η̂, J = conservative_metrics(m, (i + 1 / 2, j), t)
+    @unpack ξ̂, η̂, J = conservative_metrics(mesh, (i + 1 / 2, j), t)
 
-    m.edge_metrics.i₊½.ξ̂.x[idx] = ξ̂.x
-    m.edge_metrics.i₊½.ξ̂.y[idx] = ξ̂.y
-    m.edge_metrics.i₊½.ξ̂.t[idx] = ξ̂.t
-    m.edge_metrics.i₊½.η̂.x[idx] = η̂.x
-    m.edge_metrics.i₊½.η̂.y[idx] = η̂.y
-    m.edge_metrics.i₊½.η̂.t[idx] = η̂.t
-    m.edge_metrics.i₊½.J[idx] = J
+    mesh.edge_metrics.i₊½.ξ̂.x₁[idx] = ξ̂.x₁
+    mesh.edge_metrics.i₊½.ξ̂.x₂[idx] = ξ̂.x₂
+    mesh.edge_metrics.i₊½.ξ̂.t[idx] = ξ̂.t
+    mesh.edge_metrics.i₊½.η̂.x₁[idx] = η̂.x₁
+    mesh.edge_metrics.i₊½.η̂.x₂[idx] = η̂.x₂
+    mesh.edge_metrics.i₊½.η̂.t[idx] = η̂.t
+    mesh.edge_metrics.i₊½.J[idx] = J
   end
 
   # j₊½ conserved metrics
-  @inbounds for idx in m.iterators.cell.full
+  @inbounds for idx in mesh.iterators.cell.full
     i, j = idx.I .+ 0.5 # centroid index
 
     # get the conserved metrics at (i, j₊½)
-    @unpack ξ̂, η̂, J = conservative_metrics(m, (i, j + 1 / 2), t)
+    @unpack ξ̂, η̂, J = conservative_metrics(mesh, (i, j + 1 / 2), t)
 
-    m.edge_metrics.j₊½.ξ̂.x[idx] = ξ̂.x
-    m.edge_metrics.j₊½.ξ̂.y[idx] = ξ̂.y
-    m.edge_metrics.j₊½.ξ̂.t[idx] = ξ̂.t
-    m.edge_metrics.j₊½.η̂.x[idx] = η̂.x
-    m.edge_metrics.j₊½.η̂.y[idx] = η̂.y
-    m.edge_metrics.j₊½.η̂.t[idx] = η̂.t
-    m.edge_metrics.j₊½.J[idx] = J
+    mesh.edge_metrics.j₊½.ξ̂.x₁[idx] = ξ̂.x₁
+    mesh.edge_metrics.j₊½.ξ̂.x₂[idx] = ξ̂.x₂
+    mesh.edge_metrics.j₊½.ξ̂.t[idx] = ξ̂.t
+    mesh.edge_metrics.j₊½.η̂.x₁[idx] = η̂.x₁
+    mesh.edge_metrics.j₊½.η̂.x₂[idx] = η̂.x₂
+    mesh.edge_metrics.j₊½.η̂.t[idx] = η̂.t
+    mesh.edge_metrics.j₊½.J[idx] = J
   end
 
   return nothing
@@ -210,8 +155,8 @@ end
 # Grid Metrics
 # ------------------------------------------------------------------
 
-@inline function metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real)
-  _jacobian_matrix = checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo))
+@inline function metrics(mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
+  _jacobian_matrix = checkeps(mesh._jacobian_matrix_func(i - mesh.nhalo, j - mesh.nhalo, t))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   ξx = inv_jacobian_matrix[1, 1]
   ξy = inv_jacobian_matrix[1, 2]
@@ -220,7 +165,7 @@ end
 
   J = det(_jacobian_matrix)
 
-  vx, vy = grid_velocities(m, (i, j), t)
+  vx, vy = grid_velocities(mesh, (i, j), t)
   ξt = -(vx * ξx + vy * ξy)
   ηt = -(vx * ηx + vy * ηy)
 
@@ -234,10 +179,10 @@ end
 # Conservative Grid Metrics; e.g. ξ̂x = ξx * J
 # ------------------------------------------------------------------
 
-@inline conservative_metrics(m::CurvilinearGrid2D, idx) = conservative_metrics(m, idx, 0)
-
-@inline function conservative_metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real)
-  _jacobian_matrix = checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo))
+@inline function conservative_metrics(
+  mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0
+)
+  _jacobian_matrix = checkeps(mesh._jacobian_matrix_func(i - mesh.nhalo, j - mesh.nhalo, t))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   ξx = inv_jacobian_matrix[1, 1]
   ξy = inv_jacobian_matrix[1, 2]
@@ -246,7 +191,7 @@ end
 
   J = det(_jacobian_matrix)
 
-  vx, vy = grid_velocities(m, (i, j), t)
+  vx, vy = grid_velocities(mesh, (i, j), t)
   ξt = -(vx * ξx + vy * ξy)
   ηt = -(vx * ηx + vy * ηy)
 
@@ -259,21 +204,21 @@ end
 # ------------------------------------------------------------------
 # Jacobian related functions
 # ------------------------------------------------------------------
-function jacobian_matrix(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
-  return checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo))
+function jacobian_matrix(mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
+  return checkeps(mesh._jacobian_matrix_func(i - mesh.nhalo, j - mesh.nhalo, t))
 end
 
-function jacobian(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
-  return det(jacobian_matrix(m, (i, j)))
+function jacobian(mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
+  return det(jacobian_matrix(mesh, (i, j), t))
 end
 
 # ------------------------------------------------------------------
 # Velocity Functions
 # ------------------------------------------------------------------
 
-@inline grid_velocities(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t) = (0.0, 0.0)
-# @inline centroid_velocities(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t) = (0.0, 0.0)
-# @inline node_velocities(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t) = (0.0, 0.0)
+@inline grid_velocities(::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0) = (0.0, 0.0)
+# @inline centroid_velocities(mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t) = (0.0, 0.0)
+# @inline node_velocities(mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t) = (0.0, 0.0)
 
 # ------------------------------------------------------------------
 # Coordinate Functions

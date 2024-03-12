@@ -14,10 +14,11 @@ using ..MetricDiscretizationSchemes
 export AbstractCurvilinearGrid
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
 export CylindricalGrid1D, SphericalGrid1D
-export RZAxisymmetricGrid2D
+export CylindricalGrid2D
 export coord, coords, coords!, cellsize, cellsize_withhalo
 export centroid, centroids
-export area, volume
+export cellvolume
+export radius, centroid_radius
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
@@ -29,15 +30,15 @@ abstract type AbstractCurvilinearGrid end
 # are used to "clean" the jacobian matrices, so we don't get
 # numbers like 1e-18, when in reality they should be 0.0
 # @inline checkeps(M) = M # non-Float version
-@inline function checkeps(M::AbstractArray{T}) where {T<:AbstractFloat}
+@inline function checkeps(M::AbstractArray{T}, ϵ=eps(T)) where {T<:AbstractFloat}
   # return M #@. M * (abs(M) >= eps(T))
-  return @. M * (abs(M) >= eps(T))
+  return @. M * (abs(M) >= ϵ)
 end
 @inline checkeps(M) = M
 
 # helper func to ensure that coordinate functions
 # take the proper number of arguments, e.g., x(i) for 1d, x(i,j) for 2d
-function check_nargs(f, nargs, fname)
+@inline function check_nargs(f, nargs, fname)
   for m in methods(f)
     if (m.nargs - 1) != nargs
       error(
@@ -60,54 +61,70 @@ function test_coord_func(f, ndims, fname)
   end
 end
 
+include("metric_soa.jl")
 include("grid_iterators.jl")
 include("1d.jl")
+# include("1d_spherical.jl")
 include("1d_axisymmetric.jl")
 include("2d.jl")
 include("2d_axisymmetric.jl")
 include("3d.jl")
 
 """Get the size of the grid for cell-based arrays"""
-cellsize(m::AbstractCurvilinearGrid) = @. m.nnodes - 1
+cellsize(mesh::AbstractCurvilinearGrid) = @. mesh.nnodes - 1
 
 """Get the size of the grid for cell-based arrays when the halo cells are included"""
-cellsize_withhalo(m::AbstractCurvilinearGrid) = @. m.nnodes - 1 + 2 * m.nhalo
+cellsize_withhalo(mesh::AbstractCurvilinearGrid) = @. mesh.nnodes - 1 + 2 * mesh.nhalo
 
-function coords(m::CurvilinearGrid1D)
-  return @views m.node_coordinates.x[m.iterators.node.domain]
+@inline function coords(mesh::CurvilinearGrid1D)
+  return @views mesh.node_coordinates.x[mesh.iterators.node.domain]
 end
 
-function coords(m::CurvilinearGrid2D)
+@inline function coords(mesh::CurvilinearGrid2D)
   return @views (
-    m.node_coordinates.x[m.iterators.node.domain],
-    m.node_coordinates.y[m.iterators.node.domain],
+    mesh.node_coordinates.x[mesh.iterators.node.domain],
+    mesh.node_coordinates.y[mesh.iterators.node.domain],
   )
 end
 
-function coords(m::CurvilinearGrid3D)
+@inline function coords(mesh::CylindricalGrid2D)
   return @views (
-    m.node_coordinates.x[m.iterators.node.domain],
-    m.node_coordinates.y[m.iterators.node.domain],
-    m.node_coordinates.z[m.iterators.node.domain],
+    mesh.node_coordinates.r[mesh.iterators.node.domain],
+    mesh.node_coordinates.z[mesh.iterators.node.domain],
   )
 end
 
-function centroids(m::CurvilinearGrid1D)
-  return @views m.centroid_coordinates.x[m.iterators.cell.domain]
-end
-
-function centroids(m::CurvilinearGrid2D)
+@inline function coords(mesh::CurvilinearGrid3D)
   return @views (
-    m.centroid_coordinates.x[m.iterators.cell.domain],
-    m.centroid_coordinates.y[m.iterators.cell.domain],
+    mesh.node_coordinates.x[mesh.iterators.node.domain],
+    mesh.node_coordinates.y[mesh.iterators.node.domain],
+    mesh.node_coordinates.z[mesh.iterators.node.domain],
   )
 end
 
-function centroids(m::CurvilinearGrid3D)
+@inline function centroids(mesh::CurvilinearGrid1D)
+  return @views mesh.centroid_coordinates.x[mesh.iterators.cell.domain]
+end
+
+@inline function centroids(mesh::CurvilinearGrid2D)
   return @views (
-    m.centroid_coordinates.x[m.iterators.cell.domain],
-    m.centroid_coordinates.y[m.iterators.cell.domain],
-    m.centroid_coordinates.z[m.iterators.cell.domain],
+    mesh.centroid_coordinates.x[mesh.iterators.cell.domain],
+    mesh.centroid_coordinates.y[mesh.iterators.cell.domain],
+  )
+end
+
+@inline function centroids(mesh::CylindricalGrid2D)
+  return @views (
+    mesh.centroid_coordinates.r[mesh.iterators.cell.domain],
+    mesh.centroid_coordinates.z[mesh.iterators.cell.domain],
+  )
+end
+
+@inline function centroids(mesh::CurvilinearGrid3D)
+  return @views (
+    mesh.centroid_coordinates.x[mesh.iterators.cell.domain],
+    mesh.centroid_coordinates.y[mesh.iterators.cell.domain],
+    mesh.centroid_coordinates.z[mesh.iterators.cell.domain],
   )
 end
 
@@ -119,38 +136,59 @@ index at coord(mesh, 3). The `CurvilinearGrid` only keeps track of the number of
 dimension, whereas the grid functions have no knowledge halos. Therefore, the `coord` function
 applies a shift to the index for you.
 """
-coord(mesh, CI::CartesianIndex) = coord(mesh, CI.I)
-coord(m::CurvilinearGrid1D, i) = coord(m, (i,))
-coord(m::CurvilinearGrid1D, (i,)::NTuple{1,Real}) = m._coordinate_funcs.x(i - m.nhalo)
+@inline coord(mesh, CI::CartesianIndex, t::Real=0) = coord(mesh, CI.I, t)
 
-function coord(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
+@inline function coord(mesh::CurvilinearGrid1D, (i,)::NTuple{1,Real}, t::Real=0)
+  return mesh._coordinate_funcs.x(i - mesh.nhalo)
+end
+
+@inline function coord(mesh::AxisymmetricGrid1D, (i, j, k)::NTuple{3,Real}, t::Real=0)
+  return mesh._coordinate_funcs.r(i - mesh.nhalo)
+end
+
+@inline function coord(mesh::AxisymmetricGrid1D, (i,)::NTuple{1,Real}, t::Real=0)
+  return mesh._coordinate_funcs.r(i - mesh.nhalo)
+end
+
+@inline function coord(mesh::CurvilinearGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
   @SVector [
-    m._coordinate_funcs.x(i - m.nhalo, j - m.nhalo),
-    m._coordinate_funcs.y(i - m.nhalo, j - m.nhalo),
+    mesh._coordinate_funcs.x(i - mesh.nhalo, j - mesh.nhalo),
+    mesh._coordinate_funcs.y(i - mesh.nhalo, j - mesh.nhalo),
   ]
 end
 
-function coord(m::RZAxisymmetricGrid2D, (i, j)::NTuple{2,Real})
+@inline function coord(mesh::CylindricalGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
   @SVector [
-    m._coordinate_funcs.r(i - m.nhalo, 1, j - m.nhalo),
-    m._coordinate_funcs.z(i - m.nhalo, 1, j - m.nhalo),
+    mesh._coordinate_funcs.r(i - mesh.nhalo, j - mesh.nhalo),
+    mesh._coordinate_funcs.z(i - mesh.nhalo, j - mesh.nhalo),
   ]
 end
 
-function coord(m::RZAxisymmetricGrid2D, (i, j, k)::NTuple{3,Real})
+# @inline function coord(mesh::CylindricalGrid2D, (i, j, k)::NTuple{3,Real}, t::Real=0)
+#   @SVector [
+#     mesh._coordinate_funcs.r(i - mesh.nhalo, j - mesh.nhalo, k - mesh.nhalo),
+#     mesh._coordinate_funcs.θ(i - mesh.nhalo, j - mesh.nhalo, k - mesh.nhalo),
+#     mesh._coordinate_funcs.z(i - mesh.nhalo, j - mesh.nhalo, k - mesh.nhalo),
+#   ]
+# end
+
+@inline function coord(mesh::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0)
   @SVector [
-    m._coordinate_funcs.r(i - m.nhalo, j - m.nhalo, k - m.nhalo),
-    m._coordinate_funcs.θ(i - m.nhalo, j - m.nhalo, k - m.nhalo),
-    m._coordinate_funcs.z(i - m.nhalo, j - m.nhalo, k - m.nhalo),
+    mesh._coordinate_funcs.x(i - mesh.nhalo, j - mesh.nhalo, k - mesh.nhalo),
+    mesh._coordinate_funcs.y(i - mesh.nhalo, j - mesh.nhalo, k - mesh.nhalo),
+    mesh._coordinate_funcs.z(i - mesh.nhalo, j - mesh.nhalo, k - mesh.nhalo),
   ]
 end
 
-function coord(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
-  @SVector [
-    m._coordinate_funcs.x(i - m.nhalo, j - m.nhalo, k - m.nhalo),
-    m._coordinate_funcs.y(i - m.nhalo, j - m.nhalo, k - m.nhalo),
-    m._coordinate_funcs.z(i - m.nhalo, j - m.nhalo, k - m.nhalo),
-  ]
+@inline centroid_radius(mesh, CI::CartesianIndex, t::Real=0) = radius(mesh, CI.I .+ 0.5, t)
+@inline radius(mesh, CI::CartesianIndex, t::Real=0) = radius(mesh, CI.I, t)
+
+@inline function radius(mesh::AxisymmetricGrid1D, (i,)::NTuple{1,Real}, t::Real=0)
+  return mesh._coordinate_funcs.r(i - mesh.nhalo) |> abs
+end
+
+@inline function radius(mesh::CylindricalGrid2D, (i, j)::NTuple{2,Real}, t::Real=0)
+  return mesh._coordinate_funcs.r(i - mesh.nhalo, j - mesh.nhalo) |> abs
 end
 
 """
@@ -162,81 +200,55 @@ The `CurvilinearGrid` only keeps track of the number of halo cells for each dime
 whereas the grid functions have no knowledge halos. Therefore, the `coord` function
 applies a shift to the index for you.
 """
-centroid(mesh, CI::CartesianIndex) = centroid(mesh, CI.I)
-centroid(m::CurvilinearGrid1D, i) = coord(m, i + 0.5)
+@inline centroid(mesh, CI::CartesianIndex, t::Real=0) = coord(mesh, CI.I .+ 0.5, t)
+@inline centroid(mesh, i::Real, t::Real=0) = coord(mesh, (i .+ 0.5,), t)
 
-function centroid(m::CurvilinearGrid2D, (i, j)::NTuple{2,Int})
-  return coord(m, (i, j) .+ 0.5)
+@inline function centroid(mesh, (i, j)::NTuple{2,Int}, t::Real=0)
+  return coord(mesh, (i, j) .+ 0.5, t)
 end
 
-function centroid(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Int})
-  return coord(m, (i, j, k) .+ 0.5)
+@inline function centroid(mesh, (i, j, k)::NTuple{3,Int}, t::Real=0)
+  return coord(mesh, (i, j, k) .+ 0.5, t)
 end
 
-# """
-# Get the Jacobian matrix of the forward transformation (ξ,η,ζ) → (x,y,z).
-# """
-# jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
-# jacobian_matrix(mesh::CurvilinearGrid1D, i) = jacobian_matrix(mesh, (i,))
+"""
+Get the Jacobian matrix of the forward transformation (ξ,η,ζ) → (x,y,z).
+"""
+@inline jacobian_matrix(mesh, CI::CartesianIndex, t::Real=0) =
+  jacobian_matrix(mesh, CI.I, t)
+@inline jacobian_matrix(mesh, i::Real, t::Real=0) = jacobian_matrix(mesh, (i,), t)
 
-# """
-# Get the Jacobian of the forward transformation (ξ,η,ζ) → (x,y,z).
-# """
-# jacobian(mesh, CI::CartesianIndex) = jacobian(mesh, CI.I)
-# jacobian(mesh::CurvilinearGrid1D, i::Real) = jacobian(mesh, (i,))
+"""
+Get the Jacobian of the forward transformation (ξ,η,ζ) → (x,y,z).
+"""
+@inline jacobian(mesh, CI::CartesianIndex, t::Real=0) = jacobian(mesh, CI.I, t)
+@inline jacobian(mesh, i::Real, t::Real=0) = jacobian(mesh, (i,), t)
 
-# """
-# Query the mesh metrics at a particular index
-# """
-# metrics(mesh, CI::CartesianIndex) = metrics(mesh, CI.I...)
-# metrics(mesh::CurvilinearGrid1D, i::Real) = metrics(mesh, (i,))
+"""
+Query the mesh metrics at a particular index
+"""
+@inline metrics(mesh, CI::CartesianIndex, t::Real=0) = metrics(mesh, CI.I, t)
+@inline metrics(mesh, i::Real, t::Real=0) = metrics(mesh, (i,), t)
 
-# @inline function cell_metrics(m::CurvilinearGrid1D, i::Real)
-#   return metrics(m, i + 0.5)
-# end
+"""
+Query the conservative mesh metrics at a particular index that follow the GCL
+"""
+@inline conservative_metrics(mesh, CI::CartesianIndex) = conservative_metrics(mesh, CI.I, t)
+@inline conservative_metrics(mesh, i::Real, t::Real=0) = conservative_metrics(mesh, (i,), t)
 
-# @inline function cell_metrics(m::CurvilinearGrid2D, (i, j)::NTuple{2,Real})
-#   return metrics(m, (i + 0.5, j + 0.5))
-# end
-
-# @inline function cell_metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real})
-#   return metrics(m, (i + 0.5, j + 0.5, k + 0.5))
-# end
-
-# """
-# Query the conservative mesh metrics at a particular index that follow the GCL
-# """
-# conservative_metrics(mesh, CI::CartesianIndex) = conservative_metrics(mesh, CI.I...)
-# conservative_metrics(mesh::CurvilinearGrid1D, i::Real) = conservative_metrics(mesh, (i,))
-
-# function cell_indices(mesh::CurvilinearGrid1D)
-#   @unpack ilo, ihi = mesh.limits
-#   return CartesianIndices((ilo:ihi))
-# end
-
-# function cell_indices(mesh::CurvilinearGrid2D)
-#   @unpack ilo, ihi, jlo, jhi = mesh.limits
-#   return CartesianIndices((ilo:ihi, jlo:jhi))
-# end
-
-# function cell_indices(mesh::CurvilinearGrid3D)
-#   @unpack ilo, ihi, jlo, jhi, klo, khi = mesh.limits
-#   return CartesianIndices((ilo:ihi, jlo:jhi, klo:khi))
-# end
-
-function check_for_invalid_metrics(m::AbstractCurvilinearGrid)
-  domain = m.iterators.cell.domain
+function check_for_invalid_metrics(mesh::AbstractCurvilinearGrid)
+  domain = mesh.iterators.cell.domain
 
   # cell centroid metrics
   invalid_cell_metrics = false
   for idx in domain
-    if !(isfinite(m.cell_center_metrics.J[idx]))
+    if !(isfinite(mesh.cell_center_metrics.J[idx]))
       @error("Invalid jacobian @ index $(idx)")
       invalid_cell_metrics = true
     end
   end
 
-  for (name, data) in pairs(m.cell_center_metrics)
+  for (name, data) in pairs(mesh.cell_center_metrics)
     if data isa StructArray
       for idx in domain
         for c in StructArrays.components(data)
@@ -258,11 +270,15 @@ function check_for_invalid_metrics(m::AbstractCurvilinearGrid)
   # i₊½CI = expand_lower(domain, iaxis, 1)
   # j₊½CI = expand_lower(domain, jaxis, 1)
   # k₊½CI = expand_lower(domain, kaxis, 1)
-  edge_iterators = ntuple(i -> expand_lower(domain, i, 1), length(m.nnodes))
+  if mesh.nhalo > 0
+    edge_iterators = ntuple(i -> expand_lower(domain, i, 1), length(mesh.nnodes))
+  else
+    edge_iterators = ntuple(i -> domain, length(mesh.nnodes))
+  end
 
   # edge metrics
   invalid_edge_metrics = false
-  for (edge, edge_indices) in zip(m.edge_metrics, edge_iterators)
+  for (edge, edge_indices) in zip(mesh.edge_metrics, edge_iterators)
     for (name, data) in pairs(edge) # i₊½, j₊½, k₊½
       if data isa StructArray
         # metric_set = edge[idx] # ξ̂x, η̂x, etc...

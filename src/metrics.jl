@@ -6,24 +6,21 @@ export Metric1D, Metric2D, Metric3D
 export contravariant_velocity
 
 struct Metric1D{T} <: FieldVector{1,T}
-  x::T
+  x₁::T
   t::T
 end
 
 struct Metric2D{T} <: FieldVector{2,T}
-  x::T
-  y::T
+  x₁::T
+  x₂::T
   t::T
-  # Metric2D{T}(x, y) where {T} = new(x, y, zero(T))
 end
 
 struct Metric3D{T} <: FieldVector{3,T}
-  x::T
-  y::T
-  z::T
+  x₁::T
+  x₂::T
+  x₃::T
   t::T
-  # Metric3D{T}(x, y, z) where {T} = new(x, y, z, zero(T))
-  # Metric3D{T}(x, y, z, t) where {T} = new(x, y, z, t)
 end
 
 # Default constructors for Metrics
@@ -40,17 +37,5 @@ Metric3D(x::Real, y::Real, z::Real) = Metric3D(promote(x, y, z, 0)...)
 Metric1D(x, t) = Metric1D(promote(x, t)...)
 Metric2D(x, y, t) = Metric2D(promote(x, y, t)...)
 Metric3D(x, y, z, t) = Metric3D(promote(x, y, z, t)...)
-
-function contravariant_velocity(m::Metric1D, v)
-  return m.t + m.x * v
-end
-
-function contravariant_velocity(m::Metric2D, v⃗::SVector{2,T}) where {T}
-  return m.t + (m.x * v⃗.x + m.y * v⃗.y)
-end
-
-function contravariant_velocity(m::Metric3D, v⃗::SVector{3,T}) where {T}
-  return m.t + (m.x * v⃗.x + m.y * v⃗.y + m.z * v⃗.z)
-end
 
 end

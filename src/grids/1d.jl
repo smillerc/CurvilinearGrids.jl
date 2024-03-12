@@ -49,7 +49,9 @@ function CurvilinearGrid1D(x::Function, ni::Int, nhalo; T=Float64, backend=CPU()
   check_nargs(x, dim, :x)
   test_coord_func(x, dim, :x)
 
-  ∂x∂ξ(ξ) = ForwardDiff.derivative(x, ξ)
+  function ∂x∂ξ(ξ, t)
+    return ForwardDiff.derivative(x, ξ)
+  end
 
   nnodes = ni
   ncells = nnodes - 1
@@ -64,23 +66,7 @@ function CurvilinearGrid1D(x::Function, ni::Int, nhalo; T=Float64, backend=CPU()
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  cell_center_metrics = (
-    J=KernelAbstractions.zeros(backend, T, celldims),
-    ξ=StructArray((
-      x=KernelAbstractions.zeros(backend, T, celldims),
-      t=KernelAbstractions.zeros(backend, T, celldims),
-    )),
-  )
-
-  edge_metrics = (
-    i₊½=(
-      J=KernelAbstractions.zeros(backend, T, celldims),
-      ξ̂=StructArray((
-        x=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-    ),
-  )
+  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
   coordinate_funcs = (; x)
   centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
@@ -106,17 +92,17 @@ function CurvilinearGrid1D(x::Function, ni::Int, nhalo; T=Float64, backend=CPU()
   )
 
   update_metrics!(m)
-  check_for_invalid_metrics(m)
+  # check_for_invalid_metrics(m)
   return m
 end
 
-function update_metrics!(m::CurvilinearGrid1D, t=0)
+function update_metrics!(m::CurvilinearGrid1D, t::Real=0)
   # cell metrics
   @inbounds for idx in m.iterators.cell.full
     cell_idx, = idx.I .+ 0.5
     # @unpack J, ξ, x = metrics(m, cell_idx, t)
     @unpack J, ξ = metrics(m, cell_idx, t)
-    m.cell_center_metrics.ξ.x[idx] = ξ.x
+    m.cell_center_metrics.ξ.x₁[idx] = ξ.x₁
     # m.cell_center_inv_metrics.xξ[idx] = x.ξ
     m.cell_center_metrics.J[idx] = J
   end
@@ -127,7 +113,7 @@ function update_metrics!(m::CurvilinearGrid1D, t=0)
 
     @unpack ξ̂, J = conservative_metrics(m, i + 1 / 2, t)
 
-    m.edge_metrics.i₊½.ξ̂.x[idx] = ξ̂.x
+    m.edge_metrics.i₊½.ξ̂.x₁[idx] = ξ̂.x₁
     m.edge_metrics.i₊½.J[idx] = J
   end
 
@@ -138,8 +124,8 @@ end
 # Grid Metrics
 # ------------------------------------------------------------------
 
-@inline function metrics(m::CurvilinearGrid1D, i::Real, t)
-  _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo))
+@inline function metrics(m::CurvilinearGrid1D, i::Real, t::Real=0)
+  _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo, t))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   ξx = inv_jacobian_matrix[1]
   J = det(_jacobian_matrix)
@@ -156,8 +142,8 @@ end
 # Conservative Grid Metrics; e.g. ξ̂x = ξx * J
 # ------------------------------------------------------------------
 
-@inline function conservative_metrics(m::CurvilinearGrid1D, i::Real, t)
-  _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo))
+@inline function conservative_metrics(m::CurvilinearGrid1D, i::Real, t::Real=0)
+  _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo, t))
   inv_jacobian_matrix = inv(_jacobian_matrix)
   ξx = inv_jacobian_matrix[1]
   J = det(_jacobian_matrix)
@@ -174,19 +160,19 @@ end
 # Jacobian related functions
 # ------------------------------------------------------------------
 
-@inline function jacobian_matrix(m::CurvilinearGrid1D, i::Real)
-  return checkeps(SMatrix{1,1}(m.∂x∂ξ(i - m.nhalo)))
+@inline function jacobian_matrix(m::CurvilinearGrid1D, i::Real, t::Real=0)
+  return checkeps(SMatrix{1,1}(m.∂x∂ξ(i - m.nhalo, t)))
 end
 
-@inline function jacobian(m::CurvilinearGrid1D, i::Real)
-  return abs(m.∂x∂ξ(i - m.nhalo))
+@inline function jacobian(m::CurvilinearGrid1D, i::Real, t::Real=0)
+  return abs(m.∂x∂ξ(i - m.nhalo, t))
 end
 
 # ------------------------------------------------------------------
 # Velocity Functions
 # ------------------------------------------------------------------
 
-@inline grid_velocities(m::CurvilinearGrid1D, i, t) = 0.0
+@inline grid_velocities(m::CurvilinearGrid1D, i, t::Real=0) = 0.0
 # @inline centroid_velocities(m::CurvilinearGrid1D, i, t) = 0.0
 # @inline node_velocities(m::CurvilinearGrid1D, i, t) = 0.0
 

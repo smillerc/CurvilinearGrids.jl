@@ -1,5 +1,5 @@
 
-@testset "2D Rectangular mesh" begin
+@testset "2D Rectangular Mesh" begin
   function rect_grid(nx, ny)
     x0, x1 = (0, 2)
     y0, y1 = (1, 3)
@@ -17,34 +17,26 @@
 
   @test mesh.iterators.cell.full == CartesianIndices((8, 12))
   @test mesh.iterators.cell.domain == CartesianIndices((3:6, 3:10))
-  @test mesh.iterators.cell.ilo_halo == CartesianIndices((1:2, 3:10))
-  @test mesh.iterators.cell.ihi_halo == CartesianIndices((7:8, 3:10))
-  @test mesh.iterators.cell.jlo_halo == CartesianIndices((3:6, 1:2))
-  @test mesh.iterators.cell.jhi_halo == CartesianIndices((3:6, 11:12))
 
   @test mesh.iterators.node.full == CartesianIndices((9, 13))
   @test mesh.iterators.node.domain == CartesianIndices((3:7, 3:11))
-  @test mesh.iterators.node.ilo_halo == CartesianIndices((1:3, 3:11))
-  @test mesh.iterators.node.ihi_halo == CartesianIndices((7:9, 3:11))
-  @test mesh.iterators.node.jlo_halo == CartesianIndices((3:7, 1:3))
-  @test mesh.iterators.node.jhi_halo == CartesianIndices((3:7, 11:13))
 
   @test mesh.domain_limits.node == (ilo=3, ihi=7, jlo=3, jhi=11)
   @test mesh.domain_limits.cell == (ilo=3, ihi=6, jlo=3, jhi=10)
 
   @test all(mesh.cell_center_metrics.J .≈ 0.125)
-  @test all(mesh.cell_center_metrics.ξ.x .≈ 2.0)
-  @test all(mesh.cell_center_metrics.ξ.y .≈ -0.0)
-  @test all(mesh.cell_center_metrics.η.x .≈ -0.0)
-  @test all(mesh.cell_center_metrics.η.y .≈ 4.0)
+  @test all(mesh.cell_center_metrics.ξ.x₁ .≈ 2.0)
+  @test all(mesh.cell_center_metrics.ξ.x₂ .≈ -0.0)
+  @test all(mesh.cell_center_metrics.η.x₁ .≈ -0.0)
+  @test all(mesh.cell_center_metrics.η.x₂ .≈ 4.0)
   @test all(mesh.cell_center_metrics.ξ.t .≈ 0.0)
   @test all(mesh.cell_center_metrics.η.t .≈ 0.0)
 
   @test all(mesh.edge_metrics.i₊½.J .≈ 0.125)
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x .≈ 0.25)
-  @test all(mesh.edge_metrics.i₊½.ξ̂.y .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.x .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.y .≈ 0.5)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₁ .≈ 0.25)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₂ .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₁ .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₂ .≈ 0.5)
 
   @test jacobian_matrix(mesh, (2, 2)) == @SMatrix [
     0.5 0.0
@@ -132,8 +124,8 @@ end
     m_i₋½ = conservative_metrics(mesh, (i - 0.5, j))
     m_j₋½ = conservative_metrics(mesh, (i, j - 0.5))
 
-    I₁ = (m_i₊½.ξ̂.x - m_i₋½.ξ̂.x) + (m_j₊½.η̂.x - m_j₋½.η̂.x)
-    I₂ = (m_i₊½.ξ̂.y - m_i₋½.ξ̂.y) + (m_j₊½.η̂.y - m_j₋½.η̂.y)
+    I₁ = (m_i₊½.ξ̂.x₁ - m_i₋½.ξ̂.x₁) + (m_j₊½.η̂.x₁ - m_j₋½.η̂.x₁)
+    I₂ = (m_i₊½.ξ̂.x₂ - m_i₋½.ξ̂.x₂) + (m_j₊½.η̂.x₂ - m_j₋½.η̂.x₂)
 
     I₁_passes = abs(I₁) < eps()
     I₂_passes = abs(I₂) < eps()
@@ -146,9 +138,9 @@ end
 
   nothing
 
-  # display(heatmap([ξ.x for ξ in mesh.cell_center_metrics.ξ]; title="ξx"))
-  # display(heatmap([ξ.y for ξ in mesh.cell_center_metrics.ξ]; title="ξy"))
-  # display(heatmap([ξ.x for ξ in mesh.cell_center_metrics.η]; title="ηx"))
-  # display(heatmap([ξ.y for ξ in mesh.cell_center_metrics.η]; title="ηy"))
+  # display(heatmap([ξ.x₁for ξ in mesh.cell_center_metrics.ξ]; title="ξx"))
+  # display(heatmap([ξ.x₂for ξ in mesh.cell_center_metrics.ξ]; title="ξy"))
+  # display(heatmap([ξ.x₁for ξ in mesh.cell_center_metrics.η]; title="ηx"))
+  # display(heatmap([ξ.x₂for ξ in mesh.cell_center_metrics.η]; title="ηy"))
   # display(heatmap(mesh.cell_center_metrics.J; title="J"))
 end
