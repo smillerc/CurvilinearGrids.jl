@@ -61,7 +61,6 @@ function Adapt.adapt_structure(to, grid::CylindricalGrid2D)
     cell_center_metrics,
     grid.nhalo,
     grid.nnodes,
-    grid.domain_limits,
     grid.iterators,
     grid.snap_to_axis,
     grid._coordinate_funcs,
