@@ -12,6 +12,9 @@ using ..MetricTypes
 using ..MetricDiscretizationSchemes
 
 export AbstractCurvilinearGrid
+export AbstractCurvilinearGrid1D
+export AbstractCurvilinearGrid2D
+export AbstractCurvilinearGrid3D
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export CylindricalGrid2D
