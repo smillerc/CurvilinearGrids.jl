@@ -23,7 +23,7 @@ function ∂!(
   if 2 < size(domain, axis) <= 4 # 2nd order
     inner_domain = expand(domain, axis, -1)
     # @info "2nd order"
-    for i in inner_domain
+    @batch for i in inner_domain
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₊₁ = up(i, axis, 1)
       _∂x = (x[ᵢ₊₁] - x[ᵢ₋₁]) / 2
@@ -33,7 +33,7 @@ function ∂!(
   elseif 4 < size(domain, axis) <= 7 # 4th order
     # @info "4th order"
     inner_domain = expand(domain, axis, -2)
-    for i in inner_domain
+    @batch for i in inner_domain
       ᵢ₋₂ = down(i, axis, 2)
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₊₁ = up(i, axis, 1)
@@ -45,7 +45,7 @@ function ∂!(
 
   else # 6th order; size(domain, axis) > 7
     inner_domain = expand(domain, axis, -3)
-    for i in inner_domain
+    @batch for i in inner_domain
       ᵢ₋₃ = down(i, axis, 3)
       ᵢ₋₂ = down(i, axis, 2)
       ᵢ₋₁ = down(i, axis, 1)
@@ -84,7 +84,7 @@ function ∂²!(
   inner_domain = expand(domain, axis, -1)
   # @info "∂²!", inner_domain
 
-  for i in inner_domain
+  @batch for i in inner_domain
     ᵢ₋₁ = down(i, axis, 1)
     ᵢ₊₁ = up(i, axis, 1)
 
@@ -137,7 +137,7 @@ function ∂_at_lobc!(
 
   if size(domain, axis) > 6
     b3 = lower_boundary_indices(domain, axis, +2) # first index + 2 on given boundary axis
-    for i in b3
+    @batch for i in b3
       ᵢ₋₂ = down(i, axis, 2)
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₊₁ = up(i, axis, 1)

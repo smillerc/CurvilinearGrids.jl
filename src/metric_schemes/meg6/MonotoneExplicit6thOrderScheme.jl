@@ -2,6 +2,7 @@ module MonotoneExplicit6thOrderScheme
 
 using LinearAlgebra
 using StaticArrays, MappedArrays, StructArrays
+using Polyester
 using KernelAbstractions
 
 using ..IndexingUtils
@@ -60,7 +61,7 @@ function ∂x∂ξ!(
   toedge!(xᵢ₊½, ∂²x, ∂x, x, domain, axis)
 
   inner_domain = expand(domain, axis, 0)
-  for i in inner_domain
+  @batch for i in inner_domain
     ᵢ₋₁ = down(i, axis, 1)
     # ∂x_∂ξ[i] = xᵢ₊½[i] - xᵢ₊½[ᵢ₋₁]
     # ∂x_∂ξ[i] = xᵢ₊½[i] - xᵢ₊½[ᵢ₋₁]
@@ -99,7 +100,7 @@ function conserved_metric!(
   yζz = mappedarray(*, yζ, z)
   ∂x∂ξ!(m, yζz_η, yζz, domain, η_axis)
 
-  for i in domain
+  @batch for i in domain
     # ξ̂x[i] = yηz_ζ[i] - yζz_η[i]
     _ξ̂x = yηz_ζ[i] - yζz_η[i]
     ξ̂x[i] = _ξ̂x * (abs(_ξ̂x) >= ϵ)
