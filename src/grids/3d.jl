@@ -181,6 +181,27 @@ function update_metrics!(m::CurvilinearGrid3D, t::Real=0)
     domain,
   )
 
+  # i₊½ conserved metrics
+  @inbounds for idx in m.iterators.cell.full
+    i, j, k = idx.I .+ 0.5 # centroid index
+    @unpack J = conservative_metrics(m, (i + 1 / 2, j, k), t)
+    m.edge_metrics.i₊½.J[idx] = J
+  end
+
+  # j₊½ conserved metrics
+  @inbounds for idx in m.iterators.cell.full
+    i, j, k = idx.I .+ 0.5 # centroid index
+    @unpack J = conservative_metrics(m, (i, j + 1 / 2, k), t)
+    m.edge_metrics.j₊½.J[idx] = J
+  end
+
+  # k₊½ conserved metrics
+  @inbounds for idx in m.iterators.cell.full
+    i, j, k = idx.I .+ 0.5 # centroid index
+    @unpack J = conservative_metrics(m, (i, j, k + 1 / 2), t)
+    m.edge_metrics.k₊½.J[idx] = J
+  end
+
   return nothing
 end
 
@@ -262,7 +283,7 @@ end
   η̂ = Metric3D(ηx * J, ηy * J, ηz * J, ηt * J)
   ζ̂ = Metric3D(ζx * J, ζy * J, ζz * J, ζt * J)
 
-  return (; ξ̂, η̂, ζ̂)
+  return (; ξ̂, η̂, ζ̂, J)
 end
 
 # ------------------------------------------------------------------
