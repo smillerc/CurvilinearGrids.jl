@@ -38,4 +38,8 @@ export cellvolume
 
 include("adapt_to_gpu.jl")
 
+include("io/to_vtk.jl")
+using .VTKOutput
+export save_vtk
+
 end

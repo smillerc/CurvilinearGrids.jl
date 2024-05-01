@@ -4,7 +4,7 @@ using WriteVTK
 
 using ..GridTypes
 
-export to_vtk
+export save_vtk
 
 """Write the mesh to .VTK format"""
 function to_vtk(mesh::AbstractCurvilinearGrid, filename)
@@ -15,23 +15,27 @@ function to_vtk(mesh::AbstractCurvilinearGrid, filename)
   end
 end
 
-function save_vtk(mesh)
-  fn = "wavy"
+function save_vtk(mesh::CurvilinearGrid2D)
+  fn = "mesh"
   @info "Writing to $fn.vti"
 
-  xyz_n = CurvilinearGrids.coords(mesh)
+  xyz_n = coords(mesh)
   domain = mesh.iterators.cell.domain
 
   @views vtk_grid(fn, xyz_n) do vtk
-    for (k, v) in pairs(mesh.cell_center_metrics)
-      vtk["$k"] = v[domain]
-    end
+    vtk["J", VTKCellData()] = mesh.cell_center_metrics.J[domain]
 
-    for (edge_name, data) in pairs(mesh.edge_metrics)
-      for (k, v) in pairs(data)
-        vtk["$(k)_$(edge_name)"] = v[domain]
-      end
-    end
+    vtk["xi", VTKCellData(), component_names=["x1", "x2", "t"]] = (
+      mesh.cell_center_metrics.ξ.x₁[domain],
+      mesh.cell_center_metrics.ξ.x₂[domain],
+      mesh.cell_center_metrics.ξ.t[domain],
+    )
+
+    vtk["eta", VTKCellData(), component_names=["x1", "x2", "t"]] = (
+      mesh.cell_center_metrics.η.x₁[domain],
+      mesh.cell_center_metrics.η.x₂[domain],
+      mesh.cell_center_metrics.η.t[domain],
+    )
   end
 end
 
