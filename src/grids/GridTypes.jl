@@ -76,9 +76,11 @@ include("2d_axisymmetric.jl")
 include("3d.jl")
 
 """Get the size of the grid for cell-based arrays"""
+cellsize(mesh::CurvilinearGrid1D) = (mesh.nnodes - 1,)
 cellsize(mesh::AbstractCurvilinearGrid) = @. mesh.nnodes - 1
 
 """Get the size of the grid for cell-based arrays when the halo cells are included"""
+cellsize_withhalo(mesh::CurvilinearGrid1D) = (mesh.nnodes - 1 + 2 * mesh.nhalo,)
 cellsize_withhalo(mesh::AbstractCurvilinearGrid) = @. mesh.nnodes - 1 + 2 * mesh.nhalo
 
 @inline function coords(mesh::CurvilinearGrid1D)
