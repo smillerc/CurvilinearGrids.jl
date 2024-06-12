@@ -114,7 +114,7 @@ function ∂_at_lobc!(
   end
   if size(domain, axis) > 2
     b1 = lower_boundary_indices(domain, axis, 0)  # first index on given boundary axis
-    for i in b1
+    @batch for i in b1
       ᵢ₊₁ = up(i, axis, +1)
       ᵢ₊₂ = up(i, axis, +2)
       _∂x = -c * x[i] + 2x[ᵢ₊₁] - d * x[ᵢ₊₂]
@@ -124,7 +124,7 @@ function ∂_at_lobc!(
 
   if size(domain, axis) > 4
     b2 = lower_boundary_indices(domain, axis, +1) # first index + 1 on given boundary axis
-    for i in b2
+    @batch for i in b2
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₊₁ = up(i, axis, 1)
       ᵢ₊₂ = up(i, axis, 2)
@@ -167,7 +167,7 @@ function ∂_at_hibc!(
 
   if size(domain, axis) > 2
     b1 = upper_boundary_indices(domain, axis, 0)  # first index on given boundary axis
-    for i in b1
+    @batch for i in b1
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₋₂ = down(i, axis, 2)
       _∂x = c * x[i] - 2x[ᵢ₋₁] + d * x[ᵢ₋₂]
@@ -177,7 +177,7 @@ function ∂_at_hibc!(
 
   if size(domain, axis) > 4
     b2 = upper_boundary_indices(domain, axis, -1) # first index + 1 on given boundary axis
-    for i in b2
+    @batch for i in b2
       ᵢ₊₁ = up(i, axis, 1)
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₋₂ = down(i, axis, 2)
@@ -190,7 +190,7 @@ function ∂_at_hibc!(
 
   if size(domain, axis) > 6
     b3 = upper_boundary_indices(domain, axis, -2) # first index + 2 on given boundary axis
-    for i in b3
+    @batch for i in b3
       ᵢ₋₂ = down(i, axis, 2)
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₊₁ = up(i, axis, 1)
@@ -225,7 +225,7 @@ function ∂²_at_lobc!(
 
   if size(domain, axis) > 2
     b1 = lower_boundary_indices(domain, axis, 0)  # first index on given boundary axis
-    for i in b1
+    @batch for i in b1
       ᵢ₊₁ = up(i, axis, +1)
       ᵢ₊₂ = up(i, axis, +2)
       _∂²x = -c * ∂x[i] + 2∂x[ᵢ₊₁] - d * ∂x[ᵢ₊₂]
@@ -235,7 +235,7 @@ function ∂²_at_lobc!(
 
   if size(domain, axis) > 4
     b2 = lower_boundary_indices(domain, axis, +1) # first index + 1 on given boundary axis
-    for i in b2
+    @batch for i in b2
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₊₁ = up(i, axis, 1)
       ᵢ₊₂ = up(i, axis, 2)
@@ -248,7 +248,7 @@ function ∂²_at_lobc!(
 
   if size(domain, axis) > 6
     b3 = lower_boundary_indices(domain, axis, +2) # first index + 2 on given boundary axis
-    for i in b3
+    @batch for i in b3
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₊₁ = up(i, axis, 1)
 
@@ -280,7 +280,7 @@ function ∂²_at_hibc!(
 
   if size(domain, axis) > 2
     b1 = upper_boundary_indices(domain, axis, 0)  # last index on given boundary axis
-    for i in b1
+    @batch for i in b1
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₋₂ = down(i, axis, 2)
       _∂²x = c * ∂x[i] - 2∂x[ᵢ₋₁] + d * ∂x[ᵢ₋₂]
@@ -290,7 +290,7 @@ function ∂²_at_hibc!(
 
   if size(domain, axis) > 4
     b2 = upper_boundary_indices(domain, axis, -1) # last index - 1 on given boundary axis
-    for i in b2
+    @batch for i in b2
       ᵢ₊₁ = up(i, axis, 1)
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₋₂ = down(i, axis, 2)
@@ -303,7 +303,7 @@ function ∂²_at_hibc!(
 
   if size(domain, axis) > 6
     b3 = upper_boundary_indices(domain, axis, -2) # last index - 2 on given boundary axis
-    for i in b3
+    @batch for i in b3
       ᵢ₋₁ = down(i, axis, 1)
       ᵢ₊₁ = up(i, axis, 1)
 
