@@ -15,8 +15,7 @@ function to_vtk(mesh::AbstractCurvilinearGrid, filename)
   end
 end
 
-function save_vtk(mesh::CurvilinearGrid2D)
-  fn = "mesh"
+function save_vtk(mesh::CurvilinearGrid2D, fn="mesh")
   @info "Writing to $fn.vti"
 
   xyz_n = coords(mesh)
