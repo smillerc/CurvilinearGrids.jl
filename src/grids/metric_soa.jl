@@ -104,6 +104,14 @@ function get_metric_soa(celldims::NTuple{2,Int}, backend, T)
       x₂=KernelAbstractions.zeros(backend, T, celldims),
       t=KernelAbstractions.zeros(backend, T, celldims),
     )),
+    x₁=StructArray((
+      ξ=KernelAbstractions.zeros(backend, T, celldims),
+      η=KernelAbstractions.zeros(backend, T, celldims),
+    )),
+    x₂=StructArray((
+      ξ=KernelAbstractions.zeros(backend, T, celldims),
+      η=KernelAbstractions.zeros(backend, T, celldims),
+    )),
   )
 
   edge_metrics = (
@@ -129,11 +137,6 @@ function get_metric_soa(celldims::NTuple{2,Int}, backend, T)
         t=KernelAbstractions.zeros(backend, T, celldims),
       )),
       η̂=StructArray((
-        x₁=KernelAbstractions.zeros(backend, T, celldims),
-        x₂=KernelAbstractions.zeros(backend, T, celldims),
-        t=KernelAbstractions.zeros(backend, T, celldims),
-      )),
-      ζ̂=StructArray((
         x₁=KernelAbstractions.zeros(backend, T, celldims),
         x₂=KernelAbstractions.zeros(backend, T, celldims),
         t=KernelAbstractions.zeros(backend, T, celldims),
