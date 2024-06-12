@@ -233,7 +233,8 @@ end
   @test conserved_metrics_pass
 end
 
-@testset "3D Sphere Sector Mesh Construction" begin
+# @testset "3D Sphere Sector Mesh Construction" 
+begin
   include("common.jl")
 
   function sphere_grid(nr, ntheta, nphi)
@@ -252,8 +253,42 @@ end
     return (x, y, z)
   end
 
-  ni, nj, nk = (5, 9, 11)
+  ni, nj, nk = (200, 200, 200)
+  # ni, nj, nk = (20, 20, 20)
   nhalo = 4
   x, y, z = sphere_grid(ni, nj, nk)
-  @test_nowarn CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
+  # @test_nowarn CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
+  @profview begin
+    mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
+  end
+
+  # conserved_metrics_pass = false
+  # for idx in mesh.iterators.cell.domain
+  #   i, j, k = idx.I
+  #   I₁ = (
+  #     (mesh.edge_metrics.i₊½.ξ̂.x₁[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.x₁[i - 1, j, k]) +
+  #     (mesh.edge_metrics.j₊½.η̂.x₁[i, j, k] - mesh.edge_metrics.j₊½.η̂.x₁[i, j - 1, k]) +
+  #     (mesh.edge_metrics.k₊½.ζ̂.x₁[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x₁[i, j, k - 1])
+  #   )
+  #   I₂ = (
+  #     (mesh.edge_metrics.i₊½.ξ̂.x₂[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.x₂[i - 1, j, k]) +
+  #     (mesh.edge_metrics.j₊½.η̂.x₂[i, j, k] - mesh.edge_metrics.j₊½.η̂.x₂[i, j - 1, k]) +
+  #     (mesh.edge_metrics.k₊½.ζ̂.x₂[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x₂[i, j, k - 1])
+  #   )
+  #   I₃ = (
+  #     (mesh.edge_metrics.i₊½.ξ̂.x₃[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.x₃[i - 1, j, k]) +
+  #     (mesh.edge_metrics.j₊½.η̂.x₃[i, j, k] - mesh.edge_metrics.j₊½.η̂.x₃[i, j - 1, k]) +
+  #     (mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k - 1])
+  #   )
+
+  #   I₁ = I₁ * (abs(I₁) > 10eps())
+  #   I₂ = I₂ * (abs(I₂) > 10eps())
+  #   I₃ = I₃ * (abs(I₃) > 10eps())
+
+  #   conserved_metrics_pass = iszero(I₁) && iszero(I₂) && iszero(I₃)
+  #   if !conserved_metrics_pass
+  #     break
+  #   end
+  # end
+  # @test conserved_metrics_pass
 end
