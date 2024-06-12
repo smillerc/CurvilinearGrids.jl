@@ -285,30 +285,30 @@ function update_cell_center_metrics!(
   centroid_coords,
   domain,
 ) where {T}
-  xξ = @views cell_center_metrics.ξx
-  yξ = @views cell_center_metrics.ξy
-  zξ = @views cell_center_metrics.ξz
-  xη = @views cell_center_metrics.ηx
-  yη = @views cell_center_metrics.ηy
-  zη = @views cell_center_metrics.ηz
-  xζ = @views cell_center_metrics.ζx
-  yζ = @views cell_center_metrics.ζy
-  zζ = @views cell_center_metrics.ζz
+  xξ = cell_center_metrics.x₁.ξ
+  yξ = cell_center_metrics.x₂.ξ
+  zξ = cell_center_metrics.x₃.ξ
+  xη = cell_center_metrics.x₁.η
+  yη = cell_center_metrics.x₂.η
+  zη = cell_center_metrics.x₃.η
+  xζ = cell_center_metrics.x₁.ζ
+  yζ = cell_center_metrics.x₂.ζ
+  zζ = cell_center_metrics.x₃.ζ
 
   # First compute the inverse metrics (and store in the forward metric arrays for now)
-  ∂x∂ξ!(m, cell_center_metrics.ξx, centroid_coords.x, domain, ξ) # xξ
-  ∂x∂ξ!(m, cell_center_metrics.ξy, centroid_coords.y, domain, ξ) # yξ
-  ∂x∂ξ!(m, cell_center_metrics.ξz, centroid_coords.z, domain, ξ) # zξ
-  ∂x∂ξ!(m, cell_center_metrics.ηx, centroid_coords.x, domain, η) # xη
-  ∂x∂ξ!(m, cell_center_metrics.ηy, centroid_coords.y, domain, η) # yη
-  ∂x∂ξ!(m, cell_center_metrics.ηz, centroid_coords.z, domain, η) # zη
-  ∂x∂ξ!(m, cell_center_metrics.ζx, centroid_coords.x, domain, ζ) # xζ
-  ∂x∂ξ!(m, cell_center_metrics.ζy, centroid_coords.y, domain, ζ) # yζ
-  ∂x∂ξ!(m, cell_center_metrics.ζz, centroid_coords.z, domain, ζ) # zζ
+  ∂x∂ξ!(m, xξ, centroid_coords.x, domain, ξ) # xξ
+  ∂x∂ξ!(m, yξ, centroid_coords.y, domain, ξ) # yξ
+  ∂x∂ξ!(m, zξ, centroid_coords.z, domain, ξ) # zξ
+  ∂x∂ξ!(m, xη, centroid_coords.x, domain, η) # xη
+  ∂x∂ξ!(m, yη, centroid_coords.y, domain, η) # yη
+  ∂x∂ξ!(m, zη, centroid_coords.z, domain, η) # zη
+  ∂x∂ξ!(m, xζ, centroid_coords.x, domain, ζ) # xζ
+  ∂x∂ξ!(m, yζ, centroid_coords.y, domain, ζ) # yζ
+  ∂x∂ξ!(m, zζ, centroid_coords.z, domain, ζ) # zζ
 
   # Now compute the jacobian matrix for each entry, and store the proper
   # metric back in it's place
-  for idx in domain
+  @batch for idx in domain
     _jacobian = @SMatrix [
       xξ[idx] xη[idx] xζ[idx]
       yξ[idx] yη[idx] yζ[idx]

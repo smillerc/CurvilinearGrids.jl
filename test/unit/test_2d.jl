@@ -1,6 +1,3 @@
-
-using Test
-
 @testset "2D Rectangular Mesh" begin
   include("common.jl")
   function rect_grid(nx, ny)
