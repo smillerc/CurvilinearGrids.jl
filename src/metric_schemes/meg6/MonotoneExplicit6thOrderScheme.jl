@@ -17,8 +17,31 @@ const ζ = 3
 include("gradients.jl")
 include("interpolation.jl")
 
-struct MonotoneExplicit6thOrderDiscretization{C}
-  cache::C
+CacheType{T,N,AA<:AbstractArray{T,N}} = @NamedTuple{
+  xᵢ₊½::AA,
+  ∂²x::AA,
+  ∂x::AA,
+  metric::AA,
+  inner_deriv1::AA,
+  outer_deriv1::AA,
+  inner_deriv2::AA,
+  outer_deriv2::AA,
+}
+
+# struct MonotoneExplicit6thOrderDiscretization{T,N,AA}
+#   cache::CacheType{T,N,AA}
+# end
+struct MonotoneExplicit6thOrderDiscretization{T,N,AA<:AbstractArray{T,N}}
+  cache::@NamedTuple{
+    xᵢ₊½::AA,
+    ∂²x::AA,
+    ∂x::AA,
+    metric::AA,
+    inner_deriv1::AA,
+    outer_deriv1::AA,
+    inner_deriv2::AA,
+    outer_deriv2::AA,
+  }
 end
 
 function MonotoneExplicit6thOrderDiscretization(
@@ -43,7 +66,8 @@ function MonotoneExplicit6thOrderDiscretization(
     outer_deriv2=zeros(T, cellsize),
   )
 
-  return MonotoneExplicit6thOrderDiscretization(cache)
+  AA = typeof(cache.metric)
+  return MonotoneExplicit6thOrderDiscretization{T,N,AA}(cache)
 end
 
 function ∂x∂ξ!(
@@ -110,9 +134,10 @@ function conserved_metric!(
 end
 
 function update_edge_conserved_metrics!(
-  m::MonotoneExplicit6thOrderDiscretization,
+  m::MonotoneExplicit6thOrderDiscretization{T,3},
   edge_metrics,
-  centroid_coords::StructArray{T,3},
+  cell_center_metrics,
+  centroid_coords,
   domain,
 ) where {T}
   x = centroid_coords.x
@@ -193,57 +218,180 @@ function update_edge_conserved_metrics!(
   return nothing
 end
 
-# function update_cell_center_metrics!(
-#   m::MonotoneExplicit6thOrderDiscretization,
-#   cell_center_metrics,
-#   centroid_coords::@NamedTuple{x::Array{T,3}, y::Array{T,3}, z::Array{T,3}},
-#   domain,
-# ) where {T}
-#   xξ = @views cell_center_metrics.ξx
-#   yξ = @views cell_center_metrics.ξy
-#   zξ = @views cell_center_metrics.ξz
-#   xη = @views cell_center_metrics.ηx
-#   yη = @views cell_center_metrics.ηy
-#   zη = @views cell_center_metrics.ηz
-#   xζ = @views cell_center_metrics.ζx
-#   yζ = @views cell_center_metrics.ζy
-#   zζ = @views cell_center_metrics.ζz
+function update_edge_conserved_metrics!(
+  m::MonotoneExplicit6thOrderDiscretization{T,2},
+  edge_metrics,
+  cell_center_metrics,
+  centroid_coords,
+  domain,
+) where {T}
 
-#   # First compute the inverse metrics (and store in the forward metric arrays for now)
-#   ∂x∂ξ!(m, cell_center_metrics.ξx, centroid_coords.x, domain, ξ) # xξ
-#   ∂x∂ξ!(m, cell_center_metrics.ξy, centroid_coords.y, domain, ξ) # yξ
-#   ∂x∂ξ!(m, cell_center_metrics.ξz, centroid_coords.z, domain, ξ) # zξ
-#   ∂x∂ξ!(m, cell_center_metrics.ηx, centroid_coords.x, domain, η) # xη
-#   ∂x∂ξ!(m, cell_center_metrics.ηy, centroid_coords.y, domain, η) # yη
-#   ∂x∂ξ!(m, cell_center_metrics.ηz, centroid_coords.z, domain, η) # zη
-#   ∂x∂ξ!(m, cell_center_metrics.ζx, centroid_coords.x, domain, ζ) # xζ
-#   ∂x∂ξ!(m, cell_center_metrics.ζy, centroid_coords.y, domain, ζ) # yζ
-#   ∂x∂ξ!(m, cell_center_metrics.ζz, centroid_coords.z, domain, ζ) # zζ
+  # cache-arrays
+  ∂²x = m.cache.∂²x
+  ∂x = m.cache.∂x
 
-#   # Now compute the jacobian matrix for each entry, and store the proper
-#   # metric back in it's place
-#   for idx in domain
-#     _jacobian = @SMatrix [
-#       xξ[idx] xη[idx] xζ[idx]
-#       yξ[idx] yη[idx] yζ[idx]
-#       zξ[idx] zη[idx] zζ[idx]
-#     ]
+  i₊½_domain = expand(domain, 1, 0)
+  j₊½_domain = expand(domain, 2, 0)
 
-#     cell_center_metrics.J[idx] = det(_jacobian)
+  ξ̂x = mappedarray(*, cell_center_metrics.ξ.x₁, cell_center_metrics.J)
+  toedge!(edge_metrics.i₊½.ξ̂.x₁, ∂²x, ∂x, ξ̂x, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ξ̂.x₁, ∂²x, ∂x, ξ̂x, j₊½_domain, η)
 
-#     _inv_jacobian = inv(_jacobian)
-#     cell_center_metrics.ξx[idx] = _inv_jacobian[1, 1]
-#     cell_center_metrics.ξy[idx] = _inv_jacobian[1, 2]
-#     cell_center_metrics.ξz[idx] = _inv_jacobian[1, 3]
-#     cell_center_metrics.ηx[idx] = _inv_jacobian[2, 1]
-#     cell_center_metrics.ηy[idx] = _inv_jacobian[2, 2]
-#     cell_center_metrics.ηz[idx] = _inv_jacobian[2, 3]
-#     cell_center_metrics.ζx[idx] = _inv_jacobian[3, 1]
-#     cell_center_metrics.ζy[idx] = _inv_jacobian[3, 2]
-#     cell_center_metrics.ζz[idx] = _inv_jacobian[3, 3]
-#   end
+  # η̂x = (y_ζ z)_ξ − (y_ξ z)_ζ
+  η̂x = mappedarray(*, cell_center_metrics.η.x₁, cell_center_metrics.J)
+  toedge!(edge_metrics.i₊½.η̂.x₁, ∂²x, ∂x, η̂x, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.η̂.x₁, ∂²x, ∂x, η̂x, j₊½_domain, η)
 
-#   return nothing
-# end
+  ξ̂y = mappedarray(*, cell_center_metrics.ξ.x₂, cell_center_metrics.J)
+  toedge!(edge_metrics.i₊½.ξ̂.x₂, ∂²x, ∂x, ξ̂y, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ξ̂.x₂, ∂²x, ∂x, ξ̂y, j₊½_domain, η)
+
+  η̂y = mappedarray(*, cell_center_metrics.η.x₂, cell_center_metrics.J)
+  toedge!(edge_metrics.i₊½.η̂.x₂, ∂²x, ∂x, η̂y, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.η̂.x₂, ∂²x, ∂x, η̂y, j₊½_domain, η)
+
+  toedge!(edge_metrics.i₊½.J, ∂²x, ∂x, cell_center_metrics.J, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.J, ∂²x, ∂x, cell_center_metrics.J, j₊½_domain, η)
+
+  return nothing
+end
+
+function update_edge_conserved_metrics!(
+  m::MonotoneExplicit6thOrderDiscretization{T,1},
+  edge_metrics,
+  cell_center_metrics,
+  centroid_coords,
+  domain,
+) where {T}
+
+  # cache-arrays
+  ∂²x = m.cache.∂²x
+  ∂x = m.cache.∂x
+
+  i₊½_domain = expand(domain, 1, 0)
+
+  ξ̂x = mappedarray(*, cell_center_metrics.ξ.x₁, cell_center_metrics.J)
+
+  toedge!(edge_metrics.i₊½.ξ̂.x₁, ∂²x, ∂x, ξ̂x, i₊½_domain, ξ)
+
+  toedge!(edge_metrics.i₊½.J, ∂²x, ∂x, cell_center_metrics.J, i₊½_domain, ξ)
+
+  return nothing
+end
+
+function update_cell_center_metrics!(
+  m::MonotoneExplicit6thOrderDiscretization{T,3},
+  cell_center_metrics,
+  centroid_coords,
+  domain,
+) where {T}
+  xξ = cell_center_metrics.x₁.ξ
+  yξ = cell_center_metrics.x₂.ξ
+  zξ = cell_center_metrics.x₃.ξ
+  xη = cell_center_metrics.x₁.η
+  yη = cell_center_metrics.x₂.η
+  zη = cell_center_metrics.x₃.η
+  xζ = cell_center_metrics.x₁.ζ
+  yζ = cell_center_metrics.x₂.ζ
+  zζ = cell_center_metrics.x₃.ζ
+
+  # First compute the inverse metrics (and store in the forward metric arrays for now)
+  ∂x∂ξ!(m, xξ, centroid_coords.x, domain, ξ) # xξ
+  ∂x∂ξ!(m, yξ, centroid_coords.y, domain, ξ) # yξ
+  ∂x∂ξ!(m, zξ, centroid_coords.z, domain, ξ) # zξ
+  ∂x∂ξ!(m, xη, centroid_coords.x, domain, η) # xη
+  ∂x∂ξ!(m, yη, centroid_coords.y, domain, η) # yη
+  ∂x∂ξ!(m, zη, centroid_coords.z, domain, η) # zη
+  ∂x∂ξ!(m, xζ, centroid_coords.x, domain, ζ) # xζ
+  ∂x∂ξ!(m, yζ, centroid_coords.y, domain, ζ) # yζ
+  ∂x∂ξ!(m, zζ, centroid_coords.z, domain, ζ) # zζ
+
+  # Now compute the jacobian matrix for each entry, and store the proper
+  # metric back in it's place
+  @batch for idx in domain
+    _jacobian = @SMatrix [
+      xξ[idx] xη[idx] xζ[idx]
+      yξ[idx] yη[idx] yζ[idx]
+      zξ[idx] zη[idx] zζ[idx]
+    ]
+
+    cell_center_metrics.J[idx] = det(_jacobian)
+
+    _inv_jacobian = inv(_jacobian)
+    cell_center_metrics.ξ.x₁[idx] = _inv_jacobian[1, 1]
+    cell_center_metrics.ξ.x₂[idx] = _inv_jacobian[1, 2]
+    cell_center_metrics.ξ.x₃[idx] = _inv_jacobian[1, 3]
+
+    cell_center_metrics.η.x₁[idx] = _inv_jacobian[2, 1]
+    cell_center_metrics.η.x₂[idx] = _inv_jacobian[2, 2]
+    cell_center_metrics.η.x₃[idx] = _inv_jacobian[2, 3]
+
+    cell_center_metrics.ζ.x₁[idx] = _inv_jacobian[3, 1]
+    cell_center_metrics.ζ.x₂[idx] = _inv_jacobian[3, 2]
+    cell_center_metrics.ζ.x₃[idx] = _inv_jacobian[3, 3]
+  end
+
+  return nothing
+end
+
+function update_cell_center_metrics!(
+  m::MonotoneExplicit6thOrderDiscretization{T,2},
+  cell_center_metrics,
+  centroid_coords,
+  domain,
+) where {T}
+  xξ = cell_center_metrics.x₁.ξ
+  yξ = cell_center_metrics.x₂.ξ
+  xη = cell_center_metrics.x₁.η
+  yη = cell_center_metrics.x₂.η
+
+  # First compute the inverse metrics (and store in the forward metric arrays for now)
+  ∂x∂ξ!(m, xξ, centroid_coords.x, domain, ξ)
+  ∂x∂ξ!(m, yξ, centroid_coords.y, domain, ξ)
+  ∂x∂ξ!(m, xη, centroid_coords.x, domain, η)
+  ∂x∂ξ!(m, yη, centroid_coords.y, domain, η)
+
+  # Now compute the jacobian matrix for each entry, and store the proper
+  # metric back in it's place
+  @batch for idx in domain
+    _jacobian = @SMatrix [
+      xξ[idx] xη[idx]
+      yξ[idx] yη[idx]
+    ]
+
+    cell_center_metrics.J[idx] = det(_jacobian)
+
+    _inv_jacobian = inv(_jacobian)
+    cell_center_metrics.ξ.x₁[idx] = _inv_jacobian[1, 1]
+    cell_center_metrics.ξ.x₂[idx] = _inv_jacobian[1, 2]
+    cell_center_metrics.η.x₁[idx] = _inv_jacobian[2, 1]
+    cell_center_metrics.η.x₂[idx] = _inv_jacobian[2, 2]
+  end
+
+  return nothing
+end
+
+function update_cell_center_metrics!(
+  m::MonotoneExplicit6thOrderDiscretization{T,1},
+  cell_center_metrics,
+  centroid_coords,
+  domain,
+) where {T}
+  xξ = cell_center_metrics.x₁.ξ
+
+  # First compute the inverse metrics (and store in the forward metric arrays for now)
+  ∂x∂ξ!(m, xξ, centroid_coords.x, domain, ξ)
+
+  # Now compute the jacobian matrix for each entry, and store the proper
+  # metric back in it's place
+  @batch for idx in domain
+    _jacobian = xξ[idx]
+    cell_center_metrics.J[idx] = _jacobian
+    _inv_jacobian = inv(_jacobian)
+    cell_center_metrics.ξ.x₁[idx] = _inv_jacobian
+  end
+
+  return nothing
+end
 
 end

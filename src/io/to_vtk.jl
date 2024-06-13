@@ -7,16 +7,18 @@ using ..GridTypes
 export save_vtk
 
 """Write the mesh to .VTK format"""
-function to_vtk(mesh::AbstractCurvilinearGrid, filename)
-  xyz = coords(mesh)
+function save_vtk(mesh::CurvilinearGrid3D, fn="mesh")
+  @info "Writing to $fn.vti"
 
-  vtk_grid(filename, xyz) do vtk
-    vtk["volume"] = mesh.J
+  xyz_n = coords(mesh)
+  domain = mesh.iterators.cell.domain
+
+  @views vtk_grid(fn, xyz_n) do vtk
+    vtk["J", VTKCellData()] = mesh.cell_center_metrics.J[domain]
   end
 end
 
-function save_vtk(mesh::CurvilinearGrid2D)
-  fn = "mesh"
+function save_vtk(mesh::AbstractCurvilinearGrid2D, fn="mesh")
   @info "Writing to $fn.vti"
 
   xyz_n = coords(mesh)

@@ -27,7 +27,7 @@ function toedge!(
   toedge_hibc!(xᵢ₊½, ∂²x, ∂x, x, domain, axis)
 
   inner_domain = expand(domain, axis, -1)
-  for i in inner_domain
+  @batch for i in inner_domain
     ᵢ₊₁ = up(i, axis, 1) # i.e. [i+1, j, k], but could be i+1, j+1, or k+1
     xᴸᵢ₊½ = x[i] + a * ∂x[i] + b * ∂²x[i]
     xᴿᵢ₊½ = x[ᵢ₊₁] - a * ∂x[ᵢ₊₁] + b * ∂²x[ᵢ₊₁]
@@ -59,7 +59,7 @@ function toedge_lobc!(
 
   # Only the i+1/2 is stored for each cell, so at the lowest boundary
   # we have to updated the ilo-1 cell
-  for i in b1
+  @batch for i in b1
     ᵢ₋₁ = down(i, axis, 1) # i.e. [i-1, j, k], but could be i-1, j-1, or k-1
     ᵢ₊₁ = up(i, axis, 1) # i.e. [i+1, j, k], but could be i+1, j+1, or k+1
 
@@ -89,7 +89,7 @@ function toedge_hibc!(
 
   b1 = upper_boundary_indices(domain, axis, 0)  # last index on given boundary axis
 
-  for i in b1
+  @batch for i in b1
     xᵢ₊½[i] = x[i] + a * ∂x[i] + b * ∂²x[i]
     # @show xᵢ₊½[i], x[i]
   end

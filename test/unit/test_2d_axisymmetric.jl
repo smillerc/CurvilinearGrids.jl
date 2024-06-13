@@ -1,52 +1,50 @@
+using CurvilinearGrids, Test
 
 @testset "2D Cylindrical Mesh" begin
-  function rzmesh(ni, nk)
-    r0, r1 = (0, 2)
-    z0, z1 = (0, 3)
-
-    # linear distributions
-    r(i, k) = r0 + (r1 - r0) * ((i - 1) / (ni - 1))
-    z(i, k) = z0 + (z1 - z0) * ((k - 1) / (nk - 1))
-
-    return (r, z)
-  end
 
   # begin
-  nr, nz = (5, 11)
-  nhalo = 0
-  r, z = rzmesh(nr, nz)
+  r0, r1 = (1e-3, 2)
+  z0, z1 = (0, 3)
+  nr, nz = (4, 10)
+  nhalo = 4
   snap_to_axis = true
-  mesh = CylindricalGrid2D(r, z, (nr, nz), nhalo, snap_to_axis)
-  # cmesh = CurvilinearGrid2D(r, z, (nr, nz), nhalo)
-  # nothing
-  # end
-
-  # # J = jacobian_matrix(mesh, (2, 1))
-  # jacobian_matrix(mesh, (2, 1))
-
-  # metrics(mesh, (2, 2))
-  # radius(mesh, (0, 20))
+  symmetry_axis = :y # rotate about the pole axis
+  mesh = AxisymmetricRectlinearGrid(
+    (r0, z0), (r1, z1), (nr, nz), nhalo, snap_to_axis, symmetry_axis
+  )
 
   domain = mesh.iterators.cell.domain
 
-  I₁_passes = true
-  I₂_passes = true
-  for idx in domain
-    i, j = idx.I .+ 0.5
-    m_i₊½ = conservative_metrics(mesh, (i + 0.5, j))
-    m_j₊½ = conservative_metrics(mesh, (i, j + 0.5))
-    m_i₋½ = conservative_metrics(mesh, (i - 0.5, j))
-    m_j₋½ = conservative_metrics(mesh, (i, j - 0.5))
+  function gcl(mesh, domain)
+    ϵ = 5e-14
+    I₁_passes = true
+    I₂_passes = true
+    for idx in domain
+      i, j = idx.I
 
-    I₁ = (m_i₊½.ξ̂.x₁ - m_i₋½.ξ̂.x₁) + (m_j₊½.η̂.x₁ - m_j₋½.η̂.x₁)
-    I₂ = (m_i₊½.ξ̂.x₂ - m_i₋½.ξ̂.x₂) + (m_j₊½.η̂.x₂ - m_j₋½.η̂.x₂)
+      ξ̂_i₊½ = mesh.edge_metrics.i₊½.ξ̂[i, j]
+      ξ̂_i₋½ = mesh.edge_metrics.i₊½.ξ̂[i - 1, j]
+      η̂_j₊½ = mesh.edge_metrics.j₊½.η̂[i, j]
+      η̂_j₋½ = mesh.edge_metrics.j₊½.η̂[i, j - 1]
 
-    I₁_passes = abs(I₁) < eps()
-    I₂_passes = abs(I₂) < eps()
-    if !(I₁_passes && I₂_passes)
-      break
+      I₁ = (ξ̂_i₊½.x₁ - ξ̂_i₋½.x₁) + (η̂_j₊½.x₁ - η̂_j₋½.x₁)
+      I₂ = (ξ̂_i₊½.x₂ - ξ̂_i₋½.x₂) + (η̂_j₊½.x₂ - η̂_j₋½.x₂)
+
+      I₁ = I₁ * (abs(I₁) >= ϵ)
+      I₂ = I₂ * (abs(I₂) >= ϵ)
+
+      # @show I₁, I₂
+      I₁_passes = abs(I₁) < eps()
+      I₂_passes = abs(I₂) < eps()
+      if !(I₁_passes && I₂_passes)
+        break
+      end
     end
+    @test I₁_passes
+    @test I₂_passes
   end
-  @test I₁_passes
-  @test I₂_passes
+
+  gcl(mesh, mesh.iterators.cell.domain)
+
+  save_vtk(mesh, "rz_axisym")
 end

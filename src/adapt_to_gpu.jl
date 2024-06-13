@@ -44,7 +44,7 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid2D)
   )
 end
 
-function Adapt.adapt_structure(to, grid::CylindricalGrid2D)
+function Adapt.adapt_structure(to, grid::AxisymmetricGrid2D)
   node_coordinates = Adapt.adapt_structure(to, grid.node_coordinates)
   centroid_coordinates = Adapt.adapt_structure(to, grid.centroid_coordinates)
   edge_midpoint_coordinates = Adapt.adapt_structure(to, grid.edge_midpoint_coordinates)
@@ -52,7 +52,7 @@ function Adapt.adapt_structure(to, grid::CylindricalGrid2D)
   edge_metrics = Adapt.adapt_structure(to, grid.edge_metrics)
   cell_center_metrics = Adapt.adapt_structure(to, grid.cell_center_metrics)
 
-  return CylindricalGrid2D(
+  return AxisymmetricGrid2D(
     node_coordinates,
     centroid_coordinates,
     edge_midpoint_coordinates,

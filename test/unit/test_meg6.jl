@@ -68,23 +68,15 @@ end
   using CurvilinearGrids.MetricDiscretizationSchemes.MonotoneExplicit6thOrderScheme:
     ∂!, ∂²!, ∂x∂ξ!, toedge!, conserved_metric!
 
-  function rect_grid(nx, ny, nz)
-    x0, x1 = (0.0, 2.0)
-    y0, y1 = (1, 3)
-    z0, z1 = (-1, 2)
+  include("common.jl")
 
-    x(ξ, η, ζ) = @. x0 + (x1 - x0) * ((ξ - 1) / (nx - 1))
-    y(ξ, η, ζ) = @. y0 + (y1 - y0) * ((η - 1) / (ny - 1))
-    z(ξ, η, ζ) = @. z0 + (z1 - z0) * ((ζ - 1) / (nz - 1))
-
-    return (x, y, z)
-  end
-
-  ni, nj, nk = (5, 9, 13)
+  x0, x1 = (0.0, 2.0)
+  y0, y1 = (1, 3)
+  z0, z1 = (-1, 2)
+  ni, nj, nk = (4, 8, 12)
   nhalo = 4
-  x, y, z = rect_grid(ni, nj, nk)
 
-  mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
+  mesh = RectlinearGrid((x0, y0, z0), (x1, y1, z1), (ni, nj, nk), nhalo)
   full_domain = mesh.iterators.cell.domain
 
   meg6 = mesh.discretization_scheme
