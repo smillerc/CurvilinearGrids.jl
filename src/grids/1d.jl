@@ -9,7 +9,7 @@ CurvilinearGrid1D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,CF,DX} <: AbstractCurvilinearGrid1D
+struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -19,8 +19,35 @@ struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,CF,DX} <: AbstractCurvilinearGrid1
   nnodes::Int
   domain_limits::DL
   iterators::CI
-  _coordinate_funcs::CF
-  _∂x∂ξ::DX
+  discretization_scheme::DS
+end
+
+struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
+  node_coordinates::CO
+  centroid_coordinates::CE
+  node_velocities::NV
+  edge_metrics::EM
+  cell_center_metrics::CM
+  nhalo::Int
+  nnodes::Int
+  domain_limits::DL
+  iterators::CI
+  discretization_scheme::DS
+  snap_to_axis::Bool
+end
+
+struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
+  node_coordinates::CO
+  centroid_coordinates::CE
+  node_velocities::NV
+  edge_metrics::EM
+  cell_center_metrics::CM
+  nhalo::Int
+  nnodes::Int
+  domain_limits::DL
+  iterators::CI
+  discretization_scheme::DS
+  snap_to_axis::Bool
 end
 
 """
@@ -29,36 +56,15 @@ end
 Create a `CurvilinearGrid1D` with a function `x(ξ)` and `nhalo` halo cells. `n_ξ` is the
 total number of nodes/vertices (not including halo).
 """
-# function CurvilinearGrid1D(x::F1, (n_ξ,), nhalo) where {F1<:Function}
-#   ∂x∂ξ(ξ) = ForwardDiff.derivative(x, ξ)
-#   F2 = typeof(∂x∂ξ)
-#   nnodes = (n_ξ,)
-#   ni_cells = n_ξ - 1
-
-#   # limits used for looping to avoid using the halo regions
-#   limits = (
-#     ilo=nhalo + 1, # starting index
-#     ihi=ni_cells + nhalo, # ending index
-#   )
-
-#   return CurvilinearGrid1D{F1,F2}(x, ∂x∂ξ, nhalo, nnodes, limits)
-# end
-
-function CurvilinearGrid1D(x::Function, ni::Int, nhalo; T=Float64, backend=CPU())
-  dim = 1
-  check_nargs(x, dim, :x)
-  test_coord_func(x, dim, :x)
-
-  function ∂x∂ξ(ξ, t)
-    return ForwardDiff.derivative(x, ξ)
-  end
-
-  nnodes = ni
-  ncells = nnodes - 1
+function CurvilinearGrid1D(
+  x::AbstractVector{T}, nhalo; backend=CPU(), discretization_scheme=:MEG6
+) where {T}
+  ni = length(x)
+  ncells = ni - 1
   ilo = nhalo + 1
   limits = (node=(ilo=ilo, ihi=ni + nhalo), cell=(ilo=ilo, ihi=ncells + nhalo))
 
-  nodeCI = CartesianIndices((nnodes + 2nhalo,))
+  nodeCI = CartesianIndices((ni + 2nhalo,))
   cellCI = CartesianIndices((ncells + 2nhalo,))
 
   domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
@@ -68,14 +74,27 @@ function CurvilinearGrid1D(x::Function, ni::Int, nhalo; T=Float64, backend=CPU()
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
-  coordinate_funcs = (; x)
   centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
-  _centroid_coordinates!(centroids, coordinate_funcs, domain_iterators.cell.full, nhalo)
-
   coords = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
-  _node_coordinates!(coords, coordinate_funcs, domain_iterators.node.full, nhalo)
+
+  @views begin
+    copy!(coords.x[domain_iterators.node.domain], x)
+  end
 
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
+
+  # if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
+  #   if nhalo < 4
+  #     error("`nhalo` must = 4 when using the MEG6 discretization scheme")
+  #   end
+
+  discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
+    domain_iterators.cell.full
+  )
+
+  # else
+  #   error("Unknown discretization scheme to compute the conserved metrics")
+  # end
 
   m = CurvilinearGrid1D(
     coords,
@@ -84,89 +103,213 @@ function CurvilinearGrid1D(x::Function, ni::Int, nhalo; T=Float64, backend=CPU()
     edge_metrics,
     cell_center_metrics,
     nhalo,
-    nnodes,
+    ni,
     limits,
     domain_iterators,
-    coordinate_funcs,
-    ∂x∂ξ,
+    discr_scheme,
   )
 
-  update_metrics!(m)
-  # check_for_invalid_metrics(m)
+  update!(m)
   return m
 end
 
-function update_metrics!(m::AbstractCurvilinearGrid1D, t::Real=0)
-  # cell metrics
-  @inbounds for idx in m.iterators.cell.full
-    cell_idx, = idx.I .+ 0.5
-    # @unpack J, ξ, x = metrics(m, cell_idx, t)
-    @unpack J, ξ = metrics(m, cell_idx, t)
-    m.cell_center_metrics.ξ.x₁[idx] = ξ.x₁
-    # m.cell_center_inv_metrics.xξ[idx] = x.ξ
-    m.cell_center_metrics.J[idx] = J
+function SphericalGrid1D(
+  x::AbstractVector{T},
+  nhalo::Int,
+  snap_to_axis::Bool;
+  backend=CPU(),
+  discretization_scheme=:MEG6,
+) where {T}
+  ni = length(x)
+  ncells = ni - 1
+  ilo = nhalo + 1
+  limits = (node=(ilo=ilo, ihi=ni + nhalo), cell=(ilo=ilo, ihi=ncells + nhalo))
+
+  nodeCI = CartesianIndices((ni + 2nhalo,))
+  cellCI = CartesianIndices((ncells + 2nhalo,))
+
+  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
+
+  celldims = size(domain_iterators.cell.full)
+  nodedims = size(domain_iterators.node.full)
+
+  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+
+  centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
+  coords = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
+
+  @views begin
+    copy!(coords.x[domain_iterators.node.domain], x)
   end
 
-  # get the conserved metrics at (i₊½)
-  @inbounds for idx in m.iterators.cell.full
-    i, = idx.I .+ 0.5 # centroid index
+  node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
-    @unpack ξ̂, J = conservative_metrics(m, i + 1 / 2, t)
+  # if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
+  #   if nhalo < 4
+  #     error("`nhalo` must = 4 when using the MEG6 discretization scheme")
+  #   end
 
-    m.edge_metrics.i₊½.ξ̂.x₁[idx] = ξ̂.x₁
-    m.edge_metrics.i₊½.J[idx] = J
+  discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
+    domain_iterators.cell.full
+  )
+
+  # else
+  #   error("Unknown discretization scheme to compute the conserved metrics")
+  # end
+
+  m = SphericalGrid1D(
+    coords,
+    centroids,
+    node_velocities,
+    edge_metrics,
+    cell_center_metrics,
+    nhalo,
+    ni,
+    limits,
+    domain_iterators,
+    discr_scheme,
+    snap_to_axis,
+  )
+
+  update!(m)
+  return m
+end
+
+function CylindricalGrid1D(
+  x::AbstractVector{T},
+  nhalo::Int,
+  snap_to_axis::Bool,
+  ;
+  backend=CPU(),
+  discretization_scheme=:MEG6,
+) where {T}
+  ni = length(x)
+  ncells = ni - 1
+  ilo = nhalo + 1
+  limits = (node=(ilo=ilo, ihi=ni + nhalo), cell=(ilo=ilo, ihi=ncells + nhalo))
+
+  nodeCI = CartesianIndices((ni + 2nhalo,))
+  cellCI = CartesianIndices((ncells + 2nhalo,))
+
+  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
+
+  celldims = size(domain_iterators.cell.full)
+  nodedims = size(domain_iterators.node.full)
+
+  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+
+  centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
+  coords = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
+
+  @views begin
+    copy!(coords.x[domain_iterators.node.domain], x)
   end
+
+  node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
+
+  # if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
+  #   if nhalo < 4
+  #     error("`nhalo` must = 4 when using the MEG6 discretization scheme")
+  #   end
+
+  discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
+    domain_iterators.cell.full
+  )
+
+  # else
+  #   error("Unknown discretization scheme to compute the conserved metrics")
+  # end
+
+  m = CylindricalGrid1D(
+    coords,
+    centroids,
+    node_velocities,
+    edge_metrics,
+    cell_center_metrics,
+    nhalo,
+    ni,
+    limits,
+    domain_iterators,
+    discr_scheme,
+    snap_to_axis,
+  )
+
+  update!(m)
+  return m
+end
+
+"""Update metrics after grid coordinates change"""
+function update!(mesh::CurvilinearGrid1D)
+  _centroid_coordinates!(
+    mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
+  )
+  update_metrics!(mesh)
+  _check_valid_metrics(mesh)
+  return nothing
+end
+
+function update_metrics!(mesh::AbstractCurvilinearGrid1D, t::Real=0)
+  # Update the metrics within the non-halo region, e.g., the domain
+  domain = mesh.iterators.cell.domain
+
+  MetricDiscretizationSchemes.update_metrics!(
+    mesh.discretization_scheme,
+    mesh.centroid_coordinates,
+    mesh.cell_center_metrics,
+    mesh.edge_metrics,
+    domain,
+  )
 
   return nothing
 end
 
-# ------------------------------------------------------------------
-# Grid Metrics
-# ------------------------------------------------------------------
+# # ------------------------------------------------------------------
+# # Grid Metrics
+# # ------------------------------------------------------------------
 
-@inline function metrics(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
-  _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo, t))
-  inv_jacobian_matrix = inv(_jacobian_matrix)
-  ξx = inv_jacobian_matrix[1]
-  J = det(_jacobian_matrix)
+# @inline function metrics(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
+#   _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo, t))
+#   inv_jacobian_matrix = inv(_jacobian_matrix)
+#   ξx = inv_jacobian_matrix[1]
+#   J = det(_jacobian_matrix)
 
-  vx = grid_velocities(m, i, t)
-  ξt = -(vx * ξx)
+#   vx = grid_velocities(m, i, t)
+#   ξt = -(vx * ξx)
 
-  ξ = Metric1D(ξx, ξt)
+#   ξ = Metric1D(ξx, ξt)
 
-  return (; ξ, J)
-end
+#   return (; ξ, J)
+# end
 
-# ------------------------------------------------------------------
-# Conservative Grid Metrics; e.g. ξ̂x = ξx * J
-# ------------------------------------------------------------------
+# # ------------------------------------------------------------------
+# # Conservative Grid Metrics; e.g. ξ̂x = ξx * J
+# # ------------------------------------------------------------------
 
-@inline function conservative_metrics(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
-  _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo, t))
-  inv_jacobian_matrix = inv(_jacobian_matrix)
-  ξx = inv_jacobian_matrix[1]
-  J = det(_jacobian_matrix)
+# @inline function conservative_metrics(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
+#   _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo, t))
+#   inv_jacobian_matrix = inv(_jacobian_matrix)
+#   ξx = inv_jacobian_matrix[1]
+#   J = det(_jacobian_matrix)
 
-  vx = grid_velocities(m, i, t)
-  ξt = -(vx * ξx)
+#   vx = grid_velocities(m, i, t)
+#   ξt = -(vx * ξx)
 
-  ξ̂ = Metric1D(ξx * J, ξt * J)
+#   ξ̂ = Metric1D(ξx * J, ξt * J)
 
-  return (; ξ̂, J)
-end
+#   return (; ξ̂, J)
+# end
 
-# ------------------------------------------------------------------
-# Jacobian related functions
-# ------------------------------------------------------------------
+# # ------------------------------------------------------------------
+# # Jacobian related functions
+# # ------------------------------------------------------------------
 
-@inline function jacobian_matrix(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
-  return checkeps(SMatrix{1,1}(m.∂x∂ξ(i - m.nhalo, t)))
-end
+# @inline function jacobian_matrix(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
+#   return checkeps(SMatrix{1,1}(m.∂x∂ξ(i - m.nhalo, t)))
+# end
 
-@inline function jacobian(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
-  return abs(m.∂x∂ξ(i - m.nhalo, t))
-end
+# @inline function jacobian(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
+#   return abs(m.∂x∂ξ(i - m.nhalo, t))
+# end
 
 # ------------------------------------------------------------------
 # Velocity Functions
@@ -180,27 +323,42 @@ end
 # Coordinate Functions
 # ------------------------------------------------------------------
 
-function _node_coordinates!(
-  coordinates::StructArray{T,1}, coordinate_functions, domain, nhalo
+function _centroid_coordinates!(
+  centroids::StructArray{T,1}, coords::StructArray{T,1}, domain
 ) where {T}
-
-  # Populate the node coordinates
-  @inbounds for idx in domain
-    cell_idx = @. idx.I - nhalo
-    coordinates.x[idx] = coordinate_functions.x(cell_idx...)
+  x = coords.x
+  # Populate the centroid coordinates
+  for idx in domain
+    i, = idx.I
+    centroids.x[idx] = 0.5(x[i] + x[i + 1])
   end
 
   return nothing
 end
 
-function _centroid_coordinates!(
-  centroids::StructArray{T,1}, coordinate_functions, domain, nhalo
-) where {T}
+function _check_valid_metrics(mesh::AbstractCurvilinearGrid1D)
+  domain = mesh.iterators.cell.domain
+  i₊½_domain = expand(domain, 1, -1)
 
-  # Populate the centroid coordinates
-  @inbounds for idx in domain
-    cell_idx = @. idx.I - nhalo + 0.5
-    centroids.x[idx] = coordinate_functions.x(cell_idx...)
+  @views begin
+    centroid_metrics_valid =
+      all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.x₁.ξ[domain]))
+
+    # edge_metrics_valid =
+    # all(isfinite.(mesh.edge_metrics.i₊½.J[i₊½_domain])) &&
+    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain])) &&
+    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain])) &&
+
+  end
+
+  # if !edge_metrics_valid
+  #   error("Invalid edge metrics found")
+  # end
+
+  if !centroid_metrics_valid
+    error("Invalid centroid metrics found")
   end
 
   return nothing

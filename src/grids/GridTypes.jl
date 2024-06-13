@@ -76,9 +76,7 @@ end
 include("metric_soa.jl")
 include("grid_iterators.jl")
 include("1d.jl")
-include("1d_axisymmetric.jl")
 include("2d.jl")
-# include("2d_axisymmetric.jl")
 include("3d.jl")
 
 include("simple_constructors.jl")

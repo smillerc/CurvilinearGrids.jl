@@ -10,7 +10,7 @@ using UnPack
 @testset verbose = true "UnitTests" begin
   include("unit/test_indexing.jl")
 
-  # include("unit/test_1d.jl")
+  include("unit/test_1d.jl")
   # include("unit/test_1d_axisymmetric.jl")
 
   include("unit/test_2d.jl")
