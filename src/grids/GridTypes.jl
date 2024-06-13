@@ -19,6 +19,11 @@ export AbstractCurvilinearGrid3D
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export CylindricalGrid2D
+
+export RectlinearGrid, CylindricalGrid
+
+export update!
+
 export coord, coords, coords!, cellsize, cellsize_withhalo
 export centroid, centroids
 export cellvolume
@@ -75,6 +80,8 @@ include("1d_axisymmetric.jl")
 include("2d.jl")
 include("2d_axisymmetric.jl")
 include("3d.jl")
+
+include("simple_constructors.jl")
 
 """Get the size of the grid for cell-based arrays"""
 cellsize(mesh::CurvilinearGrid1D) = (mesh.nnodes - 1,)
@@ -284,36 +291,36 @@ function check_for_invalid_metrics(mesh::AbstractCurvilinearGrid)
     edge_iterators = ntuple(i -> domain, length(mesh.nnodes))
   end
 
-  # edge metrics
-  invalid_edge_metrics = false
-  for (edge, edge_indices) in zip(mesh.edge_metrics, edge_iterators)
-    for (name, data) in pairs(edge) # i₊½, j₊½, k₊½
-      if data isa StructArray
-        # metric_set = edge[idx] # ξ̂x, η̂x, etc...
-        for c in StructArrays.components(data)
-          for i in eachindex(edge_indices)
-            if !(isfinite(c[i]))
-              @error("Invalid conserved grid metric $(name) @ index $(i) of $(c[i])")
-              invalid_edge_metrics = true
-            end
-          end
-        end
-      else
-        for i in eachindex(edge_indices)
-          if !(isfinite(data[i]))
-            @error("Invalid conserved grid metric $(name) @ index $(i) of $(data[i])")
-            invalid_edge_metrics = true
-          end
-        end
-      end
-    end
-  end
+  # # edge metrics
+  # invalid_edge_metrics = false
+  # for (edge, edge_indices) in zip(mesh.edge_metrics, edge_iterators)
+  #   for (name, data) in pairs(edge) # i₊½, j₊½, k₊½
+  #     if data isa StructArray
+  #       # metric_set = edge[idx] # ξ̂x, η̂x, etc...
+  #       for c in StructArrays.components(data)
+  #         for i in eachindex(edge_indices)
+  #           if !(isfinite(c[i]))
+  #             @error("Invalid conserved grid metric $(name) @ index $(i) of $(c[i])")
+  #             invalid_edge_metrics = true
+  #           end
+  #         end
+  #       end
+  #     else
+  #       for i in eachindex(edge_indices)
+  #         if !(isfinite(data[i]))
+  #           @error("Invalid conserved grid metric $(name) @ index $(i) of $(data[i])")
+  #           invalid_edge_metrics = true
+  #         end
+  #       end
+  #     end
+  #   end
+  # end
 
-  if invalid_cell_metrics || invalid_edge_metrics
-    error(
-      "Invalide cell or edge grid metrics, see error messages for what the culprits are; Exiting...",
-    )
-  end
+  # if invalid_cell_metrics || invalid_edge_metrics
+  #   error(
+  #     "Invalide cell or edge grid metrics, see error messages for what the culprits are; Exiting...",
+  #   )
+  # end
 
   return nothing
 end

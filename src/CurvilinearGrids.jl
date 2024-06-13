@@ -29,6 +29,9 @@ export AbstractCurvilinearGrid3D
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export CylindricalGrid2D
+export RectlinearGrid, CylindricalGrid
+
+export update!
 export cellsize, cellsize_withhalo
 export coord, coords
 export centroid, centroids

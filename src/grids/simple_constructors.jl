@@ -1,43 +1,36 @@
 
 using KernelAbstractions
 
-function RectlinearGrid(x⃗0, x⃗1, (ni_cells,)::NTuple{1,Int}, nhalo::Int, backend=CPU())
-  ni = ni_cells + 1
-
-  ni_nodes = ni + 2nhalo
-
-  x = zeros(ni_nodes, nj_nodes)
-
-  # node positions (non-halo)
-  x1d = range(x⃗0[1], x⃗1[1]; length=ni)
-
-  for i in 1:ni
-    x[i + nhalo, j + nhalo] = x1d[i]
-  end
-
+function RectlinearGrid(x0, x1, ncells, nhalo::Int, backend=CPU(), T=Float64)
+  ni = ncells + 1
+  x = collect(T, range(x0, x1; length=ni))
   return CurvilinearGrid1D(x, nhalo; backend=backend)
 end
 
 function RectlinearGrid(
-  x⃗0, x⃗1, (ni_cells, nj_cells)::NTuple{2,Int}, nhalo::Int, backend=CPU()
+  (x0, y0),
+  (x1, y1),
+  (ni_cells, nj_cells)::NTuple{2,Int},
+  nhalo::Int,
+  backend=CPU(),
+  T=Float64,
 )
+  @assert !(x0 ≈ x1) "The endpoints x0 and x1 are the same"
+  @assert !(y0 ≈ y1) "The endpoints y0 and y1 are the same"
+
   ni = ni_cells + 1
   nj = nj_cells + 1
 
-  ni_nodes = ni + 2nhalo
-  nj_nodes = nj + 2nhalo
+  x = zeros(T, ni, nj)
+  y = zeros(T, ni, nj)
 
-  x = zeros(ni_nodes, nj_nodes)
-  y = zeros(ni_nodes, nj_nodes)
+  x1d = range(x0, x1; length=ni)
+  y1d = range(y0, y1; length=nj)
 
-  # node positions (non-halo)
-  x1d = range(x⃗0[1], x⃗1[1]; length=ni)
-  y1d = range(x⃗0[2], x⃗1[2]; length=nj)
-
-  for j in 1:nj
+  @inbounds for j in 1:nj
     for i in 1:ni
-      x[i + nhalo, j + nhalo] = x1d[i]
-      y[i + nhalo, j + nhalo] = y1d[j]
+      x[i, j] = x1d[i]
+      y[i, j] = y1d[j]
     end
   end
 
@@ -45,31 +38,32 @@ function RectlinearGrid(
 end
 
 function RectlinearGrid(
-  x⃗0, x⃗1, (ni_cells, nj_cells, nk_cells)::NTuple{3,Int}, nhalo::Int, backend=CPU()
+  (x0, y0, z0),
+  (x1, y1, z1),
+  (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
+  nhalo::Int,
+  backend=CPU(),
+  T=Float64,
 )
   ni = ni_cells + 1
   nj = nj_cells + 1
   nk = nk_cells + 1
 
-  ni_nodes = ni + 2nhalo
-  nj_nodes = nj + 2nhalo
-  nk_nodes = nk + 2nhalo
-
-  x = zeros(ni_nodes, nj_nodes, nk_nodes)
-  y = zeros(ni_nodes, nj_nodes, nk_nodes)
-  z = zeros(ni_nodes, nj_nodes, nk_nodes)
+  x = zeros(T, ni, nj, nk)
+  y = zeros(T, ni, nj, nk)
+  z = zeros(T, ni, nj, nk)
 
   # node positions (non-halo)
-  x1d = range(x⃗0[1], x⃗1[1]; length=ni)
-  y1d = range(x⃗0[2], x⃗1[2]; length=nj)
-  z1d = range(x⃗0[3], x⃗1[3]; length=nk)
+  x1d = range(x0, x1; length=ni)
+  y1d = range(y0, y1; length=nj)
+  z1d = range(z0, z1; length=nk)
 
-  for k in 1:nk
+  @inbounds for k in 1:nk
     for j in 1:nj
       for i in 1:ni
-        x[i + nhalo, j + nhalo, k + nhalo] = x1d[i]
-        y[i + nhalo, j + nhalo, k + nhalo] = y1d[j]
-        z[i + nhalo, j + nhalo, k + nhalo] = z1d[k]
+        x[i, j, k] = x1d[i]
+        y[i, j, k] = y1d[j]
+        z[i, j, k] = z1d[k]
       end
     end
   end
@@ -78,45 +72,48 @@ function RectlinearGrid(
 end
 
 function CylindricalGrid(
-  x⃗0, x⃗1, (ni_cells, nj_cells)::NTuple{2,Int}, nhalo::Int, backend=CPU()
+  (r0, θ0),
+  (r1, θ1),
+  (ni_cells, nj_cells)::NTuple{2,Int},
+  nhalo::Int,
+  backend=CPU(),
+  T=Float64,
 )
   ni = ni_cells + 1
   nj = nj_cells + 1
 
-  ni_nodes = ni + 2nhalo
-  nj_nodes = nj + 2nhalo
-
-  x = zeros(ni_nodes, nj_nodes)
-  y = zeros(ni_nodes, nj_nodes)
+  x = zeros(T, ni, nj)
+  y = zeros(T, ni, nj)
 
   # node positions (non-halo)
-  r1d = range(x⃗0[1], x⃗1[1]; length=ni)
-  θ1d = range(x⃗0[2], x⃗1[2]; length=nj)
+  r1d = range(r0, r1; length=ni)
+  θ1d = range(θ0, θ1; length=nj)
 
-  for j in 1:nj
+  @inbounds for j in 1:nj
     for i in 1:ni
-      x[i + nhalo, j + nhalo] = r1d[i] * cos(θ1d[j])
-      y[i + nhalo, j + nhalo] = r1d[i] * sin(θ1d[j])
+      x[i, j] = r1d[i] * cos(θ1d[j])
+      y[i, j] = r1d[i] * sin(θ1d[j])
     end
   end
 
   return CurvilinearGrid2D(x, y, nhalo; backend=backend)
 end
 
-function CylindricalGrid(r, θ, nhalo::Int, backend=CPU()) where {T}
+function CylindricalGrid(
+  r::AbstractVector{T}, θ::AbstractVector{T}, nhalo::Int, backend=CPU()
+) where {T}
+  @assert all(r .>= 0)
+
   ni = length(r)
   nj = length(θ)
 
-  ni_nodes = ni + 2nhalo
-  nj_nodes = nj + 2nhalo
-
-  x = zeros(ni_nodes, nj_nodes)
-  y = zeros(ni_nodes, nj_nodes)
+  x = zeros(T, ni, nj)
+  y = zeros(T, ni, nj)
 
   for j in 1:nj
     for i in 1:ni
-      x[i + nhalo, j + nhalo] = r[i] * cos(θ[j])
-      y[i + nhalo, j + nhalo] = r[i] * sin(θ[j])
+      x[i, j] = r[i] * cos(θ[j])
+      y[i, j] = r[i] * sin(θ[j])
     end
   end
 
