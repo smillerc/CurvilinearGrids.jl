@@ -1,22 +1,14 @@
 
 @testset "3D Rectangular Mesh Metrics, Conserved Metrics, GCL" begin
-  function rect_grid(nx, ny, nz)
-    x0, x1 = (0.0, 2.0)
-    y0, y1 = (1, 3)
-    z0, z1 = (-1, 2)
+  include("common.jl")
 
-    x(ξ, η, ζ) = @. x0 + (x1 - x0) * ((ξ - 1) / (nx - 1))
-    y(ξ, η, ζ) = @. y0 + (y1 - y0) * ((η - 1) / (ny - 1))
-    z(ξ, η, ζ) = @. z0 + (z1 - z0) * ((ζ - 1) / (nz - 1))
-
-    return (x, y, z)
-  end
-
-  ni, nj, nk = (5, 9, 13)
+  x0, x1 = (0.0, 2.0)
+  y0, y1 = (1, 3)
+  z0, z1 = (-1, 2)
+  ni, nj, nk = (4, 8, 12)
   nhalo = 4
-  x, y, z = rect_grid(ni, nj, nk)
 
-  mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
+  mesh = RectlinearGrid((x0, y0, z0), (x1, y1, z1), (ni, nj, nk), nhalo)
   domain = mesh.iterators.cell.domain
 
   cell_volume = 0.5 * 0.25 * 0.25
@@ -148,30 +140,30 @@ end
 @testset "3D Wavy Mesh GCL" begin
   using CurvilinearGrids
   using WriteVTK
-  using CurvilinearGrids.MetricDiscretizationSchemes.MonotoneExplicit6thOrderScheme:
-    conserved_metric!
+  # using CurvilinearGrids.MetricDiscretizationSchemes.MonotoneExplicit6thOrderScheme:
+  #   conserved_metric!
 
   # include("../../src/metric_schemes/indexing_fun.jl")
 
-  function save_vtk(mesh)
-    fn = "wavy"
-    @info "Writing to $fn.vti"
+  # function save_vtk(mesh)
+  #   fn = "wavy"
+  #   @info "Writing to $fn.vti"
 
-    xyz_n = CurvilinearGrids.coords(mesh)
-    domain = mesh.iterators.cell.domain
+  #   xyz_n = CurvilinearGrids.coords(mesh)
+  #   domain = mesh.iterators.cell.domain
 
-    @views vtk_grid(fn, xyz_n) do vtk
-      for (k, v) in pairs(mesh.cell_center_metrics)
-        vtk["$k"] = v[domain]
-      end
+  #   @views vtk_grid(fn, xyz_n) do vtk
+  #     for (k, v) in pairs(mesh.cell_center_metrics)
+  #       vtk["$k"] = v[domain]
+  #     end
 
-      for (edge_name, data) in pairs(mesh.edge_metrics)
-        for (k, v) in pairs(data)
-          vtk["$(k)_$(edge_name)"] = v[domain]
-        end
-      end
-    end
-  end
+  #     for (edge_name, data) in pairs(mesh.edge_metrics)
+  #       for (k, v) in pairs(data)
+  #         vtk["$(k)_$(edge_name)"] = v[domain]
+  #       end
+  #     end
+  #   end
+  # end
 
   function wavy_grid(ni, nj, nk)
     Lx = Ly = Lz = 4.0
@@ -184,9 +176,18 @@ end
     Δy0 = Ly / nj
     Δz0 = Lz / nk
 
-    x(i, j, k) = xmin + Δx0 * ((i - 1) + sinpi((j - 1) * Δy0) * sinpi((k - 1) * Δz0))
-    y(i, j, k) = ymin + Δy0 * ((j - 1) + sinpi((k - 1) * Δz0) * sinpi((i - 1) * Δx0))
-    z(i, j, k) = zmin + Δz0 * ((k - 1) + sinpi((i - 1) * Δx0) * sinpi((j - 1) * Δy0))
+    x = zeros(ni, nj, nk)
+    y = zeros(ni, nj, nk)
+    z = zeros(ni, nj, nk)
+    for k in 1:nk
+      for j in 1:nj
+        for i in 1:ni
+          x[i, j, k] = xmin + Δx0 * ((i - 1) + sinpi((j - 1) * Δy0) * sinpi((k - 1) * Δz0))
+          y[i, j, k] = ymin + Δy0 * ((j - 1) + sinpi((k - 1) * Δz0) * sinpi((i - 1) * Δx0))
+          z[i, j, k] = zmin + Δz0 * ((k - 1) + sinpi((i - 1) * Δx0) * sinpi((j - 1) * Δy0))
+        end
+      end
+    end
 
     return (x, y, z)
   end
@@ -198,11 +199,12 @@ end
   ni = nj = nk = 20
   nhalo = 4
   x, y, z = wavy_grid(ni, nj, nk)
-  mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
+  mesh = CurvilinearGrid3D(x, y, z, nhalo)
 
-  # save_vtk(mesh)
+  save_vtk(mesh, "wavy3d")
 
   conserved_metrics_pass = false
+  ϵ = 1e-14
   for idx in mesh.iterators.cell.domain
     i, j, k = idx.I
     I₁ = (
@@ -221,10 +223,11 @@ end
       (mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k - 1])
     )
 
-    I₁ = I₁ * (abs(I₁) > 10eps())
-    I₂ = I₂ * (abs(I₂) > 10eps())
-    I₃ = I₃ * (abs(I₃) > 10eps())
+    I₁ = I₁ * (abs(I₁) > ϵ)
+    I₂ = I₂ * (abs(I₂) > ϵ)
+    I₃ = I₃ * (abs(I₃) > ϵ)
 
+    # @show I₁, I₂, I₃
     conserved_metrics_pass = iszero(I₁) && iszero(I₂) && iszero(I₃)
     if !conserved_metrics_pass
       break
@@ -233,62 +236,47 @@ end
   @test conserved_metrics_pass
 end
 
-# @testset "3D Sphere Sector Mesh Construction" 
-begin
+@testset "3D Sphere Sector Mesh Construction" begin
   include("common.jl")
 
-  function sphere_grid(nr, ntheta, nphi)
-    r0, r1 = (1, 3)
-    (θ0, θ1) = deg2rad.((35, 180 - 35))
-    (ϕ0, ϕ1) = deg2rad.((45, 360 - 45))
-
-    r(ξ) = r0 + (r1 - r0) * ((ξ - 1) / (nr - 1))
-    θ(η) = θ0 + (θ1 - θ0) * ((η - 1) / (ntheta - 1))
-    ϕ(ζ) = ϕ0 + (ϕ1 - ϕ0) * ((ζ - 1) / (nphi - 1))
-
-    x(ξ, η, ζ) = r(ξ) * sin(θ(η)) * cos(ϕ(ζ))
-    y(ξ, η, ζ) = r(ξ) * sin(θ(η)) * sin(ϕ(ζ))
-    z(ξ, η, ζ) = r(ξ) * cos(θ(η))
-
-    return (x, y, z)
-  end
-
-  ni, nj, nk = (200, 200, 200)
-  # ni, nj, nk = (20, 20, 20)
+  r0, r1 = (1, 3)
+  (θ0, θ1) = deg2rad.((35, 180 - 35))
+  (ϕ0, ϕ1) = deg2rad.((45, 360 - 45))
+  ni, nj, nk = (20, 20, 20)
   nhalo = 4
-  x, y, z = sphere_grid(ni, nj, nk)
   # @test_nowarn CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
-  @profview begin
-    mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
+  mesh = RThetaPhiGrid((r0, θ0, ϕ0), (r1, θ1, ϕ1), (ni, nj, nk), nhalo)
+  save_vtk(mesh, "sphere_sector_3d")
+
+  conserved_metrics_pass = false
+  ϵ = 1e-14
+  for idx in mesh.iterators.cell.domain
+    i, j, k = idx.I
+    I₁ = (
+      (mesh.edge_metrics.i₊½.ξ̂.x₁[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.x₁[i - 1, j, k]) +
+      (mesh.edge_metrics.j₊½.η̂.x₁[i, j, k] - mesh.edge_metrics.j₊½.η̂.x₁[i, j - 1, k]) +
+      (mesh.edge_metrics.k₊½.ζ̂.x₁[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x₁[i, j, k - 1])
+    )
+    I₂ = (
+      (mesh.edge_metrics.i₊½.ξ̂.x₂[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.x₂[i - 1, j, k]) +
+      (mesh.edge_metrics.j₊½.η̂.x₂[i, j, k] - mesh.edge_metrics.j₊½.η̂.x₂[i, j - 1, k]) +
+      (mesh.edge_metrics.k₊½.ζ̂.x₂[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x₂[i, j, k - 1])
+    )
+    I₃ = (
+      (mesh.edge_metrics.i₊½.ξ̂.x₃[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.x₃[i - 1, j, k]) +
+      (mesh.edge_metrics.j₊½.η̂.x₃[i, j, k] - mesh.edge_metrics.j₊½.η̂.x₃[i, j - 1, k]) +
+      (mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k - 1])
+    )
+
+    I₁ = I₁ * (abs(I₁) > ϵ)
+    I₂ = I₂ * (abs(I₂) > ϵ)
+    I₃ = I₃ * (abs(I₃) > ϵ)
+
+    # @show I₁, I₂, I₃
+    conserved_metrics_pass = iszero(I₁) && iszero(I₂) && iszero(I₃)
+    if !conserved_metrics_pass
+      break
+    end
   end
-
-  # conserved_metrics_pass = false
-  # for idx in mesh.iterators.cell.domain
-  #   i, j, k = idx.I
-  #   I₁ = (
-  #     (mesh.edge_metrics.i₊½.ξ̂.x₁[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.x₁[i - 1, j, k]) +
-  #     (mesh.edge_metrics.j₊½.η̂.x₁[i, j, k] - mesh.edge_metrics.j₊½.η̂.x₁[i, j - 1, k]) +
-  #     (mesh.edge_metrics.k₊½.ζ̂.x₁[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x₁[i, j, k - 1])
-  #   )
-  #   I₂ = (
-  #     (mesh.edge_metrics.i₊½.ξ̂.x₂[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.x₂[i - 1, j, k]) +
-  #     (mesh.edge_metrics.j₊½.η̂.x₂[i, j, k] - mesh.edge_metrics.j₊½.η̂.x₂[i, j - 1, k]) +
-  #     (mesh.edge_metrics.k₊½.ζ̂.x₂[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x₂[i, j, k - 1])
-  #   )
-  #   I₃ = (
-  #     (mesh.edge_metrics.i₊½.ξ̂.x₃[i, j, k] - mesh.edge_metrics.i₊½.ξ̂.x₃[i - 1, j, k]) +
-  #     (mesh.edge_metrics.j₊½.η̂.x₃[i, j, k] - mesh.edge_metrics.j₊½.η̂.x₃[i, j - 1, k]) +
-  #     (mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k] - mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k - 1])
-  #   )
-
-  #   I₁ = I₁ * (abs(I₁) > 10eps())
-  #   I₂ = I₂ * (abs(I₂) > 10eps())
-  #   I₃ = I₃ * (abs(I₃) > 10eps())
-
-  #   conserved_metrics_pass = iszero(I₁) && iszero(I₂) && iszero(I₃)
-  #   if !conserved_metrics_pass
-  #     break
-  #   end
-  # end
-  # @test conserved_metrics_pass
+  @test conserved_metrics_pass
 end

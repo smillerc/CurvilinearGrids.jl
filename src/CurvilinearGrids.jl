@@ -28,8 +28,9 @@ export AbstractCurvilinearGrid2D
 export AbstractCurvilinearGrid3D
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
 export CylindricalGrid1D, SphericalGrid1D
-export CylindricalGrid2D
-export RectlinearGrid, CylindricalGrid
+export AxisymmetricGrid2D
+export RectlinearGrid, RThetaGrid, RThetaPhiGrid
+export AxisymmetricRectlinearGrid, AxisymmetricRThetaGrid
 
 export update!
 export cellsize, cellsize_withhalo

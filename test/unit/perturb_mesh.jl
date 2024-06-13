@@ -6,7 +6,7 @@ function gaussian(x, x0, fwhm, p)
   return exp(-(((xc / (2σ²)))^p))
 end
 
-function perturb_coords!(mesh, x_interface, λ)
+function perturb_coords!(mesh, x_interface, λ, k)
   for idx in mesh.iterators.node.domain
     i, j = idx.I
 
@@ -28,7 +28,8 @@ function perturb_coords!(mesh, x_interface, λ)
     mesh.node_coordinates.x[i, j] += x_pert
   end
 
-  return CurvilinearGrids.update!(mesh)
+  CurvilinearGrids.update!(mesh)
+  return nothing
 end
 
 @testset "2D Mesh Perturbation" begin
@@ -42,7 +43,7 @@ end
 
   mesh = RectlinearGrid((x0, y0), (x1, y1), (501, 101), nhalo)
 
-  perturb_coords!(mesh, x_interface, λ)
+  perturb_coords!(mesh, x_interface, λ, k)
 
   # save_vtk(mesh)
 
