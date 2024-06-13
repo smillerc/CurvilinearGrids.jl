@@ -148,7 +148,6 @@ function get_metric_soa(celldims::NTuple{2,Int}, backend, T)
       ξ̂=StructArray((
         x₁=KernelAbstractions.zeros(backend, T, celldims),
         x₂=KernelAbstractions.zeros(backend, T, celldims),
-        x₃=KernelAbstractions.zeros(backend, T, celldims),
         t=KernelAbstractions.zeros(backend, T, celldims),
       )),
       η̂=StructArray((
