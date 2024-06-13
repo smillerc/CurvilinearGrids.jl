@@ -13,7 +13,7 @@
   @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[cell_domain] .≈ 1.0)
   @test all(mesh.edge_metrics.i₊½.J[cell_domain] .≈ 0.5)
 
-  centroid(m, 4).x ≈ 0.25
+  centroid(mesh, 4).x ≈ 0.25
   @test mesh.centroid_coordinates.x[cell_domain] == [0.25, 0.75, 1.25, 1.75]
   @test mesh.node_coordinates.x[node_domain] == [0.0, 0.5, 1.0, 1.5, 2.0]
   @test centroids(mesh) == [0.25, 0.75, 1.25, 1.75]

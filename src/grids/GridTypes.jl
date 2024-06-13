@@ -155,7 +155,7 @@ end
 
 """Get the radial node coordinate of a axisymmetric mesh"""
 @inline radius(mesh, CI::CartesianIndex) = radius(mesh, CI.I)
-@inline function radius(mesh::AxisymmetricGrid1D, (i,)::NTuple{1,Int})
+@inline function radius(mesh::AbstractCurvilinearGrid1D, (i,)::NTuple{1,Int})
   return mesh.node_coordinates.x[i]
 end
 
@@ -169,7 +169,7 @@ end
 
 """Get the radial centroid coordinate of a axisymmetric mesh"""
 @inline centroid_radius(mesh, CI::CartesianIndex) = centroid_radius(mesh, CI.I)
-@inline function centroid_radius(mesh::AxisymmetricGrid1D, (i,)::NTuple{1,Int})
+@inline function centroid_radius(mesh::AbstractCurvilinearGrid1D, (i,)::NTuple{1,Int})
   return mesh.centroid_coordinates.x[i]
 end
 
