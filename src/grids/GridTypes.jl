@@ -19,6 +19,7 @@ export AbstractCurvilinearGrid3D
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
+
 export RectlinearGrid, RThetaGrid, RThetaPhiGrid
 export AxisymmetricRectlinearGrid, AxisymmetricRThetaGrid
 
@@ -78,8 +79,7 @@ include("grid_iterators.jl")
 include("1d.jl")
 include("2d.jl")
 include("3d.jl")
-
-include("simple_constructors.jl")
+include("simple_constructors/simple_constructors.jl")
 
 """Get the size of the grid for cell-based arrays"""
 cellsize(mesh::CurvilinearGrid1D) = (mesh.nnodes - 1,)
