@@ -215,6 +215,10 @@ function update_edge_conserved_metrics!(
   toedge!(edge_metrics.j₊½.ζ̂.x₃, ∂²x, ∂x, ζ̂z, j₊½_domain, η)
   toedge!(edge_metrics.k₊½.ζ̂.x₃, ∂²x, ∂x, ζ̂z, k₊½_domain, ζ)
 
+  toedge!(edge_metrics.i₊½.J, ∂²x, ∂x, cell_center_metrics.J, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.J, ∂²x, ∂x, cell_center_metrics.J, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.J, ∂²x, ∂x, cell_center_metrics.J, k₊½_domain, ζ)
+
   return nothing
 end
 
