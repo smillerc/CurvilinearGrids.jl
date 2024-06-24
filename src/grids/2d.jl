@@ -13,6 +13,7 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   domain_limits::DL
   iterators::CI
   discretization_scheme::DS
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
 end
 
 """
@@ -31,6 +32,7 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme::DS
   snap_to_axis::Bool
   rotational_axis::Symbol
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
 end
 
 """
@@ -45,6 +47,7 @@ function CurvilinearGrid2D(
   nhalo::Int;
   discretization_scheme=:MEG6,
   backend=CPU(),
+  on_bc=nothing,
 ) where {T}
 
   #
@@ -105,6 +108,12 @@ function CurvilinearGrid2D(
   #   error("Unknown discretization scheme to compute the conserved metrics")
   # end
 
+  if isnothing(on_bc)
+    _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true)
+  else
+    _on_bc = on_bc
+  end
+
   mesh = CurvilinearGrid2D(
     coords,
     centroids,
@@ -116,6 +125,7 @@ function CurvilinearGrid2D(
     limits,
     domain_iterators,
     discr_scheme,
+    _on_bc,
   )
 
   update!(mesh)

@@ -31,6 +31,7 @@ export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 export RectlinearGrid, RThetaGrid, RThetaPhiGrid
 export AxisymmetricRectlinearGrid, AxisymmetricRThetaGrid
+export PartitionedRectlinearGrid
 
 export update!
 export cellsize, cellsize_withhalo

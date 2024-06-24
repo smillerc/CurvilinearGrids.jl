@@ -22,6 +22,7 @@ export AxisymmetricGrid2D
 
 export RectlinearGrid, RThetaGrid, RThetaPhiGrid
 export AxisymmetricRectlinearGrid, AxisymmetricRThetaGrid
+export PartitionedRectlinearGrid
 
 export update!
 
@@ -33,6 +34,8 @@ export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
 export cell_metrics, cell_indices
+
+export onbc
 
 abstract type AbstractCurvilinearGrid end
 abstract type AbstractCurvilinearGrid1D <: AbstractCurvilinearGrid end
@@ -80,6 +83,15 @@ include("1d.jl")
 include("2d.jl")
 include("3d.jl")
 include("simple_constructors/simple_constructors.jl")
+
+"""
+    onbc(mesh, bc::Symbol)
+
+Is the `mesh` on a given boundary, i.e. :ilo. The boundary must be a single location
+`(:ilo, :jlo, :klo)` for `lo` or `hi` boundaries. Corners must be checked as a 
+combination of multiple single boundaries.
+"""
+onbc(mesh, bc::Symbol) = mesh.onbc[bc]
 
 """Get the size of the grid for cell-based arrays"""
 cellsize(mesh::CurvilinearGrid1D) = (mesh.nnodes - 1,)
