@@ -11,6 +11,7 @@ function RectlinearGrid(
   nhalo::Int,
   backend=CPU(),
   T=Float64,
+  is_static=true,
 )
   @assert !(x0 ≈ x1) "The endpoints x0 and x1 are the same"
   @assert !(y0 ≈ y1) "The endpoints y0 and y1 are the same"
@@ -31,11 +32,13 @@ function RectlinearGrid(
     end
   end
 
-  return CurvilinearGrid2D(x, y, nhalo; backend=backend)
+  return CurvilinearGrid2D(
+    x, y, nhalo; backend=backend, is_orthogonal=true, is_static=is_static
+  )
 end
 
 function RectlinearGrid(
-  x::AbstractVector{T}, y::AbstractVector{T}, nhalo::Int, backend=CPU()
+  x::AbstractVector{T}, y::AbstractVector{T}, nhalo::Int, backend=CPU(), is_static=true
 ) where {T}
   ni = length(x)
   nj = length(y)
@@ -53,7 +56,9 @@ function RectlinearGrid(
     end
   end
 
-  return CurvilinearGrid2D(x2d, y2d, nhalo; backend=backend)
+  return CurvilinearGrid2D(
+    x2d, y2d, nhalo; backend=backend, is_orthogonal=true, is_static=is_static
+  )
 end
 
 function AxisymmetricRectlinearGrid(
@@ -65,6 +70,7 @@ function AxisymmetricRectlinearGrid(
   rotational_axis::Symbol,
   backend=CPU(),
   T=Float64,
+  is_static=true,
 )
   @assert !(x0 ≈ x1) "The endpoints x0 and x1 are the same"
   @assert !(y0 ≈ y1) "The endpoints y0 and y1 are the same"
@@ -85,7 +91,16 @@ function AxisymmetricRectlinearGrid(
     end
   end
 
-  return AxisymmetricGrid2D(x, y, nhalo, snap_to_axis, rotational_axis; backend=backend)
+  return AxisymmetricGrid2D(
+    x,
+    y,
+    nhalo,
+    snap_to_axis,
+    rotational_axis;
+    backend=backend,
+    is_orthogonal=true,
+    is_static=is_static,
+  )
 end
 
 function RectlinearGrid(
@@ -95,6 +110,7 @@ function RectlinearGrid(
   nhalo::Int,
   backend=CPU(),
   T=Float64,
+  is_static=true,
 )
   ni = ni_cells + 1
   nj = nj_cells + 1
@@ -119,7 +135,9 @@ function RectlinearGrid(
     end
   end
 
-  return CurvilinearGrid3D(x, y, z, nhalo; backend=backend)
+  return CurvilinearGrid3D(
+    x, y, z, nhalo; backend=backend, is_orthogonal=true, is_static=is_static
+  )
 end
 
 function RectlinearGrid(
@@ -128,6 +146,7 @@ function RectlinearGrid(
   z::AbstractVector{T},
   nhalo::Int,
   backend=CPU(),
+  is_static=true,
 ) where {T}
   ni = length(x)
   nj = length(y)
@@ -151,5 +170,7 @@ function RectlinearGrid(
     end
   end
 
-  return CurvilinearGrid3D(x3d, y3d, z3d, nhalo; backend=backend)
+  return CurvilinearGrid3D(
+    x3d, y3d, z3d, nhalo; backend=backend, is_orthogonal=true, is_static=is_static
+  )
 end

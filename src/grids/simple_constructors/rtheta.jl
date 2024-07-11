@@ -10,6 +10,7 @@ function RThetaGrid(
   nhalo::Int,
   backend=CPU(),
   T=Float64,
+  is_static=true,
 )
   ni = ni_cells + 1
   nj = nj_cells + 1
@@ -28,7 +29,7 @@ function RThetaGrid(
     end
   end
 
-  return CurvilinearGrid2D(x, y, nhalo; backend=backend)
+  return CurvilinearGrid2D(x, y, nhalo; backend=backend, is_static=is_static)
 end
 
 """
@@ -37,7 +38,7 @@ end
 Create polar grid based on vectors of `r` and `θ` coordinates
 """
 function RThetaGrid(
-  r::AbstractVector{T}, θ::AbstractVector{T}, nhalo::Int, backend=CPU()
+  r::AbstractVector{T}, θ::AbstractVector{T}, nhalo::Int, backend=CPU(), is_static=true
 ) where {T}
   @assert all(r .>= 0) "Radius coordinates must be >= 0"
 
@@ -54,7 +55,7 @@ function RThetaGrid(
     end
   end
 
-  return CurvilinearGrid2D(x, y, nhalo; backend=backend)
+  return CurvilinearGrid2D(x, y, nhalo; backend=backend, is_static=is_static)
 end
 
 """
@@ -72,6 +73,7 @@ function RThetaGrid(
   rotational_axis::Symbol,
   backend=CPU(),
   T=Float64,
+  is_static=true,
 )
   ni = ni_cells + 1
   nj = nj_cells + 1
@@ -96,7 +98,9 @@ function RThetaGrid(
     end
   end
 
-  return AxisymmetricGrid2D(x, y, nhalo, snap_to_axis, axis; backend=backend)
+  return AxisymmetricGrid2D(
+    x, y, nhalo, snap_to_axis, axis; backend=backend, is_static=is_static
+  )
 end
 
 """
@@ -112,6 +116,7 @@ function AxisymmetricRThetaGrid(
   snap_to_axis::Bool,
   rotational_axis::Symbol,
   backend=CPU(),
+  is_static=true,
 ) where {T}
   @assert all(r .>= 0) "Radius coordinates must be >= 0"
 
@@ -134,5 +139,7 @@ function AxisymmetricRThetaGrid(
     end
   end
 
-  return AxisymmetricGrid2D(x, y, nhalo, snap_to_axis, axis; backend=backend)
+  return AxisymmetricGrid2D(
+    x, y, nhalo, snap_to_axis, axis; backend=backend, is_static=is_static
+  )
 end

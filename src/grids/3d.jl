@@ -23,8 +23,8 @@ struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid
   domain_limits::DL
   iterators::CI
   discretization_scheme::DS
-  # _coordinate_funcs::CF
-  # _jacobian_matrix_func::JF # jacobian_matrix(ξ,η,ζ)
+  is_static::Bool
+  is_orthogonal::Bool
 end
 
 """
@@ -45,6 +45,8 @@ function CurvilinearGrid3D(
   nhalo::Int,
   discretization_scheme=:MEG6;
   backend=CPU(),
+  is_static=false,
+  is_orthogonal=false,
 ) where {T}
 
   #
@@ -130,19 +132,25 @@ function CurvilinearGrid3D(
     limits,
     domain_iterators,
     discr_scheme,
+    is_static,
+    is_orthogonal,
   )
 
-  update!(m)
+  update!(m; force=true)
   return m
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::CurvilinearGrid3D)
-  _centroid_coordinates!(
-    mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
-  )
-  update_metrics!(mesh)
-  _check_valid_metrics(mesh)
+function update!(mesh::CurvilinearGrid3D; force=false)
+  if !mesh.is_static || force
+    _centroid_coordinates!(
+      mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
+    )
+    update_metrics!(mesh)
+    _check_valid_metrics(mesh)
+  else
+    @warn("Attempting to update grid metrics when grid.is_static = true!")
+  end
   return nothing
 end
 
