@@ -32,16 +32,16 @@ CacheType{T,N,AA<:AbstractArray{T,N}} = @NamedTuple{
 #   cache::CacheType{T,N,AA}
 # end
 struct MonotoneExplicit6thOrderDiscretization{T,N,AA<:AbstractArray{T,N}}
-  cache::@NamedTuple{
-    xᵢ₊½::AA,
-    ∂²x::AA,
-    ∂x::AA,
-    metric::AA,
-    inner_deriv1::AA,
-    outer_deriv1::AA,
-    inner_deriv2::AA,
-    outer_deriv2::AA,
-  }
+  # cache::@NamedTuple{
+  xᵢ₊½::AA
+  ∂²x::AA
+  ∂x::AA
+  metric::AA
+  inner_deriv1::AA
+  outer_deriv1::AA
+  inner_deriv2::AA
+  outer_deriv2::AA
+  # }
 end
 
 function MonotoneExplicit6thOrderDiscretization(
@@ -55,19 +55,28 @@ function MonotoneExplicit6thOrderDiscretization(
     )
   end
 
-  cache = (
-    xᵢ₊½=zeros(T, cellsize),
-    ∂²x=zeros(T, cellsize),
-    ∂x=zeros(T, cellsize),
-    metric=zeros(T, cellsize),
-    inner_deriv1=zeros(T, cellsize),
-    outer_deriv1=zeros(T, cellsize),
-    inner_deriv2=zeros(T, cellsize),
-    outer_deriv2=zeros(T, cellsize),
-  )
+  # cache = (
+  #   xᵢ₊½=zeros(T, cellsize),
+  #   ∂²x=zeros(T, cellsize),
+  #   ∂x=zeros(T, cellsize),
+  #   metric=zeros(T, cellsize),
+  #   inner_deriv1=zeros(T, cellsize),
+  #   outer_deriv1=zeros(T, cellsize),
+  #   inner_deriv2=zeros(T, cellsize),
+  #   outer_deriv2=zeros(T, cellsize),
+  # )
 
-  AA = typeof(cache.metric)
-  return MonotoneExplicit6thOrderDiscretization{T,N,AA}(cache)
+  # AA = typeof(cache.metric)
+  return MonotoneExplicit6thOrderDiscretization(
+    zeros(T, cellsize),
+    zeros(T, cellsize),
+    zeros(T, cellsize),
+    zeros(T, cellsize),
+    zeros(T, cellsize),
+    zeros(T, cellsize),
+    zeros(T, cellsize),
+    zeros(T, cellsize),
+  )
 end
 
 function ∂x∂ξ!(
@@ -78,9 +87,9 @@ function ∂x∂ξ!(
   axis,
   ϵ=10eps(T),
 ) where {T}
-  xᵢ₊½ = m.cache.xᵢ₊½
-  ∂²x = m.cache.∂²x
-  ∂x = m.cache.∂x
+  xᵢ₊½ = m.xᵢ₊½
+  ∂²x = m.∂²x
+  ∂x = m.∂x
 
   toedge!(xᵢ₊½, ∂²x, ∂x, x, domain, axis)
 
@@ -109,16 +118,16 @@ function conserved_metric!(
 ) where {T}
 
   # 1st term
-  yη = m.cache.inner_deriv1
-  yηz_ζ = m.cache.outer_deriv1
+  yη = m.inner_deriv1
+  yηz_ζ = m.outer_deriv1
 
   ∂x∂ξ!(m, yη, y, domain, η_axis)
   yηz = mappedarray(*, yη, z)
   ∂x∂ξ!(m, yηz_ζ, yηz, domain, ζ_axis)
 
   # 2nd term
-  yζ = m.cache.inner_deriv2
-  yζz_η = m.cache.outer_deriv2
+  yζ = m.inner_deriv2
+  yζz_η = m.outer_deriv2
 
   ∂x∂ξ!(m, yζ, y, domain, ζ_axis) # -> yζ
   yζz = mappedarray(*, yζ, z)
@@ -145,71 +154,71 @@ function update_edge_conserved_metrics!(
   z = centroid_coords.z
 
   # cache-arrays
-  ∂²x = m.cache.∂²x
-  ∂x = m.cache.∂x
+  ∂²x = m.∂²x
+  ∂x = m.∂x
 
   i₊½_domain = expand(domain, 1, 0)
   j₊½_domain = expand(domain, 2, 0)
   k₊½_domain = expand(domain, 3, 0)
 
   # ξ̂x = (y_η z)_ζ − (y_ζ z)_η
-  ξ̂x = m.cache.metric
+  ξ̂x = m.metric
   conserved_metric!(m, ξ̂x, y, η, z, ζ, domain)
   toedge!(edge_metrics.i₊½.ξ̂.x₁, ∂²x, ∂x, ξ̂x, i₊½_domain, ξ)
   toedge!(edge_metrics.j₊½.ξ̂.x₁, ∂²x, ∂x, ξ̂x, j₊½_domain, η)
   toedge!(edge_metrics.k₊½.ξ̂.x₁, ∂²x, ∂x, ξ̂x, k₊½_domain, ζ)
 
   # η̂x = (y_ζ z)_ξ − (y_ξ z)_ζ
-  η̂x = m.cache.metric
+  η̂x = m.metric
   conserved_metric!(m, η̂x, y, ζ, z, ξ, domain)
   toedge!(edge_metrics.i₊½.η̂.x₁, ∂²x, ∂x, η̂x, i₊½_domain, ξ)
   toedge!(edge_metrics.j₊½.η̂.x₁, ∂²x, ∂x, η̂x, j₊½_domain, η)
   toedge!(edge_metrics.k₊½.η̂.x₁, ∂²x, ∂x, η̂x, k₊½_domain, ζ)
 
   # ζ̂x = (y_ξ z)_η − (y_η z)_ξ
-  ζ̂x = m.cache.metric
+  ζ̂x = m.metric
   conserved_metric!(m, ζ̂x, y, ξ, z, η, domain)
   toedge!(edge_metrics.i₊½.ζ̂.x₁, ∂²x, ∂x, ζ̂x, i₊½_domain, ξ)
   toedge!(edge_metrics.j₊½.ζ̂.x₁, ∂²x, ∂x, ζ̂x, j₊½_domain, η)
   toedge!(edge_metrics.k₊½.ζ̂.x₁, ∂²x, ∂x, ζ̂x, k₊½_domain, ζ)
 
   # ξ̂y = (z_η x)_ζ − (z_ζ x)_η
-  ξ̂y = m.cache.metric
+  ξ̂y = m.metric
   conserved_metric!(m, ξ̂y, z, η, x, ζ, domain)
   toedge!(edge_metrics.i₊½.ξ̂.x₂, ∂²x, ∂x, ξ̂y, i₊½_domain, ξ)
   toedge!(edge_metrics.j₊½.ξ̂.x₂, ∂²x, ∂x, ξ̂y, j₊½_domain, η)
   toedge!(edge_metrics.k₊½.ξ̂.x₂, ∂²x, ∂x, ξ̂y, k₊½_domain, ζ)
 
   # η̂y = (z_ζ x)_ξ − (z_ξ x)_ζ
-  η̂y = m.cache.metric
+  η̂y = m.metric
   conserved_metric!(m, η̂y, z, ζ, x, ξ, domain)
   toedge!(edge_metrics.i₊½.η̂.x₂, ∂²x, ∂x, η̂y, i₊½_domain, ξ)
   toedge!(edge_metrics.j₊½.η̂.x₂, ∂²x, ∂x, η̂y, j₊½_domain, η)
   toedge!(edge_metrics.k₊½.η̂.x₂, ∂²x, ∂x, η̂y, k₊½_domain, ζ)
 
   # ζ̂y = (z_ξ x)_η − (z_η x)_ξ
-  ζ̂y = m.cache.metric
+  ζ̂y = m.metric
   conserved_metric!(m, ζ̂y, z, ξ, x, η, domain)
   toedge!(edge_metrics.i₊½.ζ̂.x₂, ∂²x, ∂x, ζ̂y, i₊½_domain, ξ)
   toedge!(edge_metrics.j₊½.ζ̂.x₂, ∂²x, ∂x, ζ̂y, j₊½_domain, η)
   toedge!(edge_metrics.k₊½.ζ̂.x₂, ∂²x, ∂x, ζ̂y, k₊½_domain, ζ)
 
   # ξ̂z = (x_η y)_ζ − (x_ζ y)_η
-  ξ̂z = m.cache.metric
+  ξ̂z = m.metric
   conserved_metric!(m, ξ̂z, x, η, y, ζ, domain)
   toedge!(edge_metrics.i₊½.ξ̂.x₃, ∂²x, ∂x, ξ̂z, i₊½_domain, ξ)
   toedge!(edge_metrics.j₊½.ξ̂.x₃, ∂²x, ∂x, ξ̂z, j₊½_domain, η)
   toedge!(edge_metrics.k₊½.ξ̂.x₃, ∂²x, ∂x, ξ̂z, k₊½_domain, ζ)
 
   # η̂z = (x_ζ y)_ξ − (x_ξ y)_ζ
-  η̂z = m.cache.metric
+  η̂z = m.metric
   conserved_metric!(m, η̂z, x, ζ, y, ξ, domain)
   toedge!(edge_metrics.i₊½.η̂.x₃, ∂²x, ∂x, η̂z, i₊½_domain, ξ)
   toedge!(edge_metrics.j₊½.η̂.x₃, ∂²x, ∂x, η̂z, j₊½_domain, η)
   toedge!(edge_metrics.k₊½.η̂.x₃, ∂²x, ∂x, η̂z, k₊½_domain, ζ)
 
   # ζ̂z = (x_ξ y)_η − (x_η y)_ξ
-  ζ̂z = m.cache.metric
+  ζ̂z = m.metric
   conserved_metric!(m, ζ̂z, x, ξ, y, η, domain)
   toedge!(edge_metrics.i₊½.ζ̂.x₃, ∂²x, ∂x, ζ̂z, i₊½_domain, ξ)
   toedge!(edge_metrics.j₊½.ζ̂.x₃, ∂²x, ∂x, ζ̂z, j₊½_domain, η)
@@ -231,8 +240,8 @@ function update_edge_conserved_metrics!(
 ) where {T}
 
   # cache-arrays
-  ∂²x = m.cache.∂²x
-  ∂x = m.cache.∂x
+  ∂²x = m.∂²x
+  ∂x = m.∂x
 
   i₊½_domain = expand(domain, 1, 0)
   j₊½_domain = expand(domain, 2, 0)
@@ -269,8 +278,8 @@ function update_edge_conserved_metrics!(
 ) where {T}
 
   # cache-arrays
-  ∂²x = m.cache.∂²x
-  ∂x = m.cache.∂x
+  ∂²x = m.∂²x
+  ∂x = m.∂x
 
   i₊½_domain = expand(domain, 1, 0)
 
