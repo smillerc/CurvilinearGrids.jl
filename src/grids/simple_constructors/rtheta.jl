@@ -45,6 +45,14 @@ function RThetaGrid(
   ni = length(r)
   nj = length(θ)
 
+  if !all(diff(r) .> 0)
+    error("Invalid r vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(θ) .> 0)
+    error("Invalid θ vector, spacing between vertices must be > 0 everywhere")
+  end
+
   x = zeros(T, ni, nj)
   y = zeros(T, ni, nj)
 
@@ -122,6 +130,14 @@ function AxisymmetricRThetaGrid(
 
   ni = length(r)
   nj = length(θ)
+
+  if !all(diff(r) .> 0)
+    error("Invalid r vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(θ) .> 0)
+    error("Invalid θ vector, spacing between vertices must be > 0 everywhere")
+  end
 
   x = zeros(T, ni, nj)
   y = zeros(T, ni, nj)

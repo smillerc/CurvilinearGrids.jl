@@ -13,8 +13,17 @@ function RectlinearGrid(
   T=Float64,
   is_static=true,
 )
-  @assert !(x0 ≈ x1) "The endpoints x0 and x1 are the same"
-  @assert !(y0 ≈ y1) "The endpoints y0 and y1 are the same"
+  if ni_cells < 2 || nj_cells < 2
+    error("The number of cells specified must be > 2")
+  end
+
+  if x0 ≈ x1
+    error("The endpoints x0 and x1 are the same")
+  end
+
+  if y0 ≈ y1
+    error("The endpoints y0 and y1 are the same")
+  end
 
   ni = ni_cells + 1
   nj = nj_cells + 1
@@ -43,8 +52,19 @@ function RectlinearGrid(
   ni = length(x)
   nj = length(y)
 
-  @assert ni >= 2 "The x vector must have more than 2 points"
-  @assert nj >= 2 "The y vector must have more than 2 points"
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+  if nj < 2
+    error("The y vector must have more than 2 points")
+  end
+
+  if !all(diff.(x) .> 0)
+    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+  end
+  if !all(diff.(y) .> 0)
+    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+  end
 
   x2d = zeros(T, ni, nj)
   y2d = zeros(T, ni, nj)
@@ -72,8 +92,16 @@ function AxisymmetricRectlinearGrid(
   T=Float64,
   is_static=true,
 )
-  @assert !(x0 ≈ x1) "The endpoints x0 and x1 are the same"
-  @assert !(y0 ≈ y1) "The endpoints y0 and y1 are the same"
+  if ni_cells < 2 || nj_cells < 2
+    error("The number of cells specified must be > 2")
+  end
+
+  if x0 ≈ x1
+    error("The endpoints x0 and x1 are the same")
+  end
+  if y0 ≈ y1
+    error("The endpoints y0 and y1 are the same")
+  end
 
   ni = ni_cells + 1
   nj = nj_cells + 1
@@ -112,6 +140,22 @@ function RectlinearGrid(
   T=Float64,
   is_static=true,
 )
+  if ni_cells < 2 || nj_cells < 2 || nk_cells < 2
+    error("The number of cells specified must be > 2")
+  end
+
+  if x0 ≈ x1
+    error("The endpoints x0 and x1 are the same")
+  end
+
+  if y0 ≈ y1
+    error("The endpoints y0 and y1 are the same")
+  end
+
+  if z0 ≈ z1
+    error("The endpoints z0 and z1 are the same")
+  end
+
   ni = ni_cells + 1
   nj = nj_cells + 1
   nk = nk_cells + 1
@@ -152,9 +196,29 @@ function RectlinearGrid(
   nj = length(y)
   nk = length(z)
 
-  @assert ni >= 2 "The x vector must have more than 2 points"
-  @assert nj >= 2 "The y vector must have more than 2 points"
-  @assert nk >= 2 "The z vector must have more than 2 points"
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  if nj < 2
+    error("The y vector must have more than 2 points")
+  end
+
+  if nk < 2
+    error("The z vector must have more than 2 points")
+  end
+
+  if !all(diff(x) .> 0)
+    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(y) .> 0)
+    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(z) .> 0)
+    error("Invalid z vector, spacing between vertices must be > 0 everywhere")
+  end
 
   x3d = zeros(T, ni, nj, nk)
   y3d = zeros(T, ni, nj, nk)
