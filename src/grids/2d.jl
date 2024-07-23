@@ -332,7 +332,9 @@ function _check_valid_metrics(mesh::AbstractCurvilinearGrid2D)
   j₊½_domain = expand(domain, 2, -1)
 
   @views begin
-    centroid_metrics_valid = all(isfinite.(mesh.cell_center_metrics.J[domain])) # &&
+    centroid_metrics_valid =
+      all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
+      all(mesh.cell_center_metrics.J[domain] .> 0)
     #     all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
     #     all(isfinite.(mesh.cell_center_metrics.ξ.x₂[domain])) &&
     #     all(isfinite.(mesh.cell_center_metrics.η.x₁[domain])) &&

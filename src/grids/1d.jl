@@ -360,6 +360,7 @@ function _check_valid_metrics(mesh::AbstractCurvilinearGrid1D)
   @views begin
     centroid_metrics_valid =
       all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
+      all(mesh.cell_center_metrics.J[domain] .> 0) &&
       all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
       all(isfinite.(mesh.cell_center_metrics.x₁.ξ[domain]))
 

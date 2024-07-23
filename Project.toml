@@ -1,10 +1,11 @@
 name = "CurvilinearGrids"
 uuid = "58b19789-dd19-4aa2-839c-c763a7b10301"
 authors = ["Sam Miller <smil@lle.rochester.edu> and contributors"]
-version = "0.6.3"
+version = "0.6.4"
 
 [deps]
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+CartesianDomains = "31d3d393-e656-4614-8ab7-f376885a6db2"
 ChunkSplitters = "ae650224-84b6-46f8-82ea-d812ca08434e"
 FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
 FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
