@@ -14,6 +14,8 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   iterators::CI
   discretization_scheme::DS
   onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
+  is_static::Bool
+  is_orthogonal::Bool
 end
 
 """
@@ -33,6 +35,8 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   snap_to_axis::Bool
   rotational_axis::Symbol
   onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
+  is_static::Bool
+  is_orthogonal::Bool
 end
 
 """
@@ -48,6 +52,8 @@ function CurvilinearGrid2D(
   discretization_scheme=:MEG6,
   backend=CPU(),
   on_bc=nothing,
+  is_static=false,
+  is_orthogonal=false,
 ) where {T}
 
   #
@@ -114,7 +120,7 @@ function CurvilinearGrid2D(
     _on_bc = on_bc
   end
 
-  mesh = CurvilinearGrid2D(
+  m = CurvilinearGrid2D(
     coords,
     centroids,
     node_velocities,
@@ -126,10 +132,12 @@ function CurvilinearGrid2D(
     domain_iterators,
     discr_scheme,
     _on_bc,
+    is_static,
+    is_orthogonal,
   )
 
-  update!(mesh)
-  return mesh
+  update!(m; force=true)
+  return m
 end
 
 """
@@ -146,6 +154,8 @@ function AxisymmetricGrid2D(
   rotational_axis::Symbol;
   discretization_scheme=:MEG6,
   backend=CPU(),
+  is_static=false,
+  is_orthogonal=false,
 ) where {T}
 
   #
@@ -219,6 +229,8 @@ function AxisymmetricGrid2D(
     discr_scheme,
     snap_to_axis,
     rotational_axis,
+    is_static,
+    is_orthogonal,
   )
 
   update!(mesh)
@@ -226,12 +238,16 @@ function AxisymmetricGrid2D(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::CurvilinearGrid2D)
-  _centroid_coordinates!(
-    mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
-  )
-  update_metrics!(mesh)
-  _check_valid_metrics(mesh)
+function update!(mesh::CurvilinearGrid2D; force=false)
+  if !mesh.is_static || force
+    _centroid_coordinates!(
+      mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
+    )
+    update_metrics!(mesh)
+    _check_valid_metrics(mesh)
+  else
+    @warn("Attempting to update grid metrics when grid.is_static = true!")
+  end
   return nothing
 end
 

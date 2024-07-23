@@ -81,10 +81,10 @@ end
 
   meg6 = mesh.discretization_scheme
 
-  ∂x_∂ξ = meg6.cache.metric
-  xᵢ₊½ = meg6.cache.xᵢ₊½
-  ∂x = meg6.cache.∂x
-  ∂²x = meg6.cache.∂²x
+  ∂x_∂ξ = meg6.metric
+  xᵢ₊½ = meg6.xᵢ₊½
+  ∂x = meg6.∂x
+  ∂²x = meg6.∂²x
 
   x = mesh.centroid_coordinates.x
   y = mesh.centroid_coordinates.y
@@ -145,7 +145,7 @@ end
   @test all(∂x_∂ξ[mesh.iterators.cell.domain] .≈ 0.25)
 
   ξ, η, ζ = (1, 2, 3)
-  ξ̂x = meg6.cache.metric
+  ξ̂x = meg6.metric
   conserved_metric!(meg6, ξ̂x, y, η, z, ζ, full_domain)
 
   @test all(ξ̂x[mesh.iterators.cell.domain] .≈ 0.0625)
