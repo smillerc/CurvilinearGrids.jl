@@ -31,7 +31,7 @@ export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 export RectlinearGrid, RThetaGrid, RThetaPhiGrid
 export AxisymmetricRectlinearGrid, AxisymmetricRThetaGrid
-export PartitionedRectlinearGrid
+export PartitionedRectlinearGrid, PartitionedCurvilinearGrid
 
 export update!
 export cellsize, cellsize_withhalo
@@ -43,6 +43,8 @@ export metrics_with_jacobian
 export cell_metrics, cell_indices
 export radius
 export cellvolume
+
+export global_cell_indices, global_node_indices
 
 include("adapt_to_gpu.jl")
 

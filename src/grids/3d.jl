@@ -12,7 +12,7 @@ CurvilinearGrid3D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid
+struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -22,6 +22,7 @@ struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid
   nnodes::NTuple{3,Int}
   domain_limits::DL
   iterators::CI
+  tiles::TI
   discretization_scheme::DS
   is_static::Bool
   is_orthogonal::Bool
@@ -47,6 +48,7 @@ function CurvilinearGrid3D(
   backend=CPU(),
   is_static=false,
   is_orthogonal=false,
+  tiles=nothing,
 ) where {T}
 
   #
@@ -131,6 +133,7 @@ function CurvilinearGrid3D(
     nnodes,
     limits,
     domain_iterators,
+    tiles,
     discr_scheme,
     is_static,
     is_orthogonal,

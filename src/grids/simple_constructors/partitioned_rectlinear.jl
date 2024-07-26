@@ -9,17 +9,32 @@ TBW
 function PartitionedRectlinearGrid(
   x0, x1, ncells, nhalo::Int, partition_fraction::Int, rank::Int; backend=CPU(), T=Float64
 )
+  @assert !(x0 ≈ x1) "The endpoints x0 and x1 are the same"
+
   ni = ncells + 1
-  x = range(x0, x1; length=ni)
 
-  cs = size(x) .- 1
-  CI = CartesianIndices(cs)
-  tiles = tile(CI, partition_fraction; cell_based=false)
-  subdomain = tiles[rank]
+  cell_domain = CartesianIndices((n_cells))
 
-  x_subdomain = collect(T, view(x, subdomain))
+  if any(partition_fraction < 1)
+    error("All entries in `partition_fraction` must be >= 1")
+  end
 
-  return CurvilinearGrid1D(x_subdomain, nhalo; backend=backend, on_bc=on_bc)
+  partition_fraction = max(partition_fraction, 1) # ensure no zeros or negative numbers
+  on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
+    cell_domain, partition_fraction, rank
+  )
+
+  x = zeros(T, size(node_subdomain))
+
+  x1d = range(x0, x1; length=ni)
+
+  @inbounds for (gidx, lidx) in zip(node_subdomain, CartesianIndices(size(node_subdomain)))
+    i, = lidx.I
+    gi, = gidx.I
+    x[i] = x1d[gi]
+  end
+
+  return CurvilinearGrid1D(x, nhalo; backend=backend, on_bc=on_bc, tiles=tiled_node_limits)
 end
 
 """
@@ -53,28 +68,32 @@ function PartitionedRectlinearGrid(
   nj = nj_cells + 1
 
   cell_domain = CartesianIndices((ni_cells, nj_cells))
-  tiles = tile(cell_domain, partition_fraction; cell_based=false)
-  subdomain = tiles[rank]
-  on_bc = subdomain_on_bc(subdomain, cell_domain)
 
-  x = zeros(T, size(subdomain))
-  y = zeros(T, size(subdomain))
+  if any(partition_fraction .< 1)
+    error("All entries in `partition_fraction` must be >= 1")
+  end
+
+  partition_fraction = max.(partition_fraction, 1) # ensure no zeros or negative numbers
+  on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
+    cell_domain, partition_fraction, rank
+  )
+
+  x = zeros(T, size(node_subdomain))
+  y = zeros(T, size(node_subdomain))
 
   x1d = range(x0, x1; length=ni)
   y1d = range(y0, y1; length=nj)
 
-  local_domain = CartesianIndices(size(subdomain))
-
-  @assert size(subdomain) == size(local_domain)
-
-  @inbounds for (gidx, lidx) in zip(subdomain, local_domain)
+  @inbounds for (gidx, lidx) in zip(node_subdomain, CartesianIndices(size(node_subdomain)))
     i, j = lidx.I
     gi, gj = gidx.I
     x[i, j] = x1d[gi]
     y[i, j] = y1d[gj]
   end
 
-  return CurvilinearGrid2D(x, y, nhalo; backend=backend, on_bc=on_bc)
+  return CurvilinearGrid2D(
+    x, y, nhalo; backend=backend, on_bc=on_bc, tiles=tiled_node_limits
+  )
 end
 
 """
@@ -104,25 +123,29 @@ function PartitionedRectlinearGrid(
   @assert nj >= 2 "The y vector must have more than 2 points"
 
   cell_domain = CartesianIndices((ni - 1, nj - 1))
-  tiles = tile(cell_domain, partition_fraction; cell_based=false)
-  subdomain = tiles[rank]
-  on_bc = subdomain_on_bc(subdomain, cell_domain)
 
-  x2d = zeros(T, size(subdomain))
-  y2d = zeros(T, size(subdomain))
+  if any(partition_fraction .< 1)
+    error("All entries in `partition_fraction` must be >= 1")
+  end
 
-  local_domain = CartesianIndices(size(subdomain))
+  partition_fraction = max.(partition_fraction, 1) # ensure no zeros or negative numbers
+  on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
+    cell_domain, partition_fraction, rank
+  )
 
-  @assert size(subdomain) == size(local_domain)
+  x2d = zeros(T, size(node_subdomain))
+  y2d = zeros(T, size(node_subdomain))
 
-  @inbounds for (gidx, lidx) in zip(subdomain, local_domain)
+  @inbounds for (gidx, lidx) in zip(node_subdomain, CartesianIndices(size(node_subdomain)))
     i, j = lidx.I
     gi, gj = gidx.I
     x2d[i, j] = x[gi]
     y2d[i, j] = y[gj]
   end
 
-  return CurvilinearGrid2D(x2d, y2d, nhalo; backend=backend, on_bc=on_bc)
+  return CurvilinearGrid2D(
+    x2d, y2d, nhalo; backend=backend, on_bc=on_bc, tiles=tiled_node_limits
+  )
 end
 
 """
@@ -160,21 +183,22 @@ function PartitionedAxisymmetricRectlinearGrid(
   nj = nj_cells + 1
 
   cell_domain = CartesianIndices((ni_cells, nj_cells))
-  tiles = tile(cell_domain, partition_fraction; cell_based=false)
-  subdomain = tiles[rank]
-  on_bc = subdomain_on_bc(subdomain, cell_domain)
+  if any(partition_fraction .< 1)
+    error("All entries in `partition_fraction` must be >= 1")
+  end
 
-  x = zeros(T, size(subdomain))
-  y = zeros(T, size(subdomain))
+  partition_fraction = max.(partition_fraction, 1) # ensure no zeros or negative numbers
+  on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
+    cell_domain, partition_fraction, rank
+  )
+
+  x = zeros(T, size(node_subdomain))
+  y = zeros(T, size(node_subdomain))
 
   x1d = range(x0, x1; length=ni)
   y1d = range(y0, y1; length=nj)
 
-  local_domain = CartesianIndices(size(subdomain))
-
-  @assert size(subdomain) == size(local_domain)
-
-  @inbounds for (gidx, lidx) in zip(subdomain, local_domain)
+  @inbounds for (gidx, lidx) in zip(node_subdomain, CartesianIndices(size(node_subdomain)))
     i, j = lidx.I
     gi, gj = gidx.I
     x[i, j] = x1d[gi]
@@ -182,7 +206,14 @@ function PartitionedAxisymmetricRectlinearGrid(
   end
 
   return AxisymmetricGrid2D(
-    x, y, nhalo, snap_to_axis, rotational_axis; backend=backend, on_bc=on_bc
+    x,
+    y,
+    nhalo,
+    snap_to_axis,
+    rotational_axis;
+    backend=backend,
+    on_bc=on_bc,
+    tiles=tiled_node_limits,
   )
 end
 
@@ -201,20 +232,25 @@ function PartitionedRectlinearGrid(
   nk = nk_cells + 1
 
   cell_domain = CartesianIndices((ni_cells, nj_cells))
-  tiles = tile(cell_domain, partition_fraction; cell_based=false)
-  subdomain = tiles[rank]
-  on_bc = subdomain_on_bc(subdomain, cell_domain)
+  if any(partition_fraction .< 1)
+    error("All entries in `partition_fraction` must be >= 1")
+  end
 
-  x = zeros(T, size(subdomain))
-  y = zeros(T, size(subdomain))
-  z = zeros(T, size(subdomain))
+  partition_fraction = max.(partition_fraction, 1) # ensure no zeros or negative numbers
+  on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
+    cell_domain, partition_fraction, rank
+  )
+
+  x = zeros(T, size(node_subdomain))
+  y = zeros(T, size(node_subdomain))
+  z = zeros(T, size(node_subdomain))
 
   # node positions (non-halo)
   x1d = range(x0, x1; length=ni)
   y1d = range(y0, y1; length=nj)
   z1d = range(z0, z1; length=nk)
 
-  @inbounds for (gidx, lidx) in zip(subdomain, local_domain)
+  @inbounds for (gidx, lidx) in zip(node_subdomain, CartesianIndices(size(node_subdomain)))
     i, j, k = lidx.I
     gi, gj, gk = gidx.I
     x[i, j, k] = x1d[gi]
@@ -222,7 +258,9 @@ function PartitionedRectlinearGrid(
     z[i, j, k] = z1d[gk]
   end
 
-  return CurvilinearGrid3D(x, y, z, nhalo; backend=backend, on_bc=on_bc)
+  return CurvilinearGrid3D(
+    x, y, z, nhalo; backend=backend, on_bc=on_bc, tiles=tiled_node_limits
+  )
 end
 
 function PartitionedRectlinearGrid(
@@ -243,19 +281,17 @@ function PartitionedRectlinearGrid(
   @assert nk >= 2 "The z vector must have more than 2 points"
 
   cell_domain = CartesianIndices((ni - 1, nj - 1, nk - 1))
-  tiles = tile(cell_domain, partition_fraction; cell_based=false)
-  subdomain = tiles[rank]
-  on_bc = subdomain_on_bc(subdomain, cell_domain)
 
-  x3d = zeros(T, size(subdomain))
-  y3d = zeros(T, size(subdomain))
-  z3d = zeros(T, size(subdomain))
+  if any(partition_fraction .< 1)
+    error("All entries in `partition_fraction` must be >= 1")
+  end
 
-  local_domain = CartesianIndices(size(subdomain))
+  partition_fraction = max.(partition_fraction, 1) # ensure no zeros or negative numbers
+  on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
+    cell_domain, partition_fraction, rank
+  )
 
-  @assert size(subdomain) == size(local_domain)
-
-  @inbounds for (gidx, lidx) in zip(subdomain, local_domain)
+  @inbounds for (gidx, lidx) in zip(node_subdomain, CartesianIndices(size(node_subdomain)))
     i, j = lidx.I
     gi, gj = gidx.I
     x3d[i, j, k] = x[gi]
@@ -263,7 +299,9 @@ function PartitionedRectlinearGrid(
     z3d[i, j, k] = z[gk]
   end
 
-  return CurvilinearGrid3D(x3d, y3d, z3d, nhalo; backend=backend, on_bc=on_bc)
+  return CurvilinearGrid3D(
+    x3d, y3d, z3d, nhalo; backend=backend, on_bc=on_bc, tiles=tiled_node_limits
+  )
 end
 
 function subdomain_on_bc(subdomain, domain::CartesianIndices{1})

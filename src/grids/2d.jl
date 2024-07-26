@@ -2,7 +2,7 @@
 """
 CurvilinearGrid2D
 """
-struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
+struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -12,6 +12,7 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   nnodes::NTuple{2,Int}
   domain_limits::DL
   iterators::CI
+  tiles::TI
   discretization_scheme::DS
   onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
   is_static::Bool
@@ -21,7 +22,7 @@ end
 """
 AxisymmetricGrid2D
 """
-struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
+struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -31,6 +32,7 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   nnodes::NTuple{2,Int}
   domain_limits::DL
   iterators::CI
+  tiles::TI
   discretization_scheme::DS
   snap_to_axis::Bool
   rotational_axis::Symbol
@@ -54,6 +56,7 @@ function CurvilinearGrid2D(
   on_bc=nothing,
   is_static=false,
   is_orthogonal=false,
+  tiles=nothing,
 ) where {T}
 
   #
@@ -130,6 +133,7 @@ function CurvilinearGrid2D(
     nnodes,
     limits,
     domain_iterators,
+    tiles,
     discr_scheme,
     _on_bc,
     is_static,

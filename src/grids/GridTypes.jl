@@ -22,7 +22,9 @@ export AxisymmetricGrid2D
 
 export RectlinearGrid, RThetaGrid, RThetaPhiGrid
 export AxisymmetricRectlinearGrid, AxisymmetricRThetaGrid
-export PartitionedRectlinearGrid
+export PartitionedRectlinearGrid, PartitionedCurvilinearGrid
+
+export global_cell_indices, global_node_indices
 
 export update!
 
@@ -83,6 +85,9 @@ include("1d.jl")
 include("2d.jl")
 include("3d.jl")
 include("simple_constructors/simple_constructors.jl")
+
+global_cell_indices(mesh, mpi_rank) = mesh.tiles[mpi_rank + 1]
+global_node_indices(mesh, mpi_rank) = expand_upper(global_cell_indices(mesh, mpi_rank), 1)
 
 """
     onbc(mesh, bc::Symbol)
