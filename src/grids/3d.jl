@@ -143,6 +143,7 @@ function CurvilinearGrid3D(
     domain_iterators,
     tiles,
     discr_scheme,
+    _on_bc,
     is_static,
     is_orthogonal,
   )
