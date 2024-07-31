@@ -24,6 +24,7 @@ struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid
   iterators::CI
   tiles::TI
   discretization_scheme::DS
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool, klo::Bool, khi::Bool}
   is_static::Bool
   is_orthogonal::Bool
 end
@@ -46,6 +47,7 @@ function CurvilinearGrid3D(
   nhalo::Int,
   discretization_scheme=:MEG6;
   backend=CPU(),
+  on_bc=nothing,
   is_static=false,
   is_orthogonal=false,
   tiles=nothing,
@@ -122,6 +124,12 @@ function CurvilinearGrid3D(
     y=KernelAbstractions.zeros(backend, T, nodedims),
     z=KernelAbstractions.zeros(backend, T, nodedims),
   ))
+
+  if isnothing(on_bc)
+    _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true, klo=true, khi=true)
+  else
+    _on_bc = on_bc
+  end
 
   m = CurvilinearGrid3D(
     coords,
