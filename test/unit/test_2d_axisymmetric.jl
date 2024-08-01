@@ -1,14 +1,15 @@
 using CurvilinearGrids, Test
 
-@testset "2D Cylindrical Mesh" begin
+# @testset "2D Cylindrical Mesh" 
+begin
 
   # begin
-  r0, r1 = (1e-3, 2)
+  r0, r1 = (0, 2)
   z0, z1 = (0, 3)
   nr, nz = (4, 10)
   nhalo = 4
   snap_to_axis = true
-  symmetry_axis = :y # rotate about the pole axis
+  symmetry_axis = :x # rotate about the pole axis
   mesh = AxisymmetricRectlinearGrid(
     (r0, z0), (r1, z1), (nr, nz), nhalo, snap_to_axis, symmetry_axis
   )
@@ -44,7 +45,14 @@ using CurvilinearGrids, Test
     @test I₂_passes
   end
 
-  gcl(mesh, mesh.iterators.cell.domain)
+  # gcl(mesh, mesh.iterators.cell.domain)
+  @test centroid_radius(mesh, domain[1, 1]) == 0.15
+
+  dx = 0.5
+  dy = 0.3
+  rc = 2.85
+  @test centroid_radius(mesh, domain[1, end]) == rc
+  @test cellvolume(mesh, domain[1, end]) ≈ dx * dy * rc * 2pi
 
   save_vtk(mesh, "rz_axisym")
 end

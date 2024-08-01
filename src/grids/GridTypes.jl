@@ -161,9 +161,9 @@ end
 
 @inline function radius(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2,Int})
   if mesh.rotational_axis === :x
-    return mesh.node_coordinates.x[i, j]
-  else
     return mesh.node_coordinates.y[i, j]
+  else
+    return mesh.node_coordinates.x[i, j]
   end
 end
 
@@ -175,10 +175,22 @@ end
 
 @inline function centroid_radius(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2,Int})
   if mesh.rotational_axis === :x
-    return mesh.centroid_coordinates.x[i, j]
-  else
     return mesh.centroid_coordinates.y[i, j]
+  else
+    return mesh.centroid_coordinates.x[i, j]
   end
+end
+
+@inline cellvolume(mesh, CI::CartesianIndex) = cellvolume(mesh, CI.I)
+
+function cellvolume(mesh, ijk::NTuple{N,Int}) where {N}
+  return mesh.cell_center_metrics.J[ijk...]
+end
+
+function cellvolume(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2,Int})
+  r = centroid_radius(mesh, (i, j))
+  J = mesh.cell_center_metrics.J[i, j]
+  return r * J * 2π
 end
 
 """
