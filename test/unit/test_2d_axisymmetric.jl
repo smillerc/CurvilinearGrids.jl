@@ -1,7 +1,6 @@
 using CurvilinearGrids, Test
 
-# @testset "2D Cylindrical Mesh" 
-begin
+@testset "2D Cylindrical Mesh" begin
 
   # begin
   r0, r1 = (0, 2)

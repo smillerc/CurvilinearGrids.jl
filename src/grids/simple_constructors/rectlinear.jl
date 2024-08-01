@@ -10,7 +10,7 @@ function RectlinearGrid(
   (ni_cells, nj_cells)::NTuple{2,Int},
   nhalo::Int,
   backend=CPU(),
-  T=Float64,
+  T=Float64;
   is_static=true,
 )
   if ni_cells < 2 || nj_cells < 2
@@ -47,7 +47,7 @@ function RectlinearGrid(
 end
 
 function RectlinearGrid(
-  x::AbstractVector{T}, y::AbstractVector{T}, nhalo::Int, backend=CPU(), is_static=true
+  x::AbstractVector{T}, y::AbstractVector{T}, nhalo::Int, backend=CPU(); is_static=true
 ) where {T}
   ni = length(x)
   nj = length(y)
@@ -89,7 +89,7 @@ function AxisymmetricRectlinearGrid(
   snap_to_axis::Bool,
   rotational_axis::Symbol,
   backend=CPU(),
-  T=Float64,
+  T=Float64;
   is_static=true,
 )
   if ni_cells < 2 || nj_cells < 2
@@ -137,7 +137,7 @@ function RectlinearGrid(
   (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
   nhalo::Int,
   backend=CPU(),
-  T=Float64,
+  T=Float64;
   is_static=true,
 )
   if ni_cells < 2 || nj_cells < 2 || nk_cells < 2
@@ -189,7 +189,7 @@ function RectlinearGrid(
   y::AbstractVector{T},
   z::AbstractVector{T},
   nhalo::Int,
-  backend=CPU(),
+  backend=CPU();
   is_static=true,
 ) where {T}
   ni = length(x)

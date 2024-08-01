@@ -236,7 +236,7 @@ function update!(mesh::CurvilinearGrid2D; force=false)
     update_metrics!(mesh)
     _check_valid_metrics(mesh)
   else
-    @warn("Attempting to update grid metrics when grid.is_static = true!")
+    error("Attempting to update grid metrics when grid.is_static = true!")
   end
   return nothing
 end

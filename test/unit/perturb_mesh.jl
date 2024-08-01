@@ -28,7 +28,7 @@ function perturb_coords!(mesh, x_interface, λ, k)
     mesh.node_coordinates.x[i, j] += x_pert
   end
 
-  CurvilinearGrids.update!(mesh)
+  CurvilinearGrids.update!(mesh; force=true)
   return nothing
 end
 
@@ -41,7 +41,7 @@ end
   y0, y1 = (0.0, 0.5λ)
   nhalo = 4
 
-  mesh = RectlinearGrid((x0, y0), (x1, y1), (501, 101), nhalo)
+  mesh = RectlinearGrid((x0, y0), (x1, y1), (501, 101), nhalo; is_static=true)
 
   perturb_coords!(mesh, x_interface, λ, k)
 

@@ -4,7 +4,8 @@ function RThetaPhiGrid(
   (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
   nhalo::Int,
   backend=CPU(),
-  T=Float64,
+  T=Float64;
+  is_static=true,
 )
   ni = ni_cells + 1
   nj = nj_cells + 1
@@ -29,7 +30,7 @@ function RThetaPhiGrid(
     end
   end
 
-  return CurvilinearGrid3D(x, y, z, nhalo; backend=backend)
+  return CurvilinearGrid3D(x, y, z, nhalo; backend=backend, is_static=is_static)
 end
 
 function RThetaPhiGrid(
@@ -37,7 +38,8 @@ function RThetaPhiGrid(
   θ::AbstractVector{T},
   ϕ::AbstractVector{T},
   nhalo::Int,
-  backend=CPU(),
+  backend=CPU();
+  is_static=true,
 ) where {T}
   ni = length(r)
   nj = length(θ)
@@ -57,5 +59,5 @@ function RThetaPhiGrid(
     end
   end
 
-  return CurvilinearGrid3D(x, y, z, nhalo; backend=backend)
+  return CurvilinearGrid3D(x, y, z, nhalo; backend=backend, is_static=is_static)
 end

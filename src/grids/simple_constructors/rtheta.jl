@@ -9,7 +9,7 @@ function RThetaGrid(
   (ni_cells, nj_cells)::NTuple{2,Int},
   nhalo::Int,
   backend=CPU(),
-  T=Float64,
+  T=Float64;
   is_static=true,
 )
   ni = ni_cells + 1
@@ -80,7 +80,7 @@ function RThetaGrid(
   snap_to_axis::Bool,
   rotational_axis::Symbol,
   backend=CPU(),
-  T=Float64,
+  T=Float64;
   is_static=true,
 )
   ni = ni_cells + 1
