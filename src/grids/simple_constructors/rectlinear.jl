@@ -4,6 +4,22 @@ function RectlinearGrid(x0, x1, ncells, nhalo::Int, backend=CPU(), T=Float64)
   return CurvilinearGrid1D(x, nhalo; backend=backend)
 end
 
+function RectlinearCylindricalGrid(
+  r0, r1, ncells, nhalo::Int; snap_to_axis=true, backend=CPU(), T=Float64
+)
+  ni = ncells + 1
+  r = collect(T, range(r0, r1; length=ni))
+  return CylindricalGrid1D(r, nhalo, snap_to_axis; backend=backend)
+end
+
+function RectlinearSphericalGrid(
+  r0, r1, ncells, nhalo::Int; snap_to_axis=true, backend=CPU(), T=Float64
+)
+  ni = ncells + 1
+  r = collect(T, range(r0, r1; length=ni))
+  return SphericalGrid1D(r, nhalo, snap_to_axis; backend=backend)
+end
+
 function RectlinearGrid(
   (x0, y0),
   (x1, y1),
@@ -85,7 +101,7 @@ function AxisymmetricRectlinearGrid(
   (x0, y0),
   (x1, y1),
   (ni_cells, nj_cells)::NTuple{2,Int},
-  nhalo::Int,
+  nhalo::Int;
   snap_to_axis::Bool,
   rotational_axis::Symbol,
   backend=CPU(),
