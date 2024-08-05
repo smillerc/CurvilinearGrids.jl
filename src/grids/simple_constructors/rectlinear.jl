@@ -105,7 +105,7 @@ function AxisymmetricRectlinearGrid(
   snap_to_axis::Bool,
   rotational_axis::Symbol,
   backend=CPU(),
-  T=Float64;
+  T=Float64,
   is_static=true,
 )
   if ni_cells < 2 || nj_cells < 2
