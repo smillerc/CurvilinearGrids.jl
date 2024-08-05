@@ -150,6 +150,7 @@ function AxisymmetricGrid2D(
 
   #
   @assert size(x) == size(y)
+  @assert rotational_axis === :x || rotational_axis === :y
 
   nnodes = size(x)
   ni, nj = nnodes

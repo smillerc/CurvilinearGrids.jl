@@ -253,7 +253,7 @@ function CylindricalGrid1D(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::CurvilinearGrid1D; force=false)
+function update!(mesh::AbstractCurvilinearGrid1D; force=false)
   if !mesh.is_static || force
     _centroid_coordinates!(
       mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain

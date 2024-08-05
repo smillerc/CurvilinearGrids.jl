@@ -82,14 +82,14 @@ include("3d.jl")
 include("simple_constructors/simple_constructors.jl")
 
 """Get the size of the grid for cell-based arrays"""
-cellsize(mesh::CurvilinearGrid1D) = (mesh.nnodes - 1,)
+cellsize(mesh::AbstractCurvilinearGrid1D) = (mesh.nnodes - 1,)
 cellsize(mesh::AbstractCurvilinearGrid) = @. mesh.nnodes - 1
 
 """Get the size of the grid for cell-based arrays when the halo cells are included"""
-cellsize_withhalo(mesh::CurvilinearGrid1D) = (mesh.nnodes - 1 + 2 * mesh.nhalo,)
+cellsize_withhalo(mesh::AbstractCurvilinearGrid1D) = (mesh.nnodes - 1 + 2 * mesh.nhalo,)
 cellsize_withhalo(mesh::AbstractCurvilinearGrid) = @. mesh.nnodes - 1 + 2 * mesh.nhalo
 
-@inline function coords(mesh::CurvilinearGrid1D)
+@inline function coords(mesh::AbstractCurvilinearGrid1D)
   return @views mesh.node_coordinates.x[mesh.iterators.node.domain]
 end
 
@@ -108,7 +108,7 @@ end
   )
 end
 
-@inline function centroids(mesh::CurvilinearGrid1D)
+@inline function centroids(mesh::AbstractCurvilinearGrid1D)
   return @views mesh.centroid_coordinates.x[mesh.iterators.cell.domain]
 end
 
