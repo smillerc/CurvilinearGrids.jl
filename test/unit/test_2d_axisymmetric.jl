@@ -10,7 +10,7 @@ using CurvilinearGrids, Test
   snap_to_axis = true
   symmetry_axis = :x # rotate about the pole axis
   mesh = AxisymmetricRectlinearGrid(
-    (r0, z0), (r1, z1), (nr, nz), nhalo, snap_to_axis, symmetry_axis
+    (r0, z0), (r1, z1), (nr, nz), nhalo; snap_to_axis=true, rotational_axis=:x
   )
 
   domain = mesh.iterators.cell.domain
@@ -44,7 +44,7 @@ using CurvilinearGrids, Test
     @test I₂_passes
   end
 
-  # gcl(mesh, mesh.iterators.cell.domain)
+  gcl(mesh, mesh.iterators.cell.domain)
   @test centroid_radius(mesh, domain[1, 1]) == 0.15
 
   dx = 0.5
