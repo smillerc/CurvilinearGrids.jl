@@ -41,7 +41,7 @@ export conservative_metrics
 export metrics_with_jacobian
 export cell_metrics, cell_indices
 export radius, centroid_radius
-export cellvolume
+export cellvolume, cellvolumes
 
 include("adapt_to_gpu.jl")
 

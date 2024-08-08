@@ -27,7 +27,7 @@ export update!
 
 export coord, coords, coords!, cellsize, cellsize_withhalo
 export centroid, centroids
-export cellvolume
+export cellvolume, cellvolumes
 export radius, centroid_radius
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
@@ -187,10 +187,32 @@ function cellvolume(mesh, ijk::NTuple{N,Int}) where {N}
   return mesh.cell_center_metrics.J[ijk...]
 end
 
+function cellvolume(mesh::CylindricalGrid1D, (i,)::NTuple{1,Int})
+  r1 = radius(mesh, (i,))
+  r2 = radius(mesh, (i + 1,))
+  return pi * (r2^2 - r1^2)
+end
+
+function cellvolume(mesh::SphericalGrid1D, (i,)::NTuple{1,Int})
+  r1 = radius(mesh, (i,))
+  r2 = radius(mesh, (i + 1,))
+  return (4 / 3)pi * (r2^3 - r1^3)
+end
+
 function cellvolume(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2,Int})
   r = centroid_radius(mesh, (i, j))
   J = mesh.cell_center_metrics.J[i, j]
   return r * J * 2π
+end
+
+function cellvolumes(mesh)
+  volumes = zeros(size(mesh.iterators.cell.domain))
+
+  for (idx0, idx1) in zip(CartesianIndices(volumes), mesh.iterators.cell.domain)
+    volumes[idx0] = cellvolume(mesh, idx1)
+  end
+
+  return volumes
 end
 
 """
