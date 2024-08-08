@@ -75,10 +75,10 @@ function RectlinearGrid(
     error("The y vector must have more than 2 points")
   end
 
-  if !all(diff.(x) .> 0)
+  if !all(diff(x) .> 0)
     error("Invalid x vector, spacing between vertices must be > 0 everywhere")
   end
-  if !all(diff.(y) .> 0)
+  if !all(diff(y) .> 0)
     error("Invalid y vector, spacing between vertices must be > 0 everywhere")
   end
 
