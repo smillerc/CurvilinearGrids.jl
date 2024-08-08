@@ -72,15 +72,15 @@ end
 Create an equally spaced axisymmetric polar grid based on `r` and `θ`.
 The axis of rotation is set by `rotational_axis` as `:x` or `:y`
 """
-function RThetaGrid(
+function AxisymmetricRThetaGrid(
   (r0, θ0),
   (r1, θ1),
   (ni_cells, nj_cells)::NTuple{2,Int},
-  nhalo::Int,
+  nhalo::Int;
   snap_to_axis::Bool,
   rotational_axis::Symbol,
   backend=CPU(),
-  T=Float64;
+  T=Float64,
   is_static=true,
 )
   ni = ni_cells + 1
@@ -120,7 +120,7 @@ The axis of rotation is set by `rotational_axis` as `:x` or `:y`
 function AxisymmetricRThetaGrid(
   r::AbstractVector{T},
   θ::AbstractVector{T},
-  nhalo::Int,
+  nhalo::Int;
   snap_to_axis::Bool,
   rotational_axis::Symbol,
   backend=CPU(),
