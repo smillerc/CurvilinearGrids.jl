@@ -28,6 +28,7 @@ function RectlinearGrid(
   backend=CPU(),
   T=Float64;
   is_static=true,
+  make_uniform=false,
 )
   if ni_cells < 2 || nj_cells < 2
     error("The number of cells specified must be > 2")
@@ -58,7 +59,13 @@ function RectlinearGrid(
   end
 
   return CurvilinearGrid2D(
-    x, y, nhalo; backend=backend, is_orthogonal=true, is_static=is_static
+    x,
+    y,
+    nhalo;
+    backend=backend,
+    is_orthogonal=true,
+    is_static=is_static,
+    make_uniform=make_uniform,
   )
 end
 

@@ -51,6 +51,7 @@ function CurvilinearGrid2D(
   backend=CPU(),
   is_static=false,
   is_orthogonal=false,
+  make_uniform=false,
 ) where {T}
 
   #
@@ -127,6 +128,41 @@ function CurvilinearGrid2D(
   )
 
   update!(m; force=true)
+
+  if make_uniform
+    first_idx = first(m.iterators.cell.domain)
+
+    fill!(m.cell_center_metrics.J, m.cell_center_metrics.J[first_idx])
+
+    fill!(m.cell_center_metrics.x₁.ξ, m.cell_center_metrics.x₁.ξ[first_idx])
+    fill!(m.cell_center_metrics.x₂.ξ, m.cell_center_metrics.x₂.ξ[first_idx])
+    fill!(m.cell_center_metrics.x₁.η, m.cell_center_metrics.x₁.η[first_idx])
+    fill!(m.cell_center_metrics.x₂.η, m.cell_center_metrics.x₂.η[first_idx])
+
+    fill!(m.cell_center_metrics.ξ.x₁, m.cell_center_metrics.ξ.x₁[first_idx])
+    fill!(m.cell_center_metrics.ξ.x₂, m.cell_center_metrics.ξ.x₂[first_idx])
+    fill!(m.cell_center_metrics.η.x₁, m.cell_center_metrics.η.x₁[first_idx])
+    fill!(m.cell_center_metrics.η.x₂, m.cell_center_metrics.η.x₂[first_idx])
+
+    fill!(m.edge_metrics.i₊½.J, m.edge_metrics.i₊½.J[first_idx])
+
+    fill!(m.edge_metrics.i₊½.ξ̂.x₁, m.edge_metrics.i₊½.ξ̂.x₁[first_idx])
+    fill!(m.edge_metrics.i₊½.ξ̂.x₂, m.edge_metrics.i₊½.ξ̂.x₂[first_idx])
+    fill!(m.edge_metrics.i₊½.ξ̂.t, m.edge_metrics.i₊½.ξ̂.t[first_idx])
+    fill!(m.edge_metrics.i₊½.η̂.x₁, m.edge_metrics.i₊½.η̂.x₁[first_idx])
+    fill!(m.edge_metrics.i₊½.η̂.x₂, m.edge_metrics.i₊½.η̂.x₂[first_idx])
+    fill!(m.edge_metrics.i₊½.η̂.t, m.edge_metrics.i₊½.η̂.t[first_idx])
+
+    fill!(m.edge_metrics.j₊½.J, m.edge_metrics.j₊½.J[first_idx])
+
+    fill!(m.edge_metrics.j₊½.ξ̂.x₁, m.edge_metrics.j₊½.ξ̂.x₁[first_idx])
+    fill!(m.edge_metrics.j₊½.ξ̂.x₂, m.edge_metrics.j₊½.ξ̂.x₂[first_idx])
+    fill!(m.edge_metrics.j₊½.ξ̂.t, m.edge_metrics.j₊½.ξ̂.t[first_idx])
+    fill!(m.edge_metrics.j₊½.η̂.x₁, m.edge_metrics.j₊½.η̂.x₁[first_idx])
+    fill!(m.edge_metrics.j₊½.η̂.x₂, m.edge_metrics.j₊½.η̂.x₂[first_idx])
+    fill!(m.edge_metrics.j₊½.η̂.t, m.edge_metrics.j₊½.η̂.t[first_idx])
+  end
+
   return m
 end
 
