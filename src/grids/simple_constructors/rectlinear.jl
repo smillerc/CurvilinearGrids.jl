@@ -300,9 +300,9 @@ function RectlinearGrid(
   (x0, y0, z0),
   (x1, y1, z1),
   (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
-  nhalo::Int,
+  nhalo::Int;
   backend=CPU(),
-  T=Float64;
+  T=Float64,
   is_static=true,
   make_uniform=false,
   tile_layout=nothing,
@@ -318,9 +318,9 @@ function RectlinearGrid(
     range(x0, x1; length=ni_cells + 1),
     range(y0, y1; length=nj_cells + 1),
     range(z0, z1; length=nk_cells + 1),
-    nhalo,
-    backend;
+    nhalo;
     is_static=is_static,
+    backend=backend,
     make_uniform=make_uniform,
     tile_layout=tile_layout,
     rank=rank,
@@ -331,8 +331,8 @@ function RectlinearGrid(
   x::AbstractVector{T},
   y::AbstractVector{T},
   z::AbstractVector{T},
-  nhalo::Int,
-  backend=CPU();
+  nhalo::Int;
+  backend=CPU(),
   is_static=true,
   make_uniform=false,
   tile_layout=nothing,
@@ -424,7 +424,7 @@ function RectlinearGrid(
         for i in 1:ni
           x3d[i, j, k] = x[i]
           y3d[i, j, k] = y[j]
-          y3d[i, j, k] = y[k]
+          z3d[i, j, k] = z[k]
         end
       end
     end

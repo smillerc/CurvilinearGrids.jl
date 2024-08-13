@@ -9,7 +9,7 @@ CurvilinearGrid1D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
+struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -19,12 +19,14 @@ struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   nnodes::Int
   domain_limits::DL
   iterators::CI
+  tiles::TI
   discretization_scheme::DS
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool}
   is_static::Bool
   is_orthogonal::Bool
 end
 
-struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
+struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -34,13 +36,15 @@ struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   nnodes::Int
   domain_limits::DL
   iterators::CI
+  tiles::TI
   discretization_scheme::DS
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool}
   snap_to_axis::Bool
   is_static::Bool
   is_orthogonal::Bool
 end
 
-struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
+struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -50,7 +54,9 @@ struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   nnodes::Int
   domain_limits::DL
   iterators::CI
+  tiles::TI
   discretization_scheme::DS
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool}
   snap_to_axis::Bool
   is_static::Bool
   is_orthogonal::Bool
@@ -63,7 +69,13 @@ Create a `CurvilinearGrid1D` with a function `x(ξ)` and `nhalo` halo cells. `n_
 total number of nodes/vertices (not including halo).
 """
 function CurvilinearGrid1D(
-  x::AbstractVector{T}, nhalo; backend=CPU(), discretization_scheme=:MEG6, is_static=false
+  x::AbstractVector{T},
+  nhalo;
+  backend=CPU(),
+  discretization_scheme=:MEG6,
+  on_bc=nothing,
+  is_static=false,
+  tiles=nothing,
 ) where {T}
   ni = length(x)
   ncells = ni - 1
@@ -102,6 +114,12 @@ function CurvilinearGrid1D(
   #   error("Unknown discretization scheme to compute the conserved metrics")
   # end
 
+  if isnothing(on_bc)
+    _on_bc = (ilo=true, ihi=true)
+  else
+    _on_bc = on_bc
+  end
+
   m = CurvilinearGrid1D(
     coords,
     centroids,
@@ -112,7 +130,9 @@ function CurvilinearGrid1D(
     ni,
     limits,
     domain_iterators,
+    tiles,
     discr_scheme,
+    _on_bc,
     is_static,
     true,
   )
@@ -127,7 +147,9 @@ function SphericalGrid1D(
   snap_to_axis::Bool;
   backend=CPU(),
   discretization_scheme=:MEG6,
+  on_bc=nothing,
   is_static=false,
+  tiles=nothing,
 ) where {T}
   ni = length(x)
   ncells = ni - 1
@@ -166,6 +188,12 @@ function SphericalGrid1D(
   #   error("Unknown discretization scheme to compute the conserved metrics")
   # end
 
+  if isnothing(on_bc)
+    _on_bc = (ilo=true, ihi=true)
+  else
+    _on_bc = on_bc
+  end
+
   m = SphericalGrid1D(
     coords,
     centroids,
@@ -176,7 +204,9 @@ function SphericalGrid1D(
     ni,
     limits,
     domain_iterators,
+    tiles,
     discr_scheme,
+    _on_bc,
     snap_to_axis,
     is_static,
     true,
@@ -193,7 +223,9 @@ function CylindricalGrid1D(
   ;
   backend=CPU(),
   discretization_scheme=:MEG6,
+  on_bc=nothing,
   is_static=false,
+  tiles=nothing,
 ) where {T}
   ni = length(x)
   ncells = ni - 1
@@ -232,6 +264,12 @@ function CylindricalGrid1D(
   #   error("Unknown discretization scheme to compute the conserved metrics")
   # end
 
+  if isnothing(on_bc)
+    _on_bc = (ilo=true, ihi=true)
+  else
+    _on_bc = on_bc
+  end
+
   m = CylindricalGrid1D(
     coords,
     centroids,
@@ -242,7 +280,9 @@ function CylindricalGrid1D(
     ni,
     limits,
     domain_iterators,
+    tiles,
     discr_scheme,
+    _on_bc,
     snap_to_axis,
     is_static,
     true,
@@ -253,7 +293,7 @@ function CylindricalGrid1D(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AbstractCurvilinearGrid1D; force=false)
+function update!(mesh::CurvilinearGrid1D; force=false)
   if !mesh.is_static || force
     _centroid_coordinates!(
       mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain

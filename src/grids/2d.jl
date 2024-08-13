@@ -2,7 +2,7 @@
 """
 CurvilinearGrid2D
 """
-struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
+struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -12,7 +12,9 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   nnodes::NTuple{2,Int}
   domain_limits::DL
   iterators::CI
+  tiles::TI
   discretization_scheme::DS
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
   is_static::Bool
   is_orthogonal::Bool
 end
@@ -20,7 +22,7 @@ end
 """
 AxisymmetricGrid2D
 """
-struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
+struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -30,9 +32,11 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   nnodes::NTuple{2,Int}
   domain_limits::DL
   iterators::CI
+  tiles::TI
   discretization_scheme::DS
   snap_to_axis::Bool
   rotational_axis::Symbol
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
   is_static::Bool
   is_orthogonal::Bool
 end
@@ -49,8 +53,10 @@ function CurvilinearGrid2D(
   nhalo::Int;
   discretization_scheme=:MEG6,
   backend=CPU(),
+  on_bc=nothing,
   is_static=false,
   is_orthogonal=false,
+  tiles=nothing,
   make_uniform=false,
 ) where {T}
 
@@ -112,6 +118,12 @@ function CurvilinearGrid2D(
   #   error("Unknown discretization scheme to compute the conserved metrics")
   # end
 
+  if isnothing(on_bc)
+    _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true)
+  else
+    _on_bc = on_bc
+  end
+
   m = CurvilinearGrid2D(
     coords,
     centroids,
@@ -122,7 +134,9 @@ function CurvilinearGrid2D(
     nnodes,
     limits,
     domain_iterators,
+    tiles,
     discr_scheme,
+    _on_bc,
     is_static,
     is_orthogonal,
   )
@@ -181,7 +195,10 @@ function AxisymmetricGrid2D(
   discretization_scheme=:MEG6,
   backend=CPU(),
   is_static=false,
+  on_bc=nothing,
   is_orthogonal=false,
+  tiles=nothing,
+  make_uniform=false,
 ) where {T}
 
   #
@@ -243,7 +260,13 @@ function AxisymmetricGrid2D(
   #   error("Unknown discretization scheme to compute the conserved metrics")
   # end
 
-  mesh = AxisymmetricGrid2D(
+  if isnothing(on_bc)
+    _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true)
+  else
+    _on_bc = on_bc
+  end
+
+  m = AxisymmetricGrid2D(
     coords,
     centroids,
     node_velocities,
@@ -253,15 +276,52 @@ function AxisymmetricGrid2D(
     nnodes,
     limits,
     domain_iterators,
+    tiles,
     discr_scheme,
     snap_to_axis,
     rotational_axis,
+    _on_bc,
     is_static,
     is_orthogonal,
   )
 
-  update!(mesh)
-  return mesh
+  update!(m)
+
+  if make_uniform
+    first_idx = first(m.iterators.cell.domain)
+
+    fill!(m.cell_center_metrics.J, m.cell_center_metrics.J[first_idx])
+
+    fill!(m.cell_center_metrics.x₁.ξ, m.cell_center_metrics.x₁.ξ[first_idx])
+    fill!(m.cell_center_metrics.x₂.ξ, m.cell_center_metrics.x₂.ξ[first_idx])
+    fill!(m.cell_center_metrics.x₁.η, m.cell_center_metrics.x₁.η[first_idx])
+    fill!(m.cell_center_metrics.x₂.η, m.cell_center_metrics.x₂.η[first_idx])
+
+    fill!(m.cell_center_metrics.ξ.x₁, m.cell_center_metrics.ξ.x₁[first_idx])
+    fill!(m.cell_center_metrics.ξ.x₂, m.cell_center_metrics.ξ.x₂[first_idx])
+    fill!(m.cell_center_metrics.η.x₁, m.cell_center_metrics.η.x₁[first_idx])
+    fill!(m.cell_center_metrics.η.x₂, m.cell_center_metrics.η.x₂[first_idx])
+
+    fill!(m.edge_metrics.i₊½.J, m.edge_metrics.i₊½.J[first_idx])
+
+    fill!(m.edge_metrics.i₊½.ξ̂.x₁, m.edge_metrics.i₊½.ξ̂.x₁[first_idx])
+    fill!(m.edge_metrics.i₊½.ξ̂.x₂, m.edge_metrics.i₊½.ξ̂.x₂[first_idx])
+    fill!(m.edge_metrics.i₊½.ξ̂.t, m.edge_metrics.i₊½.ξ̂.t[first_idx])
+    fill!(m.edge_metrics.i₊½.η̂.x₁, m.edge_metrics.i₊½.η̂.x₁[first_idx])
+    fill!(m.edge_metrics.i₊½.η̂.x₂, m.edge_metrics.i₊½.η̂.x₂[first_idx])
+    fill!(m.edge_metrics.i₊½.η̂.t, m.edge_metrics.i₊½.η̂.t[first_idx])
+
+    fill!(m.edge_metrics.j₊½.J, m.edge_metrics.j₊½.J[first_idx])
+
+    fill!(m.edge_metrics.j₊½.ξ̂.x₁, m.edge_metrics.j₊½.ξ̂.x₁[first_idx])
+    fill!(m.edge_metrics.j₊½.ξ̂.x₂, m.edge_metrics.j₊½.ξ̂.x₂[first_idx])
+    fill!(m.edge_metrics.j₊½.ξ̂.t, m.edge_metrics.j₊½.ξ̂.t[first_idx])
+    fill!(m.edge_metrics.j₊½.η̂.x₁, m.edge_metrics.j₊½.η̂.x₁[first_idx])
+    fill!(m.edge_metrics.j₊½.η̂.x₂, m.edge_metrics.j₊½.η̂.x₂[first_idx])
+    fill!(m.edge_metrics.j₊½.η̂.t, m.edge_metrics.j₊½.η̂.t[first_idx])
+  end
+
+  return m
 end
 
 """Update metrics after grid coordinates change"""

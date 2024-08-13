@@ -34,7 +34,9 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid1D)
     grid.nnodes,
     grid.domain_limits,
     grid.iterators,
+    grid.tiles,
     discretization_scheme,
+    grid.onbc,
     grid.is_static,
     grid.is_orthogonal,
   )
@@ -59,7 +61,9 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid2D)
     grid.nnodes,
     grid.domain_limits,
     grid.iterators,
+    grid.tiles,
     discretization_scheme,
+    grid.onbc,
     grid.is_static,
     grid.is_orthogonal,
   )
@@ -83,8 +87,10 @@ function Adapt.adapt_structure(to, grid::AxisymmetricGrid2D)
     grid.nhalo,
     grid.nnodes,
     grid.iterators,
+    grid.tiles,
     grid.snap_to_axis,
     grid.rotational_axis,
+    grid.onbc,
     grid.is_static,
     grid.is_orthogonal,
   )
@@ -109,7 +115,9 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid3D)
     grid.nnodes,
     grid.domain_limits,
     grid.iterators,
+    grid.tiles,
     discretization_scheme,
+    grid.onbc,
     grid.is_static,
     grid.is_orthogonal,
   )

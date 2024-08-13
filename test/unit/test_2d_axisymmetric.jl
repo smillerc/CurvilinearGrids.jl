@@ -1,5 +1,3 @@
-using CurvilinearGrids, Test
-
 @testset "2D Cylindrical Mesh" begin
 
   # begin

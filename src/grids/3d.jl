@@ -12,7 +12,7 @@ CurvilinearGrid3D
  - `nnodes`: Number of nodes/vertices
  - `limits`: Cell loop limits based on halo cells
 """
-struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid
+struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -22,7 +22,9 @@ struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid
   nnodes::NTuple{3,Int}
   domain_limits::DL
   iterators::CI
+  tiles::TI
   discretization_scheme::DS
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool, klo::Bool, khi::Bool}
   is_static::Bool
   is_orthogonal::Bool
 end
@@ -42,11 +44,14 @@ function CurvilinearGrid3D(
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
   z::AbstractArray{T,3},
-  nhalo::Int,
-  discretization_scheme=:MEG6;
+  nhalo::Int;
   backend=CPU(),
+  discretization_scheme=:MEG6,
+  on_bc=nothing,
   is_static=false,
   is_orthogonal=false,
+  tiles=nothing,
+  make_uniform=false,
 ) where {T}
 
   #
@@ -121,6 +126,12 @@ function CurvilinearGrid3D(
     z=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
+  if isnothing(on_bc)
+    _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true, klo=true, khi=true)
+  else
+    _on_bc = on_bc
+  end
+
   m = CurvilinearGrid3D(
     coords,
     centroids,
@@ -131,7 +142,9 @@ function CurvilinearGrid3D(
     nnodes,
     limits,
     domain_iterators,
+    tiles,
     discr_scheme,
+    _on_bc,
     is_static,
     is_orthogonal,
   )
