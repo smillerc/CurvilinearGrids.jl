@@ -140,8 +140,8 @@ function RectlinearGrid(
   return RectlinearGrid(
     range(x0, x1; length=ni_cells + 1) .|> T,
     range(y0, y1; length=nj_cells + 1) .|> T,
-    nhalo,
-    backend;
+    nhalo;
+    backend=backend,
     is_static=is_static,
     make_uniform=make_uniform,
     tile_layout=tile_layout,
