@@ -107,7 +107,7 @@ function CurvilinearGrid1D(
   #   end
 
   discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full
+    domain_iterators.cell.full, T
   )
 
   # else
@@ -181,7 +181,7 @@ function SphericalGrid1D(
   #   end
 
   discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full
+    domain_iterators.cell.full, T
   )
 
   # else
@@ -257,7 +257,7 @@ function CylindricalGrid1D(
   #   end
 
   discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full
+    domain_iterators.cell.full, T
   )
 
   # else

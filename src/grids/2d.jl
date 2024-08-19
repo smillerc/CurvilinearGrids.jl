@@ -111,7 +111,7 @@ function CurvilinearGrid2D(
   #   end
 
   discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full
+    domain_iterators.cell.full, T
   )
 
   # else
