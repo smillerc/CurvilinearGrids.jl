@@ -8,7 +8,7 @@ using KernelAbstractions
 using ..IndexingUtils
 
 export MonotoneExplicit6thOrderDiscretization
-export update_edge_conserved_metrics!, update_cell_center_metrics!
+export update_edge_conserved_metrics!, update_cell_center_metrics!, update_temporal_metrics!
 
 const ξ = 1
 const η = 2
@@ -403,6 +403,89 @@ function update_cell_center_metrics!(
     _inv_jacobian = inv(_jacobian)
     cell_center_metrics.ξ.x₁[idx] = _inv_jacobian
   end
+
+  return nothing
+end
+
+# 
+function update_temporal_metrics!(
+  scheme::MonotoneExplicit6thOrderDiscretization{T,1},
+  edge_metrics,
+  cell_center_metrics,
+  domain,
+) where {T}
+
+  # cache-arrays - these are re-used for the centroid-to-edge interpolation
+  ∂²x = scheme.∂²x
+  ∂x = scheme.∂x
+
+  i₊½_domain = expand(domain, 1, 0)
+
+  # interpolate the cell-center metric to the edges
+  ξt = cell_center_metrics.ξ.t
+  toedge!(edge_metrics.i₊½.ξ̂.t, ∂²x, ∂x, ξt, i₊½_domain, ξ)
+
+  return nothing
+end
+
+function update_temporal_metrics!(
+  scheme::MonotoneExplicit6thOrderDiscretization{T,2},
+  edge_metrics,
+  cell_center_metrics,
+  domain,
+) where {T}
+
+  # cache-arrays - these are re-used for the centroid-to-edge interpolation
+  ∂²x = scheme.∂²x
+  ∂x = scheme.∂x
+
+  i₊½_domain = expand(domain, 1, 0)
+  j₊½_domain = expand(domain, 2, 0)
+
+  # interpolate the cell-center metric to the edges
+
+  ξt = cell_center_metrics.ξ.t
+  toedge!(edge_metrics.i₊½.ξ̂.t, ∂²x, ∂x, ξt, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ξ̂.t, ∂²x, ∂x, ξt, j₊½_domain, η)
+
+  ηt = cell_center_metrics.η.t
+  toedge!(edge_metrics.i₊½.η̂.t, ∂²x, ∂x, ηt, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.η̂.t, ∂²x, ∂x, ηt, j₊½_domain, η)
+
+  return nothing
+end
+
+function update_temporal_metrics!(
+  scheme::MonotoneExplicit6thOrderDiscretization{T,3},
+  edge_metrics,
+  cell_center_metrics,
+  domain,
+) where {T}
+
+  # cache-arrays - these are re-used for the centroid-to-edge interpolation
+  ∂²x = scheme.∂²x
+  ∂x = scheme.∂x
+
+  i₊½_domain = expand(domain, 1, 0)
+  j₊½_domain = expand(domain, 2, 0)
+  k₊½_domain = expand(domain, 3, 0)
+
+  # interpolate the cell-center metric to the edges
+
+  ξt = cell_center_metrics.ξ.t
+  toedge!(edge_metrics.i₊½.ξ̂.t, ∂²x, ∂x, ξt, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ξ̂.t, ∂²x, ∂x, ξt, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ξ̂.t, ∂²x, ∂x, ξt, k₊½_domain, ζ)
+
+  ηt = cell_center_metrics.η.t
+  toedge!(edge_metrics.i₊½.η̂.t, ∂²x, ∂x, ηt, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.η̂.t, ∂²x, ∂x, ηt, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.η̂.t, ∂²x, ∂x, ηt, k₊½_domain, ζ)
+
+  ζt = cell_center_metrics.ζ.t
+  toedge!(edge_metrics.i₊½.ζ̂.t, ∂²x, ∂x, ζt, i₊½_domain, ξ)
+  toedge!(edge_metrics.j₊½.ζ̂.t, ∂²x, ∂x, ζt, j₊½_domain, η)
+  toedge!(edge_metrics.k₊½.ζ̂.t, ∂²x, ∂x, ζt, k₊½_domain, ζ)
 
   return nothing
 end

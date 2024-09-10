@@ -5,7 +5,7 @@ CurvilinearGrid2D
 struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
-  node_velocities::NV
+  coord_velocities::NV
   edge_metrics::EM
   cell_center_metrics::CM
   nhalo::Int
@@ -25,7 +25,7 @@ AxisymmetricGrid2D
 struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
-  node_velocities::NV
+  coord_velocities::NV
   edge_metrics::EM
   cell_center_metrics::CM
   nhalo::Int
@@ -54,13 +54,19 @@ function CurvilinearGrid2D(
   discretization_scheme=:MEG6,
   backend=CPU(),
   on_bc=nothing,
-  is_static=false,
+  is_static=true,
   is_orthogonal=false,
   tiles=nothing,
   make_uniform=false,
 ) where {T}
 
   #
+  if is_static
+    ntemporal_stages = 1
+  else
+    ntemporal_stages = 3
+  end
+
   @assert size(x) == size(y)
 
   nnodes = size(x)
@@ -93,14 +99,19 @@ function CurvilinearGrid2D(
     copy!(coords.y[domain_iterators.node.domain], y)
   end
 
-  centroids = StructArray((
-    x=KernelAbstractions.zeros(backend, T, celldims),
-    y=KernelAbstractions.zeros(backend, T, celldims),
-  ))
+  centroids = ntuple(
+    i -> StructArray((
+      x=KernelAbstractions.zeros(backend, T, celldims),
+      y=KernelAbstractions.zeros(backend, T, celldims),
+    )),
+    ntemporal_stages,
+  )
 
-  _centroid_coordinates!(centroids, coords, domain_iterators.cell.domain)
+  for stage in 1:ntemporal_stages
+    _centroid_coordinates!(centroids[stage], coords, domain_iterators.cell.domain)
+  end
 
-  node_velocities = StructArray((
+  coord_velocities = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
     y=KernelAbstractions.zeros(backend, T, nodedims),
   ))
@@ -127,7 +138,7 @@ function CurvilinearGrid2D(
   m = CurvilinearGrid2D(
     coords,
     centroids,
-    node_velocities,
+    coord_velocities,
     edge_metrics,
     cell_center_metrics,
     nhalo,
@@ -141,7 +152,7 @@ function CurvilinearGrid2D(
     is_orthogonal,
   )
 
-  update!(m; force=true)
+  update!(m)
 
   if make_uniform
     first_idx = first(m.iterators.cell.domain)
@@ -242,7 +253,7 @@ function AxisymmetricGrid2D(
 
   # _centroid_coordinates!(centroids, coords, domain_iterators.cell.domain)
 
-  node_velocities = StructArray((
+  coord_velocities = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
     y=KernelAbstractions.zeros(backend, T, nodedims),
   ))
@@ -269,7 +280,7 @@ function AxisymmetricGrid2D(
   m = AxisymmetricGrid2D(
     coords,
     centroids,
-    node_velocities,
+    coord_velocities,
     edge_metrics,
     cell_center_metrics,
     nhalo,
@@ -325,23 +336,44 @@ function AxisymmetricGrid2D(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::CurvilinearGrid2D; force=false)
-  if !mesh.is_static || force
-    _centroid_coordinates!(
-      mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
-    )
-    update_metrics!(mesh)
-    _check_valid_metrics(mesh)
+function update!(
+  mesh::CurvilinearGrid2D, node_cooord_update_function=nothing, params=nothing;
+)
+  is_dynamic = !isnothing(node_cooord_update_function)
+  domain = mesh.iterators.cell.domain
+
+  # update the node coordinates in-place using the provided function
+  if is_dynamic
+    @assert length(mesh.centroid_coordinates) > 1 "You've provided a dynamic function, but didn't initialize the mesh as begin dynamic. Pass `is_static=false` to the constructor"
+    @assert !isnothing(params) "You must provide a `params` NamedTuple that has (at the minimum), Δt and t"
+
+    # update the node and centroid coordinates, calculate grid velocities
+    _update_coords(mesh, node_cooord_update_function, params)
   else
-    error("Attempting to update grid metrics when grid.is_static = true!")
+    _centroid_coordinates!(mesh.centroid_coordinates[1], mesh.node_coordinates, domain)
   end
+
+  MetricDiscretizationSchemes.update_metrics!(
+    mesh.discretization_scheme,
+    mesh.centroid_coordinates[1],
+    mesh.cell_center_metrics,
+    mesh.edge_metrics,
+    domain;
+    do_temporal=is_dynamic,
+  )
+
+  _check_valid_metrics(mesh)
+
   return nothing
 end
 
 """Update metrics after grid coordinates change"""
 function update!(mesh::AxisymmetricGrid2D)
   _centroid_coordinates!(
-    mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
+    mesh.centroid_coordinates[1],
+    mesh.node_coordinates.x,
+    mesh.node_coordinates.y,
+    mesh.iterators.cell.domain,
   )
   update_metrics!(mesh)
 
@@ -352,21 +384,6 @@ function update!(mesh::AxisymmetricGrid2D)
   end
 
   _check_valid_metrics(mesh)
-  return nothing
-end
-
-function update_metrics!(mesh::AbstractCurvilinearGrid2D, t::Real=0)
-  # Update the metrics within the non-halo region, e.g., the domain
-  domain = mesh.iterators.cell.domain
-
-  MetricDiscretizationSchemes.update_metrics!(
-    mesh.discretization_scheme,
-    mesh.centroid_coordinates,
-    mesh.cell_center_metrics,
-    mesh.edge_metrics,
-    domain,
-  )
-
   return nothing
 end
 
@@ -409,15 +426,16 @@ jacobian(mesh::CurvilinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
 # ------------------------------------------------------------------
 
 function _centroid_coordinates!(
-  centroids::StructArray{T,2}, coords::StructArray{T,2}, domain
+  centroids::StructArray{T,2}, xy::StructArray{T,2}, domain
 ) where {T}
-  x = coords.x
-  y = coords.y
+
   # Populate the centroid coordinates
   for idx in domain
     i, j = idx.I
-    centroids.x[idx] = 0.25(x[i, j] + x[i + 1, j] + x[i + 1, j + 1] + x[i, j + 1])
-    centroids.y[idx] = 0.25(y[i, j] + y[i + 1, j] + y[i + 1, j + 1] + y[i, j + 1])
+    centroids.x[idx] =
+      0.25(xy.x[i, j] + xy.x[i + 1, j] + xy.x[i + 1, j + 1] + xy.x[i, j + 1])
+    centroids.y[idx] =
+      0.25(xy.y[i, j] + xy.y[i + 1, j] + xy.y[i + 1, j + 1] + xy.y[i, j + 1])
   end
 
   return nothing

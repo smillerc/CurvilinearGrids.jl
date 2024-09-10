@@ -80,6 +80,7 @@ include("1d.jl")
 include("2d.jl")
 include("3d.jl")
 include("simple_constructors/simple_constructors.jl")
+include("dynamic_updates.jl")
 
 """Get the size of the grid for cell-based arrays"""
 cellsize(mesh::AbstractCurvilinearGrid1D) = (mesh.nnodes - 1,)
