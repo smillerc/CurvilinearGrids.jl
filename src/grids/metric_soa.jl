@@ -109,6 +109,7 @@ end
 function get_metric_soa(celldims::NTuple{2,Int}, backend, T)
   cell_center_metrics = (
     J=KernelAbstractions.zeros(backend, T, celldims),
+    Jₜ⁻¹=KernelAbstractions.zeros(backend, T, celldims),
     ξ=StructArray((
       x₁=KernelAbstractions.zeros(backend, T, celldims),
       x₂=KernelAbstractions.zeros(backend, T, celldims),

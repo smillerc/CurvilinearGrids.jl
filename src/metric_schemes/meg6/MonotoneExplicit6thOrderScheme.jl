@@ -452,6 +452,16 @@ function update_temporal_metrics!(
   toedge!(edge_metrics.i₊½.η̂.t, ∂²x, ∂x, ηt, i₊½_domain, ξ)
   toedge!(edge_metrics.j₊½.η̂.t, ∂²x, ∂x, ηt, j₊½_domain, η)
 
+  Jt = cell_center_metrics.Jₜ⁻¹
+
+  ϵ = 1e-12
+  # Jₜ⁻¹ = -( ∂(ξₜ)/∂ξ + ∂(ηₜ)/∂η )
+  ∂x∂ξ!(scheme, Jt, ξt, domain, ξ, ϵ) # ∂(ξₜ)/∂ξ 
+  # ∂x here is just a temporary cache
+  ∂x∂ξ!(scheme, ∂x, ηt, domain, η, ϵ) # ∂(ηₜ)/∂η
+  @. Jt += ∂x
+  @. Jt *= -1
+
   return nothing
 end
 

@@ -110,21 +110,21 @@ end
 end
 
 @inline function centroids(mesh::AbstractCurvilinearGrid1D)
-  return @views mesh.centroid_coordinates.x[mesh.iterators.cell.domain]
+  return @views mesh.centroid_coordinates[1].x[mesh.iterators.cell.domain]
 end
 
 @inline function centroids(mesh::AbstractCurvilinearGrid2D)
   return @views (
-    mesh.centroid_coordinates.x[mesh.iterators.cell.domain],
-    mesh.centroid_coordinates.y[mesh.iterators.cell.domain],
+    mesh.centroid_coordinates[1].x[mesh.iterators.cell.domain],
+    mesh.centroid_coordinates[1].y[mesh.iterators.cell.domain],
   )
 end
 
 @inline function centroids(mesh::CurvilinearGrid3D)
   return @views (
-    mesh.centroid_coordinates.x[mesh.iterators.cell.domain],
-    mesh.centroid_coordinates.y[mesh.iterators.cell.domain],
-    mesh.centroid_coordinates.z[mesh.iterators.cell.domain],
+    mesh.centroid_coordinates[1].x[mesh.iterators.cell.domain],
+    mesh.centroid_coordinates[1].y[mesh.iterators.cell.domain],
+    mesh.centroid_coordinates[1].z[mesh.iterators.cell.domain],
   )
 end
 
@@ -171,14 +171,14 @@ end
 """Get the radial centroid coordinate of a axisymmetric mesh"""
 @inline centroid_radius(mesh, CI::CartesianIndex) = centroid_radius(mesh, CI.I)
 @inline function centroid_radius(mesh::AbstractCurvilinearGrid1D, (i,)::NTuple{1,Int})
-  return mesh.centroid_coordinates.x[i]
+  return mesh.centroid_coordinates[1].x[i]
 end
 
 @inline function centroid_radius(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2,Int})
   if mesh.rotational_axis === :x
-    return mesh.centroid_coordinates.y[i, j]
+    return mesh.centroid_coordinates[1].y[i, j]
   else
-    return mesh.centroid_coordinates.x[i, j]
+    return mesh.centroid_coordinates[1].x[i, j]
   end
 end
 
@@ -229,18 +229,18 @@ applies a shift to the index for you.
 @inline centroid(mesh, i::Int) = centroid(mesh, (i,))
 
 @inline function centroid(mesh, (i,)::NTuple{1,Int})
-  @SVector [mesh.centroid_coordinates.x[i]]
+  @SVector [mesh.centroid_coordinates[1].x[i]]
 end
 
 @inline function centroid(mesh, (i, j)::NTuple{2,Int})
-  @SVector [mesh.centroid_coordinates.x[i, j], mesh.centroid_coordinates.y[i, j]]
+  @SVector [mesh.centroid_coordinates[1].x[i, j], mesh.centroid_coordinates[1].y[i, j]]
 end
 
 @inline function centroid(mesh, (i, j, k)::NTuple{3,Int})
   @SVector [
-    mesh.centroid_coordinates.x[i, j, k],
-    mesh.centroid_coordinates.y[i, j, k],
-    mesh.centroid_coordinates.z[i, j, k],
+    mesh.centroid_coordinates[1].x[i, j, k],
+    mesh.centroid_coordinates[1].y[i, j, k],
+    mesh.centroid_coordinates[1].z[i, j, k],
   ]
 end
 

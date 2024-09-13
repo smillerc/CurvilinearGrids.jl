@@ -26,6 +26,7 @@ function save_vtk(mesh::AbstractCurvilinearGrid2D, fn="mesh")
 
   @views vtk_grid(fn, xyz_n) do vtk
     vtk["J", VTKCellData()] = mesh.cell_center_metrics.J[domain]
+    vtk["inv_dJ_dt", VTKCellData()] = mesh.cell_center_metrics.Jₜ⁻¹[domain]
 
     vtk["volume", VTKCellData()] = cellvolume.(Ref(mesh), domain)
 

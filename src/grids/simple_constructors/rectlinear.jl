@@ -158,6 +158,7 @@ function RectlinearGrid(
   make_uniform=false,
   tile_layout=nothing,
   rank::Int=-1,
+  kwargs...,
 ) where {T}
   ni = length(x)
   nj = length(y)
@@ -221,6 +222,7 @@ function RectlinearGrid(
       on_bc=on_bc,
       tiles=tiled_node_limits,
       make_uniform=make_uniform,
+      kwargs...,
     )
 
   else
@@ -242,6 +244,7 @@ function RectlinearGrid(
       is_orthogonal=true,
       is_static=is_static,
       make_uniform=make_uniform,
+      kwargs...,
     )
   end
 end

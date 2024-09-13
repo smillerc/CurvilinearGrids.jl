@@ -2,7 +2,7 @@
 """
 CurvilinearGrid2D
 """
-struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
+struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS,F1,F2} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
   coord_velocities::NV
@@ -17,6 +17,8 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2
   onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
   is_static::Bool
   is_orthogonal::Bool
+  coord_update_function::F1
+  coord_velocity_function::F2
 end
 
 """
@@ -58,10 +60,12 @@ function CurvilinearGrid2D(
   is_orthogonal=false,
   tiles=nothing,
   make_uniform=false,
+  coord_update_function=nothing,
+  coord_velocity_function=nothing,
 ) where {T}
 
   #
-  if is_static
+  if isnothing(coord_update_function) && isnothing(coord_velocity_function)
     ntemporal_stages = 1
   else
     ntemporal_stages = 3
@@ -150,9 +154,11 @@ function CurvilinearGrid2D(
     _on_bc,
     is_static,
     is_orthogonal,
+    coord_update_function,
+    coord_velocity_function,
   )
 
-  update!(m)
+  update!(m, (; Δt=0, t=0))
 
   if make_uniform
     first_idx = first(m.iterators.cell.domain)
@@ -336,10 +342,9 @@ function AxisymmetricGrid2D(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(
-  mesh::CurvilinearGrid2D, node_cooord_update_function=nothing, params=nothing;
-)
-  is_dynamic = !isnothing(node_cooord_update_function)
+function update!(mesh::CurvilinearGrid2D, params=nothing)
+  is_dynamic =
+    !(isnothing(mesh.coord_update_function) && isnothing(mesh.coord_velocity_function))
   domain = mesh.iterators.cell.domain
 
   # update the node coordinates in-place using the provided function
@@ -348,7 +353,8 @@ function update!(
     @assert !isnothing(params) "You must provide a `params` NamedTuple that has (at the minimum), Δt and t"
 
     # update the node and centroid coordinates, calculate grid velocities
-    _update_coords(mesh, node_cooord_update_function, params)
+    compute_vel = isnothing(mesh.coord_velocity_function)
+    _update_coords(mesh, params, compute_vel)
   else
     _centroid_coordinates!(mesh.centroid_coordinates[1], mesh.node_coordinates, domain)
   end

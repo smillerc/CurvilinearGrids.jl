@@ -1,18 +1,22 @@
 
 """
-    _update_coords(mesh, update_func!, params)
+    _update_coords(mesh, params)
 
 Update the coordinates of the mesh (centroid and node), compute grid velocities,
 and update the temporal metric terms
 
 """
-function _update_coords(mesh, update_func!, params)
+function _update_coords(mesh, params, compute_velocity::Bool)
 
   #
-  Δt = params.Δt
+  @unpack t, Δt = params
+
+  if iszero(t)
+    return nothing
+  end
 
   # call the update function -> updates the node coordinates in-place
-  update_func!(mesh.node_coordinates, params)
+  mesh.coord_update_function(mesh.node_coordinates, params)
 
   x⃗cⁿ⁺¹ = mesh.centroid_coordinates[1] # next position
   x⃗cⁿ = mesh.centroid_coordinates[2] # current position
@@ -35,10 +39,15 @@ function _update_coords(mesh, update_func!, params)
   # and now compute the n+1 centroid coordinates from the nodes
   _centroid_coordinates!(x⃗cⁿ⁺¹, mesh.node_coordinates, mesh.iterators.cell.domain)
 
-  # estimate the velocities of each centroid (xₜ, yₜ, zₜ)
-  _compute_coord_velocities!(
-    mesh.coord_velocities, mesh.centroid_coordinates, mesh.iterators.cell.domain, Δt
-  )
+  if compute_velocity
+    # estimate the velocities of each centroid (xₜ, yₜ, zₜ)
+    _compute_coord_velocities!(
+      mesh.coord_velocities, mesh.centroid_coordinates, mesh.iterators.cell.domain, Δt
+    )
+  else
+    mesh.coord_velocity_function(mesh.coord_velocities, params)
+    # interpolate to the centroids somehow...
+  end
 
   # now find ξₜ, ηₜ, ζₜ for all the centroids 
   _update_temporal_metrics!(mesh)
@@ -48,8 +57,6 @@ function _update_coords(mesh, update_func!, params)
 
   return nothing
 end
-
-#
 
 """
     compute_coord_velocities(coordinates, domain, Δt)
