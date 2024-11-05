@@ -23,7 +23,7 @@ end
 
 function grid_vel!(velocity, params)
   @unpack x, y = velocity
-  @unpack t, Lx, Ly, nxy, nyx, ω = params
+  @unpack t, Ax, Ay, Lx, Ly, nxy, nyx, ω = params
 
   Δx0 = Lx / ni
   Δy0 = Ly / nj
@@ -31,8 +31,8 @@ function grid_vel!(velocity, params)
   for idx in CartesianIndices(x)
     i, j = idx.I
 
-    x[i, j] = 2pi * ω * Δx0 * cospi(2 * ω * t) * sinpi((nxy * Δy0 * (j + 0.5) / Ly))
-    y[i, j] = 2pi * ω * Δy0 * cospi(2 * ω * t) * sinpi((nyx * Δx0 * (i + 0.5) / Lx))
+    x[i, j] = 2pi * ω * Δx0 * Ax * cospi(2 * ω * t) * sinpi((nxy * Δy0 * (j + 0.5) / Ly))
+    y[i, j] = 2pi * ω * Δy0 * Ay * cospi(2 * ω * t) * sinpi((nyx * Δx0 * (i + 0.5) / Lx))
   end
 
   return nothing
