@@ -123,10 +123,10 @@ $$
 $$
 
 The grid metrics are accessesed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Each type includes example grid metrics like the following subset:
-- Cell centered metrics: $\eta_y$ via `grid.cell_center_metrics.ξ.x₂[idx]` or $y_\xi$ via `grid.cell_center_metrics.x₂.ξ[idx]`
-- Cell centered Jacobian (length in 1D, area in 2D, volume in 3D): `grid.cell_center_metrics.J[idx]`
-- Temporal metric $\partial \zeta / \partial t$, or $\zeta_t$ is `grid.cell_center_metrics.ζ.t[idx]`
-- Edge centered conservative metrics: $\hat{\xi}_x$ at the $i+1/2$ edge via `grid.edge_center_metrics.i₊½.ξ̂[idx]`
+
+- Cell centered metrics: $\eta_y, y_\xi$ via `grid.cell_center_metrics`
+- Temporal metric $\partial \zeta / \partial t$, or $\zeta_t$ 
+- Edge centered conservative metrics: $\hat{\xi}_x$ at the $i+1/2$
 
 
 # References
