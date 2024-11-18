@@ -20,7 +20,9 @@ bibliography: references.bib
 
 # Summary
 
-`CurvilinearGrids.jl` is a Julia package for computing grid metrics required for arbitrary 1D, 2D, and 3D curvilinear transformations. The API is designed to handle the complicated book-keeping associated with metric computation on multidimensional meshes and make it simple to encorporate arbitrary curvilinear geometry into various PDE-oriented codes discretized through finite-differences. Users provide `CurvilinearGrids.jl` with coorinate points defined in real-space $(x,y,z)$, which will then compute the Jacobian matrices required to transform to a uniform computational coordinate space $(\xi,\eta,\zeta)$. A common example of this is to use a body-fit or conformal grid, e.g. a grid that defines a wing, and transform it so that it becomes a uniform grid in $(\xi,\eta,\zeta)$. Standard finite-difference stencils can be used on the uniform transformed grid. Figure \autoref{fig:grid} shows an example of a curvilinear grid defined in real-space and it's representation in computational space. 
+`CurvilinearGrids.jl` is a Julia package for computing grid metrics required for curvilinear coordinate transformations in arbitrary 1D, 2D, and 3D geometry. Curvilinear coordinate transformations are often used for finite-difference discretizations of partial differential equations, see for example, the Euler and Navier-Stokes equations in References [@visbal2002; @chandravamsi2023]. These coordinate transformations need to adhere to strict conservation laws that make the computation of grid metrics more difficult that simple finite-difference methods.
+
+The API in `CurvilinearGrids.jl`  is designed to handle the complicated book-keeping associated with metric computation on multidimensional meshes. The aim is to simplify the process by which arbitrary curvilinear geometry is incorporated into various PDE-oriented codes discretized through finite-differences. Users provide `CurvilinearGrids.jl` with discrete coordinate points defined in real-space $(x,y,z)$, or functional forms, e.g `x(i,j), y(i,j)`. These are used to compute the Jacobian matrices required to transform to a uniform computational coordinate space $(\xi,\eta,\zeta)$. A common example of this is to use a body-fit or conformal grid and transform it so that it becomes a uniform grid in $(\xi,\eta,\zeta)$. Standard finite-difference stencils can be used on the uniform transformed grid. Figure \autoref{fig:grid} shows an example of a curvilinear grid defined in real-space and it's representation in computational space. 
 
 ![Curvilinear grid transformation.\label{fig:grid}](mesh.png)
 
@@ -65,9 +67,9 @@ nhalo = 2 # halo cells needed for stencils (can be set to 0)
 grid = wavygrid(nx, ny, nhalo)
 ```
 
-When solving equations like the Euler or Navier-Stokes equations in transformed coordinates (in $\xi,\eta,\zeta$), the grid metric terms must be included. Care must be taken when advection is included in the governing equations so that the geometric conservation law (GCL) is observed. If the scheme does not follow the GCL, errors will build up and ultimately corrupt the solution. In the case of fluid dynamics, the mesh and governing equation discretizations must follow the same scheme [@thomas1979; @visbal2002]. One such scheme is the Monotone Explicit Gradient (MEG) based reconstruction [@chamarthi2023; @chandravamsi2023], which is included in `CurvilinearGrids.jl`. There is no restriction to particular schemes whech can be added in the future.
+When solving transformed PDEs in computational coordinates ($\xi,\eta,\zeta$), grid metrics must be included. Care must be taken if advection or motion is included in the governing equations so that the geometric conservation law (GCL) is observed [@thomas1979]. If the scheme does not follow the GCL, errors will build up and ultimately corrupt the solution. In the case of fluid dynamics, the mesh and governing equation discretizations must follow the same scheme and be *conservative* [@visbal2002]. One such conservative scheme is the Monotone Explicit Gradient (MEG) based reconstruction [@chamarthi2023; @chandravamsi2023], which is included in `CurvilinearGrids.jl`. Other common schemes include weighted essentially non-oscillatory (WENO) schemes of various order. There is no restriction to particular schemes which can be added in the future.
 
-Both edge-centered and cell-centered metrics are required for many PDE discretizations -- to stay consistent, the interpolation from cell-center to the edge must be the same. An example of this is from the 6th-order MEG scheme. The interpolation from cell center to edge is as follows:
+Both edge-centered $(i\pm1/2, j\pm1/2)$ and cell-centered metrics $(i,j)$ are required for many PDE discretizations -- the interpolation from cell-center to edge must be consistent. An example of this is from the 6th-order MEG scheme seen below: 
 $$
 \begin{aligned}
 \phi_{i+1/2} &= \frac{1}{2} \left ( \phi^L_{i+1/2} + \phi^R_{i+1/2} \right) \\
@@ -122,11 +124,12 @@ $$
 \end{bmatrix}, \quad J^{-1} = \det [\textbf{J}^{-1}]
 $$
 
-The grid metrics are accessesed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Each type includes example grid metrics like the following subset:
+The grid metrics are accessed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Metrics are contained in `StructArrays` for each dimension.
+
+Each grid type includes example metrics like the following subset:
 
 - Cell centered metrics: $\eta_y, y_\xi$ via `grid.cell_center_metrics`
-- Temporal metric $\partial \zeta / \partial t$, or $\zeta_t$ 
-- Edge centered conservative metrics: $\hat{\xi}_x$ at the $i+1/2$
-
+- Edge centered conservative metrics (`grid.edge_center_metrics`): $\hat{\xi}_{x1}, \hat{\xi}_{x2}, \hat{\xi}_{x3}$ at $i+1/2, j+1/2, k+1/2$
+- Temporal metrics: $\xi_t, \eta_t, \zeta_t$ 
 
 # References
