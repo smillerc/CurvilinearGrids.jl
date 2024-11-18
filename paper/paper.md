@@ -105,7 +105,7 @@ $$
 $$
 At boundaries, one-sided or partially one-sided finite difference equations must be used.
 
-Terminology in the literature can be confusing, but the "Jacobian matrix" is the matrix of partial derivatives that describe the forward or inverse transformation, and uses a bold-face $\textbf{J}$. The "Jacobian" then refers to the determinant of the Jacobian matrix, and is the non-bolded $J$. Some authors refer to the matrix as the "Jacobi matrix" as well. The forward transformation, or $T: (\xi,\eta,\zeta) \rightarrow (x,y,z)$ is defined as
+Terminology in the literature can be conflicting, but the "Jacobian matrix" is the matrix of partial derivatives that describe the forward or inverse transformation, and uses a bold-face $\textbf{J}$. The "Jacobian" then refers to the determinant of the Jacobian matrix, and is the non-bolded $J$. Some authors refer to the matrix as the "Jacobi matrix" as well. The forward transformation, or $T: (\xi,\eta,\zeta) \rightarrow (x,y,z)$ is defined as
 $$
 \textbf{J} = 
 \begin{bmatrix}
@@ -124,7 +124,7 @@ $$
 \end{bmatrix}, \quad J^{-1} = \det [\textbf{J}^{-1}]
 $$
 
-The grid metrics are accessed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Metrics are contained in `StructArrays` for each dimension.
+The grid metrics (derivative terms in $\textbf{J}, \textbf{J}^{-1}$) at each cell-center or edge are accessed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Metrics are contained in `StructArrays` for each dimension.
 
 Each grid type includes example metrics like the following subset:
 
