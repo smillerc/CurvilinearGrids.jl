@@ -7,7 +7,7 @@
 
 ![Alt text](docs/image.png)
 
-`CurvilinearGrids.jl` currently defines the `CurvilinearGrid2D` and `CurvilinearGrid3D` types. To construct these, you need to provide the functional form of the grid, e.g. `x(i,j), y(i,j)` for a 2D mesh. 
+`CurvilinearGrids.jl` currently defines the `CurvilinearGrid2D` and `CurvilinearGrid3D` types. To construct these, you need to provide the discrete coordinates for the mesh. 
 
 ### Example
 ```julia
@@ -25,22 +25,28 @@ function sphere_grid(nr, ntheta, nphi)
   θ(η) = θ0 + (θ1 - θ0) * ((η - 1) / (ntheta - 1))
   ϕ(ζ) = ϕ0 + (ϕ1 - ϕ0) * ((ζ - 1) / (nphi - 1))
 
+  x = zeros(nr, ntheta, nphi)
+  y = zeros(nr, ntheta, nphi)
+  z = zeros(nr, ntheta, nphi)
   # simple spherical to cartesian mapping
-  x(i,j,k) = r(i) * sin(θ(j)) * cos(ϕ(k))
-  y(i,j,k) = r(i) * sin(θ(j)) * sin(ϕ(k))
-  z(i,j,k) = r(i) * cos(θ(j))
+  for idx in CartesianIndices(x)
+    i,j,k = idx.I
+    x[idx] = r(i) * sin(θ(j)) * cos(ϕ(k))
+    y[idx] = r(i) * sin(θ(j)) * sin(ϕ(k))
+    z[idx] = r(i) * cos(θ(j))
+  end
 
   return (x, y, z)
 end
 
 ni, nj, nk = (5, 9, 11) # number of nodes/vertices in each dimension
-nhalo = 2 # halo cells needed for stencils (can be set to 0)
+nhalo = 4 # halo cells needed for stencils (can be set to 0)
 
 # Obtain the x, y, and z coordinate functions
 x, y, z = sphere_grid(ni, nj, nk)
 
 # Create the mesh
-mesh = CurvilinearGrid3D(x, y, z, (ni, nj, nk), nhalo)
+mesh = CurvilinearGrid3D(x, y, z, nhalo)
 ```
 ## Exported Functions
 
@@ -51,14 +57,11 @@ Here `idx` can be a `Tuple` or `CartesianIndex`, and mesh is an `AbstractCurvili
 The index can be a `Tuple`, scalar `Integer`, or `CartesianIndex`.
 - `coord(mesh, idx)`: Get the $(x,y,z)$ coordinates at index `idx`. This can be 1, 2, or 3D.
 - `centroid(mesh, idx)`:  Get the $(x,y,z)$ coordinates of the cell centroid at cell index `idx`. This can be 1, 2, or 3D.
-- `metrics(mesh, idx)`: Get the cell metric information, e.g. $\xi_x, \xi_y$, etc.
-- `conservative_metrics(mesh, idx)`: Get the metrics that are consistent with the Geometric Conservation Law (GCL)
-- `jacobian(mesh, idx)`: Get the determinant of the Jacobian matrix of forward transformation, $J$
-- `jacobian_matrix(mesh, idx)`: Get the Jacobian matrix of the forward transformation
 
 These functions are primarily used to get the complete set of coordinates for plotting or post-processing. These do _not_ use halo regions, since there geometry is ill-defined here.
 - `coords(mesh)` Get the: array of coordinates for the entire mesh (typically for writing to a .vtk for example)
 - `centroids(mesh)` Get the: array of centroid coordinates for the entire mesh (typically for writing to a `.vtk` file)
+
 ## Grid Metrics
 
 When solving equations such as the Navier-Stokes in transformed form (in $\xi,\eta,\zeta$), you need to include the grid metric terms. Providing these for the grid is the primary objective of `CurvilinearGrids.jl`. These conservative grid metrics satisfy the Geometric Conservation Law [(Thomas & Lombard 1979)](https://doi.org/10.2514/3.61273)
@@ -69,6 +72,17 @@ $$
 
 The subscript denotes a partial derivative, so $\xi_x = \partial \xi / \partial x$. 
 
+Grid metrics are accessed as members of the `AbstractCurvilinearGrid` type. These are `StructArrays` that include the Jacobian `J`, metrics $\xi_i, \eta_i, \zeta_i$ for $i=_{x1}, _{x2}, _{x3}$. For a 3D mesh, for example:
+```julia
+julia> keys(pairs(mesh.edge_metrics))
+(:i₊½, :j₊½, :k₊½)
+
+julia> keys(pairs(mesh.edge_metrics.i₊½))
+(:J, :ξ̂, :η̂, :ζ̂)
+
+julia> keys(pairs(mesh.cell_center_metrics))
+(:J, :ξ, :η, :ζ, :x₁, :x₂, :x₃)
+```
 
 ## Jacobian matrices of transformation
 
