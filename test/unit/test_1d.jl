@@ -2,10 +2,8 @@
   nhalo = 3
   ni = 4
   x0, x1 = (0.0, 2.0)
-  mesh = RectlinearGrid(x0, x1, ni, nhalo)
+  mesh = RectlinearGrid((x0, x1), ni, nhalo)
 
-  mesh.cell_center_metrics
-  mesh.edge_metrics
   cell_domain = mesh.iterators.cell.domain
   node_domain = mesh.iterators.node.domain
   @test all(mesh.cell_center_metrics.J[cell_domain] .≈ 0.5)

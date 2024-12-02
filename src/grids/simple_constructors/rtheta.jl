@@ -38,7 +38,7 @@ end
 Create polar grid based on vectors of `r` and `θ` coordinates
 """
 function RThetaGrid(
-  r::AbstractVector{T}, θ::AbstractVector{T}, nhalo::Int, backend=CPU(), is_static=true
+  r::AbstractVector{T}, θ::AbstractVector{T}, nhalo::Int; backend=CPU(), is_static=true
 ) where {T}
   @assert all(r .>= 0) "Radius coordinates must be >= 0"
 
@@ -76,9 +76,9 @@ function AxisymmetricRThetaGrid(
   (r0, θ0),
   (r1, θ1),
   (ni_cells, nj_cells)::NTuple{2,Int},
-  nhalo::Int;
+  nhalo::Int,
   snap_to_axis::Bool,
-  rotational_axis::Symbol,
+  rotational_axis::Symbol;
   backend=CPU(),
   T=Float64,
   is_static=true,
@@ -120,9 +120,9 @@ The axis of rotation is set by `rotational_axis` as `:x` or `:y`
 function AxisymmetricRThetaGrid(
   r::AbstractVector{T},
   θ::AbstractVector{T},
-  nhalo::Int;
+  nhalo::Int,
   snap_to_axis::Bool,
-  rotational_axis::Symbol,
+  rotational_axis::Symbol;
   backend=CPU(),
   is_static=true,
 ) where {T}

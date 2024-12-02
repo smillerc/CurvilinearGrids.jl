@@ -1,6 +1,11 @@
+
+"""
+    RectlinearGrid((x0, x1), ncells, nhalo; backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1)
+
+Generate a 1D rectlinear grid using start/end points and cell resolution.
+"""
 function RectlinearGrid(
-  x0,
-  x1,
+  (x0, x1),
   ncells,
   nhalo::Int;
   backend=CPU(),
@@ -15,6 +20,11 @@ function RectlinearGrid(
   return CurvilinearGrid1D(x, nhalo; backend=backend)
 end
 
+"""
+    RectlinearGrid(x, nhalo; backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1)
+
+Generate a 1D rectlinear grid using an x coordinate vector.
+"""
 function RectlinearGrid(
   x::AbstractVector{T},
   nhalo::Int;
@@ -84,9 +94,13 @@ function RectlinearGrid(
   end
 end
 
+"""
+    RectlinearCylindricalGrid((r0, r1), ncells, nhalo; snap_to_axis=true, backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1)
+
+Generate a 1D cyclindrical rectlinear grid using start/end points and cell resolution.
+"""
 function RectlinearCylindricalGrid(
-  r0,
-  r1,
+  (r0, r1),
   ncells,
   nhalo::Int;
   snap_to_axis=true,
@@ -102,9 +116,14 @@ function RectlinearCylindricalGrid(
   return CylindricalGrid1D(r, nhalo, snap_to_axis; backend=backend)
 end
 
+"""
+    RectlinearSphericalGrid((r0, r1), ncells, nhalo; snap_to_axis=true, backend=CPU(), T=Float64.is_static = true, make_uniform=false, tile_layout=nothing, rank::Int=-1,
+)
+
+Generate a rectlinear 1D spherical grid using start/end points and cell resolution.
+"""
 function RectlinearSphericalGrid(
-  r0,
-  r1,
+  (r0, r1),
   ncells,
   nhalo::Int;
   snap_to_axis=true,
@@ -119,6 +138,11 @@ function RectlinearSphericalGrid(
   return SphericalGrid1D(r, nhalo, snap_to_axis; backend=backend)
 end
 
+"""
+    RectlinearGrid((x0, y0), (x1, y1), (ni_cells, nj_cells), nhalo; backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1)
+
+Generate a 2D rectlinear grid using start/end points and cell resolution.
+"""
 function RectlinearGrid(
   (x0, y0),
   (x1, y1),
@@ -149,6 +173,11 @@ function RectlinearGrid(
   )
 end
 
+"""
+    RectlinearGrid(x, y, nhalo::Int; backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) where {T}
+
+Generate a 2D rectlinear grid using 1D x and y coordinate vectors
+"""
 function RectlinearGrid(
   x::AbstractVector{T},
   y::AbstractVector{T},
@@ -246,13 +275,18 @@ function RectlinearGrid(
   end
 end
 
+"""
+    AxisymmetricRectlinearGrid((x0, y0), (x1, y1), (ni_cells, nj_cells), nhalo; snap_to_axis::Bool, rotational_axis::Symbol, backend=CPU(), T=Float64, is_static=true)
+
+Generate a 2D axisymmetric rectlinear grid using start/end points and cell resolution.
+"""
 function AxisymmetricRectlinearGrid(
   (x0, y0),
   (x1, y1),
   (ni_cells, nj_cells)::NTuple{2,Int},
-  nhalo::Int;
+  nhalo::Int,
   snap_to_axis::Bool,
-  rotational_axis::Symbol,
+  rotational_axis::Symbol;
   backend=CPU(),
   T=Float64,
   is_static=true,
@@ -296,6 +330,11 @@ function AxisymmetricRectlinearGrid(
   )
 end
 
+"""
+    RectlinearGrid((x0, y0, z0), (x1, y1, z1), (ni_cells, nj_cells, nk_cells), nhalo; backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1)
+
+Generate a 3D rectlinear grid using start/end points and cell resolution.
+"""
 function RectlinearGrid(
   (x0, y0, z0),
   (x1, y1, z1),
@@ -327,6 +366,11 @@ function RectlinearGrid(
   )
 end
 
+"""
+    RectlinearGrid(x, y, z, nhalo; backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1)
+
+Generate a 3D rectlinear grid using 1D x/y/z coordinate vectors.
+"""
 function RectlinearGrid(
   x::AbstractVector{T},
   y::AbstractVector{T},

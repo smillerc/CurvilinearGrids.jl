@@ -1,14 +1,4 @@
 
-"""
-CurvilinearGrid1D
-
-# Fields
- - `x`: Node function, e.g. x -> f(ξ)
- - `∂x∂ξ`: Derivative of x wrt ξ; ∂x∂ξ(ξ)
- - `nhalo`: Number of halo cells for all dims
- - `nnodes`: Number of nodes/vertices
- - `limits`: Cell loop limits based on halo cells
-"""
 struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
   node_coordinates::CO
   centroid_coordinates::CE
@@ -63,10 +53,9 @@ struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1
 end
 
 """
-    CurvilinearGrid1D(x::Function, (n_ξ,), nhalo)
+    CurvilinearGrid1D(x, nhalo; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, tiles=nothing)
 
-Create a `CurvilinearGrid1D` with a function `x(ξ)` and `nhalo` halo cells. `n_ξ` is the
-total number of nodes/vertices (not including halo).
+Construct a curvilinear grid in 1D using a vector of x coordinate points.
 """
 function CurvilinearGrid1D(
   x::AbstractVector{T},
@@ -141,6 +130,11 @@ function CurvilinearGrid1D(
   return m
 end
 
+"""
+    SphericalGrid1D(x, nhalo, snap_to_axis::Bool; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, tiles=nothing)
+
+Construct a curvilinear grid in 1D with spherical symmetry using a vector of x coordinate points.
+"""
 function SphericalGrid1D(
   x::AbstractVector{T},
   nhalo::Int,
@@ -216,6 +210,11 @@ function SphericalGrid1D(
   return m
 end
 
+"""
+    CylindricalGrid1D(x, nhalo, snap_to_axis::Bool; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, tiles=nothing)
+
+Construct a curvilinear grid in 1D with cylindrical symmetry using a vector of x coordinate points.
+"""
 function CylindricalGrid1D(
   x::AbstractVector{T},
   nhalo::Int,

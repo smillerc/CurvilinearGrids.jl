@@ -8,7 +8,7 @@
   snap_to_axis = true
   symmetry_axis = :x # rotate about the pole axis
   mesh = AxisymmetricRectlinearGrid(
-    (r0, z0), (r1, z1), (nr, nz), nhalo; snap_to_axis=true, rotational_axis=:x
+    (r0, z0), (r1, z1), (nr, nz), nhalo, snap_to_axis, symmetry_axis
   )
 
   domain = mesh.iterators.cell.domain

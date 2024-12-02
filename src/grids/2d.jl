@@ -1,7 +1,4 @@
 
-"""
-CurvilinearGrid2D
-"""
 struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE

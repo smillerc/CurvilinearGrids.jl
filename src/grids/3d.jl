@@ -1,17 +1,4 @@
 
-"""
-CurvilinearGrid3D
-
-# Fields
- - `x`: Node function; e.g., x(i,j,k)
- - `y`: Node function; e.g., y(i,j,k)
- - `z`: Node function; e.g., z(i,j,k)
- - `jacobian_matrix_func`: Function to compute the jacobian matrix, e.g., J(i,j,k)
- - `conserv_metric_func`: Function to compute the conservative metrics
- - `nhalo`: Number of halo cells for all dims
- - `nnodes`: Number of nodes/vertices
- - `limits`: Cell loop limits based on halo cells
-"""
 struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid
   node_coordinates::CO
   centroid_coordinates::CE
@@ -30,15 +17,9 @@ struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid
 end
 
 """
-    CurvilinearGrid3D(
-  x::AbstractArray{T,3},
-  y::AbstractArray{T,3},
-  z::AbstractArray{T,3},
-  nhalo::Int,
-  discretization_scheme=:MEG6;
-  backend=CPU(),
-) where {T}
+    CurvilinearGrid3D(x, y, z, nhalo::Int; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, is_orthogonal=false, tiles=nothing, make_uniform=false)
 
+Construct a curvilinear grid in 3D using 3D arrays of x/y/z coordinates.
 """
 function CurvilinearGrid3D(
   x::AbstractArray{T,3},

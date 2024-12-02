@@ -1,10 +1,15 @@
+"""
+    RThetaPhiGrid((r0, θ0, ϕ0), (r1, θ1, ϕ1), (ni_cells, nj_cells, nk_cells), nhalo::Int; backend=CPU(), T=Float64, is_static=true)
+
+Generate a spherical-polar grid using start/end points and cell resolution.
+"""
 function RThetaPhiGrid(
   (r0, θ0, ϕ0),
   (r1, θ1, ϕ1),
   (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
-  nhalo::Int,
+  nhalo::Int;
   backend=CPU(),
-  T=Float64;
+  T=Float64,
   is_static=true,
 )
   ni = ni_cells + 1
@@ -33,12 +38,17 @@ function RThetaPhiGrid(
   return CurvilinearGrid3D(x, y, z, nhalo; backend=backend, is_static=is_static)
 end
 
+"""
+    RThetaPhiGrid(r, θ, ϕ, nhalo, backend=CPU(); is_static=true)
+
+Generate a spherical-polar grid using 1D coordinate vectors for r/θ/ϕ.
+"""
 function RThetaPhiGrid(
   r::AbstractVector{T},
   θ::AbstractVector{T},
   ϕ::AbstractVector{T},
-  nhalo::Int,
-  backend=CPU();
+  nhalo::Int;
+  backend=CPU(),
   is_static=true,
 ) where {T}
   ni = length(r)
