@@ -7,9 +7,15 @@
 
 ![Alt text](docs/image.png)
 
-`CurvilinearGrids.jl` currently defines the `CurvilinearGrid2D` and `CurvilinearGrid3D` types. To construct these, you need to provide the discrete coordinates for the mesh. 
+`CurvilinearGrids.jl` defines `CurvilinearGrid1D`, `CurvilinearGrid2D`, and `CurvilinearGrid3D` types. To construct these, you need to provide the discrete coordinates for the mesh. 
 
-### Example
+## Installation
+`CurvilinearGrids` is a registered Julia package, so installation follows the typical procedure:
+```julia
+using Pkg; Pkg.add("CurvilinearGrids"); using CurvilinearGrids
+```
+
+### Example Grid Construction
 ```julia
 using CurvilinearGrids
 
@@ -52,7 +58,7 @@ mesh = CurvilinearGrid3D(x, y, z, nhalo)
 
 The API is still a work-in-progress, but for the moment, these functions are exported:
 
-Here `idx` can be a `Tuple` or `CartesianIndex`, and mesh is an `AbstractCurvilinearGrid`. **Important:** The indices provided to these functions are aware of halo regions, so the functions do the offsets for you. This is by design, since fields attached to the mesh, like density or pressure for example, _will_ have halo regions, and loops through these fields typically have pre-defined limits that constrain the loop to only work in the non-halo cells. If you don't use halo cells, just set `nhalo=0` in the constructors.
+Here `idx` can be a `Tuple` or `CartesianIndex`, and mesh is an `AbstractCurvilinearGrid`. **Important:** The indices provided to these functions are aware of halo regions, so the functions do the offsets for you. Halo cells, or halo regions, are an additional layer of cells around the boundary of the mesh that do not contain geometric information. Halo cells are used to apply boundary conditions in a simple manner and to exchange data between domains (in a domain-decomposed setting, e.g. using MPI). This is by design, since fields attached to the mesh, like density or pressure for example, _will_ have halo regions, and loops through these fields typically have pre-defined limits that constrain the loop to only work in the non-halo cells. If you don't use halo cells, just set `nhalo=0` in the constructors.
 
 The index can be a `Tuple`, scalar `Integer`, or `CartesianIndex`.
 - `coord(mesh, idx)`: Get the $(x,y,z)$ coordinates at index `idx`. This can be 1, 2, or 3D.
@@ -61,6 +67,24 @@ The index can be a `Tuple`, scalar `Integer`, or `CartesianIndex`.
 These functions are primarily used to get the complete set of coordinates for plotting or post-processing. These do _not_ use halo regions, since there geometry is ill-defined here.
 - `coords(mesh)` Get the: array of coordinates for the entire mesh (typically for writing to a .vtk for example)
 - `centroids(mesh)` Get the: array of centroid coordinates for the entire mesh (typically for writing to a `.vtk` file)
+
+## Constructors
+
+General purpuse constructors for 1D/2D/3D grids. These need a vector/matrix/array of vertex coordinates and the number of halo cells to pad by.
+- `CurvilinearGrid1D(x::AbstractVector{T}, nhalo::Int)`
+- `CurvilinearGrid2D(x::AbstractMatrix{T}, y::AbstractMatrix{T}, nhalo::Int)`
+- `CurvilinearGrid3D(x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, nhalo::Int)`
+
+A few convienence constructors have been added to make it simpler to generate certain types of grids. Use the `?` in the REPL to see the useage.
+
+- `RectlinearGrid`: A rectlinear grid in 1D/2D/3D
+- `RectlinearCylindricalGrid`: A rectlinear grid with cylindrical symmetry
+- `RectlinearSphericalGrid`: A rectlinear grid with spherical symmetry
+- `AxisymmetricRectlinearGrid`: A rectlinear grid with axisymmetry about a given axis
+
+- `RThetaGrid`: Provide (r,θ) coordinates to generate a polar mesh
+- `AxisymmetricRThetaGrid`: Provide (r,θ) coordinates to generate a polar mesh with axisymmetry
+- `RThetaPhiGrid`: : Provide (r,θ,ϕ) coordinates to generate a polar mesh
 
 ## Grid Metrics
 
@@ -117,3 +141,45 @@ $$
 $$
 J^{-1} = \det [\textbf{J}^{-1}]
 $$
+
+## Using metrics in a PDE discretization
+
+Curvilinear transformations are often used to simulate PDEs like the heat equation or the Euler equations for fluid flow. A *vastly* simplified example is shown below, where the divergence of the flux ($\nabla \cdot q$) is found for a 1D rectlinear grid. A good description of metrics and PDE discretization is in Chapter 3 of [*Huang, W. & Russell, R. D. Adaptive Moving Mesh Methods*](https://link.springer.com/book/10.1007/978-1-4419-7916-2).
+
+
+```julia
+using CurvilinearGrids: RectlinearGrid
+using CartesianDomains: shift
+
+x0, x1 = (-1.0, 1.0)
+ncells = 100
+nhalo = 1
+
+# RectlinearGrid() is a CurvilinearGrid1D constructor for uniform geometry
+mesh = RectlinearGrid(x0, x1, ncells, nhalo)
+ξx = mesh.cell_center_metrics.ξ.x₁
+
+const iaxis = 1
+
+u = rand(size(mesh.iterators.cell.full)...) # solution
+qᵢ₊½ = zeros(size(mesh.iterators.cell.full)) # flux of u
+∇q = zeros(size(mesh.iterators.cell.full)) # flux divergence
+α = ones(size(mesh.iterators.cell.full)) # diffusivity
+
+# Find the fluxes across the edges
+for i in mesh.iterators.cell.domain # only loop through the inner domain (ignore halo region)
+  ᵢ₊₁ = shift(i, iaxis, +1) # shift is useful for indexing in arbitrary dimensions
+
+  αᵢ₊½ = (α[i] + α[ᵢ₊₁]) / 2 # face averaged conductivity
+  qᵢ₊½[i] = -αᵢ₊½ * (u[ᵢ₊₁] - u[i]) # flux of u across the interface at ᵢ₊½
+end
+
+# Now find the flux divergence
+for i in mesh.iterators.cell.domain
+  ᵢ₋₁ = shift(i, iaxis, -1)
+
+  # note the use of the mesh metric, 
+  # which for this case is just the cell spacing
+  ∇q[i] = ξx[i]^2 * (qᵢ₊½[i] - qᵢ₊½[ᵢ₋₁])
+end
+```
