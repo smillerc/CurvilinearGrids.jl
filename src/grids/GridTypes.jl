@@ -29,10 +29,6 @@ export coord, coords, coords!, cellsize, cellsize_withhalo
 export centroid, centroids
 export cellvolume, cellvolumes
 export radius, centroid_radius
-export metrics, jacobian, jacobian_matrix
-export conservative_metrics
-export metrics_with_jacobian
-export cell_metrics, cell_indices
 
 abstract type AbstractCurvilinearGrid end
 abstract type AbstractCurvilinearGrid1D <: AbstractCurvilinearGrid end
@@ -243,16 +239,16 @@ end
   ]
 end
 
-"""
-Get the Jacobian matrix of the forward transformation (ξ,η,ζ) → (x,y,z).
-"""
-@inline jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
+# """
+# Get the Jacobian matrix of the forward transformation (ξ,η,ζ) → (x,y,z).
+# """
+# @inline jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
 # @inline jacobian_matrix(mesh, i::Real) = jacobian_matrix(mesh, (i,))
 
-"""
-Get the Jacobian of the forward transformation (ξ,η,ζ) → (x,y,z).
-"""
-@inline jacobian(mesh, CI::CartesianIndex) = jacobian(mesh, CI.I)
+# """
+# Get the Jacobian of the forward transformation (ξ,η,ζ) → (x,y,z).
+# """
+# @inline jacobian(mesh, CI::CartesianIndex) = jacobian(mesh, CI.I)
 # @inline jacobian(mesh, i::Real) = jacobian(mesh, (i,))
 
 # """
