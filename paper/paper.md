@@ -38,14 +38,9 @@ using CurvilinearGrids
 function wavygrid(ni, nj, nhalo=1)
   Lx = Ly = 12
   n_xy = n_yx = 6
-  xmin = -Lx / 2
-  ymin = -Ly / 2
-
-  Δx0 = Lx / (ni - 1)
-  Δy0 = Ly / (nj - 1)
-
-  Ax = 0.4 / Δx0
-  Ay = 0.8 / Δy0
+  xmin, ymin = (-Lx / 2, -Ly / 2)
+  Δx0,  Δy0 = (Lx / (ni - 1), Ly / (nj - 1))
+  Ax, Ay = (0.4 / Δx0, 0.8 / Δy0)
 
   # coordinate arrays
   x = zeros(ni, nj)
@@ -97,7 +92,7 @@ $$
 
 When solving transformed PDEs in computational coordinates ($\xi,\eta,\zeta$), grid metrics **must** be included. Care must be taken if advection or motion is included in the governing equations so that the geometric conservation law (GCL) is observed [@thomas1979]. If the scheme does not follow the GCL, errors will build up and ultimately corrupt the solution. In the case of fluid dynamics, the mesh and governing equation discretizations must follow the same scheme and be *conservative* [@visbal2002]. One such conservative scheme is the Monotone Explicit Gradient (MEG) based reconstruction [@chamarthi2023; @chandravamsi2023], which is included in `CurvilinearGrids.jl`. Other common schemes include weighted essentially non-oscillatory (WENO) schemes of various order [@ma2024]. There is no restriction to particular schemes which can be added in the future.
 
-The grid metrics (derivative terms in $\textbf{J}, \textbf{J}^{-1}$) at each cell-center or edge are accessed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Metrics are contained in `StructArrays` for each dimension; **edge metrics** are *conservative* and have the " $\hat{}$ " notation, e.g. $\hat{\xi_x} \equiv \xi_x / J$, and **cell-centered metrics** are *non-conservative*, e.g., simply $\xi_x, \eta_x, ...$. Chapter 3 in [@huang2011] has a particulariy lucid description of how these metrics can be included in PDE discretizations.
+The grid metrics (derivative terms in $\textbf{J}, \textbf{J}^{-1}$) at each cell-center or edge are accessed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Metrics are contained in `StructArrays` for each dimension; **edge metrics** are *conservative* and have the " $\hat{}$ " notation, e.g. $\hat{\xi}_x \equiv \xi_x / J$, and **cell-centered metrics** are *non-conservative*, e.g., simply $\xi_x, \eta_x, ...$. Chapter 3 in [@huang2011] has a particulariy lucid description of how these metrics can be included in PDE discretizations.
 
 Each grid type includes example metrics like the following subset:
 
