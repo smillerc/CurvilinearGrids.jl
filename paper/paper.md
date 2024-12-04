@@ -8,7 +8,6 @@ tags:
 authors:
   - name: Samuel C. Miller
     orcid: 0000-0001-6452-2308
-    equal-contrib: true
     affiliation: 1
 affiliations:
  - name: Laboratory for Laser Energetics, University of Rochester, Rochester, NY USA
