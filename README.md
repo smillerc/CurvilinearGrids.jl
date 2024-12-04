@@ -163,7 +163,7 @@ const iaxis = 1
 
 u = rand(size(mesh.iterators.cell.full)...) # solution
 qᵢ₊½ = zeros(size(mesh.iterators.cell.full)) # flux of u
-∇q = zeros(size(mesh.iterators.cell.full)) # flux divergence
+∇_dot_q = zeros(size(mesh.iterators.cell.full)) # flux divergence
 α = ones(size(mesh.iterators.cell.full)) # diffusivity
 
 # Find the fluxes across the edges
@@ -180,6 +180,6 @@ for i in mesh.iterators.cell.domain
 
   # note the use of the mesh metric, 
   # which for this case is just the cell spacing
-  ∇q[i] = ξx[i]^2 * (qᵢ₊½[i] - qᵢ₊½[ᵢ₋₁])
+  ∇_dot_q[i] = ξx[i]^2 * (qᵢ₊½[i] - qᵢ₊½[ᵢ₋₁])
 end
 ```
