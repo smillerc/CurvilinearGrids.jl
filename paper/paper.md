@@ -20,9 +20,14 @@ bibliography: references.bib
 
 # Summary
 
-`CurvilinearGrids.jl` is a Julia package for computing grid metrics required for curvilinear coordinate transformations in arbitrary 1D, 2D, and 3D geometry. Curvilinear coordinate transformations are often used for finite-difference discretizations of partial differential equations, see for example, the Euler and Navier-Stokes equations in References [@visbal2002; @chandravamsi2023]. These coordinate transformations need to adhere to strict conservation laws that make the computation of grid metrics more difficult that simple finite-difference methods.
+Finite-difference discretizations of partial differential equations are widespread throughout the scientific community. Oftentimes finite-differences are used to compute spatial gradients of fields on a discrete grid, which is typically a uniform or rectilinear Cartesian mesh. *Arbitrary* multidimensional geometry is difficult to discretize directly with finite differences, however, due to non-uniform grid spacing and non-orthogonality. Curvilinear coordinate transformations can be used as a strategy to enable arbitrary geometry -- see for example, applications to the Euler and Navier-Stokes equations in References [@visbal2002; @chandravamsi2023]. While these curvilinear transformations are straightforward, the governing PDEs require additional terms (metrics) and must adhere to strict conservation laws; these criteria complicate the application of the transformation and require careful implementation. 
 
-The API in `CurvilinearGrids.jl`  is designed to handle the complicated book-keeping associated with metric computation on multidimensional meshes. The aim is to simplify the process by which arbitrary curvilinear geometry is incorporated into various PDE-oriented codes discretized through finite-differences. Users provide `CurvilinearGrids.jl` with discrete coordinate points defined in real-space $(x,y,z)$, or functional forms, e.g `x(i,j), y(i,j)`. These are used to compute the Jacobian matrices required to transform to a uniform computational coordinate space $(\xi,\eta,\zeta)$. A common example of this is to use a body-fit or conformal grid and transform it so that it becomes a uniform grid in $(\xi,\eta,\zeta)$. Standard finite-difference stencils can be used on the uniform transformed grid. \autoref{fig:grid} shows an example of a curvilinear grid defined in real-space and it's representation in computational space. 
+# Statement of Need
+
+`CurvilinearGrids.jl` is a Julia package designed to facilitate curvilinear coordinate transformations and the generation of metrics for arbitrary 1D, 2D, and 3D geometry. The API is designed for simple grid construction with minimal user effort; the backend handles the complicated book-keeping associated with metric computation and ensures strict adherance to geometric conservation laws when required. While Julia packages exist to facilitate standard finite-differences, there are few, if any, that provide conservative metrics for curvilinear transformations.
+
+
+Users provide `CurvilinearGrids.jl` with discrete coordinate points defined in real-space $(x,y,z)$, or functional forms, e.g `x(i,j), y(i,j)`. These coordinates are then used to compute the transformation (via Jacobian matrices) to a uniform computational coordinate space $(\xi,\eta,\zeta)$. A common example of this is to use a body-fit or conformal grid and transform it so that it becomes a uniform grid in $(\xi,\eta,\zeta)$. Standard finite-difference stencils can be used on the uniform transformed grid. \autoref{fig:grid} shows an example of a curvilinear grid defined in real-space and it's representation in computational space. 
 
 ![Curvilinear grid transformation.\label{fig:grid}](mesh.png)
 
@@ -67,9 +72,41 @@ nhalo = 2 # halo cells needed for stencils (can be set to 0)
 grid = wavygrid(nx, ny, nhalo)
 ```
 
-When solving transformed PDEs in computational coordinates ($\xi,\eta,\zeta$), grid metrics must be included. Care must be taken if advection or motion is included in the governing equations so that the geometric conservation law (GCL) is observed [@thomas1979]. If the scheme does not follow the GCL, errors will build up and ultimately corrupt the solution. In the case of fluid dynamics, the mesh and governing equation discretizations must follow the same scheme and be *conservative* [@visbal2002]. One such conservative scheme is the Monotone Explicit Gradient (MEG) based reconstruction [@chamarthi2023; @chandravamsi2023], which is included in `CurvilinearGrids.jl`. Other common schemes include weighted essentially non-oscillatory (WENO) schemes of various order [@ma2024]. There is no restriction to particular schemes which can be added in the future.
+# Coordinate Transformations
 
-Both edge-centered $(i\pm1/2, j\pm1/2)$ and cell-centered metrics $(i,j)$ are required for many PDE discretizations -- the interpolation from cell-center to edge must be consistent. An example of this is from the 6th-order MEG scheme seen below: 
+Coordinate transformations require Jacobian matrices; terminology in the literature can be conflicting, but the "Jacobian matrix" is the matrix of partial derivatives that describe the forward or inverse transformation, and uses a bold-face $\textbf{J}$. The "Jacobian" then refers to the determinant of the Jacobian matrix, and is the non-bolded $J$. Some authors refer to the matrix as the "Jacobi matrix" as well. The forward transformation, or $T: (\xi,\eta,\zeta) \rightarrow (x,y,z)$ is defined as
+$$
+\textbf{J} = 
+\begin{bmatrix}
+x_\xi & x_\eta & x_\zeta \\
+y_\xi & y_\eta & y_\zeta \\
+z_\xi & z_\eta & z_\zeta
+\end{bmatrix}, \quad J = \det [\textbf{J}]
+$$
+The inverse transformation $T^{-1}$: $(x,y,z) \rightarrow (\xi,\eta,\zeta)$ is defined as
+$$
+\textbf{J}^{-1} = 
+\begin{bmatrix}
+\xi_x   & \xi_y   & \xi_z   \\
+\eta_x  & \eta_y  & \eta_z  \\
+\zeta_x & \zeta_y & \zeta_z
+\end{bmatrix}, \quad J^{-1} = \det [\textbf{J}^{-1}]
+$$
+
+# Grid Metrics
+
+When solving transformed PDEs in computational coordinates ($\xi,\eta,\zeta$), grid metrics **must** be included. Care must be taken if advection or motion is included in the governing equations so that the geometric conservation law (GCL) is observed [@thomas1979]. If the scheme does not follow the GCL, errors will build up and ultimately corrupt the solution. In the case of fluid dynamics, the mesh and governing equation discretizations must follow the same scheme and be *conservative* [@visbal2002]. One such conservative scheme is the Monotone Explicit Gradient (MEG) based reconstruction [@chamarthi2023; @chandravamsi2023], which is included in `CurvilinearGrids.jl`. Other common schemes include weighted essentially non-oscillatory (WENO) schemes of various order [@ma2024]. There is no restriction to particular schemes which can be added in the future.
+
+The grid metrics (derivative terms in $\textbf{J}, \textbf{J}^{-1}$) at each cell-center or edge are accessed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Metrics are contained in `StructArrays` for each dimension; **edge metrics** are *conservative* and have the " $\hat{}$ " notation, e.g. $\hat{\xi_x} \equiv \xi_x / J$, and **cell-centered metrics** are *non-conservative*, e.g., simply $\xi_x, \eta_x, ...$. Chapter 3 in [@huang2011] has a particulariy lucid description of how these metrics can be included in PDE discretizations.
+
+Each grid type includes example metrics like the following subset:
+
+- Cell centered metrics: $\eta_y, y_\xi$ via `grid.cell_center_metrics`
+- Edge centered *conservative* metrics (`grid.edge_center_metrics`): $\hat{\xi}_{x1}, \hat{\xi}_{x2}, \hat{\xi}_{x3}$ at $i+1/2, j+1/2, k+1/2$
+- Temporal metrics: $\xi_t, \eta_t, \zeta_t$ 
+
+
+Both edge-centered and cell-centered metrics are required for many PDE discretizations -- the interpolation from cell-center to edge must be consistent, e.g. the same interpolation scheme must be shared by the PDE discretization and mesh metric computation. One such scheme is the 6th-order MEG scheme below: 
 $$
 \begin{aligned}
 \phi_{i+1/2} &= \frac{1}{2} \left ( \phi^L_{i+1/2} + \phi^R_{i+1/2} \right) \\
@@ -103,33 +140,6 @@ $$
  \left ( \frac{\partial \phi}{\partial \xi} \right )_{i-1} \right ].
 \end{aligned}
 $$
-At boundaries, one-sided or partially one-sided finite difference equations must be used.
-
-Terminology in the literature can be conflicting, but the "Jacobian matrix" is the matrix of partial derivatives that describe the forward or inverse transformation, and uses a bold-face $\textbf{J}$. The "Jacobian" then refers to the determinant of the Jacobian matrix, and is the non-bolded $J$. Some authors refer to the matrix as the "Jacobi matrix" as well. The forward transformation, or $T: (\xi,\eta,\zeta) \rightarrow (x,y,z)$ is defined as
-$$
-\textbf{J} = 
-\begin{bmatrix}
-x_\xi & x_\eta & x_\zeta \\
-y_\xi & y_\eta & y_\zeta \\
-z_\xi & z_\eta & z_\zeta
-\end{bmatrix}, \quad J = \det [\textbf{J}]
-$$
-The inverse transformation $T^{-1}$: $(x,y,z) \rightarrow (\xi,\eta,\zeta)$ is defined as
-$$
-\textbf{J}^{-1} = 
-\begin{bmatrix}
-\xi_x   & \xi_y   & \xi_z   \\
-\eta_x  & \eta_y  & \eta_z  \\
-\zeta_x & \zeta_y & \zeta_z
-\end{bmatrix}, \quad J^{-1} = \det [\textbf{J}^{-1}]
-$$
-
-The grid metrics (derivative terms in $\textbf{J}, \textbf{J}^{-1}$) at each cell-center or edge are accessed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Metrics are contained in `StructArrays` for each dimension.
-
-Each grid type includes example metrics like the following subset:
-
-- Cell centered metrics: $\eta_y, y_\xi$ via `grid.cell_center_metrics`
-- Edge centered conservative metrics (`grid.edge_center_metrics`): $\hat{\xi}_{x1}, \hat{\xi}_{x2}, \hat{\xi}_{x3}$ at $i+1/2, j+1/2, k+1/2$
-- Temporal metrics: $\xi_t, \eta_t, \zeta_t$ 
+At boundaries, one-sided or partially one-sided finite difference equations must be used. In future releases, additional discretization schemes will be included.
 
 # References
