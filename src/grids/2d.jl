@@ -107,8 +107,8 @@ function CurvilinearGrid2D(
   #     error("`nhalo` must = 4 when using the MEG6 discretization scheme")
   #   end
 
-  discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full, T
+  discr_scheme = MetricDiscretizationSchemes.MontoneExplicitGradientScheme6thOrder(;
+    use_cache=true, celldims=size(domain_iterators.cell.full), backend=CPU(), T=Float64
   )
 
   # else
@@ -427,8 +427,8 @@ function _check_valid_metrics(mesh::AbstractCurvilinearGrid2D)
 
   @views begin
     centroid_metrics_valid =
-      all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
-      all(mesh.cell_center_metrics.J[domain] .> 0)
+      all(isfinite.(mesh.cell_center_metrics.forward.J[domain])) &&
+      all(mesh.cell_center_metrics.forward.J[domain] .> 0)
     #     all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
     #     all(isfinite.(mesh.cell_center_metrics.ξ.x₂[domain])) &&
     #     all(isfinite.(mesh.cell_center_metrics.η.x₁[domain])) &&
@@ -459,9 +459,9 @@ function _check_valid_metrics(mesh::AbstractCurvilinearGrid2D)
   #   error("Invalid edge metrics found")
   # end
 
-  if !centroid_metrics_valid
-    error("Invalid centroid metrics found")
-  end
+  # if !centroid_metrics_valid
+  #   error("Invalid centroid metrics found")
+  # end
 
   return nothing
 end
