@@ -7,8 +7,8 @@ using UnPack
 using StructArrays
 using Polyester
 using KernelAbstractions
+using CartesianDomains
 
-using ..IndexingUtils
 using ..MetricTypes
 using ..MetricDiscretizationSchemes
 
