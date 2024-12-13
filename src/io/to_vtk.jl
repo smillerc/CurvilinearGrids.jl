@@ -14,7 +14,30 @@ function save_vtk(mesh::CurvilinearGrid3D, fn="mesh")
   domain = mesh.iterators.cell.domain
 
   @views vtk_grid(fn, xyz_n) do vtk
-    vtk["J", VTKCellData()] = mesh.cell_center_metrics.J[domain]
+    vtk["J", VTKCellData()] = mesh.cell_center_metrics.forward.J[domain]
+
+    # vtk["volume", VTKCellData()] = cellvolume.(Ref(mesh), domain)
+
+    vtk["xi", VTKCellData(), component_names=["x1", "x2", "x3", "t"]] = (
+      mesh.cell_center_metrics.inverse.ξ.x₁[domain],
+      mesh.cell_center_metrics.inverse.ξ.x₂[domain],
+      mesh.cell_center_metrics.inverse.ξ.x₃[domain],
+      mesh.cell_center_metrics.inverse.ξ.t[domain],
+    )
+
+    vtk["eta", VTKCellData(), component_names=["x1", "x2", "x3", "t"]] = (
+      mesh.cell_center_metrics.inverse.η.x₁[domain],
+      mesh.cell_center_metrics.inverse.η.x₂[domain],
+      mesh.cell_center_metrics.inverse.η.x₃[domain],
+      mesh.cell_center_metrics.inverse.η.t[domain],
+    )
+
+    vtk["zeta", VTKCellData(), component_names=["x1", "x2", "x3", "t"]] = (
+      mesh.cell_center_metrics.inverse.η.x₁[domain],
+      mesh.cell_center_metrics.inverse.η.x₂[domain],
+      mesh.cell_center_metrics.inverse.η.x₃[domain],
+      mesh.cell_center_metrics.inverse.η.t[domain],
+    )
   end
 end
 
