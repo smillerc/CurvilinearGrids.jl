@@ -57,10 +57,17 @@ function CurvilinearGrid2D(
 ) where {T}
 
   #
+  use_symmetric_conservative_metric_scheme = false
+
   if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
+  elseif Symbol(uppercase("$discretization_scheme")) === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -197,10 +204,17 @@ function AxisymmetricGrid2D(
 ) where {T}
 
   #
+  use_symmetric_conservative_metric_scheme = false
+
   if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
+  elseif Symbol(uppercase("$discretization_scheme")) === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end

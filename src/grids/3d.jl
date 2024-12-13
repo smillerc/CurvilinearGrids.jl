@@ -1,5 +1,5 @@
 
-struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid
+struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid3D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
