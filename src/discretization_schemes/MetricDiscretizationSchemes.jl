@@ -31,20 +31,19 @@ function update_metrics!(scheme, centroid_coordinates, cell_metrics, edge_metric
   return nothing
 end
 
-function update_cell_center_metrics!(
-  scheme, centroid_coordinates, cell_metrics, domain; use_symmetric_metric_scheme=false
-)
+function update_cell_center_metrics!(scheme, centroid_coordinates, cell_metrics, domain)
   forward_metrics!(
     scheme, cell_metrics.forward, StructArrays.components(centroid_coordinates)..., domain
   )
 
-  if use_symmetric_metric_scheme
+  if scheme.use_symmetric_conservative_metric_scheme
     symmetric_conservative_metrics!(
       scheme,
       cell_metrics.inverse_normalized, # ∂ξ̂ᵢ/∂xᵢ
       cell_metrics.inverse, # ∂ξᵢ/∂xᵢ
       cell_metrics.forward, # ∂xᵢ/∂ξᵢ
       StructArrays.components(centroid_coordinates)...,
+      domain,
     )
   else
     conservative_metrics!(
@@ -53,6 +52,7 @@ function update_cell_center_metrics!(
       cell_metrics.inverse, # ∂ξᵢ/∂xᵢ
       cell_metrics.forward, # ∂xᵢ/∂ξᵢ
       StructArrays.components(centroid_coordinates)...,
+      domain,
     )
   end
 

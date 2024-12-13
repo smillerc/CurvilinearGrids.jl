@@ -55,9 +55,9 @@ function forward_metrics!(
   cell_center_derivatives!(scheme, yξ, y, ξ, domain)
   cell_center_derivatives!(scheme, yη, y, η, domain)
 
-  @kernel inbounds = true function jacobian_2d_kernel!(x_ξ, x_η, y_ξ, y_η, jacobian, itr)
+  @kernel inbounds = true function jacobian_2d_kernel!(x_ξ, x_η, y_ξ, y_η, jacobian, domain)
     I = @index(Global, Cartesian)
-    idx = itr[I]
+    idx = domain[I]
     _jacobian_matrix = @SMatrix [
       x_ξ[idx] x_η[idx]
       y_ξ[idx] y_η[idx]
@@ -85,6 +85,7 @@ function forward_metrics!(
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
   z::AbstractArray{T,3},
+  domain,
 ) where {T}
 
   # axes
@@ -96,23 +97,50 @@ function forward_metrics!(
     )
   end
 
-  domain = CartesianIndices(x)
-
   @views begin
-    @unpack x_ξ, x_η, x_ζ, y_ξ, y_η, y_ζ, z_ξ, z_η, z_ζ = metrics
+    xξ = metrics.x₁.ξ
+    xη = metrics.x₁.η
+    xζ = metrics.x₁.ζ
+
+    yξ = metrics.x₂.ξ
+    yη = metrics.x₂.η
+    yζ = metrics.x₂.ζ
+
+    zξ = metrics.x₃.ξ
+    zη = metrics.x₃.η
+    zζ = metrics.x₃.ζ
   end
 
-  cell_center_derivatives!(scheme, x_ξ, x, ξ, domain)
-  cell_center_derivatives!(scheme, x_η, x, η, domain)
-  cell_center_derivatives!(scheme, x_ζ, x, ζ, domain)
-  cell_center_derivatives!(scheme, y_ξ, y, ξ, domain)
-  cell_center_derivatives!(scheme, y_η, y, η, domain)
-  cell_center_derivatives!(scheme, y_ζ, y, ζ, domain)
-  cell_center_derivatives!(scheme, z_ξ, z, ξ, domain)
-  cell_center_derivatives!(scheme, z_η, z, η, domain)
-  cell_center_derivatives!(scheme, z_ζ, z, ζ, domain)
+  cell_center_derivatives!(scheme, xξ, x, ξ, domain)
+  cell_center_derivatives!(scheme, xη, x, η, domain)
+  cell_center_derivatives!(scheme, xζ, x, ζ, domain)
+  cell_center_derivatives!(scheme, yξ, y, ξ, domain)
+  cell_center_derivatives!(scheme, yη, y, η, domain)
+  cell_center_derivatives!(scheme, yζ, y, ζ, domain)
+  cell_center_derivatives!(scheme, zξ, z, ξ, domain)
+  cell_center_derivatives!(scheme, zη, z, η, domain)
+  cell_center_derivatives!(scheme, zζ, z, ζ, domain)
+
+  jacobian_3d_kernel!(scheme.backend)(
+    xξ, xη, xζ, yξ, yη, yζ, zξ, zη, zζ, metrics.J, domain; ndrange=size(domain)
+  )
 
   return nothing
+end
+
+# The compute kernel to find the jacobian in 3D
+@kernel inbounds = true function jacobian_3d_kernel!(
+  xξ, xη, xζ, yξ, yη, yζ, zξ, zη, zζ, J, domain
+)
+  I = @index(Global, Cartesian)
+  idx = domain[I]
+  jacobian = @SMatrix [
+    xξ[idx] xη[idx] xζ[idx]
+    yξ[idx] yη[idx] yζ[idx]
+    zξ[idx] zη[idx] zζ[idx]
+  ]
+
+  J[idx] = det(jacobian)
 end
 
 """
@@ -193,6 +221,7 @@ function conservative_metrics!(
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
   z::AbstractArray{T,3},
+  domain,
 ) where {T}
 
   # axes
@@ -204,35 +233,39 @@ function conservative_metrics!(
     )
   end
 
-  domain = CartesianIndices(x)
-
   @views begin
     ξ̂x = normalized_inverse_metrics.ξ̂.x₁
     η̂x = normalized_inverse_metrics.η̂.x₁
     ζ̂x = normalized_inverse_metrics.ζ̂.x₁
+
     ξ̂y = normalized_inverse_metrics.ξ̂.x₂
     η̂y = normalized_inverse_metrics.η̂.x₂
     ζ̂y = normalized_inverse_metrics.ζ̂.x₂
+
     ξ̂z = normalized_inverse_metrics.ξ̂.x₃
     η̂z = normalized_inverse_metrics.η̂.x₃
     ζ̂z = normalized_inverse_metrics.ζ̂.x₃
 
-    ξx = inverse_metrics.ξ̂.x₁
-    ηx = inverse_metrics.η̂.x₁
-    ζx = inverse_metrics.ζ̂.x₁
-    ξy = inverse_metrics.ξ̂.x₂
-    ηy = inverse_metrics.η̂.x₂
-    ζy = inverse_metrics.ζ̂.x₂
-    ξz = inverse_metrics.ξ̂.x₃
-    ηz = inverse_metrics.η̂.x₃
-    ζz = inverse_metrics.ζ̂.x₃
+    ξx = inverse_metrics.ξ.x₁
+    ηx = inverse_metrics.η.x₁
+    ζx = inverse_metrics.ζ.x₁
+
+    ξy = inverse_metrics.ξ.x₂
+    ηy = inverse_metrics.η.x₂
+    ζy = inverse_metrics.ζ.x₂
+
+    ξz = inverse_metrics.ξ.x₃
+    ηz = inverse_metrics.η.x₃
+    ζz = inverse_metrics.ζ.x₃
 
     x_ξ = forward_metrics.x₁.ξ
     x_η = forward_metrics.x₁.η
     x_ζ = forward_metrics.x₁.ζ
+
     y_ξ = forward_metrics.x₂.ξ
     y_η = forward_metrics.x₂.η
     y_ζ = forward_metrics.x₂.ζ
+
     z_ξ = forward_metrics.x₃.ξ
     z_η = forward_metrics.x₃.η
     z_ζ = forward_metrics.x₃.ζ
@@ -278,6 +311,11 @@ function conservative_metrics!(
   return nothing
 end
 
+"""
+    conservative_metrics!(scheme::DiscretizationScheme, normalized_inverse_metrics, inverse_metrics, forward_metrics, x::AbstractArray{T,2}, y::AbstractArray{T,2}, domain) where {T}
+
+Compute all the inverse metrics ∂ξ̂ᵢ/∂xᵢ. This 2D version is simpler than 3D, which requires the scheme from Thomas & Lombard. 
+"""
 function conservative_metrics!(
   scheme::DiscretizationScheme,
   normalized_inverse_metrics,
@@ -285,12 +323,11 @@ function conservative_metrics!(
   forward_metrics,
   x::AbstractArray{T,2},
   y::AbstractArray{T,2},
+  domain,
 ) where {T}
   if size(x) != size(y)
     error("Size mismatch for the given x, y coordinate arrays, they must all be the same")
   end
-
-  domain = CartesianIndices(x)
 
   @views begin
     ξ̂x = normalized_inverse_metrics.ξ̂.x₁
@@ -309,8 +346,11 @@ function conservative_metrics!(
     yη = forward_metrics.x₂.η
   end
 
-  cons_metrics_2d_kernel!(scheme.backend)(
-    xξ, xη, yξ, yη, ξx, ξy, ηx, ηy, forward_metrics.J; ndrange=size(domain)
+  # This kernel finds the jacobian matrix and determinant from the 
+  # forward metrics. No need to use the more complicated conservative_metric!
+  # function in 2D
+  inverse_metric_2d_kernel!(scheme.backend)(
+    xξ, xη, yξ, yη, ξx, ξy, ηx, ηy, forward_metrics.J, domain; ndrange=size(domain)
   )
 
   @. ξ̂x = ξx * forward_metrics.J
@@ -321,10 +361,13 @@ function conservative_metrics!(
   return nothing
 end
 
-@kernel inbounds = true function cons_metrics_2d_kernel!(
-  x_ξ, x_η, y_ξ, y_η, ξ_x, ξ_y, η_x, η_y, jacobian
+# The compute kernel to find the inverse metrics in 2D
+@kernel inbounds = true function inverse_metric_2d_kernel!(
+  x_ξ, x_η, y_ξ, y_η, ξ_x, ξ_y, η_x, η_y, jacobian, domain
 )
-  idx = @index(Global, Cartesian)
+  I = @index(Global, Cartesian)
+  idx = domain[I]
+
   _jacobian_matrix = @SMatrix [
     x_ξ[idx] x_η[idx]
     y_ξ[idx] y_η[idx]
@@ -365,17 +408,19 @@ discretization scheme `scheme`.
 """
 function symmetric_conservative_metric!(
   scheme::DiscretizationScheme,
-  ξ̂x,
-  y_η,
-  z_η,
-  y_ζ,
-  z_ζ,
-  z,
-  y,
+  ξ̂x::AbstractArray{T,3},
+  y_η::AbstractArray{T,3},
+  z_η::AbstractArray{T,3},
+  y_ζ::AbstractArray{T,3},
+  z_ζ::AbstractArray{T,3},
+  z::AbstractArray{T,3},
+  y::AbstractArray{T,3},
   deriv_axes,
   domain,
-  ϵ=50eps(eltype(z)),
-)
+  ϵ=50eps(T),
+) where {T}
+
+  #
   if isnothing(scheme.cache)
     error(
       "The DiscretizationScheme must have a cache enabled, i.e., DiscretizationScheme(;use_cache=true, celldims=(...)) to compute symmetric conservative metrics",
@@ -426,13 +471,14 @@ Compute all the inverse metrics ∂ξ̂ᵢ/∂xᵢ using the symmetric conservat
 """
 function symmetric_conservative_metrics!(
   scheme::DiscretizationScheme,
+  normalized_inverse_metrics,
+  inverse_metrics,
+  forward_metrics,
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
   z::AbstractArray{T,3},
-  forward_metrics,
-  inverse_metrics,
+  domain,
 ) where {T}
-
   # axes
   ξ, η, ζ = (1, 2, 3)
 
@@ -442,33 +488,74 @@ function symmetric_conservative_metrics!(
     )
   end
 
-  domain = CartesianIndices(x)
-
   @views begin
-    @unpack ξ̂x, η̂x, ζ̂x, ξ̂y, η̂y, ζ̂y, ξ̂z, η̂z, ζ̂z = inverse_metrics
-    @unpack y_ξ, y_η, y_ζ, x_ξ, x_η, x_ζ, z_ξ, z_η, z_ζ = forward_metrics
+    ξ̂x = normalized_inverse_metrics.ξ̂.x₁
+    η̂x = normalized_inverse_metrics.η̂.x₁
+    ζ̂x = normalized_inverse_metrics.ζ̂.x₁
+
+    ξ̂y = normalized_inverse_metrics.ξ̂.x₂
+    η̂y = normalized_inverse_metrics.η̂.x₂
+    ζ̂y = normalized_inverse_metrics.ζ̂.x₂
+
+    ξ̂z = normalized_inverse_metrics.ξ̂.x₃
+    η̂z = normalized_inverse_metrics.η̂.x₃
+    ζ̂z = normalized_inverse_metrics.ζ̂.x₃
+
+    ξx = inverse_metrics.ξ.x₁
+    ηx = inverse_metrics.η.x₁
+    ζx = inverse_metrics.ζ.x₁
+
+    ξy = inverse_metrics.ξ.x₂
+    ηy = inverse_metrics.η.x₂
+    ζy = inverse_metrics.ζ.x₂
+
+    ξz = inverse_metrics.ξ.x₃
+    ηz = inverse_metrics.η.x₃
+    ζz = inverse_metrics.ζ.x₃
+
+    x_ξ = forward_metrics.x₁.ξ
+    x_η = forward_metrics.x₁.η
+    x_ζ = forward_metrics.x₁.ζ
+
+    y_ξ = forward_metrics.x₂.ξ
+    y_η = forward_metrics.x₂.η
+    y_ζ = forward_metrics.x₂.ζ
+
+    z_ξ = forward_metrics.x₃.ξ
+    z_η = forward_metrics.x₃.η
+    z_ζ = forward_metrics.x₃.ζ
   end
 
   # ξ̂x = (1/2) * [(y_η z - z_η y)_ζ - (y_ζ z - z_ζ y)_η]
+  # ξ̂y = (1/2) * [(z_η x - x_η z)_ζ - (z_ζ x - x_ζ z)_η]
+  # ξ̂z = (1/2) * [(x_η y - y_η x)_ζ - (x_ζ y - y_ζ x)_η]
   symmetric_conservative_metric!(scheme, ξ̂x, y_η, z_η, y_ζ, z_ζ, z, y, (ζ, η), domain)
-  # ξ̂z = (1/2) * [(z_η x - x_η z)_ζ - (z_ζ x - x_ζ z)_η]
-  symmetric_conservative_metric!(scheme, ξ̂z, z_η, x_η, z_ζ, x_ζ, x, z, (ζ, η), domain)
-  # ξ̂y = (1/2) * [(x_η y - y_η x)_ζ - (x_ζ y - y_ζ x)_η]
-  symmetric_conservative_metric!(scheme, ξ̂y, x_η, y_η, x_ζ, y_ζ, y, x, (ζ, η), domain)
+  symmetric_conservative_metric!(scheme, ξ̂y, z_η, x_η, z_ζ, x_ζ, x, z, (ζ, η), domain)
+  symmetric_conservative_metric!(scheme, ξ̂z, x_η, y_η, x_ζ, y_ζ, y, x, (ζ, η), domain)
 
   # η̂x = (1/2) * [(y_ζ z - z_ζ y)_ξ - (y_ξ z - z_ξ y)_ζ]
-  symmetric_conservative_metric!(scheme, η̂x, y_ζ, z_ζ, y_ξ, z_ξ, z, y, (ξ, ζ), domain)
   # η̂y = (1/2) * [(z_ζ x - x_ζ z)_ξ - (z_ξ x - x_ξ z)_ζ]
-  symmetric_conservative_metric!(scheme, η̂y, z_ζ, x_ζ, z_ξ, x_ξ, x, z, (ξ, ζ), domain)
   # η̂z = (1/2) * [(x_ζ y - y_ζ x)_ξ - (x_ξ y - y_ξ x)_ζ]
+  symmetric_conservative_metric!(scheme, η̂x, y_ζ, z_ζ, y_ξ, z_ξ, z, y, (ξ, ζ), domain)
+  symmetric_conservative_metric!(scheme, η̂y, z_ζ, x_ζ, z_ξ, x_ξ, x, z, (ξ, ζ), domain)
   symmetric_conservative_metric!(scheme, η̂z, x_ζ, y_ζ, x_ξ, y_ξ, y, x, (ξ, ζ), domain)
 
   # ζ̂x = (1/2) * [(y_ξ z - z_ξ y)_η - (y_η z - z_η y)_ξ]
-  symmetric_conservative_metric!(scheme, ζ̂x, y_ξ, z_ξ, y_η, z_η, z, y, (η, ξ), domain)
   # ζ̂y = (1/2) * [(z_ξ x - x_ξ z)_η - (z_η x - x_η z)_ξ]
-  symmetric_conservative_metric!(scheme, ζ̂y, z_ξ, x_ξ, z_η, x_η, x, z, (η, ξ), domain)
   # ζ̂z = (1/2) * [(x_ξ y - y_ξ x)_η - (x_η y - y_η x)_ξ]
+  symmetric_conservative_metric!(scheme, ζ̂x, y_ξ, z_ξ, y_η, z_η, z, y, (η, ξ), domain)
+  symmetric_conservative_metric!(scheme, ζ̂y, z_ξ, x_ξ, z_η, x_η, x, z, (η, ξ), domain)
   symmetric_conservative_metric!(scheme, ζ̂z, x_ξ, y_ξ, x_η, y_η, y, x, (η, ξ), domain)
+
+  @. ξx = ξ̂x / forward_metrics.J
+  @. ηx = η̂x / forward_metrics.J
+  @. ζx = ζ̂x / forward_metrics.J
+  @. ξy = ξ̂y / forward_metrics.J
+  @. ηy = η̂y / forward_metrics.J
+  @. ζy = ζ̂y / forward_metrics.J
+  @. ξz = ξ̂z / forward_metrics.J
+  @. ηz = η̂z / forward_metrics.J
+  @. ζz = ζ̂z / forward_metrics.J
 
   return nothing
 end
