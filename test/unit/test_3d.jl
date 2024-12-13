@@ -89,42 +89,7 @@
   @test all(mesh.edge_metrics.inverse_normalized.j₊½.ζ̂.t[j₊½_domain] .≈ 0.0)
   @test all(mesh.edge_metrics.inverse_normalized.k₊½.ζ̂.t[k₊½_domain] .≈ 0.0)
 
-  I₁_passes = true
-  I₂_passes = true
-  I₃_passes = true
-
-  ϵ = 5e-15
-  em = mesh.edge_metrics.inverse_normalized
-
-  for idx in mesh.iterators.cell.domain
-    i, j, k = idx.I
-    I₁ = (
-      (em.i₊½.ξ̂.x₁[i, j, k] - em.i₊½.ξ̂.x₁[i - 1, j, k]) +
-      (em.j₊½.η̂.x₁[i, j, k] - em.j₊½.η̂.x₁[i, j - 1, k]) +
-      (em.k₊½.ζ̂.x₁[i, j, k] - em.k₊½.ζ̂.x₁[i, j, k - 1])
-    )
-    I₂ = (
-      (em.i₊½.ξ̂.x₂[i, j, k] - em.i₊½.ξ̂.x₂[i - 1, j, k]) +
-      (em.j₊½.η̂.x₂[i, j, k] - em.j₊½.η̂.x₂[i, j - 1, k]) +
-      (em.k₊½.ζ̂.x₂[i, j, k] - em.k₊½.ζ̂.x₂[i, j, k - 1])
-    )
-    I₃ = (
-      (em.i₊½.ξ̂.x₃[i, j, k] - em.i₊½.ξ̂.x₃[i - 1, j, k]) +
-      (em.j₊½.η̂.x₃[i, j, k] - em.j₊½.η̂.x₃[i, j - 1, k]) +
-      (em.k₊½.ζ̂.x₃[i, j, k] - em.k₊½.ζ̂.x₃[i, j, k - 1])
-    )
-
-    I₁_passes = abs(I₁) < ϵ
-    I₂_passes = abs(I₂) < ϵ
-    I₃_passes = abs(I₃) < ϵ
-    if !(I₁_passes && I₂_passes && I₃_passes)
-      @show I₁ I₂ I₃
-      break
-    end
-  end
-  @test I₁_passes
-  @test I₂_passes
-  @test I₃_passes
+  gcl(mesh)
 end
 
 @testset "3D Wavy Mesh GCL" begin
@@ -168,43 +133,7 @@ end
 
   save_vtk(mesh, "wavy3d")
 
-  I₁_passes = true
-  I₂_passes = true
-  I₃_passes = true
-
-  ϵ = 5e-14
-  # ϵ = 5e-15
-  em = mesh.edge_metrics.inverse_normalized
-
-  for idx in mesh.iterators.cell.domain
-    i, j, k = idx.I
-    I₁ = (
-      (em.i₊½.ξ̂.x₁[i, j, k] - em.i₊½.ξ̂.x₁[i - 1, j, k]) +
-      (em.j₊½.η̂.x₁[i, j, k] - em.j₊½.η̂.x₁[i, j - 1, k]) +
-      (em.k₊½.ζ̂.x₁[i, j, k] - em.k₊½.ζ̂.x₁[i, j, k - 1])
-    )
-    I₂ = (
-      (em.i₊½.ξ̂.x₂[i, j, k] - em.i₊½.ξ̂.x₂[i - 1, j, k]) +
-      (em.j₊½.η̂.x₂[i, j, k] - em.j₊½.η̂.x₂[i, j - 1, k]) +
-      (em.k₊½.ζ̂.x₂[i, j, k] - em.k₊½.ζ̂.x₂[i, j, k - 1])
-    )
-    I₃ = (
-      (em.i₊½.ξ̂.x₃[i, j, k] - em.i₊½.ξ̂.x₃[i - 1, j, k]) +
-      (em.j₊½.η̂.x₃[i, j, k] - em.j₊½.η̂.x₃[i, j - 1, k]) +
-      (em.k₊½.ζ̂.x₃[i, j, k] - em.k₊½.ζ̂.x₃[i, j, k - 1])
-    )
-
-    I₁_passes = abs(I₁) < ϵ
-    I₂_passes = abs(I₂) < ϵ
-    I₃_passes = abs(I₃) < ϵ
-    if !(I₁_passes && I₂_passes && I₃_passes)
-      @show I₁ I₂ I₃
-      break
-    end
-  end
-  @test I₁_passes
-  @test I₂_passes
-  @test I₃_passes
+  gcl(mesh)
 end
 
 @testset "3D Sphere Sector, Symmetric Conservative Metrics" begin
@@ -223,48 +152,7 @@ end
   I₂_passes = true
   I₃_passes = true
 
-  ϵ = 5e-13
-  # ϵ = 5e-15
-  em = mesh.edge_metrics.inverse_normalized
-
-  I₁_max = -Inf
-  I₂_max = -Inf
-  I₃_max = -Inf
-
-  for idx in mesh.iterators.cell.domain
-    i, j, k = idx.I
-    I₁ = (
-      (em.i₊½.ξ̂.x₁[i, j, k] - em.i₊½.ξ̂.x₁[i - 1, j, k]) +
-      (em.j₊½.η̂.x₁[i, j, k] - em.j₊½.η̂.x₁[i, j - 1, k]) +
-      (em.k₊½.ζ̂.x₁[i, j, k] - em.k₊½.ζ̂.x₁[i, j, k - 1])
-    )
-    I₂ = (
-      (em.i₊½.ξ̂.x₂[i, j, k] - em.i₊½.ξ̂.x₂[i - 1, j, k]) +
-      (em.j₊½.η̂.x₂[i, j, k] - em.j₊½.η̂.x₂[i, j - 1, k]) +
-      (em.k₊½.ζ̂.x₂[i, j, k] - em.k₊½.ζ̂.x₂[i, j, k - 1])
-    )
-    I₃ = (
-      (em.i₊½.ξ̂.x₃[i, j, k] - em.i₊½.ξ̂.x₃[i - 1, j, k]) +
-      (em.j₊½.η̂.x₃[i, j, k] - em.j₊½.η̂.x₃[i, j - 1, k]) +
-      (em.k₊½.ζ̂.x₃[i, j, k] - em.k₊½.ζ̂.x₃[i, j, k - 1])
-    )
-
-    I₁_max = max(I₁_max, abs(I₁))
-    I₂_max = max(I₂_max, abs(I₂))
-    I₃_max = max(I₃_max, abs(I₃))
-
-    I₁_passes = abs(I₁) < ϵ
-    I₂_passes = abs(I₂) < ϵ
-    I₃_passes = abs(I₃) < ϵ
-    if !(I₁_passes && I₂_passes && I₃_passes)
-      @show I₁ I₂ I₃
-      break
-    end
-  end
-
-  @test I₁_passes
-  @test I₂_passes
-  @test I₃_passes
+  gcl(mesh)
 
   @test all(
     abs.(mesh.cell_center_metrics.inverse.ζ.x₃[mesh.iterators.cell.domain]) .< 5e-12
