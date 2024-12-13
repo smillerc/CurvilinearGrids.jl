@@ -22,12 +22,17 @@ struct MontoneExplicitGradientScheme6thOrder{C,B} <: DiscretizationScheme
   cache::C
   backend::B
   nhalo::Int
+  use_symmetric_conservative_metric_scheme::Bool
 end
 
 # The MEG6 scheme requires a halo of 5 cells in all dimensions
 
 function MontoneExplicitGradientScheme6thOrder(;
-  use_cache=true, celldims=nothing, backend=CPU(), T=Float64
+  use_cache=true,
+  celldims=nothing,
+  backend=CPU(),
+  T=Float64,
+  use_symmetric_conservative_metric_scheme=false,
 )
   nhalo = 5
   if use_cache && isnothing(celldims)
@@ -47,7 +52,9 @@ function MontoneExplicitGradientScheme6thOrder(;
     cache = nothing
   end
 
-  return MontoneExplicitGradientScheme6thOrder(cache, backend, nhalo)
+  return MontoneExplicitGradientScheme6thOrder(
+    cache, backend, nhalo, use_symmetric_conservative_metric_scheme
+  )
 end
 
 include("cell_center_derivs.jl")
