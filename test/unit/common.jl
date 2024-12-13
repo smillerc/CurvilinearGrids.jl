@@ -1,3 +1,4 @@
 using CurvilinearGrids
+using CartesianDomains
 using StaticArrays
 using BenchmarkTools

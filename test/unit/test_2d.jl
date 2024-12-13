@@ -2,10 +2,9 @@
   include("common.jl")
 
   ni, nj = (40, 80)
-  nhalo = 5
   x0, x1 = (0, 2)
   y0, y1 = (1, 3)
-  mesh = RectlinearGrid((x0, y0), (x1, y1), (ni, nj), nhalo)
+  mesh = RectlinearGrid((x0, y0), (x1, y1), (ni, nj), :MEG6)
   domain = mesh.iterators.cell.domain
 
   @test mesh.iterators.cell.full == CartesianIndices((50, 90))
@@ -30,6 +29,13 @@
   @test all(mesh.cell_center_metrics.inverse.ξ.t[domain] .≈ 0.0)
   @test all(mesh.cell_center_metrics.inverse.η.t[domain] .≈ 0.0)
 
+  @test all(mesh.cell_center_metrics.inverse_normalized.ξ̂.x₁[domain] .≈ 0.025)
+  @test all(mesh.cell_center_metrics.inverse_normalized.ξ̂.x₂[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.inverse_normalized.η̂.x₁[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.inverse_normalized.η̂.x₂[domain] .≈ 0.05)
+  @test all(mesh.cell_center_metrics.inverse_normalized.ξ̂.t[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.inverse_normalized.η̂.t[domain] .≈ 0.0)
+
   iaxis, jaxis = (1, 2)
   i₊½_domain = expand(domain, iaxis, -1)
   j₊½_domain = expand(domain, jaxis, -1)
@@ -52,8 +58,8 @@
   @test all(mesh.edge_metrics.inverse.j₊½.η.x₁[j₊½_domain] .≈ 0.0)
   @test all(mesh.edge_metrics.inverse.j₊½.η.x₂[j₊½_domain] .≈ 40.0)
 
-  ilo_c = nhalo + 1
-  jlo_c = nhalo + 1
+  ilo_c = mesh.nhalo + 1
+  jlo_c = mesh.nhalo + 1
 
   @test coord(mesh, (ilo_c + 1, jlo_c + 1)) == [0.05, 1.025]
   @test centroid(mesh, (ilo_c, jlo_c)) == [0.025, 1.0125]
@@ -100,25 +106,25 @@ end
   end
 
   ni, nj = (41, 41)
-  nhalo = 1
   x, y = wavy_grid(ni, nj)
-  mesh = CurvilinearGrid2D(x, y, nhalo)
+  mesh = CurvilinearGrid2D(x, y, :MEG6)
 
-  domain = mesh.iterators.cell.domain
-
-  ϵ = 5e-15
   I₁_passes = true
   I₂_passes = true
-  for idx in domain
+
+  ϵ = 5e-15
+  em = mesh.edge_metrics.inverse_normalized
+
+  for idx in mesh.iterators.cell.domain
     i, j = idx.I
-
-    ξ̂_i₊½ = mesh.edge_metrics.inverse_normalized.i₊½.ξ̂[i, j]
-    ξ̂_i₋½ = mesh.edge_metrics.inverse_normalized.i₊½.ξ̂[i - 1, j]
-    η̂_j₊½ = mesh.edge_metrics.inverse_normalized.j₊½.η̂[i, j]
-    η̂_j₋½ = mesh.edge_metrics.inverse_normalized.j₊½.η̂[i, j - 1]
-
-    I₁ = (ξ̂_i₊½.x₁ - ξ̂_i₋½.x₁) + (η̂_j₊½.x₁ - η̂_j₋½.x₁)
-    I₂ = (ξ̂_i₊½.x₂ - ξ̂_i₋½.x₂) + (η̂_j₊½.x₂ - η̂_j₋½.x₂)
+    I₁ = (
+      (em.i₊½.ξ̂.x₁[i, j] - em.i₊½.ξ̂.x₁[i - 1, j]) +
+      (em.j₊½.η̂.x₁[i, j] - em.j₊½.η̂.x₁[i, j - 1])
+    )
+    I₂ = (
+      (em.i₊½.ξ̂.x₂[i, j] - em.i₊½.ξ̂.x₂[i - 1, j]) +
+      (em.j₊½.η̂.x₂[i, j] - em.j₊½.η̂.x₂[i, j - 1])
+    )
 
     I₁_passes = abs(I₁) < ϵ
     I₂_passes = abs(I₂) < ϵ
