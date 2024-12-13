@@ -33,10 +33,28 @@ function save_vtk(mesh::CurvilinearGrid3D, fn="mesh")
     )
 
     vtk["zeta", VTKCellData(), component_names=["x1", "x2", "x3", "t"]] = (
-      mesh.cell_center_metrics.inverse.η.x₁[domain],
-      mesh.cell_center_metrics.inverse.η.x₂[domain],
-      mesh.cell_center_metrics.inverse.η.x₃[domain],
-      mesh.cell_center_metrics.inverse.η.t[domain],
+      mesh.cell_center_metrics.inverse.ζ.x₁[domain],
+      mesh.cell_center_metrics.inverse.ζ.x₂[domain],
+      mesh.cell_center_metrics.inverse.ζ.x₃[domain],
+      mesh.cell_center_metrics.inverse.ζ.t[domain],
+    )
+
+    vtk["dx_di", VTKCellData(), component_names=["xi", "eta", "zeta"]] = (
+      mesh.cell_center_metrics.forward.x₁.ξ[domain],
+      mesh.cell_center_metrics.forward.x₁.η[domain],
+      mesh.cell_center_metrics.forward.x₁.ζ[domain],
+    )
+
+    vtk["dy_di", VTKCellData(), component_names=["xi", "eta", "zeta"]] = (
+      mesh.cell_center_metrics.forward.x₂.ξ[domain],
+      mesh.cell_center_metrics.forward.x₂.η[domain],
+      mesh.cell_center_metrics.forward.x₂.ζ[domain],
+    )
+
+    vtk["dz_di", VTKCellData(), component_names=["xi", "eta", "zeta"]] = (
+      mesh.cell_center_metrics.forward.x₃.ξ[domain],
+      mesh.cell_center_metrics.forward.x₃.η[domain],
+      mesh.cell_center_metrics.forward.x₃.ζ[domain],
     )
   end
 end
