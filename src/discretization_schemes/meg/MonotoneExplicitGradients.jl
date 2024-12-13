@@ -41,6 +41,8 @@ function MontoneExplicitGradientScheme6thOrder(;
     )
   end
 
+  @assert all((celldims .- 2nhalo) .> 5) "The domain dimensions $(celldims) are too small to use a 6th order scheme"
+
   if use_cache
     cache = (;
       ∂²ϕ=KernelAbstractions.zeros(backend, T, celldims),
