@@ -47,8 +47,7 @@ The `nhalo` argument defines the number of halo cells along each dimension.
 function CurvilinearGrid2D(
   x::AbstractArray{T,2},
   y::AbstractArray{T,2},
-  nhalo::Int;
-  discretization_scheme=:MEG6,
+  discretization_scheme::Symbol;
   backend=CPU(),
   on_bc=nothing,
   is_static=false,
@@ -56,6 +55,15 @@ function CurvilinearGrid2D(
   tiles=nothing,
   make_uniform=false,
 ) where {T}
+
+  #
+  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
 
   #
   @assert size(x) == size(y)
@@ -102,18 +110,9 @@ function CurvilinearGrid2D(
     y=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  # if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
-  #   if nhalo < 4
-  #     error("`nhalo` must = 4 when using the MEG6 discretization scheme")
-  #   end
-
-  discr_scheme = MetricDiscretizationSchemes.MontoneExplicitGradientScheme6thOrder(;
-    use_cache=true, celldims=size(domain_iterators.cell.full), backend=CPU(), T=Float64
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
   )
-
-  # else
-  #   error("Unknown discretization scheme to compute the conserved metrics")
-  # end
 
   if isnothing(on_bc)
     _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true)
@@ -186,10 +185,9 @@ The input coordinates do not include halo / ghost data since the geometry is und
 function AxisymmetricGrid2D(
   x::AbstractMatrix{T},
   y::AbstractMatrix{T},
-  nhalo::Int,
+  discretization_scheme=:MEG6,
   snap_to_axis::Bool,
   rotational_axis::Symbol;
-  discretization_scheme=:MEG6,
   backend=CPU(),
   is_static=false,
   on_bc=nothing,
@@ -199,6 +197,14 @@ function AxisymmetricGrid2D(
 ) where {T}
 
   #
+  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
   @assert size(x) == size(y)
   @assert rotational_axis === :x || rotational_axis === :y
 
@@ -244,18 +250,9 @@ function AxisymmetricGrid2D(
     y=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  # if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
-  #   if nhalo < 4
-  #     error("`nhalo` must = 4 when using the MEG6 discretization scheme")
-  #   end
-
-  discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
   )
-
-  # else
-  #   error("Unknown discretization scheme to compute the conserved metrics")
-  # end
 
   if isnothing(on_bc)
     _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true)

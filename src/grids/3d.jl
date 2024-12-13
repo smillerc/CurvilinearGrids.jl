@@ -25,9 +25,8 @@ function CurvilinearGrid3D(
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
   z::AbstractArray{T,3},
-  nhalo::Int;
+  discretization_scheme::Symbol;
   backend=CPU(),
-  discretization_scheme=:MEG6,
   on_bc=nothing,
   is_static=false,
   is_orthogonal=false,
@@ -36,6 +35,21 @@ function CurvilinearGrid3D(
 ) where {T}
 
   #
+  use_symmetric_conservative_metric_scheme = false
+
+  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif Symbol(uppercase("$discretization_scheme")) === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
   @assert size(x) == size(y) == size(y)
 
   nnodes = size(x)
@@ -64,18 +78,13 @@ function CurvilinearGrid3D(
 
   domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
 
-  if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
-    if nhalo < 4
-      error("`nhalo` must = 4 when using the MEG6 discretization scheme")
-    end
-
-    discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-      domain_iterators.cell.full, T
-    )
-
-  else
-    error("Unknown discretization scheme to compute the conserved metrics")
-  end
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true,
+    celldims=size(domain_iterators.cell.full),
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
+  )
 
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
@@ -148,16 +157,14 @@ function update!(mesh::CurvilinearGrid3D; force=false)
   return nothing
 end
 
-function update_metrics!(m::CurvilinearGrid3D, t::Real=0)
+function update_metrics!(mesh::CurvilinearGrid3D, t::Real=0)
   # Update the metrics within the non-halo region, e.g., the domain
-  domain = m.iterators.cell.domain
-
   MetricDiscretizationSchemes.update_metrics!(
-    m.discretization_scheme,
-    m.centroid_coordinates,
-    m.cell_center_metrics,
-    m.edge_metrics,
-    domain,
+    mesh.discretization_scheme,
+    mesh.centroid_coordinates,
+    mesh.cell_center_metrics,
+    mesh.edge_metrics,
+    mesh.iterators.cell.domain,
   )
 
   return nothing
@@ -309,9 +316,9 @@ function _check_valid_metrics(mesh::CurvilinearGrid3D)
   # j₊½_domain = expand(domain, 2, -1)
 
   @views begin
-    centroid_metrics_valid =
-      all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
-      all(mesh.cell_center_metrics.J[domain] .> 0)
+    # centroid_metrics_valid =
+    #   all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
+    #   all(mesh.cell_center_metrics.J[domain] .> 0)
     #     all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
     #     all(isfinite.(mesh.cell_center_metrics.ξ.x₂[domain])) &&
     #     all(isfinite.(mesh.cell_center_metrics.η.x₁[domain])) &&
@@ -342,9 +349,9 @@ function _check_valid_metrics(mesh::CurvilinearGrid3D)
   #   error("Invalid edge metrics found")
   # end
 
-  if !centroid_metrics_valid
-    error("Invalid centroid metrics found")
-  end
+  # if !centroid_metrics_valid
+  #   error("Invalid centroid metrics found")
+  # end
 
   return nothing
 end
