@@ -262,7 +262,7 @@ cellvolume(mesh, CI::CartesianIndex) = cellvolume(mesh, CI.I)
 Get the volume of the cell at a given index.
 """
 function cellvolume(mesh, ijk::NTuple{N,Int}) where {N}
-  return mesh.cell_center_metrics.J[ijk...]
+  return mesh.cell_center_metrics.forward.J[ijk...]
 end
 
 """
@@ -294,7 +294,7 @@ Get the volume of the cell at a given index. This is the true axisymmetric rotat
 """
 function cellvolume(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2,Int})
   r = centroid_radius(mesh, (i, j))
-  J = mesh.cell_center_metrics.J[i, j]
+  J = mesh.cell_center_metrics.forward.J[i, j]
   return r * J * 2π
 end
 
