@@ -77,6 +77,19 @@ include("2d.jl")
 include("3d.jl")
 include("simple_constructors/simple_constructors.jl")
 
+function update_metrics!(mesh::AbstractCurvilinearGrid, t::Real=0)
+  # Update the metrics within the non-halo region, e.g., the domain
+  MetricDiscretizationSchemes.update_metrics!(
+    mesh.discretization_scheme,
+    mesh.centroid_coordinates,
+    mesh.cell_center_metrics,
+    mesh.edge_metrics,
+    mesh.iterators.cell.domain,
+  )
+
+  return nothing
+end
+
 """
     cellsize(mesh::AbstractCurvilinearGrid)
 
