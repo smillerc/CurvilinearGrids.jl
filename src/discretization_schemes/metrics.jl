@@ -8,17 +8,16 @@ using UnPack
 Compute the forward metrics ∂x/∂ξ, or `x_ξ` based on the centroid coordinates `x`.
 """
 function forward_metrics!(
-  scheme::DiscretizationScheme, metrics, x::AbstractArray{T,1}
+  scheme::DiscretizationScheme, metrics, x::AbstractArray{T,1}, domain
 ) where {T}
   # axes
   ξ = 1
-  domain = CartesianIndices(x)
 
   @views begin
-    @unpack x_ξ = metrics
+    xξ = metrics.x₁.ξ
   end
 
-  cell_center_derivatives!(scheme, x_ξ, x, ξ, domain)
+  cell_center_derivatives!(scheme, xξ, x, ξ, domain)
 
   return nothing
 end
@@ -384,14 +383,17 @@ end
 
 function conservative_metrics!(
   ::DiscretizationScheme,
-  inverse_metrics,
   normalized_inverse_metrics,
+  inverse_metrics,
   forward_metrics,
   x::AbstractArray{T,1},
+  domain,
 ) where {T}
-  # @. inverse_metrics.ξx = inv(forward_metrics.x_ξ)
-  # @. jacobian = abs(forward_metrics.x_ξ)
-  # return nothing
+  @. inverse_metrics.ξ.x₁ = inv(forward_metrics.x₁.ξ)
+  @. forward_metrics.J = abs(forward_metrics.x₁.ξ)
+  @. normalized_inverse_metrics.ξ̂.x₁ = inverse_metrics.ξ.x₁ * forward_metrics.J
+
+  return nothing
 end
 
 """
