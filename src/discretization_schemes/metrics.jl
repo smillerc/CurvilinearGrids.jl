@@ -295,14 +295,13 @@ function conservative_metrics!(
   @views begin
     ξ̂x = normalized_inverse_metrics.ξ̂.x₁
     η̂x = normalized_inverse_metrics.η̂.x₁
-    ζ̂x = normalized_inverse_metrics.ζ̂.x₁
     ξ̂y = normalized_inverse_metrics.ξ̂.x₂
     η̂y = normalized_inverse_metrics.η̂.x₂
 
-    ξx = inverse_metrics.ξ̂.x₁
-    ηx = inverse_metrics.η̂.x₁
-    ξy = inverse_metrics.ξ̂.x₂
-    ηy = inverse_metrics.η̂.x₂
+    ξx = inverse_metrics.ξ.x₁
+    ηx = inverse_metrics.η.x₁
+    ξy = inverse_metrics.ξ.x₂
+    ηy = inverse_metrics.η.x₂
 
     xξ = forward_metrics.x₁.ξ
     xη = forward_metrics.x₁.η
@@ -310,35 +309,34 @@ function conservative_metrics!(
     yη = forward_metrics.x₂.η
   end
 
-  @kernel inbounds = true function cons_metrics_2d_kernel!(
-    x_ξ, x_η, y_ξ, y_η, ξ_x, ξ_y, η_x, η_y, jacobian
-  )
-    idx = @index(Global, Cartesian)
-    _jacobian_matrix = @SMatrix [
-      x_ξ[idx] x_η[idx]
-      y_ξ[idx] y_η[idx]
-    ]
-
-    jacobian[idx] = det(_jacobian_matrix)
-
-    _inv_jacobian = inv(_jacobian_matrix)
-    ξ_x[idx] = _inv_jacobian[1, 1]
-    ξ_y[idx] = _inv_jacobian[1, 2]
-    η_x[idx] = _inv_jacobian[2, 1]
-    η_y[idx] = _inv_jacobian[2, 2]
-  end
-
   cons_metrics_2d_kernel!(scheme.backend)(
-    xξ, xη, yξ, yη, ξx, ξy, ηx, ηy, J; ndrange=size(domain)
+    xξ, xη, yξ, yη, ξx, ξy, ηx, ηy, forward_metrics.J; ndrange=size(domain)
   )
 
-  @. ξ̂x = ξx * J
-  @. η̂x = ηx * J
-  @. ζ̂x = ζx * J
-  @. ξ̂y = ξy * J
-  @. η̂y = ηy * J
+  @. ξ̂x = ξx * forward_metrics.J
+  @. η̂x = ηx * forward_metrics.J
+  @. ξ̂y = ξy * forward_metrics.J
+  @. η̂y = ηy * forward_metrics.J
 
   return nothing
+end
+
+@kernel inbounds = true function cons_metrics_2d_kernel!(
+  x_ξ, x_η, y_ξ, y_η, ξ_x, ξ_y, η_x, η_y, jacobian
+)
+  idx = @index(Global, Cartesian)
+  _jacobian_matrix = @SMatrix [
+    x_ξ[idx] x_η[idx]
+    y_ξ[idx] y_η[idx]
+  ]
+
+  jacobian[idx] = det(_jacobian_matrix)
+
+  _inv_jacobian = inv(_jacobian_matrix)
+  ξ_x[idx] = _inv_jacobian[1, 1]
+  ξ_y[idx] = _inv_jacobian[1, 2]
+  η_x[idx] = _inv_jacobian[2, 1]
+  η_y[idx] = _inv_jacobian[2, 2]
 end
 
 function conservative_metrics!(

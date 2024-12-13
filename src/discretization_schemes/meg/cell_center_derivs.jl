@@ -11,7 +11,7 @@ function cell_center_derivatives!(
     axis,
     domain;
     compute_gradients=true,
-    nhalo=nhalo,
+    # nhalo=nhalo,
   )
 end
 
@@ -24,10 +24,10 @@ function cell_center_derivatives!(
   axis,
   domain;
   compute_gradients=false,
-  nhalo=3,
   ϵ=50eps(eltype(ϕ)),
 )
   if compute_gradients
+    nhalo = 3
     first_deriv!(∂ϕ, ϕ, axis, domain, nhalo)
     second_deriv!(∂²ϕ, ∂ϕ, ϕ, axis, domain, nhalo)
   end

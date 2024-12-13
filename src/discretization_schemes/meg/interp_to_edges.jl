@@ -17,6 +17,7 @@ function interpolate_to_edge!(
   ϕᵢ₊½::AbstractArray{T,N},
   ϕ::AbstractArray{T,N},
   axis::Int,
+  domain,
 ) where {T,N}
 
   #
@@ -28,39 +29,56 @@ function interpolate_to_edge!(
   nhalo = 3
   ∂ϕ = scheme.cache.∂ϕ
   ∂²ϕ = scheme.cache.∂²ϕ
-  first_deriv!(∂ϕ, ϕ, axis, nhalo)
-  second_deriv!(∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, nhalo)
+  first_deriv!(∂ϕ, ϕ, axis, domain, nhalo)
+  second_deriv!(∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, domain, nhalo)
 
-  domain = CartesianIndices(ϕ)
-  inner_domain = expand(domain, axis, -1)
-
-  for i in inner_domain
-    ᵢ₊₁ = shift(i, axis, +1)
-
-    # average the L/R reconstructed values
-    ϕᵢ₊½[i] = (
-      ϕᴸᵢ₊½(ϕ[i], ∂ϕ[i], ∂²ϕ[i]) +     # left state
-      ϕᴿᵢ₊½(ϕ[ᵢ₊₁], ∂ϕ[ᵢ₊₁], ∂²ϕ[ᵢ₊₁]) # right state
-    ) / 2
-  end
-
-  index_offset = 0
+  # domain = CartesianIndices(ϕ)
+  inner_domain = domain # expand(domain, axis, 0)
+  inner_kernel!(scheme.backend)(
+    ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, inner_domain, axis; ndrange=size(inner_domain)
+  )
 
   # select first index along given boundary axis
-  lo_domain = lower_boundary_indices(domain, axis, index_offset)
-
-  # the lo-side derivative ∂ϕ/∂ξ can only use ϕᴿᵢ₋½ instead of ϕᵢ₋½
-  for i in lo_domain
-    ϕᵢ₊½[i] = ϕᴿᵢ₋½(ϕ[i], ∂ϕ[i], ∂²ϕ[i])
-  end
+  lo_domain = lower_boundary_indices(domain, axis, 0)
+  lo_edge_kernel!(scheme.backend)(
+    ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, lo_domain, axis; ndrange=size(lo_domain)
+  )
 
   # select last index along given boundary axis
-  hi_domain = upper_boundary_indices(domain, axis, index_offset)
-
-  # the hi-side derivative ∂ϕ/∂ξ can only use ϕᴸᵢ₊½ instead of ϕᵢ₊½
-  for i in hi_domain
-    ϕᵢ₊½[i] = ϕᴸᵢ₊½(ϕ[i], ∂ϕ[i], ∂²ϕ[i])
-  end
+  hi_domain = upper_boundary_indices(domain, axis, 0)
+  hi_edge_kernel!(scheme.backend)(
+    ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, hi_domain, axis; ndrange=size(hi_domain)
+  )
 
   return nothing
+end
+
+@kernel inbounds = true function inner_kernel!(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, domain, axis)
+  idx = @index(Global)
+  i = domain[idx]
+
+  ᵢ₊₁ = shift(i, axis, +1)
+
+  # average the L/R reconstructed values
+  ϕᵢ₊½[i] = (
+    ϕᴸᵢ₊½(ϕ[i], ∂ϕ[i], ∂²ϕ[i]) +     # left state
+    ϕᴿᵢ₊½(ϕ[ᵢ₊₁], ∂ϕ[ᵢ₊₁], ∂²ϕ[ᵢ₊₁]) # right state
+  ) / 2
+end
+
+@kernel inbounds = true function lo_edge_kernel!(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, lo_domain, axis)
+  idx = @index(Global)
+  i = lo_domain[idx]
+
+  # the lo-side derivative ∂ϕ/∂ξ can only use ϕᴿᵢ₋½ instead of ϕᵢ₋½
+  ᵢ₋₁ = shift(i, axis, -1)
+  ϕᵢ₊½[ᵢ₋₁] = ϕᴿᵢ₋½(ϕ[i], ∂ϕ[i], ∂²ϕ[i])
+end
+
+@kernel inbounds = true function hi_edge_kernel!(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, hi_domain, axis)
+  idx = @index(Global)
+  i = hi_domain[idx]
+
+  # the hi-side derivative ∂ϕ/∂ξ can only use ϕᴸᵢ₊½ instead of ϕᵢ₊½
+  ϕᵢ₊½[i] = ϕᴸᵢ₊½(ϕ[i], ∂ϕ[i], ∂²ϕ[i])
 end
