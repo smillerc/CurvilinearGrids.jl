@@ -1,7 +1,6 @@
 
 function get_metric_soa(celldims::NTuple{3,Int}, backend, T)
   cell_center_metrics = (
-    J=KernelAbstractions.zeros(backend, T, celldims),
     inverse=(
       ξ=StructArray((
         x₁=KernelAbstractions.zeros(backend, T, celldims),
@@ -43,6 +42,7 @@ function get_metric_soa(celldims::NTuple{3,Int}, backend, T)
       )),
     ),
     forward=(
+      J=KernelAbstractions.zeros(backend, T, celldims),
       x₁=StructArray((
         ξ=KernelAbstractions.zeros(backend, T, celldims),
         η=KernelAbstractions.zeros(backend, T, celldims),
@@ -277,7 +277,6 @@ end
 
 function get_metric_soa(celldims::NTuple{1,Int}, backend, T)
   cell_center_metrics = (
-    J=KernelAbstractions.zeros(backend, T, celldims),
     inverse=(
       ξ=StructArray((
         x₁=KernelAbstractions.zeros(backend, T, celldims),
@@ -290,19 +289,16 @@ function get_metric_soa(celldims::NTuple{1,Int}, backend, T)
         t=KernelAbstractions.zeros(backend, T, celldims),
       )),
     ),
-    forward=(x₁=StructArray((ξ=KernelAbstractions.zeros(backend, T, celldims),)),),
+    forward=(
+      J=KernelAbstractions.zeros(backend, T, celldims),
+      x₁=StructArray((ξ=KernelAbstractions.zeros(backend, T, celldims),)),
+    ),
   )
 
   edge_metrics = (
-    inverse=(
-      i₊½=(
-        J=KernelAbstractions.zeros(backend, T, celldims),
-        ξ=StructArray((x₁=KernelAbstractions.zeros(backend, T, celldims),)),
-      ),
-    ),
+    inverse=(i₊½=(ξ=StructArray((x₁=KernelAbstractions.zeros(backend, T, celldims),)),),),
     inverse_normalized=(
       i₊½=(
-        J=KernelAbstractions.zeros(backend, T, celldims),
         ξ̂=StructArray((
           x₁=KernelAbstractions.zeros(backend, T, celldims),
           t=KernelAbstractions.zeros(backend, T, celldims),
