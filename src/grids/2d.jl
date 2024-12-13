@@ -349,19 +349,6 @@ function update!(mesh::AxisymmetricGrid2D)
   return nothing
 end
 
-function update_metrics!(mesh::AbstractCurvilinearGrid2D, t::Real=0)
-  # Update the metrics within the non-halo region, e.g., the domain
-  MetricDiscretizationSchemes.update_metrics!(
-    mesh.discretization_scheme,
-    mesh.centroid_coordinates,
-    mesh.cell_center_metrics,
-    mesh.edge_metrics,
-    mesh.iterators.cell.domain,
-  )
-
-  return nothing
-end
-
 """
     jacobian_matrix(mesh::CurvilinearGrid2D, idx)
 
