@@ -185,7 +185,7 @@ The input coordinates do not include halo / ghost data since the geometry is und
 function AxisymmetricGrid2D(
   x::AbstractMatrix{T},
   y::AbstractMatrix{T},
-  discretization_scheme=:MEG6,
+  discretization_scheme,
   snap_to_axis::Bool,
   rotational_axis::Symbol;
   backend=CPU(),
