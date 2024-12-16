@@ -33,48 +33,19 @@ function perturb_coords!(mesh, x_interface, λ, k)
 end
 
 @testset "2D Mesh Perturbation" begin
+  # include("common.jl")
   λ = 4.5 # wavelength
   k = 2pi / λ # wavenumber
   x_interface = 5.0
 
   x0, x1 = (0.0, 10.0)
   y0, y1 = (0.0, 0.5λ)
-  nhalo = 4
 
-  mesh = RectlinearGrid((x0, y0), (x1, y1), (501, 101), nhalo; is_static=true)
+  mesh = rectlinear_grid((x0, y0), (x1, y1), (501, 101), :meg6_symmetric; is_static=true)
 
   perturb_coords!(mesh, x_interface, λ, k)
 
   # save_vtk(mesh)
 
-  function gcl(mesh, domain)
-    ϵ = 5e-14
-    I₁_passes = true
-    I₂_passes = true
-    for idx in domain
-      i, j = idx.I
-
-      ξ̂_i₊½ = mesh.edge_metrics.i₊½.ξ̂[i, j]
-      ξ̂_i₋½ = mesh.edge_metrics.i₊½.ξ̂[i - 1, j]
-      η̂_j₊½ = mesh.edge_metrics.j₊½.η̂[i, j]
-      η̂_j₋½ = mesh.edge_metrics.j₊½.η̂[i, j - 1]
-
-      I₁ = (ξ̂_i₊½.x₁ - ξ̂_i₋½.x₁) + (η̂_j₊½.x₁ - η̂_j₋½.x₁)
-      I₂ = (ξ̂_i₊½.x₂ - ξ̂_i₋½.x₂) + (η̂_j₊½.x₂ - η̂_j₋½.x₂)
-
-      I₁ = I₁ * (abs(I₁) >= ϵ)
-      I₂ = I₂ * (abs(I₂) >= ϵ)
-
-      # @show I₁, I₂
-      I₁_passes = abs(I₁) < eps()
-      I₂_passes = abs(I₂) < eps()
-      if !(I₁_passes && I₂_passes)
-        break
-      end
-    end
-    @test I₁_passes
-    @test I₂_passes
-  end
-
-  gcl(mesh, mesh.iterators.cell.domain)
+  gcl(mesh)
 end

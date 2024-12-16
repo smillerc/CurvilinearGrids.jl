@@ -15,6 +15,47 @@ function save_vtk(mesh::CurvilinearGrid3D, fn="mesh")
 
   @views vtk_grid(fn, xyz_n) do vtk
     vtk["J", VTKCellData()] = mesh.cell_center_metrics.J[domain]
+
+    # vtk["volume", VTKCellData()] = cellvolume.(Ref(mesh), domain)
+
+    vtk["xi", VTKCellData(), component_names=["x1", "x2", "x3", "t"]] = (
+      mesh.cell_center_metrics.ξ.x₁[domain],
+      mesh.cell_center_metrics.ξ.x₂[domain],
+      mesh.cell_center_metrics.ξ.x₃[domain],
+      mesh.cell_center_metrics.ξ.t[domain],
+    )
+
+    vtk["eta", VTKCellData(), component_names=["x1", "x2", "x3", "t"]] = (
+      mesh.cell_center_metrics.η.x₁[domain],
+      mesh.cell_center_metrics.η.x₂[domain],
+      mesh.cell_center_metrics.η.x₃[domain],
+      mesh.cell_center_metrics.η.t[domain],
+    )
+
+    vtk["zeta", VTKCellData(), component_names=["x1", "x2", "x3", "t"]] = (
+      mesh.cell_center_metrics.ζ.x₁[domain],
+      mesh.cell_center_metrics.ζ.x₂[domain],
+      mesh.cell_center_metrics.ζ.x₃[domain],
+      mesh.cell_center_metrics.ζ.t[domain],
+    )
+
+    vtk["dx_di", VTKCellData(), component_names=["xi", "eta", "zeta"]] = (
+      mesh.cell_center_metrics.x₁.ξ[domain],
+      mesh.cell_center_metrics.x₁.η[domain],
+      mesh.cell_center_metrics.x₁.ζ[domain],
+    )
+
+    vtk["dy_di", VTKCellData(), component_names=["xi", "eta", "zeta"]] = (
+      mesh.cell_center_metrics.x₂.ξ[domain],
+      mesh.cell_center_metrics.x₂.η[domain],
+      mesh.cell_center_metrics.x₂.ζ[domain],
+    )
+
+    vtk["dz_di", VTKCellData(), component_names=["xi", "eta", "zeta"]] = (
+      mesh.cell_center_metrics.x₃.ξ[domain],
+      mesh.cell_center_metrics.x₃.η[domain],
+      mesh.cell_center_metrics.x₃.ζ[domain],
+    )
   end
 end
 
@@ -27,7 +68,7 @@ function save_vtk(mesh::AbstractCurvilinearGrid2D, fn="mesh")
   @views vtk_grid(fn, xyz_n) do vtk
     vtk["J", VTKCellData()] = mesh.cell_center_metrics.J[domain]
 
-    vtk["volume", VTKCellData()] = cellvolume.(Ref(mesh), domain)
+    # vtk["volume", VTKCellData()] = cellvolume.(Ref(mesh), domain)
 
     vtk["xi", VTKCellData(), component_names=["x1", "x2", "t"]] = (
       mesh.cell_center_metrics.ξ.x₁[domain],

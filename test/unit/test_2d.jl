@@ -1,86 +1,80 @@
 @testset "2D Rectangular Mesh" begin
-  include("common.jl")
+  # include("common.jl")
 
-  ni, nj = (4, 8)
-  nhalo = 2
+  ni, nj = (40, 80)
   x0, x1 = (0, 2)
   y0, y1 = (1, 3)
-  mesh = RectlinearGrid((x0, y0), (x1, y1), (ni, nj), nhalo)
+  mesh = rectlinear_grid((x0, y0), (x1, y1), (ni, nj), :MEG6)
   domain = mesh.iterators.cell.domain
 
-  @test mesh.iterators.cell.full == CartesianIndices((8, 12))
-  @test mesh.iterators.cell.domain == CartesianIndices((3:6, 3:10))
+  @test mesh.iterators.cell.full == CartesianIndices((50, 90))
+  @test mesh.iterators.cell.domain == CartesianIndices((6:45, 6:85))
 
-  @test mesh.iterators.node.full == CartesianIndices((9, 13))
-  @test mesh.iterators.node.domain == CartesianIndices((3:7, 3:11))
+  @test mesh.iterators.node.full == CartesianIndices((51, 91))
+  @test mesh.iterators.node.domain == CartesianIndices((6:46, 6:86))
 
-  @test mesh.domain_limits.node == (ilo=3, ihi=7, jlo=3, jhi=11)
-  @test mesh.domain_limits.cell == (ilo=3, ihi=6, jlo=3, jhi=10)
+  @test mesh.domain_limits.node == (ilo=6, ihi=46, jlo=6, jhi=86)
+  @test mesh.domain_limits.cell == (ilo=6, ihi=45, jlo=6, jhi=85)
 
-  @test all(mesh.cell_center_metrics.J[domain] .≈ 0.125)
-  @test all(mesh.cell_center_metrics.x₁.ξ[domain] .≈ 0.5)
+  @test all(mesh.cell_center_metrics.J[domain] .≈ 0.00125)
+  @test all(mesh.cell_center_metrics.x₁.ξ[domain] .≈ 0.05)
   @test all(mesh.cell_center_metrics.x₂.ξ[domain] .≈ 0.0)
   @test all(mesh.cell_center_metrics.x₁.η[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₂.η[domain] .≈ 0.25)
-  @test all(mesh.cell_center_metrics.ξ.x₁[domain] .≈ 2.0)
-  @test all(mesh.cell_center_metrics.ξ.x₂[domain] .≈ -0.0)
-  @test all(mesh.cell_center_metrics.η.x₁[domain] .≈ -0.0)
-  @test all(mesh.cell_center_metrics.η.x₂[domain] .≈ 4.0)
+  @test all(mesh.cell_center_metrics.x₂.η[domain] .≈ 0.025)
+
+  @test all(mesh.cell_center_metrics.ξ.x₁[domain] .≈ 20.0)
+  @test all(mesh.cell_center_metrics.ξ.x₂[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.x₁[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.x₂[domain] .≈ 40.0)
   @test all(mesh.cell_center_metrics.ξ.t[domain] .≈ 0.0)
   @test all(mesh.cell_center_metrics.η.t[domain] .≈ 0.0)
 
-  @test all(mesh.edge_metrics.i₊½.J[domain] .≈ 0.125)
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[domain] .≈ 0.25)
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x₂[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.x₁[domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.x₂[domain] .≈ 0.5)
+  @test all(mesh.cell_center_metrics.ξ̂.x₁[domain] .≈ 0.025)
+  @test all(mesh.cell_center_metrics.ξ̂.x₂[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.x₁[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.x₂[domain] .≈ 0.05)
+  @test all(mesh.cell_center_metrics.ξ̂.t[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.t[domain] .≈ 0.0)
 
-  # @test jacobian_matrix(mesh, (2, 2)) == @SMatrix [
-  #   0.5 0.0
-  #   0.0 0.25
-  # ]
+  iaxis, jaxis = (1, 2)
+  i₊½_domain = expand(domain, iaxis, -1)
+  j₊½_domain = expand(domain, jaxis, -1)
 
-  # cell_area = 0.5 * 0.25
-  # @test jacobian(mesh, (2, 3)) == cell_area
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain] .≈ 0.025)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain] .≈ 0.05)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain] .≈ 0.025)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain] .≈ 0.05)
 
-  # @test inv(jacobian_matrix(mesh, (2, 3))) == @SMatrix [
-  #   2.0 0.0
-  #   0.0 4.0
-  # ]
+  @test all(mesh.edge_metrics.i₊½.ξ.x₁[i₊½_domain] .≈ 20.0)
+  @test all(mesh.edge_metrics.i₊½.ξ.x₂[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η.x₁[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η.x₂[i₊½_domain] .≈ 40.0)
+  @test all(mesh.edge_metrics.j₊½.ξ.x₁[j₊½_domain] .≈ 20.0)
+  @test all(mesh.edge_metrics.j₊½.ξ.x₂[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η.x₁[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η.x₂[j₊½_domain] .≈ 40.0)
 
-  # @test inv(jacobian(mesh, (2, 3))) == 1 / cell_area
+  ilo_c = mesh.nhalo + 1
+  jlo_c = mesh.nhalo + 1
 
-  # bm0 = @benchmark conservative_metrics($mesh, (2, 3))
-  # @test bm0.allocs == 0
-
-  # bm1 = @benchmark metrics($mesh, (2, 3), 0)
-  # @test bm1.allocs == 0
-
-  # bm2 = @benchmark jacobian_matrix($mesh, (2, 2))
-  # @test bm2.allocs == 0
-
-  # bm3 = @benchmark jacobian($mesh, (2, 2))
-  # @test bm3.allocs == 0
-
-  ilo_c = 3
-  jlo_c = 3
-  # coord(mesh, (3, 3)) == [0, 1]
-  # @test coord(mesh, (ilo_c + 1, jlo_c + 1)) == [0.5, 1.25]
-  # @test coord(mesh, (ilo_c + 1.5, jlo_c + 1.5)) == [0.75, 1.375]
-  # @test coord(mesh, (2.5, 2.5)) == centroid(mesh, (2, 2))
-  @test centroid(mesh, (ilo_c, jlo_c)) == [0.25, 1.125]
+  @test coord(mesh, (ilo_c + 1, jlo_c + 1)) == [0.05, 1.025]
+  @test centroid(mesh, (ilo_c, jlo_c)) == [0.025, 1.0125]
 
   xn, yn = coords(mesh)
-  @test size(xn) == (5, 9)
-  @test size(yn) == (5, 9)
+  @test size(xn) == (41, 81)
+  @test size(yn) == (41, 81)
 
   xc, yc = centroids(mesh)
-  @test size(xc) == (4, 8)
-  @test size(yc) == (4, 8)
+  @test size(xc) == (40, 80)
+  @test size(yc) == (40, 80)
 end
 
 @testset "2D Wavy Mesh GCL" begin
-  include("common.jl")
+  # include("common.jl")
 
   function wavy_grid(nx, ny)
     x0, x1 = (0, 1)
@@ -112,37 +106,36 @@ end
   end
 
   ni, nj = (41, 41)
-  nhalo = 1
   x, y = wavy_grid(ni, nj)
-  mesh = CurvilinearGrid2D(x, y, nhalo)
+  mesh = CurvilinearGrid2D(x, y, :MEG6)
 
-  domain = mesh.iterators.cell.domain
+  gcl(mesh)
+  # I₁_passes = true
+  # I₂_passes = true
 
-  ϵ = 5eps()
-  I₁_passes = true
-  I₂_passes = true
-  for idx in domain
-    i, j = idx.I
+  # ϵ = 5e-15
+  # em = mesh.edge_metrics.inverse_normalized
 
-    ξ̂_i₊½ = mesh.edge_metrics.i₊½.ξ̂[i, j]
-    ξ̂_i₋½ = mesh.edge_metrics.i₊½.ξ̂[i - 1, j]
-    η̂_j₊½ = mesh.edge_metrics.j₊½.η̂[i, j]
-    η̂_j₋½ = mesh.edge_metrics.j₊½.η̂[i, j - 1]
+  # for idx in mesh.iterators.cell.domain
+  #   i, j = idx.I
+  #   I₁ = (
+  #     (em.i₊½.ξ̂.x₁[i, j] - em.i₊½.ξ̂.x₁[i - 1, j]) +
+  #     (em.j₊½.η̂.x₁[i, j] - em.j₊½.η̂.x₁[i, j - 1])
+  #   )
+  #   I₂ = (
+  #     (em.i₊½.ξ̂.x₂[i, j] - em.i₊½.ξ̂.x₂[i - 1, j]) +
+  #     (em.j₊½.η̂.x₂[i, j] - em.j₊½.η̂.x₂[i, j - 1])
+  #   )
 
-    I₁ = (ξ̂_i₊½.x₁ - ξ̂_i₋½.x₁) + (η̂_j₊½.x₁ - η̂_j₋½.x₁)
-    I₂ = (ξ̂_i₊½.x₂ - ξ̂_i₋½.x₂) + (η̂_j₊½.x₂ - η̂_j₋½.x₂)
-
-    I₁ = I₁ * (abs(I₁) >= ϵ)
-    I₂ = I₂ * (abs(I₂) >= ϵ)
-
-    I₁_passes = abs(I₁) < eps()
-    I₂_passes = abs(I₂) < eps()
-    if !(I₁_passes && I₂_passes)
-      break
-    end
-  end
-  @test I₁_passes
-  @test I₂_passes
+  #   I₁_passes = abs(I₁) < ϵ
+  #   I₂_passes = abs(I₂) < ϵ
+  #   if !(I₁_passes && I₂_passes)
+  #     @show I₁ I₂
+  #     break
+  #   end
+  # end
+  # @test I₁_passes
+  # @test I₂_passes
 
   nothing
 

@@ -1,13 +1,13 @@
 """
-    RThetaGrid((r0, θ0), (r1, θ1), (ni_cells, nj_cells), nhalo::Int, backend=CPU(), T=Float64)
+    rtheta_grid((r0, θ0), (r1, θ1), (ni_cells, nj_cells), discretization_scheme::Symbol, backend=CPU(), T=Float64) -> CurvilinearGrid2D
 
 Create an equally spaced polar grid based on `r` and `θ`
 """
-function RThetaGrid(
+function rtheta_grid(
   (r0, θ0),
   (r1, θ1),
   (ni_cells, nj_cells)::NTuple{2,Int},
-  nhalo::Int,
+  discretization_scheme::Symbol,
   backend=CPU(),
   T=Float64;
   is_static=true,
@@ -29,16 +29,22 @@ function RThetaGrid(
     end
   end
 
-  return CurvilinearGrid2D(x, y, nhalo; backend=backend, is_static=is_static)
+  return CurvilinearGrid2D(
+    x, y, discretization_scheme; backend=backend, is_static=is_static
+  )
 end
 
 """
-    RThetaGrid(r, θ, nhalo::Int, backend=CPU())
+    rtheta_grid(r, θ, discretization_scheme::Symbol; backend=CPU()) -> CurvilinearGrid2D
 
 Create polar grid based on vectors of `r` and `θ` coordinates
 """
-function RThetaGrid(
-  r::AbstractVector{T}, θ::AbstractVector{T}, nhalo::Int; backend=CPU(), is_static=true
+function rtheta_grid(
+  r::AbstractVector{T},
+  θ::AbstractVector{T},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
 ) where {T}
   @assert all(r .>= 0) "Radius coordinates must be >= 0"
 
@@ -63,20 +69,22 @@ function RThetaGrid(
     end
   end
 
-  return CurvilinearGrid2D(x, y, nhalo; backend=backend, is_static=is_static)
+  return CurvilinearGrid2D(
+    x, y, discretization_scheme; backend=backend, is_static=is_static
+  )
 end
 
 """
-    RThetaGrid((r0, θ0), (r1, θ1), (ni_cells, nj_cells), nhalo, snap_to_axis, rotational_axis, backend=CPU(), T=Float64)
+    rtheta_grid((r0, θ0), (r1, θ1), (ni_cells, nj_cells), discretization_scheme, snap_to_axis, rotational_axis, backend=CPU(), T=Float64) -> AxisymmetricGrid2D
 
 Create an equally spaced axisymmetric polar grid based on `r` and `θ`.
 The axis of rotation is set by `rotational_axis` as `:x` or `:y`
 """
-function AxisymmetricRThetaGrid(
+function axisymmetric_rtheta_grid(
   (r0, θ0),
   (r1, θ1),
   (ni_cells, nj_cells)::NTuple{2,Int},
-  nhalo::Int,
+  discretization_scheme::Symbol,
   snap_to_axis::Bool,
   rotational_axis::Symbol;
   backend=CPU(),
@@ -107,20 +115,20 @@ function AxisymmetricRThetaGrid(
   end
 
   return AxisymmetricGrid2D(
-    x, y, nhalo, snap_to_axis, axis; backend=backend, is_static=is_static
+    x, y, discretization_scheme, snap_to_axis, axis; backend=backend, is_static=is_static
   )
 end
 
 """
-    AxisymmetricRThetaGrid(r, θ, nhalo, snap_to_axis, rotational_axis::Symbol, backend=CPU())
+    axisymmetric_rtheta_grid(r, θ, discretization_scheme, snap_to_axis, rotational_axis::Symbol, backend=CPU()) -> AxisymmetricGrid2D
 
 Create polar grid based on vectors of `r` and `θ` coordinates.
 The axis of rotation is set by `rotational_axis` as `:x` or `:y`
 """
-function AxisymmetricRThetaGrid(
+function axisymmetric_rtheta_grid(
   r::AbstractVector{T},
   θ::AbstractVector{T},
-  nhalo::Int,
+  discretization_scheme::Symbol,
   snap_to_axis::Bool,
   rotational_axis::Symbol;
   backend=CPU(),
@@ -156,6 +164,6 @@ function AxisymmetricRThetaGrid(
   end
 
   return AxisymmetricGrid2D(
-    x, y, nhalo, snap_to_axis, axis; backend=backend, is_static=is_static
+    x, y, discretization_scheme, snap_to_axis, axis; backend=backend, is_static=is_static
   )
 end
