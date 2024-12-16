@@ -76,7 +76,7 @@ end
   ni, nj, nk = (4, 8, 12)
   nhalo = 4
 
-  mesh = RectlinearGrid((x0, y0, z0), (x1, y1, z1), (ni, nj, nk), nhalo)
+  mesh = rectlinear_grid((x0, y0, z0), (x1, y1, z1), (ni, nj, nk), nhalo)
   full_domain = mesh.iterators.cell.domain
 
   meg6 = mesh.discretization_scheme

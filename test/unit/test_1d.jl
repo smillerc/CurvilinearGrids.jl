@@ -1,7 +1,7 @@
 @testset "CylindricalGrid1D -- Rectlinear" begin
   ni = 40
   x0, x1 = (0.0, 20.0)
-  mesh = RectlinearGrid((x0, x1), ni, :meg6)
+  mesh = rectlinear_grid((x0, x1), ni, :meg6)
 
   cell_domain = mesh.iterators.cell.domain
   node_domain = mesh.iterators.node.domain

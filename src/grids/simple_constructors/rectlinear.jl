@@ -1,10 +1,10 @@
 
 """
-    RectlinearGrid((x0, x1), ncells, discretization_scheme, backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1)
+    rectlinear_grid((x0, x1), ncells, discretization_scheme, backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CurvilinearGrid1D
 
 Generate a 1D rectlinear grid using start/end points and cell resolution.
 """
-function RectlinearGrid(
+function rectlinear_grid(
   (x0, x1),
   ncells,
   discretization_scheme::Symbol;
@@ -21,11 +21,11 @@ function RectlinearGrid(
 end
 
 """
-    RectlinearGrid(x, discretization_scheme, backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1)
+    rectlinear_grid(x, discretization_scheme, backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CurvilinearGrid1D
 
 Generate a 1D rectlinear grid using an x coordinate vector.
 """
-function RectlinearGrid(
+function rectlinear_grid(
   x::AbstractVector{T},
   discretization_scheme::Symbol;
   backend=CPU(),
@@ -95,11 +95,11 @@ function RectlinearGrid(
 end
 
 """
-    RectlinearCylindricalGrid((r0, r1), ncells, discretization_scheme, snap_to_axis=true, backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1)
+    rectlinear_cylindrical_grid((r0, r1), ncells, discretization_scheme, snap_to_axis=true, backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CylindricalGrid1D
 
 Generate a 1D cyclindrical rectlinear grid using start/end points and cell resolution.
 """
-function RectlinearCylindricalGrid(
+function rectlinear_cylindrical_grid(
   (r0, r1),
   ncells,
   discretization_scheme::Symbol;
@@ -117,12 +117,11 @@ function RectlinearCylindricalGrid(
 end
 
 """
-    RectlinearSphericalGrid((r0, r1), ncells, discretization_scheme, snap_to_axis=true, backend=CPU(), T=Float64.is_static = true, make_uniform=false, tile_layout=nothing, rank::Int=-1,
-)
+    rectlinear_spherical_grid((r0, r1), ncells, discretization_scheme, snap_to_axis=true, backend=CPU(), T=Float64, is_static = true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> SphericalGrid1D
 
 Generate a rectlinear 1D spherical grid using start/end points and cell resolution.
 """
-function RectlinearSphericalGrid(
+function rectlinear_spherical_grid(
   (r0, r1),
   ncells,
   discretization_scheme::Symbol;
@@ -139,11 +138,11 @@ function RectlinearSphericalGrid(
 end
 
 """
-    RectlinearGrid((x0, y0), (x1, y1), (ni_cells, nj_cells), discretization_scheme, backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1)
+    rectlinear_grid((x0, y0), (x1, y1), (ni_cells, nj_cells), discretization_scheme, backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CurvilinearGrid2D
 
 Generate a 2D rectlinear grid using start/end points and cell resolution.
 """
-function RectlinearGrid(
+function rectlinear_grid(
   (x0, y0),
   (x1, y1),
   (ni_cells, nj_cells)::NTuple{2,Int},
@@ -161,7 +160,7 @@ function RectlinearGrid(
     )
   end
 
-  return RectlinearGrid(
+  return rectlinear_grid(
     range(x0, x1; length=ni_cells + 1) .|> T,
     range(y0, y1; length=nj_cells + 1) .|> T,
     discretization_scheme;
@@ -174,11 +173,11 @@ function RectlinearGrid(
 end
 
 """
-    RectlinearGrid(x, y, discretization_scheme::Symbol; backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) where {T}
+    rectlinear_grid(x, y, discretization_scheme::Symbol; backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CurvilinearGrid2D
 
 Generate a 2D rectlinear grid using 1D x and y coordinate vectors
 """
-function RectlinearGrid(
+function rectlinear_grid(
   x::AbstractVector{T},
   y::AbstractVector{T},
   discretization_scheme::Symbol;
@@ -276,11 +275,11 @@ function RectlinearGrid(
 end
 
 """
-    AxisymmetricRectlinearGrid((x0, y0), (x1, y1), (ni_cells, nj_cells), discretization_scheme, snap_to_axis::Bool, rotational_axis::Symbol, backend=CPU(), T=Float64, is_static=true)
+    axisymmetric_rectlinear_grid((x0, y0), (x1, y1), (ni_cells, nj_cells), discretization_scheme, snap_to_axis::Bool, rotational_axis::Symbol, backend=CPU(), T=Float64, is_static=true) -> AxisymmetricGrid2D
 
 Generate a 2D axisymmetric rectlinear grid using start/end points and cell resolution.
 """
-function AxisymmetricRectlinearGrid(
+function axisymmetric_rectlinear_grid(
   (x0, y0),
   (x1, y1),
   (ni_cells, nj_cells)::NTuple{2,Int},
@@ -331,11 +330,11 @@ function AxisymmetricRectlinearGrid(
 end
 
 """
-    RectlinearGrid((x0, y0, z0), (x1, y1, z1), (ni_cells, nj_cells, nk_cells), discretization_scheme, backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1)
+    rectlinear_grid((x0, y0, z0), (x1, y1, z1), (ni_cells, nj_cells, nk_cells), discretization_scheme, backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CurvilinearGrid3D
 
 Generate a 3D rectlinear grid using start/end points and cell resolution.
 """
-function RectlinearGrid(
+function rectlinear_grid(
   (x0, y0, z0),
   (x1, y1, z1),
   (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
@@ -353,7 +352,7 @@ function RectlinearGrid(
     )
   end
 
-  return RectlinearGrid(
+  return rectlinear_grid(
     range(x0, x1; length=ni_cells + 1) .|> T,
     range(y0, y1; length=nj_cells + 1) .|> T,
     range(z0, z1; length=nk_cells + 1) .|> T,
@@ -367,11 +366,11 @@ function RectlinearGrid(
 end
 
 """
-    RectlinearGrid(x, y, z, discretization_scheme, backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1)
+    rectlinear_grid(x, y, z, discretization_scheme, backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CurvilinearGrid3D
 
 Generate a 3D rectlinear grid using 1D x/y/z coordinate vectors.
 """
-function RectlinearGrid(
+function rectlinear_grid(
   x::AbstractVector{T},
   y::AbstractVector{T},
   z::AbstractVector{T},

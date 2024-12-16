@@ -1,9 +1,9 @@
 """
-    RThetaPhiGrid((r0, θ0, ϕ0), (r1, θ1, ϕ1), (ni_cells, nj_cells, nk_cells), discretization_scheme::Symbol; backend=CPU(), T=Float64, is_static=true)
+    rthetaphi_grid((r0, θ0, ϕ0), (r1, θ1, ϕ1), (ni_cells, nj_cells, nk_cells), discretization_scheme::Symbol; backend=CPU(), T=Float64, is_static=true) -> CurvilinearGrid3D
 
 Generate a spherical-polar grid using start/end points and cell resolution.
 """
-function RThetaPhiGrid(
+function rthetaphi_grid(
   (r0, θ0, ϕ0),
   (r1, θ1, ϕ1),
   (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
@@ -41,11 +41,11 @@ function RThetaPhiGrid(
 end
 
 """
-    RThetaPhiGrid(r, θ, ϕ, discretization_scheme, backend=CPU(); is_static=true)
+    rthetaphi_grid(r, θ, ϕ, discretization_scheme, backend=CPU(); is_static=true) -> CurvilinearGrid3D
 
 Generate a spherical-polar grid using 1D coordinate vectors for r/θ/ϕ.
 """
-function RThetaPhiGrid(
+function rthetaphi_grid(
   r::AbstractVector{T},
   θ::AbstractVector{T},
   ϕ::AbstractVector{T},

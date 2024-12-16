@@ -20,8 +20,9 @@ export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 
-export RectlinearGrid, RThetaGrid, RThetaPhiGrid
-export AxisymmetricRectlinearGrid, AxisymmetricRThetaGrid
+export rectlinear_grid,
+  rtheta_grid, rthetaphi_grid, rectlinear_cylindrical_grid, rectlinear_spherical_grid
+export axisymmetric_rectlinear_grid, axisymmetric_rtheta_grid
 
 export update!
 

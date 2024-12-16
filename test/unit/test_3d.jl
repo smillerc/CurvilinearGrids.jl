@@ -7,7 +7,7 @@
   z0, z1 = (-1, 2)
   ni, nj, nk = (40, 80, 120)
 
-  mesh = RectlinearGrid((x0, y0, z0), (x1, y1, z1), (ni, nj, nk), :meg6)
+  mesh = rectlinear_grid((x0, y0, z0), (x1, y1, z1), (ni, nj, nk), :meg6)
   domain = mesh.iterators.cell.domain
 
   cell_volume = 0.05 * 0.025 * 0.025
@@ -144,8 +144,8 @@ end
   (ϕ0, ϕ1) = deg2rad.((45, 360 - 45))
 
   ni, nj, nk = (20, 20, 20)
-  mesh = RThetaPhiGrid((r0, θ0, ϕ0), (r1, θ1, ϕ1), (ni, nj, nk), :meg6_symmetric)
-  # mesh = RThetaPhiGrid((r0, θ0, ϕ0), (r1, θ1, ϕ1), (ni, nj, nk), :meg6)
+  mesh = rthetaphi_grid((r0, θ0, ϕ0), (r1, θ1, ϕ1), (ni, nj, nk), :meg6_symmetric)
+  # mesh = rthetaphi_grid((r0, θ0, ϕ0), (r1, θ1, ϕ1), (ni, nj, nk), :meg6)
   save_vtk(mesh, "sphere_sector_3d")
 
   I₁_passes = true

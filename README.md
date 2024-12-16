@@ -77,14 +77,14 @@ General purpuse constructors for 1D/2D/3D grids. These need a vector/matrix/arra
 
 A few convienence constructors have been added to make it simpler to generate certain types of grids. Use the `?` in the REPL to see the useage.
 
-- `RectlinearGrid`: A rectlinear grid in 1D/2D/3D
-- `RectlinearCylindricalGrid`: A rectlinear grid with cylindrical symmetry
-- `RectlinearSphericalGrid`: A rectlinear grid with spherical symmetry
-- `AxisymmetricRectlinearGrid`: A rectlinear grid with axisymmetry about a given axis
+- `rectlinear_grid`: A rectlinear grid in 1D/2D/3D
+- `rectlinear_cylindrical_grid`: A rectlinear grid with cylindrical symmetry
+- `rectlinear_spherical_grid`: A rectlinear grid with spherical symmetry
+- `axisymmetric_rectlinear_grid`: A rectlinear grid with axisymmetry about a given axis
 
-- `RThetaGrid`: Provide (r,θ) coordinates to generate a polar mesh
-- `AxisymmetricRThetaGrid`: Provide (r,θ) coordinates to generate a polar mesh with axisymmetry
-- `RThetaPhiGrid`: : Provide (r,θ,ϕ) coordinates to generate a polar mesh
+- `rtheta_grid`: Provide (r,θ) coordinates to generate a polar mesh
+- `axisymmetric_rtheta_grid`: Provide (r,θ) coordinates to generate a polar mesh with axisymmetry
+- `rthetaphi_grid`: : Provide (r,θ,ϕ) coordinates to generate a polar mesh
 
 ## Grid Metrics
 
@@ -148,15 +148,15 @@ Curvilinear transformations are often used to simulate PDEs like the heat equati
 
 
 ```julia
-using CurvilinearGrids: RectlinearGrid
+using CurvilinearGrids: rectlinear_grid
 using CartesianDomains: shift
 
 x0, x1 = (-1.0, 1.0)
 ncells = 100
 nhalo = 1
 
-# RectlinearGrid() is a CurvilinearGrid1D constructor for uniform geometry
-mesh = RectlinearGrid(x0, x1, ncells, nhalo)
+# rectlinear_grid() is a CurvilinearGrid1D constructor for uniform geometry
+mesh = rectlinear_grid(x0, x1, ncells, nhalo)
 ξx = mesh.cell_center_metrics.ξ.x₁
 
 const iaxis = 1

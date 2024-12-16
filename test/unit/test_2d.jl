@@ -4,7 +4,7 @@
   ni, nj = (40, 80)
   x0, x1 = (0, 2)
   y0, y1 = (1, 3)
-  mesh = RectlinearGrid((x0, y0), (x1, y1), (ni, nj), :MEG6)
+  mesh = rectlinear_grid((x0, y0), (x1, y1), (ni, nj), :MEG6)
   domain = mesh.iterators.cell.domain
 
   @test mesh.iterators.cell.full == CartesianIndices((50, 90))

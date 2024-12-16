@@ -1,9 +1,9 @@
 """
-    RThetaGrid((r0, θ0), (r1, θ1), (ni_cells, nj_cells), discretization_scheme::Symbol, backend=CPU(), T=Float64)
+    rtheta_grid((r0, θ0), (r1, θ1), (ni_cells, nj_cells), discretization_scheme::Symbol, backend=CPU(), T=Float64) -> CurvilinearGrid2D
 
 Create an equally spaced polar grid based on `r` and `θ`
 """
-function RThetaGrid(
+function rtheta_grid(
   (r0, θ0),
   (r1, θ1),
   (ni_cells, nj_cells)::NTuple{2,Int},
@@ -35,11 +35,11 @@ function RThetaGrid(
 end
 
 """
-    RThetaGrid(r, θ, discretization_scheme::Symbol; backend=CPU())
+    rtheta_grid(r, θ, discretization_scheme::Symbol; backend=CPU()) -> CurvilinearGrid2D
 
 Create polar grid based on vectors of `r` and `θ` coordinates
 """
-function RThetaGrid(
+function rtheta_grid(
   r::AbstractVector{T},
   θ::AbstractVector{T},
   discretization_scheme::Symbol;
@@ -75,12 +75,12 @@ function RThetaGrid(
 end
 
 """
-    RThetaGrid((r0, θ0), (r1, θ1), (ni_cells, nj_cells), discretization_scheme, snap_to_axis, rotational_axis, backend=CPU(), T=Float64)
+    rtheta_grid((r0, θ0), (r1, θ1), (ni_cells, nj_cells), discretization_scheme, snap_to_axis, rotational_axis, backend=CPU(), T=Float64) -> AxisymmetricGrid2D
 
 Create an equally spaced axisymmetric polar grid based on `r` and `θ`.
 The axis of rotation is set by `rotational_axis` as `:x` or `:y`
 """
-function AxisymmetricRThetaGrid(
+function axisymmetric_rtheta_grid(
   (r0, θ0),
   (r1, θ1),
   (ni_cells, nj_cells)::NTuple{2,Int},
@@ -120,12 +120,12 @@ function AxisymmetricRThetaGrid(
 end
 
 """
-    AxisymmetricRThetaGrid(r, θ, discretization_scheme, snap_to_axis, rotational_axis::Symbol, backend=CPU())
+    axisymmetric_rtheta_grid(r, θ, discretization_scheme, snap_to_axis, rotational_axis::Symbol, backend=CPU()) -> AxisymmetricGrid2D
 
 Create polar grid based on vectors of `r` and `θ` coordinates.
 The axis of rotation is set by `rotational_axis` as `:x` or `:y`
 """
-function AxisymmetricRThetaGrid(
+function axisymmetric_rtheta_grid(
   r::AbstractVector{T},
   θ::AbstractVector{T},
   discretization_scheme::Symbol,
