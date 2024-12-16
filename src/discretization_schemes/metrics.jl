@@ -208,15 +208,13 @@ function conservative_metric!(
 end
 
 """
-    conservative_metrics!(scheme::DiscretizationScheme, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, forward_metrics, inverse_metrics) where {T}
+    conservative_metrics!(scheme::DiscretizationScheme, metrics, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, domain) where {T}
 
 Compute all the inverse metrics ∂ξ̂ᵢ/∂xᵢ using the conservative scheme from Thomas P, Lombard C. AIAA J 1979;17(10):1030–7 (https://doi.org/10.2514/3.61273) 
 """
 function conservative_metrics!(
   scheme::DiscretizationScheme,
-  normalized_inverse_metrics,
-  inverse_metrics,
-  forward_metrics,
+  metrics,
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
   z::AbstractArray{T,3},
@@ -233,41 +231,41 @@ function conservative_metrics!(
   end
 
   @views begin
-    ξ̂x = normalized_inverse_metrics.ξ̂.x₁
-    η̂x = normalized_inverse_metrics.η̂.x₁
-    ζ̂x = normalized_inverse_metrics.ζ̂.x₁
+    ξ̂x = metrics.ξ̂.x₁
+    η̂x = metrics.η̂.x₁
+    ζ̂x = metrics.ζ̂.x₁
 
-    ξ̂y = normalized_inverse_metrics.ξ̂.x₂
-    η̂y = normalized_inverse_metrics.η̂.x₂
-    ζ̂y = normalized_inverse_metrics.ζ̂.x₂
+    ξ̂y = metrics.ξ̂.x₂
+    η̂y = metrics.η̂.x₂
+    ζ̂y = metrics.ζ̂.x₂
 
-    ξ̂z = normalized_inverse_metrics.ξ̂.x₃
-    η̂z = normalized_inverse_metrics.η̂.x₃
-    ζ̂z = normalized_inverse_metrics.ζ̂.x₃
+    ξ̂z = metrics.ξ̂.x₃
+    η̂z = metrics.η̂.x₃
+    ζ̂z = metrics.ζ̂.x₃
 
-    ξx = inverse_metrics.ξ.x₁
-    ηx = inverse_metrics.η.x₁
-    ζx = inverse_metrics.ζ.x₁
+    ξx = metrics.ξ.x₁
+    ηx = metrics.η.x₁
+    ζx = metrics.ζ.x₁
 
-    ξy = inverse_metrics.ξ.x₂
-    ηy = inverse_metrics.η.x₂
-    ζy = inverse_metrics.ζ.x₂
+    ξy = metrics.ξ.x₂
+    ηy = metrics.η.x₂
+    ζy = metrics.ζ.x₂
 
-    ξz = inverse_metrics.ξ.x₃
-    ηz = inverse_metrics.η.x₃
-    ζz = inverse_metrics.ζ.x₃
+    ξz = metrics.ξ.x₃
+    ηz = metrics.η.x₃
+    ζz = metrics.ζ.x₃
 
-    x_ξ = forward_metrics.x₁.ξ
-    x_η = forward_metrics.x₁.η
-    x_ζ = forward_metrics.x₁.ζ
+    x_ξ = metrics.x₁.ξ
+    x_η = metrics.x₁.η
+    x_ζ = metrics.x₁.ζ
 
-    y_ξ = forward_metrics.x₂.ξ
-    y_η = forward_metrics.x₂.η
-    y_ζ = forward_metrics.x₂.ζ
+    y_ξ = metrics.x₂.ξ
+    y_η = metrics.x₂.η
+    y_ζ = metrics.x₂.ζ
 
-    z_ξ = forward_metrics.x₃.ξ
-    z_η = forward_metrics.x₃.η
-    z_ζ = forward_metrics.x₃.ζ
+    z_ξ = metrics.x₃.ξ
+    z_η = metrics.x₃.η
+    z_ζ = metrics.x₃.ζ
   end
 
   # ξ̂x = (y_η z)_ζ − (y_ζ z)_η
@@ -297,29 +295,27 @@ function conservative_metrics!(
   # ζ̂z = (x_ξ y)_η − (x_η y)_ξ
   conservative_metric!(scheme, ζ̂z, x_ξ, x_η, y, (η, ξ), domain)
 
-  @. ξx = ξ̂x / forward_metrics.J
-  @. ηx = η̂x / forward_metrics.J
-  @. ζx = ζ̂x / forward_metrics.J
-  @. ξy = ξ̂y / forward_metrics.J
-  @. ηy = η̂y / forward_metrics.J
-  @. ζy = ζ̂y / forward_metrics.J
-  @. ξz = ξ̂z / forward_metrics.J
-  @. ηz = η̂z / forward_metrics.J
-  @. ζz = ζ̂z / forward_metrics.J
+  @. ξx = ξ̂x / metrics.J
+  @. ηx = η̂x / metrics.J
+  @. ζx = ζ̂x / metrics.J
+  @. ξy = ξ̂y / metrics.J
+  @. ηy = η̂y / metrics.J
+  @. ζy = ζ̂y / metrics.J
+  @. ξz = ξ̂z / metrics.J
+  @. ηz = η̂z / metrics.J
+  @. ζz = ζ̂z / metrics.J
 
   return nothing
 end
 
 """
-    conservative_metrics!(scheme::DiscretizationScheme, normalized_inverse_metrics, inverse_metrics, forward_metrics, x::AbstractArray{T,2}, y::AbstractArray{T,2}, domain) where {T}
+    conservative_metrics!(scheme::DiscretizationScheme, metrics, x::AbstractArray{T,2}, y::AbstractArray{T,2}, domain) where {T}
 
 Compute all the inverse metrics ∂ξ̂ᵢ/∂xᵢ. This 2D version is simpler than 3D, which requires the scheme from Thomas & Lombard. 
 """
 function conservative_metrics!(
   scheme::DiscretizationScheme,
-  normalized_inverse_metrics,
-  inverse_metrics,
-  forward_metrics,
+  metrics,
   x::AbstractArray{T,2},
   y::AbstractArray{T,2},
   domain,
@@ -329,33 +325,33 @@ function conservative_metrics!(
   end
 
   @views begin
-    ξ̂x = normalized_inverse_metrics.ξ̂.x₁
-    η̂x = normalized_inverse_metrics.η̂.x₁
-    ξ̂y = normalized_inverse_metrics.ξ̂.x₂
-    η̂y = normalized_inverse_metrics.η̂.x₂
+    ξ̂x = metrics.ξ̂.x₁
+    η̂x = metrics.η̂.x₁
+    ξ̂y = metrics.ξ̂.x₂
+    η̂y = metrics.η̂.x₂
 
-    ξx = inverse_metrics.ξ.x₁
-    ηx = inverse_metrics.η.x₁
-    ξy = inverse_metrics.ξ.x₂
-    ηy = inverse_metrics.η.x₂
+    ξx = metrics.ξ.x₁
+    ηx = metrics.η.x₁
+    ξy = metrics.ξ.x₂
+    ηy = metrics.η.x₂
 
-    xξ = forward_metrics.x₁.ξ
-    xη = forward_metrics.x₁.η
-    yξ = forward_metrics.x₂.ξ
-    yη = forward_metrics.x₂.η
+    xξ = metrics.x₁.ξ
+    xη = metrics.x₁.η
+    yξ = metrics.x₂.ξ
+    yη = metrics.x₂.η
   end
 
   # This kernel finds the jacobian matrix and determinant from the 
   # forward metrics. No need to use the more complicated conservative_metric!
   # function in 2D
   inverse_metric_2d_kernel!(scheme.backend)(
-    xξ, xη, yξ, yη, ξx, ξy, ηx, ηy, forward_metrics.J, domain; ndrange=size(domain)
+    xξ, xη, yξ, yη, ξx, ξy, ηx, ηy, metrics.J, domain; ndrange=size(domain)
   )
 
-  @. ξ̂x = ξx * forward_metrics.J
-  @. η̂x = ηx * forward_metrics.J
-  @. ξ̂y = ξy * forward_metrics.J
-  @. η̂y = ηy * forward_metrics.J
+  @. ξ̂x = ξx * metrics.J
+  @. η̂x = ηx * metrics.J
+  @. ξ̂y = ξy * metrics.J
+  @. η̂y = ηy * metrics.J
 
   return nothing
 end
@@ -382,16 +378,11 @@ end
 end
 
 function conservative_metrics!(
-  ::DiscretizationScheme,
-  normalized_inverse_metrics,
-  inverse_metrics,
-  forward_metrics,
-  x::AbstractArray{T,1},
-  domain,
+  ::DiscretizationScheme, metrics, x::AbstractArray{T,1}, domain
 ) where {T}
-  @. inverse_metrics.ξ.x₁ = inv(forward_metrics.x₁.ξ)
-  @. forward_metrics.J = abs(forward_metrics.x₁.ξ)
-  @. normalized_inverse_metrics.ξ̂.x₁ = inverse_metrics.ξ.x₁ * forward_metrics.J
+  @. metrics.ξ.x₁ = inv(metrics.x₁.ξ)
+  @. metrics.J = abs(metrics.x₁.ξ)
+  @. metrics.ξ̂.x₁ = metrics.ξ.x₁ * metrics.J
 
   return nothing
 end
@@ -467,15 +458,13 @@ function symmetric_conservative_metric!(
 end
 
 """
-    symmetric_conservative_metrics!(scheme::DiscretizationScheme, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, forward_metrics, inverse_metrics) where {T}
+    symmetric_conservative_metrics!(scheme::DiscretizationScheme, metrics, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, domain) where {T}
 
 Compute all the inverse metrics ∂ξ̂ᵢ/∂xᵢ using the symmetric conservative scheme from Nonomura et al. / Computers & Fluids 107 (2015) 242–255 [http://dx.doi.org/10.1016/j.compfluid.2014.09.025]
 """
 function symmetric_conservative_metrics!(
   scheme::DiscretizationScheme,
-  normalized_inverse_metrics,
-  inverse_metrics,
-  forward_metrics,
+  metrics,
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
   z::AbstractArray{T,3},
@@ -491,41 +480,41 @@ function symmetric_conservative_metrics!(
   end
 
   @views begin
-    ξ̂x = normalized_inverse_metrics.ξ̂.x₁
-    η̂x = normalized_inverse_metrics.η̂.x₁
-    ζ̂x = normalized_inverse_metrics.ζ̂.x₁
+    ξ̂x = metrics.ξ̂.x₁
+    η̂x = metrics.η̂.x₁
+    ζ̂x = metrics.ζ̂.x₁
 
-    ξ̂y = normalized_inverse_metrics.ξ̂.x₂
-    η̂y = normalized_inverse_metrics.η̂.x₂
-    ζ̂y = normalized_inverse_metrics.ζ̂.x₂
+    ξ̂y = metrics.ξ̂.x₂
+    η̂y = metrics.η̂.x₂
+    ζ̂y = metrics.ζ̂.x₂
 
-    ξ̂z = normalized_inverse_metrics.ξ̂.x₃
-    η̂z = normalized_inverse_metrics.η̂.x₃
-    ζ̂z = normalized_inverse_metrics.ζ̂.x₃
+    ξ̂z = metrics.ξ̂.x₃
+    η̂z = metrics.η̂.x₃
+    ζ̂z = metrics.ζ̂.x₃
 
-    ξx = inverse_metrics.ξ.x₁
-    ηx = inverse_metrics.η.x₁
-    ζx = inverse_metrics.ζ.x₁
+    ξx = metrics.ξ.x₁
+    ηx = metrics.η.x₁
+    ζx = metrics.ζ.x₁
 
-    ξy = inverse_metrics.ξ.x₂
-    ηy = inverse_metrics.η.x₂
-    ζy = inverse_metrics.ζ.x₂
+    ξy = metrics.ξ.x₂
+    ηy = metrics.η.x₂
+    ζy = metrics.ζ.x₂
 
-    ξz = inverse_metrics.ξ.x₃
-    ηz = inverse_metrics.η.x₃
-    ζz = inverse_metrics.ζ.x₃
+    ξz = metrics.ξ.x₃
+    ηz = metrics.η.x₃
+    ζz = metrics.ζ.x₃
 
-    x_ξ = forward_metrics.x₁.ξ
-    x_η = forward_metrics.x₁.η
-    x_ζ = forward_metrics.x₁.ζ
+    x_ξ = metrics.x₁.ξ
+    x_η = metrics.x₁.η
+    x_ζ = metrics.x₁.ζ
 
-    y_ξ = forward_metrics.x₂.ξ
-    y_η = forward_metrics.x₂.η
-    y_ζ = forward_metrics.x₂.ζ
+    y_ξ = metrics.x₂.ξ
+    y_η = metrics.x₂.η
+    y_ζ = metrics.x₂.ζ
 
-    z_ξ = forward_metrics.x₃.ξ
-    z_η = forward_metrics.x₃.η
-    z_ζ = forward_metrics.x₃.ζ
+    z_ξ = metrics.x₃.ξ
+    z_η = metrics.x₃.η
+    z_ζ = metrics.x₃.ζ
   end
 
   # ξ̂x = (1/2) * [(y_η z - z_η y)_ζ - (y_ζ z - z_ζ y)_η]
@@ -549,15 +538,15 @@ function symmetric_conservative_metrics!(
   symmetric_conservative_metric!(scheme, ζ̂y, z_ξ, x_ξ, z_η, x_η, x, z, (η, ξ), domain)
   symmetric_conservative_metric!(scheme, ζ̂z, x_ξ, y_ξ, x_η, y_η, y, x, (η, ξ), domain)
 
-  @. ξx = ξ̂x / forward_metrics.J
-  @. ηx = η̂x / forward_metrics.J
-  @. ζx = ζ̂x / forward_metrics.J
-  @. ξy = ξ̂y / forward_metrics.J
-  @. ηy = η̂y / forward_metrics.J
-  @. ζy = ζ̂y / forward_metrics.J
-  @. ξz = ξ̂z / forward_metrics.J
-  @. ηz = η̂z / forward_metrics.J
-  @. ζz = ζ̂z / forward_metrics.J
+  @. ξx = ξ̂x / metrics.J
+  @. ηx = η̂x / metrics.J
+  @. ζx = ζ̂x / metrics.J
+  @. ξy = ξ̂y / metrics.J
+  @. ηy = η̂y / metrics.J
+  @. ζy = ζ̂y / metrics.J
+  @. ξz = ξ̂z / metrics.J
+  @. ηz = η̂z / metrics.J
+  @. ζz = ζ̂z / metrics.J
 
   return nothing
 end

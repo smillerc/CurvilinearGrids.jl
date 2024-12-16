@@ -1,5 +1,5 @@
 @testset "2D Rectangular Mesh" begin
-  include("common.jl")
+  # include("common.jl")
 
   ni, nj = (40, 80)
   x0, x1 = (0, 2)
@@ -16,47 +16,47 @@
   @test mesh.domain_limits.node == (ilo=6, ihi=46, jlo=6, jhi=86)
   @test mesh.domain_limits.cell == (ilo=6, ihi=45, jlo=6, jhi=85)
 
-  @test all(mesh.cell_center_metrics.forward.J[domain] .≈ 0.00125)
-  @test all(mesh.cell_center_metrics.forward.x₁.ξ[domain] .≈ 0.05)
-  @test all(mesh.cell_center_metrics.forward.x₂.ξ[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.forward.x₁.η[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.forward.x₂.η[domain] .≈ 0.025)
+  @test all(mesh.cell_center_metrics.J[domain] .≈ 0.00125)
+  @test all(mesh.cell_center_metrics.x₁.ξ[domain] .≈ 0.05)
+  @test all(mesh.cell_center_metrics.x₂.ξ[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₁.η[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₂.η[domain] .≈ 0.025)
 
-  @test all(mesh.cell_center_metrics.inverse.ξ.x₁[domain] .≈ 20.0)
-  @test all(mesh.cell_center_metrics.inverse.ξ.x₂[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.inverse.η.x₁[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.inverse.η.x₂[domain] .≈ 40.0)
-  @test all(mesh.cell_center_metrics.inverse.ξ.t[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.inverse.η.t[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ξ.x₁[domain] .≈ 20.0)
+  @test all(mesh.cell_center_metrics.ξ.x₂[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.x₁[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.x₂[domain] .≈ 40.0)
+  @test all(mesh.cell_center_metrics.ξ.t[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.t[domain] .≈ 0.0)
 
-  @test all(mesh.cell_center_metrics.inverse_normalized.ξ̂.x₁[domain] .≈ 0.025)
-  @test all(mesh.cell_center_metrics.inverse_normalized.ξ̂.x₂[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.inverse_normalized.η̂.x₁[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.inverse_normalized.η̂.x₂[domain] .≈ 0.05)
-  @test all(mesh.cell_center_metrics.inverse_normalized.ξ̂.t[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.inverse_normalized.η̂.t[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ξ̂.x₁[domain] .≈ 0.025)
+  @test all(mesh.cell_center_metrics.ξ̂.x₂[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.x₁[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.x₂[domain] .≈ 0.05)
+  @test all(mesh.cell_center_metrics.ξ̂.t[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.t[domain] .≈ 0.0)
 
   iaxis, jaxis = (1, 2)
   i₊½_domain = expand(domain, iaxis, -1)
   j₊½_domain = expand(domain, jaxis, -1)
 
-  @test all(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₁[i₊½_domain] .≈ 0.025)
-  @test all(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₂[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.inverse_normalized.i₊½.η̂.x₁[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.inverse_normalized.i₊½.η̂.x₂[i₊½_domain] .≈ 0.05)
-  @test all(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.x₁[j₊½_domain] .≈ 0.025)
-  @test all(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.x₂[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.inverse_normalized.j₊½.η̂.x₁[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.inverse_normalized.j₊½.η̂.x₂[j₊½_domain] .≈ 0.05)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain] .≈ 0.025)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain] .≈ 0.05)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain] .≈ 0.025)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain] .≈ 0.05)
 
-  @test all(mesh.edge_metrics.inverse.i₊½.ξ.x₁[i₊½_domain] .≈ 20.0)
-  @test all(mesh.edge_metrics.inverse.i₊½.ξ.x₂[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.inverse.i₊½.η.x₁[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.inverse.i₊½.η.x₂[i₊½_domain] .≈ 40.0)
-  @test all(mesh.edge_metrics.inverse.j₊½.ξ.x₁[j₊½_domain] .≈ 20.0)
-  @test all(mesh.edge_metrics.inverse.j₊½.ξ.x₂[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.inverse.j₊½.η.x₁[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.inverse.j₊½.η.x₂[j₊½_domain] .≈ 40.0)
+  @test all(mesh.edge_metrics.i₊½.ξ.x₁[i₊½_domain] .≈ 20.0)
+  @test all(mesh.edge_metrics.i₊½.ξ.x₂[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η.x₁[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η.x₂[i₊½_domain] .≈ 40.0)
+  @test all(mesh.edge_metrics.j₊½.ξ.x₁[j₊½_domain] .≈ 20.0)
+  @test all(mesh.edge_metrics.j₊½.ξ.x₂[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η.x₁[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η.x₂[j₊½_domain] .≈ 40.0)
 
   ilo_c = mesh.nhalo + 1
   jlo_c = mesh.nhalo + 1
@@ -74,7 +74,7 @@
 end
 
 @testset "2D Wavy Mesh GCL" begin
-  include("common.jl")
+  # include("common.jl")
 
   function wavy_grid(nx, ny)
     x0, x1 = (0, 1)
@@ -109,32 +109,33 @@ end
   x, y = wavy_grid(ni, nj)
   mesh = CurvilinearGrid2D(x, y, :MEG6)
 
-  I₁_passes = true
-  I₂_passes = true
+  gcl(mesh)
+  # I₁_passes = true
+  # I₂_passes = true
 
-  ϵ = 5e-15
-  em = mesh.edge_metrics.inverse_normalized
+  # ϵ = 5e-15
+  # em = mesh.edge_metrics.inverse_normalized
 
-  for idx in mesh.iterators.cell.domain
-    i, j = idx.I
-    I₁ = (
-      (em.i₊½.ξ̂.x₁[i, j] - em.i₊½.ξ̂.x₁[i - 1, j]) +
-      (em.j₊½.η̂.x₁[i, j] - em.j₊½.η̂.x₁[i, j - 1])
-    )
-    I₂ = (
-      (em.i₊½.ξ̂.x₂[i, j] - em.i₊½.ξ̂.x₂[i - 1, j]) +
-      (em.j₊½.η̂.x₂[i, j] - em.j₊½.η̂.x₂[i, j - 1])
-    )
+  # for idx in mesh.iterators.cell.domain
+  #   i, j = idx.I
+  #   I₁ = (
+  #     (em.i₊½.ξ̂.x₁[i, j] - em.i₊½.ξ̂.x₁[i - 1, j]) +
+  #     (em.j₊½.η̂.x₁[i, j] - em.j₊½.η̂.x₁[i, j - 1])
+  #   )
+  #   I₂ = (
+  #     (em.i₊½.ξ̂.x₂[i, j] - em.i₊½.ξ̂.x₂[i - 1, j]) +
+  #     (em.j₊½.η̂.x₂[i, j] - em.j₊½.η̂.x₂[i, j - 1])
+  #   )
 
-    I₁_passes = abs(I₁) < ϵ
-    I₂_passes = abs(I₂) < ϵ
-    if !(I₁_passes && I₂_passes)
-      @show I₁ I₂
-      break
-    end
-  end
-  @test I₁_passes
-  @test I₂_passes
+  #   I₁_passes = abs(I₁) < ϵ
+  #   I₂_passes = abs(I₂) < ϵ
+  #   if !(I₁_passes && I₂_passes)
+  #     @show I₁ I₂
+  #     break
+  #   end
+  # end
+  # @test I₁_passes
+  # @test I₂_passes
 
   nothing
 

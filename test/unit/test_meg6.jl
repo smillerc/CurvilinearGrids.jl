@@ -63,12 +63,12 @@
 end
 
 @testset "MEG6 Gradients + Edges + CurvilinearGrid3D" begin
-  include("common.jl")
+  # include("common.jl")
 
   using CurvilinearGrids.MetricDiscretizationSchemes.MonotoneExplicit6thOrderScheme:
     ∂!, ∂²!, ∂x∂ξ!, toedge!, conserved_metric!
 
-  include("common.jl")
+  # include("common.jl")
 
   x0, x1 = (0.0, 2.0)
   y0, y1 = (1, 3)

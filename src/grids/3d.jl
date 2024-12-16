@@ -158,15 +158,15 @@ function update!(mesh::CurvilinearGrid3D; force=false)
 end
 
 function jacobian_matrix(mesh::CurvilinearGrid3D, (i, j, k))
-  xξ = mesh.cell_center_metrics.forward.x₁.ξ
-  yξ = mesh.cell_center_metrics.forward.x₂.ξ
-  zξ = mesh.cell_center_metrics.forward.x₂.ξ
-  xη = mesh.cell_center_metrics.forward.x₁.η
-  yη = mesh.cell_center_metrics.forward.x₂.η
-  zη = mesh.cell_center_metrics.forward.x₂.η
-  xζ = mesh.cell_center_metrics.forward.x₁.η
-  yζ = mesh.cell_center_metrics.forward.x₂.η
-  zζ = mesh.cell_center_metrics.forward.x₂.η
+  xξ = mesh.cell_center_metrics.x₁.ξ
+  yξ = mesh.cell_center_metrics.x₂.ξ
+  zξ = mesh.cell_center_metrics.x₂.ξ
+  xη = mesh.cell_center_metrics.x₁.η
+  yη = mesh.cell_center_metrics.x₂.η
+  zη = mesh.cell_center_metrics.x₂.η
+  xζ = mesh.cell_center_metrics.x₁.η
+  yζ = mesh.cell_center_metrics.x₂.η
+  zζ = mesh.cell_center_metrics.x₂.η
 
   return @SMatrix [
     xξ[i, j, k] xη[i, j, k] xζ[i, j, k]
@@ -229,64 +229,64 @@ function _check_valid_metrics(mesh::CurvilinearGrid3D)
 
   @views begin
     centroid_metrics_valid =
-      all(isfinite.(mesh.cell_center_metrics.forward.J[domain])) &&
-      all(mesh.cell_center_metrics.forward.J[domain] .> 0) &&
-      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₁[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₂[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₃[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.inverse.η.x₁[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.inverse.η.x₂[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.inverse.η.x₃[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.inverse.ζ.x₁[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.inverse.ζ.x₂[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.inverse.ζ.x₃[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.forward.x₁.ξ[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.forward.x₁.η[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.forward.x₁.ζ[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.forward.x₂.ξ[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.forward.x₂.η[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.forward.x₂.ζ[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.forward.x₃.ξ[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.forward.x₃.η[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.forward.x₃.ζ[domain]))
+      all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
+      all(mesh.cell_center_metrics.J[domain] .> 0) &&
+      all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.ξ.x₂[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.ξ.x₃[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.η.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.η.x₂[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.η.x₃[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.ζ.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.ζ.x₂[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.ζ.x₃[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.x₁.ξ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.x₁.η[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.x₁.ζ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.x₂.ξ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.x₂.η[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.x₂.ζ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.x₃.ξ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.x₃.η[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.x₃.ζ[domain]))
 
     edge_metrics_valid =
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₁[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₂[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₃[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.t[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.x₁[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.x₂[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.x₃[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.t[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ζ̂.x₁[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ζ̂.x₂[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ζ̂.x₃[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ζ̂.t[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.x₁[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.x₂[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.x₃[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.t[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.x₁[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.x₂[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.x₃[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.t[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ζ̂.x₁[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ζ̂.x₂[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ζ̂.x₃[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ζ̂.t[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ξ̂.x₁[k₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ξ̂.x₂[k₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ξ̂.x₃[k₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ξ̂.t[k₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.η̂.x₁[k₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.η̂.x₂[k₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.η̂.x₃[k₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.η̂.t[k₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ζ̂.x₁[k₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ζ̂.x₂[k₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ζ̂.x₃[k₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ζ̂.t[k₊½_domain]))
+      all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₃[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₃[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.i₊½.η̂.t[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.i₊½.ζ̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.i₊½.ζ̂.x₂[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.i₊½.ζ̂.x₃[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.i₊½.ζ̂.t[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₃[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.t[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₃[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.j₊½.η̂.t[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.j₊½.ζ̂.x₁[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.j₊½.ζ̂.x₂[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.j₊½.ζ̂.x₃[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.j₊½.ζ̂.t[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.k₊½.ξ̂.x₁[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.k₊½.ξ̂.x₂[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.k₊½.ξ̂.x₃[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.k₊½.ξ̂.t[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.k₊½.η̂.x₁[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.k₊½.η̂.x₂[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.k₊½.η̂.x₃[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.k₊½.η̂.t[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.k₊½.ζ̂.x₁[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.k₊½.ζ̂.x₂[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.k₊½.ζ̂.x₃[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.k₊½.ζ̂.t[k₊½_domain]))
   end
 
   if !edge_metrics_valid

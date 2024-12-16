@@ -7,6 +7,7 @@ using StructArrays
 using WriteVTK
 using UnPack
 
+include("unit/common.jl")
 @testset verbose = true "UnitTests" begin
   include("unit/test_1d.jl")
 

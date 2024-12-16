@@ -14,47 +14,47 @@ function save_vtk(mesh::CurvilinearGrid3D, fn="mesh")
   domain = mesh.iterators.cell.domain
 
   @views vtk_grid(fn, xyz_n) do vtk
-    vtk["J", VTKCellData()] = mesh.cell_center_metrics.forward.J[domain]
+    vtk["J", VTKCellData()] = mesh.cell_center_metrics.J[domain]
 
     # vtk["volume", VTKCellData()] = cellvolume.(Ref(mesh), domain)
 
     vtk["xi", VTKCellData(), component_names=["x1", "x2", "x3", "t"]] = (
-      mesh.cell_center_metrics.inverse.ξ.x₁[domain],
-      mesh.cell_center_metrics.inverse.ξ.x₂[domain],
-      mesh.cell_center_metrics.inverse.ξ.x₃[domain],
-      mesh.cell_center_metrics.inverse.ξ.t[domain],
+      mesh.cell_center_metrics.ξ.x₁[domain],
+      mesh.cell_center_metrics.ξ.x₂[domain],
+      mesh.cell_center_metrics.ξ.x₃[domain],
+      mesh.cell_center_metrics.ξ.t[domain],
     )
 
     vtk["eta", VTKCellData(), component_names=["x1", "x2", "x3", "t"]] = (
-      mesh.cell_center_metrics.inverse.η.x₁[domain],
-      mesh.cell_center_metrics.inverse.η.x₂[domain],
-      mesh.cell_center_metrics.inverse.η.x₃[domain],
-      mesh.cell_center_metrics.inverse.η.t[domain],
+      mesh.cell_center_metrics.η.x₁[domain],
+      mesh.cell_center_metrics.η.x₂[domain],
+      mesh.cell_center_metrics.η.x₃[domain],
+      mesh.cell_center_metrics.η.t[domain],
     )
 
     vtk["zeta", VTKCellData(), component_names=["x1", "x2", "x3", "t"]] = (
-      mesh.cell_center_metrics.inverse.ζ.x₁[domain],
-      mesh.cell_center_metrics.inverse.ζ.x₂[domain],
-      mesh.cell_center_metrics.inverse.ζ.x₃[domain],
-      mesh.cell_center_metrics.inverse.ζ.t[domain],
+      mesh.cell_center_metrics.ζ.x₁[domain],
+      mesh.cell_center_metrics.ζ.x₂[domain],
+      mesh.cell_center_metrics.ζ.x₃[domain],
+      mesh.cell_center_metrics.ζ.t[domain],
     )
 
     vtk["dx_di", VTKCellData(), component_names=["xi", "eta", "zeta"]] = (
-      mesh.cell_center_metrics.forward.x₁.ξ[domain],
-      mesh.cell_center_metrics.forward.x₁.η[domain],
-      mesh.cell_center_metrics.forward.x₁.ζ[domain],
+      mesh.cell_center_metrics.x₁.ξ[domain],
+      mesh.cell_center_metrics.x₁.η[domain],
+      mesh.cell_center_metrics.x₁.ζ[domain],
     )
 
     vtk["dy_di", VTKCellData(), component_names=["xi", "eta", "zeta"]] = (
-      mesh.cell_center_metrics.forward.x₂.ξ[domain],
-      mesh.cell_center_metrics.forward.x₂.η[domain],
-      mesh.cell_center_metrics.forward.x₂.ζ[domain],
+      mesh.cell_center_metrics.x₂.ξ[domain],
+      mesh.cell_center_metrics.x₂.η[domain],
+      mesh.cell_center_metrics.x₂.ζ[domain],
     )
 
     vtk["dz_di", VTKCellData(), component_names=["xi", "eta", "zeta"]] = (
-      mesh.cell_center_metrics.forward.x₃.ξ[domain],
-      mesh.cell_center_metrics.forward.x₃.η[domain],
-      mesh.cell_center_metrics.forward.x₃.ζ[domain],
+      mesh.cell_center_metrics.x₃.ξ[domain],
+      mesh.cell_center_metrics.x₃.η[domain],
+      mesh.cell_center_metrics.x₃.ζ[domain],
     )
   end
 end
@@ -66,20 +66,20 @@ function save_vtk(mesh::AbstractCurvilinearGrid2D, fn="mesh")
   domain = mesh.iterators.cell.domain
 
   @views vtk_grid(fn, xyz_n) do vtk
-    vtk["J", VTKCellData()] = mesh.cell_center_metrics.forward.J[domain]
+    vtk["J", VTKCellData()] = mesh.cell_center_metrics.J[domain]
 
     # vtk["volume", VTKCellData()] = cellvolume.(Ref(mesh), domain)
 
     vtk["xi", VTKCellData(), component_names=["x1", "x2", "t"]] = (
-      mesh.cell_center_metrics.inverse.ξ.x₁[domain],
-      mesh.cell_center_metrics.inverse.ξ.x₂[domain],
-      mesh.cell_center_metrics.inverse.ξ.t[domain],
+      mesh.cell_center_metrics.ξ.x₁[domain],
+      mesh.cell_center_metrics.ξ.x₂[domain],
+      mesh.cell_center_metrics.ξ.t[domain],
     )
 
     vtk["eta", VTKCellData(), component_names=["x1", "x2", "t"]] = (
-      mesh.cell_center_metrics.inverse.η.x₁[domain],
-      mesh.cell_center_metrics.inverse.η.x₂[domain],
-      mesh.cell_center_metrics.inverse.η.t[domain],
+      mesh.cell_center_metrics.η.x₁[domain],
+      mesh.cell_center_metrics.η.x₂[domain],
+      mesh.cell_center_metrics.η.t[domain],
     )
   end
 end

@@ -304,7 +304,7 @@ function update!(mesh::AbstractCurvilinearGrid1D; force=false)
 end
 
 function jacobian_matrix(mesh::AbstractCurvilinearGrid1D, (i,)::NTuple{1,Int})
-  xξ = mesh.cell_center_metrics.forward.x₁.ξ
+  xξ = mesh.cell_center_metrics.x₁.ξ
   return @SMatrix [xξ[i]]
 end
 
@@ -339,14 +339,14 @@ function _check_valid_metrics(mesh::AbstractCurvilinearGrid1D)
 
   @views begin
     centroid_metrics_valid =
-      all(isfinite.(mesh.cell_center_metrics.forward.J[domain])) &&
-      all(mesh.cell_center_metrics.forward.J[domain] .> 0) &&
-      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₁[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.forward.x₁.ξ[domain]))
+      all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
+      all(mesh.cell_center_metrics.J[domain] .> 0) &&
+      all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.x₁.ξ[domain]))
 
     edge_metrics_valid =
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₁[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.t[i₊½_domain]))
+      all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain]))
   end
 
   if !edge_metrics_valid

@@ -7,7 +7,7 @@ function gcl(mesh::AbstractCurvilinearGrid2D, ϵ=5e-13)
   I₁_passes = true
   I₂_passes = true
 
-  em = mesh.edge_metrics.inverse_normalized
+  em = mesh.edge_metrics
 
   for idx in mesh.iterators.cell.domain
     i, j = idx.I
@@ -38,7 +38,7 @@ function gcl(mesh::CurvilinearGrid3D, ϵ=5e-13)
   I₂_passes = true
   I₃_passes = true
 
-  em = mesh.edge_metrics.inverse_normalized
+  em = mesh.edge_metrics
 
   for idx in mesh.iterators.cell.domain
     i, j, k = idx.I
