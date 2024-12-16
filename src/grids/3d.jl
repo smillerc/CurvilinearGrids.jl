@@ -1,5 +1,5 @@
 
-struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid
+struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid3D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -25,9 +25,8 @@ function CurvilinearGrid3D(
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
   z::AbstractArray{T,3},
-  nhalo::Int;
+  discretization_scheme::Symbol;
   backend=CPU(),
-  discretization_scheme=:MEG6,
   on_bc=nothing,
   is_static=false,
   is_orthogonal=false,
@@ -36,6 +35,21 @@ function CurvilinearGrid3D(
 ) where {T}
 
   #
+  use_symmetric_conservative_metric_scheme = false
+
+  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif Symbol(uppercase("$discretization_scheme")) === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
   @assert size(x) == size(y) == size(y)
 
   nnodes = size(x)
@@ -64,18 +78,13 @@ function CurvilinearGrid3D(
 
   domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
 
-  if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
-    if nhalo < 4
-      error("`nhalo` must = 4 when using the MEG6 discretization scheme")
-    end
-
-    discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-      domain_iterators.cell.full, T
-    )
-
-  else
-    error("Unknown discretization scheme to compute the conserved metrics")
-  end
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true,
+    celldims=size(domain_iterators.cell.full),
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
+  )
 
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
@@ -148,114 +157,23 @@ function update!(mesh::CurvilinearGrid3D; force=false)
   return nothing
 end
 
-function update_metrics!(m::CurvilinearGrid3D, t::Real=0)
-  # Update the metrics within the non-halo region, e.g., the domain
-  domain = m.iterators.cell.domain
+function jacobian_matrix(mesh::CurvilinearGrid3D, (i, j, k))
+  xξ = mesh.cell_center_metrics.forward.x₁.ξ
+  yξ = mesh.cell_center_metrics.forward.x₂.ξ
+  zξ = mesh.cell_center_metrics.forward.x₂.ξ
+  xη = mesh.cell_center_metrics.forward.x₁.η
+  yη = mesh.cell_center_metrics.forward.x₂.η
+  zη = mesh.cell_center_metrics.forward.x₂.η
+  xζ = mesh.cell_center_metrics.forward.x₁.η
+  yζ = mesh.cell_center_metrics.forward.x₂.η
+  zζ = mesh.cell_center_metrics.forward.x₂.η
 
-  MetricDiscretizationSchemes.update_metrics!(
-    m.discretization_scheme,
-    m.centroid_coordinates,
-    m.cell_center_metrics,
-    m.edge_metrics,
-    domain,
-  )
-
-  return nothing
+  return @SMatrix [
+    xξ[i, j, k] xη[i, j, k] xζ[i, j, k]
+    yξ[i, j, k] yη[i, j, k] yζ[i, j, k]
+    zξ[i, j, k] zη[i, j, k] zζ[i, j, k]
+  ]
 end
-
-# ------------------------------------------------------------------
-# Grid Metrics
-# ------------------------------------------------------------------
-
-# Get the grid metrics
-# @inline function metrics(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0)
-#   _jacobian_matrix = checkeps(
-#     m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo, t)
-#   )
-#   J = det(_jacobian_matrix)
-
-#   inv_jacobian_matrix = inv(_jacobian_matrix)
-
-#   ξx = inv_jacobian_matrix[1, 1]
-#   ξy = inv_jacobian_matrix[1, 2]
-#   ξz = inv_jacobian_matrix[1, 3]
-#   ηx = inv_jacobian_matrix[2, 1]
-#   ηy = inv_jacobian_matrix[2, 2]
-#   ηz = inv_jacobian_matrix[2, 3]
-#   ζx = inv_jacobian_matrix[3, 1]
-#   ζy = inv_jacobian_matrix[3, 2]
-#   ζz = inv_jacobian_matrix[3, 3]
-
-#   vx, vy, vz = grid_velocities(m, (i, j, k), t)
-#   ξt = -(vx * ξx + vy * ξy + vz * ξz)
-#   ηt = -(vx * ηx + vy * ηy + vz * ηz)
-#   ζt = -(vx * ζx + vy * ζy + vz * ζz)
-
-#   ξ = Metric3D(ξx, ξy, ξz, ξt)
-#   η = Metric3D(ηx, ηy, ηz, ηt)
-#   ζ = Metric3D(ζx, ζy, ζz, ζt)
-
-#   return (; ξ, η, ζ, J)
-# end
-
-# ------------------------------------------------------------------
-# Conservative Grid Metrics; e.g. ξ̂x = ξx * J
-# ------------------------------------------------------------------
-
-# @inline function conservative_metrics(
-#   m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0
-# )
-#   _jacobian_matrix = checkeps(
-#     m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo, t)
-#   )
-#   J = det(_jacobian_matrix)
-
-#   inv_jacobian_matrix = inv(_jacobian_matrix)
-
-#   ξx = inv_jacobian_matrix[1, 1]
-#   ξy = inv_jacobian_matrix[1, 2]
-#   ξz = inv_jacobian_matrix[1, 3]
-#   ηx = inv_jacobian_matrix[2, 1]
-#   ηy = inv_jacobian_matrix[2, 2]
-#   ηz = inv_jacobian_matrix[2, 3]
-#   ζx = inv_jacobian_matrix[3, 1]
-#   ζy = inv_jacobian_matrix[3, 2]
-#   ζz = inv_jacobian_matrix[3, 3]
-
-#   vx, vy, vz = grid_velocities(m, (i, j, k), t)
-#   ξt = -(vx * ξx + vy * ξy + vz * ξz)
-#   ηt = -(vx * ηx + vy * ηy + vz * ηz)
-#   ζt = -(vx * ζx + vy * ζy + vz * ζz)
-
-#   # xξ = _jacobian_matrix[1, 1]
-#   # yξ = _jacobian_matrix[2, 1]
-#   # zξ = _jacobian_matrix[3, 1]
-#   # xη = _jacobian_matrix[1, 2]
-#   # yη = _jacobian_matrix[2, 2]
-#   # zη = _jacobian_matrix[3, 2]
-#   # xζ = _jacobian_matrix[1, 3]
-#   # yζ = _jacobian_matrix[2, 3]
-#   # zζ = _jacobian_matrix[3, 3]
-
-#   ξ̂ = Metric3D(ξx * J, ξy * J, ξz * J, ξt * J)
-#   η̂ = Metric3D(ηx * J, ηy * J, ηz * J, ηt * J)
-#   ζ̂ = Metric3D(ζx * J, ζy * J, ζz * J, ζt * J)
-
-#   return (; ξ̂, η̂, ζ̂, J)
-# end
-
-# ------------------------------------------------------------------
-# Jacobian related functions
-# ------------------------------------------------------------------
-
-# function jacobian_matrix(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0)
-#   # return checkeps(m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo))
-#   return m._jacobian_matrix_func(i - m.nhalo, j - m.nhalo, k - m.nhalo, t)
-# end
-
-# function jacobian(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0)
-#   return det(jacobian_matrix(m, (i, j, k), t))
-# end
 
 # ------------------------------------------------------------------
 # Velocity Functions
@@ -305,42 +223,75 @@ end
 
 function _check_valid_metrics(mesh::CurvilinearGrid3D)
   domain = mesh.iterators.cell.domain
-  # i₊½_domain = expand(domain, 1, -1)
-  # j₊½_domain = expand(domain, 2, -1)
+  i₊½_domain = expand(domain, 1, -1)
+  j₊½_domain = expand(domain, 2, -1)
+  k₊½_domain = expand(domain, 3, -1)
 
   @views begin
     centroid_metrics_valid =
-      all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
-      all(mesh.cell_center_metrics.J[domain] .> 0)
-    #     all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.ξ.x₂[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.η.x₁[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.η.x₂[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.x₁.ξ[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.x₁.η[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.x₂.ξ[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.x₂.η[domain]))
+      all(isfinite.(mesh.cell_center_metrics.forward.J[domain])) &&
+      all(mesh.cell_center_metrics.forward.J[domain] .> 0) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₂[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₃[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.η.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.η.x₂[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.η.x₃[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.ζ.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.ζ.x₂[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.ζ.x₃[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₁.ξ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₁.η[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₁.ζ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₂.ξ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₂.η[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₂.ζ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₃.ξ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₃.η[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₃.ζ[domain]))
 
-    # edge_metrics_valid =
-    # all(isfinite.(mesh.edge_metrics.i₊½.J[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.η̂.t[i₊½_domain])) &&
-    # all(isfinite.(mesh.edge_metrics.j₊½.J[j₊½_domain])) # &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.t[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.η̂.t[j₊½_domain]))
+    edge_metrics_valid =
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₂[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₃[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.t[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.x₂[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.x₃[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.t[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ζ̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ζ̂.x₂[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ζ̂.x₃[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ζ̂.t[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.x₁[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.x₂[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.x₃[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.t[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.x₁[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.x₂[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.x₃[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.t[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ζ̂.x₁[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ζ̂.x₂[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ζ̂.x₃[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ζ̂.t[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ξ̂.x₁[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ξ̂.x₂[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ξ̂.x₃[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ξ̂.t[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.η̂.x₁[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.η̂.x₂[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.η̂.x₃[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.η̂.t[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ζ̂.x₁[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ζ̂.x₂[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ζ̂.x₃[k₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.k₊½.ζ̂.t[k₊½_domain]))
   end
 
-  # if !edge_metrics_valid
-  #   error("Invalid edge metrics found")
-  # end
+  if !edge_metrics_valid
+    error("Invalid edge metrics found")
+  end
 
   if !centroid_metrics_valid
     error("Invalid centroid metrics found")

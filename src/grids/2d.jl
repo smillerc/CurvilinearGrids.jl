@@ -47,8 +47,7 @@ The `nhalo` argument defines the number of halo cells along each dimension.
 function CurvilinearGrid2D(
   x::AbstractArray{T,2},
   y::AbstractArray{T,2},
-  nhalo::Int;
-  discretization_scheme=:MEG6,
+  discretization_scheme::Symbol;
   backend=CPU(),
   on_bc=nothing,
   is_static=false,
@@ -56,6 +55,22 @@ function CurvilinearGrid2D(
   tiles=nothing,
   make_uniform=false,
 ) where {T}
+
+  #
+  use_symmetric_conservative_metric_scheme = false
+
+  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif Symbol(uppercase("$discretization_scheme")) === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
 
   #
   @assert size(x) == size(y)
@@ -102,18 +117,9 @@ function CurvilinearGrid2D(
     y=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  # if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
-  #   if nhalo < 4
-  #     error("`nhalo` must = 4 when using the MEG6 discretization scheme")
-  #   end
-
-  discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full, T
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
   )
-
-  # else
-  #   error("Unknown discretization scheme to compute the conserved metrics")
-  # end
 
   if isnothing(on_bc)
     _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true)
@@ -186,10 +192,9 @@ The input coordinates do not include halo / ghost data since the geometry is und
 function AxisymmetricGrid2D(
   x::AbstractMatrix{T},
   y::AbstractMatrix{T},
-  nhalo::Int,
+  discretization_scheme,
   snap_to_axis::Bool,
   rotational_axis::Symbol;
-  discretization_scheme=:MEG6,
   backend=CPU(),
   is_static=false,
   on_bc=nothing,
@@ -199,6 +204,21 @@ function AxisymmetricGrid2D(
 ) where {T}
 
   #
+  use_symmetric_conservative_metric_scheme = false
+
+  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif Symbol(uppercase("$discretization_scheme")) === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
   @assert size(x) == size(y)
   @assert rotational_axis === :x || rotational_axis === :y
 
@@ -244,18 +264,9 @@ function AxisymmetricGrid2D(
     y=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  # if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
-  #   if nhalo < 4
-  #     error("`nhalo` must = 4 when using the MEG6 discretization scheme")
-  #   end
-
-  discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
   )
-
-  # else
-  #   error("Unknown discretization scheme to compute the conserved metrics")
-  # end
 
   if isnothing(on_bc)
     _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true)
@@ -352,36 +363,15 @@ function update!(mesh::AxisymmetricGrid2D)
   return nothing
 end
 
-function update_metrics!(mesh::AbstractCurvilinearGrid2D, t::Real=0)
-  # Update the metrics within the non-halo region, e.g., the domain
-  domain = mesh.iterators.cell.domain
-
-  MetricDiscretizationSchemes.update_metrics!(
-    mesh.discretization_scheme,
-    mesh.centroid_coordinates,
-    mesh.cell_center_metrics,
-    mesh.edge_metrics,
-    domain,
-  )
-
-  return nothing
-end
-
-"""
-    jacobian_matrix(mesh::CurvilinearGrid2D, idx)
-
-The cell-centroid Jacobian matrix (the forward transformation: ∂x/∂ξ, ∂y/∂ξ, ... ). Use `inv(jacobian_matrix(mesh, idx))` to
-get the inverse transformation (∂ξ/∂x, ∂ξ/∂y, ...)
-"""
-function jacobian_matrix(mesh::CurvilinearGrid2D, idx)
-  xξ = mesh.cell_center_metrics.x₁.ξ
-  yξ = mesh.cell_center_metrics.x₂.ξ
-  xη = mesh.cell_center_metrics.x₁.η
-  yη = mesh.cell_center_metrics.x₂.η
+function jacobian_matrix(mesh::AbstractCurvilinearGrid2D, (i, j))
+  xξ = mesh.cell_center_metrics.forward.x₁.ξ
+  yξ = mesh.cell_center_metrics.forward.x₂.ξ
+  xη = mesh.cell_center_metrics.forward.x₁.η
+  yη = mesh.cell_center_metrics.forward.x₂.η
 
   return @SMatrix [
-    xξ[idx] xη[idx]
-    yξ[idx] yη[idx]
+    xξ[i, j] xη[i, j]
+    yξ[i, j] yη[i, j]
   ]
 end
 
@@ -427,37 +417,35 @@ function _check_valid_metrics(mesh::AbstractCurvilinearGrid2D)
 
   @views begin
     centroid_metrics_valid =
-      all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
-      all(mesh.cell_center_metrics.J[domain] .> 0)
-    #     all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.ξ.x₂[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.η.x₁[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.η.x₂[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.x₁.ξ[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.x₁.η[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.x₂.ξ[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.x₂.η[domain]))
+      all(isfinite.(mesh.cell_center_metrics.forward.J[domain])) &&
+      all(mesh.cell_center_metrics.forward.J[domain] .> 0) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₂[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.η.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.η.x₂[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₁.ξ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₁.η[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₂.ξ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₂.η[domain]))
 
-    # edge_metrics_valid =
-    # all(isfinite.(mesh.edge_metrics.i₊½.J[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.η̂.t[i₊½_domain])) &&
-    # all(isfinite.(mesh.edge_metrics.j₊½.J[j₊½_domain])) # &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.t[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.η̂.t[j₊½_domain]))
+    edge_metrics_valid =
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₂[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.t[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.x₂[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.t[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.x₁[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.x₂[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.t[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.x₁[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.x₂[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.t[j₊½_domain]))
   end
 
-  # if !edge_metrics_valid
-  #   error("Invalid edge metrics found")
-  # end
+  if !edge_metrics_valid
+    error("Invalid edge metrics found")
+  end
 
   if !centroid_metrics_valid
     error("Invalid centroid metrics found")

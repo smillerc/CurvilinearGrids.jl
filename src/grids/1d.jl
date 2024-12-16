@@ -59,13 +59,22 @@ Construct a curvilinear grid in 1D using a vector of x coordinate points.
 """
 function CurvilinearGrid1D(
   x::AbstractVector{T},
-  nhalo;
+  discretization_scheme::Symbol;
   backend=CPU(),
-  discretization_scheme=:MEG6,
   on_bc=nothing,
   is_static=false,
   tiles=nothing,
 ) where {T}
+
+  #
+  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
   ni = length(x)
   ncells = ni - 1
   ilo = nhalo + 1
@@ -90,18 +99,9 @@ function CurvilinearGrid1D(
 
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
-  # if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
-  #   if nhalo < 4
-  #     error("`nhalo` must = 4 when using the MEG6 discretization scheme")
-  #   end
-
-  discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full, T
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
   )
-
-  # else
-  #   error("Unknown discretization scheme to compute the conserved metrics")
-  # end
 
   if isnothing(on_bc)
     _on_bc = (ilo=true, ihi=true)
@@ -137,14 +137,23 @@ Construct a curvilinear grid in 1D with spherical symmetry using a vector of x c
 """
 function SphericalGrid1D(
   x::AbstractVector{T},
-  nhalo::Int,
+  discretization_scheme::Symbol,
   snap_to_axis::Bool;
   backend=CPU(),
-  discretization_scheme=:MEG6,
   on_bc=nothing,
   is_static=false,
   tiles=nothing,
 ) where {T}
+
+  #
+  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
   ni = length(x)
   ncells = ni - 1
   ilo = nhalo + 1
@@ -169,18 +178,9 @@ function SphericalGrid1D(
 
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
-  # if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
-  #   if nhalo < 4
-  #     error("`nhalo` must = 4 when using the MEG6 discretization scheme")
-  #   end
-
-  discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full, T
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
   )
-
-  # else
-  #   error("Unknown discretization scheme to compute the conserved metrics")
-  # end
 
   if isnothing(on_bc)
     _on_bc = (ilo=true, ihi=true)
@@ -217,15 +217,23 @@ Construct a curvilinear grid in 1D with cylindrical symmetry using a vector of x
 """
 function CylindricalGrid1D(
   x::AbstractVector{T},
-  nhalo::Int,
-  snap_to_axis::Bool,
-  ;
+  discretization_scheme::Symbol,
+  snap_to_axis::Bool;
   backend=CPU(),
-  discretization_scheme=:MEG6,
   on_bc=nothing,
   is_static=false,
   tiles=nothing,
 ) where {T}
+
+  #
+  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
   ni = length(x)
   ncells = ni - 1
   ilo = nhalo + 1
@@ -250,18 +258,9 @@ function CylindricalGrid1D(
 
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
-  # if discretization_scheme === :MEG6 || discretization_scheme === :MonotoneExplicit6thOrder
-  #   if nhalo < 4
-  #     error("`nhalo` must = 4 when using the MEG6 discretization scheme")
-  #   end
-
-  discr_scheme = MetricDiscretizationSchemes.MonotoneExplicit6thOrderDiscretization(
-    domain_iterators.cell.full, T
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
   )
-
-  # else
-  #   error("Unknown discretization scheme to compute the conserved metrics")
-  # end
 
   if isnothing(on_bc)
     _on_bc = (ilo=true, ihi=true)
@@ -292,7 +291,7 @@ function CylindricalGrid1D(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::CurvilinearGrid1D; force=false)
+function update!(mesh::AbstractCurvilinearGrid1D; force=false)
   if !mesh.is_static || force
     _centroid_coordinates!(
       mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
@@ -304,68 +303,10 @@ function update!(mesh::CurvilinearGrid1D; force=false)
   return nothing
 end
 
-function update_metrics!(mesh::AbstractCurvilinearGrid1D, t::Real=0)
-  # Update the metrics within the non-halo region, e.g., the domain
-  domain = mesh.iterators.cell.domain
-
-  MetricDiscretizationSchemes.update_metrics!(
-    mesh.discretization_scheme,
-    mesh.centroid_coordinates,
-    mesh.cell_center_metrics,
-    mesh.edge_metrics,
-    domain,
-  )
-
-  return nothing
+function jacobian_matrix(mesh::AbstractCurvilinearGrid1D, (i,)::NTuple{1,Int})
+  xξ = mesh.cell_center_metrics.forward.x₁.ξ
+  return @SMatrix [xξ[i]]
 end
-
-# # ------------------------------------------------------------------
-# # Grid Metrics
-# # ------------------------------------------------------------------
-
-# @inline function metrics(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
-#   _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo, t))
-#   inv_jacobian_matrix = inv(_jacobian_matrix)
-#   ξx = inv_jacobian_matrix[1]
-#   J = det(_jacobian_matrix)
-
-#   vx = grid_velocities(m, i, t)
-#   ξt = -(vx * ξx)
-
-#   ξ = Metric1D(ξx, ξt)
-
-#   return (; ξ, J)
-# end
-
-# # ------------------------------------------------------------------
-# # Conservative Grid Metrics; e.g. ξ̂x = ξx * J
-# # ------------------------------------------------------------------
-
-# @inline function conservative_metrics(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
-#   _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo, t))
-#   inv_jacobian_matrix = inv(_jacobian_matrix)
-#   ξx = inv_jacobian_matrix[1]
-#   J = det(_jacobian_matrix)
-
-#   vx = grid_velocities(m, i, t)
-#   ξt = -(vx * ξx)
-
-#   ξ̂ = Metric1D(ξx * J, ξt * J)
-
-#   return (; ξ̂, J)
-# end
-
-# # ------------------------------------------------------------------
-# # Jacobian related functions
-# # ------------------------------------------------------------------
-
-# @inline function jacobian_matrix(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
-#   return checkeps(SMatrix{1,1}(m.∂x∂ξ(i - m.nhalo, t)))
-# end
-
-# @inline function jacobian(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
-#   return abs(m.∂x∂ξ(i - m.nhalo, t))
-# end
 
 # ------------------------------------------------------------------
 # Velocity Functions
@@ -398,21 +339,19 @@ function _check_valid_metrics(mesh::AbstractCurvilinearGrid1D)
 
   @views begin
     centroid_metrics_valid =
-      all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
-      all(mesh.cell_center_metrics.J[domain] .> 0) &&
-      all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.x₁.ξ[domain]))
+      all(isfinite.(mesh.cell_center_metrics.forward.J[domain])) &&
+      all(mesh.cell_center_metrics.forward.J[domain] .> 0) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₁.ξ[domain]))
 
-    # edge_metrics_valid =
-    # all(isfinite.(mesh.edge_metrics.i₊½.J[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain])) &&
-
+    edge_metrics_valid =
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.t[i₊½_domain]))
   end
 
-  # if !edge_metrics_valid
-  #   error("Invalid edge metrics found")
-  # end
+  if !edge_metrics_valid
+    error("Invalid edge metrics found")
+  end
 
   if !centroid_metrics_valid
     error("Invalid centroid metrics found")
