@@ -56,7 +56,8 @@ function wavygrid(ni, nj, nhalo=1)
     )
   end
 
-  return CurvilinearGrid2D(x, y, nhalo)
+  scheme = :meg6
+  return CurvilinearGrid2D(x, y, scheme)
 end
 
 # number of nodes/vertices in each dimension
@@ -91,16 +92,16 @@ $$
 
 When solving transformed PDEs in computational coordinates ($\xi,\eta,\zeta$), grid metrics **must** be included. Care must be taken if advection or motion is included in the governing equations so that the geometric conservation law (GCL) is observed [@thomas1979]. If the scheme does not follow the GCL, errors will build up and ultimately corrupt the solution. In the case of fluid dynamics, the mesh and governing equation discretizations must follow the same scheme and be *conservative* [@visbal2002]. One such conservative scheme is the Monotone Explicit Gradient (MEG) based reconstruction [@chamarthi2023; @chandravamsi2023], which is included in `CurvilinearGrids.jl`. Other common schemes include weighted essentially non-oscillatory (WENO) schemes of various order [@ma2024]. There is no restriction to particular schemes which can be added in the future.
 
-The grid metrics (derivative terms in $\textbf{J}, \textbf{J}^{-1}$) at each cell-center or edge are accessed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Metrics are contained in `StructArrays` for each dimension; **edge metrics** are *conservative* and have the " $\hat{}$ " notation, e.g. $\hat{\xi}_x \equiv \xi_x / J$, and **cell-centered metrics** are *non-conservative*, e.g., simply $\xi_x, \eta_x, ...$. Chapter 3 in [@huang2011] has a particulariy lucid description of how these metrics can be included in PDE discretizations.
+The grid metrics (derivative terms in $\textbf{J}, \textbf{J}^{-1}$) at each cell-center or edge are accessed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Metrics (entries in the forward/inverse jacobian matrices) are contained in `StructArrays` for each dimension; forward metrics $(x\_\xi, y_\xi, ...)$, inverse metrics $(\xi_x, \xi_y, ...)$, and normalized inverse metrics $(\hat{\xi}_x \equiv J\xi_x)$. Some authers define the normalized metric as $\hat{\xi}_x \equiv \xi_x/J$, but the definition of the forward and inverse jacobians are swapped. Chapter 3 in [@huang2011] has a particulariy lucid description of how these metrics can be included in PDE discretizations.
 
-Each grid type includes example metrics like the following subset:
+Each grid type includes the follwoing metrics:
 
-- Cell centered metrics: $\eta_y, y_\xi$ via `grid.cell_center_metrics`
-- Edge centered *conservative* metrics (`grid.edge_center_metrics`): $\hat{\xi}_{x1}, \hat{\xi}_{x2}, \hat{\xi}_{x3}$ at $i+1/2, j+1/2, k+1/2$
-- Temporal metrics: $\xi_t, \eta_t, \zeta_t$ 
+- Cell centered metrics: $(\eta_y, y_\xi, ...)$ via `grid.cell_center_metrics`
+- Edge centered metrics (`grid.edge_metrics`): inverse $\xi_x$, and normalized inverse $\hat{\xi}_x$ at $i+1/2, j+1/2, k+1/2$
+- Temporal metrics: $\xi_t, \eta_t, \zeta_t$ for both cell-centered and edge metrics.
 
-
-Both edge-centered and cell-centered metrics are required for many PDE discretizations -- the interpolation from cell-center to edge must be consistent, e.g. the same interpolation scheme must be shared by the PDE discretization and mesh metric computation. One such scheme is the 6th-order MEG scheme below: 
+Both edge and cell-centered metrics are required for many PDE discretizations -- the interpolation from cell-center to edge must be consistent, e.g. the same interpolation scheme must be shared by the PDE discretization and mesh metric computation. One such scheme that is included in `CurvilinearGrids.jl` is the 6th-order MEG scheme. Finding the forward metric $(\phi_\xi = \phi_{i+1/2} - \phi_{i-1/2})$ is accomplished by the following:
+               
 $$
 \begin{aligned}
 \phi_{i+1/2} &= \frac{1}{2} \left ( \phi^L_{i+1/2} + \phi^R_{i+1/2} \right) \\
