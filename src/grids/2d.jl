@@ -363,21 +363,15 @@ function update!(mesh::AxisymmetricGrid2D)
   return nothing
 end
 
-"""
-    jacobian_matrix(mesh::CurvilinearGrid2D, idx)
-
-The cell-centroid Jacobian matrix (the forward transformation: ∂x/∂ξ, ∂y/∂ξ, ... ). Use `inv(jacobian_matrix(mesh, idx))` to
-get the inverse transformation (∂ξ/∂x, ∂ξ/∂y, ...)
-"""
-function jacobian_matrix(mesh::CurvilinearGrid2D, idx)
-  xξ = mesh.cell_center_metrics.x₁.ξ
-  yξ = mesh.cell_center_metrics.x₂.ξ
-  xη = mesh.cell_center_metrics.x₁.η
-  yη = mesh.cell_center_metrics.x₂.η
+function jacobian_matrix(mesh::AbstractCurvilinearGrid2D, (i, j))
+  xξ = mesh.cell_center_metrics.forward.x₁.ξ
+  yξ = mesh.cell_center_metrics.forward.x₂.ξ
+  xη = mesh.cell_center_metrics.forward.x₁.η
+  yη = mesh.cell_center_metrics.forward.x₂.η
 
   return @SMatrix [
-    xξ[idx] xη[idx]
-    yξ[idx] yη[idx]
+    xξ[i, j] xη[i, j]
+    yξ[i, j] yη[i, j]
   ]
 end
 
@@ -424,40 +418,38 @@ function _check_valid_metrics(mesh::AbstractCurvilinearGrid2D)
   @views begin
     centroid_metrics_valid =
       all(isfinite.(mesh.cell_center_metrics.forward.J[domain])) &&
-      all(mesh.cell_center_metrics.forward.J[domain] .> 0)
-    #     all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.ξ.x₂[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.η.x₁[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.η.x₂[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.x₁.ξ[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.x₁.η[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.x₂.ξ[domain])) &&
-    #     all(isfinite.(mesh.cell_center_metrics.x₂.η[domain]))
+      all(mesh.cell_center_metrics.forward.J[domain] .> 0) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₂[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.η.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.η.x₂[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₁.ξ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₁.η[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₂.ξ[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₂.η[domain]))
 
-    # edge_metrics_valid =
-    # all(isfinite.(mesh.edge_metrics.i₊½.J[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.i₊½.η̂.t[i₊½_domain])) &&
-    # all(isfinite.(mesh.edge_metrics.j₊½.J[j₊½_domain])) # &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.t[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain])) &&
-    #     all(isfinite.(mesh.edge_metrics.j₊½.η̂.t[j₊½_domain]))
+    edge_metrics_valid =
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₂[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.t[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.x₂[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.η̂.t[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.x₁[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.x₂[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.ξ̂.t[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.x₁[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.x₂[j₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.j₊½.η̂.t[j₊½_domain]))
   end
 
-  # if !edge_metrics_valid
-  #   error("Invalid edge metrics found")
-  # end
+  if !edge_metrics_valid
+    error("Invalid edge metrics found")
+  end
 
-  # if !centroid_metrics_valid
-  #   error("Invalid centroid metrics found")
-  # end
+  if !centroid_metrics_valid
+    error("Invalid centroid metrics found")
+  end
 
   return nothing
 end

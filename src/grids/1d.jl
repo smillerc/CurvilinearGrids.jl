@@ -303,53 +303,10 @@ function update!(mesh::AbstractCurvilinearGrid1D; force=false)
   return nothing
 end
 
-# # ------------------------------------------------------------------
-# # Grid Metrics
-# # ------------------------------------------------------------------
-
-# @inline function metrics(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
-#   _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo, t))
-#   inv_jacobian_matrix = inv(_jacobian_matrix)
-#   ξx = inv_jacobian_matrix[1]
-#   J = det(_jacobian_matrix)
-
-#   vx = grid_velocities(m, i, t)
-#   ξt = -(vx * ξx)
-
-#   ξ = Metric1D(ξx, ξt)
-
-#   return (; ξ, J)
-# end
-
-# # ------------------------------------------------------------------
-# # Conservative Grid Metrics; e.g. ξ̂x = ξx * J
-# # ------------------------------------------------------------------
-
-# @inline function conservative_metrics(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
-#   _jacobian_matrix = checkeps(m._∂x∂ξ(i - m.nhalo, t))
-#   inv_jacobian_matrix = inv(_jacobian_matrix)
-#   ξx = inv_jacobian_matrix[1]
-#   J = det(_jacobian_matrix)
-
-#   vx = grid_velocities(m, i, t)
-#   ξt = -(vx * ξx)
-
-#   ξ̂ = Metric1D(ξx * J, ξt * J)
-
-#   return (; ξ̂, J)
-# end
-
-# # ------------------------------------------------------------------
-# # Jacobian related functions
-# # ------------------------------------------------------------------
-
-# @inline function jacobian_matrix(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
-#   return checkeps(SMatrix{1,1}(m.∂x∂ξ(i - m.nhalo, t)))
-# end
-
-# @inline function jacobian(m::AbstractCurvilinearGrid1D, i::Real, t::Real=0)
-#   return abs(m.∂x∂ξ(i - m.nhalo, t))
-# end
+function jacobian_matrix(mesh::AbstractCurvilinearGrid1D, (i,)::NTuple{1,Int})
+  xξ = mesh.cell_center_metrics.forward.x₁.ξ
+  return @SMatrix [xξ[i]]
+end
 
 # ------------------------------------------------------------------
 # Velocity Functions
@@ -377,30 +334,28 @@ function _centroid_coordinates!(
 end
 
 function _check_valid_metrics(mesh::AbstractCurvilinearGrid1D)
-  # domain = mesh.iterators.cell.domain
-  # i₊½_domain = expand(domain, 1, -1)
+  domain = mesh.iterators.cell.domain
+  i₊½_domain = expand(domain, 1, -1)
 
-  # @views begin
-  #   centroid_metrics_valid =
-  #     all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
-  #     all(mesh.cell_center_metrics.J[domain] .> 0) &&
-  #     all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
-  #     all(isfinite.(mesh.cell_center_metrics.x₁.ξ[domain]))
+  @views begin
+    centroid_metrics_valid =
+      all(isfinite.(mesh.cell_center_metrics.forward.J[domain])) &&
+      all(mesh.cell_center_metrics.forward.J[domain] .> 0) &&
+      all(isfinite.(mesh.cell_center_metrics.inverse.ξ.x₁[domain])) &&
+      all(isfinite.(mesh.cell_center_metrics.forward.x₁.ξ[domain]))
 
-  #   # edge_metrics_valid =
-  #   # all(isfinite.(mesh.edge_metrics.i₊½.J[i₊½_domain])) &&
-  #   #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain])) &&
-  #   #     all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain])) &&
+    edge_metrics_valid =
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.x₁[i₊½_domain])) &&
+      all(isfinite.(mesh.edge_metrics.inverse_normalized.i₊½.ξ̂.t[i₊½_domain]))
+  end
 
-  # end
+  if !edge_metrics_valid
+    error("Invalid edge metrics found")
+  end
 
-  # # if !edge_metrics_valid
-  # #   error("Invalid edge metrics found")
-  # # end
-
-  # if !centroid_metrics_valid
-  #   error("Invalid centroid metrics found")
-  # end
+  if !centroid_metrics_valid
+    error("Invalid centroid metrics found")
+  end
 
   return nothing
 end
