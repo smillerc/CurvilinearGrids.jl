@@ -52,7 +52,8 @@ nhalo = 4 # halo cells needed for stencils (can be set to 0)
 x, y, z = sphere_grid(ni, nj, nk)
 
 # Create the mesh
-mesh = CurvilinearGrid3D(x, y, z, nhalo)
+scheme = :meg6_symmetric # the symmetric scheme is more robust but more costly than :meg6
+mesh = CurvilinearGrid3D(x, y, z, scheme)
 ```
 ## Exported Functions
 
@@ -71,9 +72,13 @@ These functions are primarily used to get the complete set of coordinates for pl
 ## Constructors
 
 General purpuse constructors for 1D/2D/3D grids. These need a vector/matrix/array of vertex coordinates and the number of halo cells to pad by.
-- `CurvilinearGrid1D(x::AbstractVector{T}, nhalo::Int)`
-- `CurvilinearGrid2D(x::AbstractMatrix{T}, y::AbstractMatrix{T}, nhalo::Int)`
-- `CurvilinearGrid3D(x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, nhalo::Int)`
+- `CurvilinearGrid1D(x::AbstractVector{T}, scheme::Symbol)`
+- `CurvilinearGrid2D(x::AbstractMatrix{T}, y::AbstractMatrix{T}, scheme::Symbol)`
+- `CurvilinearGrid3D(x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, scheme::Symbol)`
+
+The `scheme` is currently limited to the following:
+- `:meg6` : See Chandravamsi et. al (https://doi.org/10.1016/j.compfluid.2023.105859)
+- `:meg6_symmetric` : For the `meg6` scheme with grid metrics computed via a symemtric scheme - See Nonmura et. al (https://doi.org/10.1016/j.compfluid.2014.09.025)
 
 A few convienence constructors have been added to make it simpler to generate certain types of grids. Use the `?` in the REPL to see the useage.
 
@@ -86,26 +91,18 @@ A few convienence constructors have been added to make it simpler to generate ce
 - `axisymmetric_rtheta_grid`: Provide (r,θ) coordinates to generate a polar mesh with axisymmetry
 - `rthetaphi_grid`: : Provide (r,θ,ϕ) coordinates to generate a polar mesh
 
-## Grid Metrics
+# Grid Metrics
 
-When solving equations such as the Navier-Stokes in transformed form (in $\xi,\eta,\zeta$), you need to include the grid metric terms. Providing these for the grid is the primary objective of `CurvilinearGrids.jl`. These conservative grid metrics satisfy the Geometric Conservation Law [(Thomas & Lombard 1979)](https://doi.org/10.2514/3.61273)
-
-$$
-\hat{\xi}_x, \hat{\xi}_y,...
-$$
-
-The subscript denotes a partial derivative, so $\xi_x = \partial \xi / \partial x$. 
-
-Grid metrics are accessed as members of the `AbstractCurvilinearGrid` type. These are `StructArrays` that include the Jacobian `J`, metrics $\xi_i, \eta_i, \zeta_i$ for $i=_{x1}, _{x2}, _{x3}$. For a 3D mesh, for example:
+Grid metrics are required for curvilinear grids. These are stored as members of the `CurvilinearGrid` types. There are three primary grid metric types: 1. forward metrics $(x_\xi, y_\xi, ...)$, 2. inverse metrics $(\xi_x, \eta_y, ...)$, and 3. normalized inverse metrics $(\hat{\xi}_x, \hat{\eta}_y, ...)$. The subscript denotes a partial derivative, so $\xi_x = \partial \xi / \partial x$. The inverse and normalized inverse metrics are computing using conservative schemes that satisfy the Geometric Conservation Law [(Thomas & Lombard 1979)](https://doi.org/10.2514/3.61273). Metrics are interpolated from cell-center to edge interfaces using the same discretization scheme that computed the derivatives (this is essential for adherance to the GCL). The metrics are `StructArrays` that include the Jacobian `J`, metrics $\xi_i, \eta_i, \zeta_i$ for $i=_{x1}, _{x2}, _{x3}$. For a 3D mesh, for example:
 ```julia
 julia> keys(pairs(mesh.edge_metrics))
 (:i₊½, :j₊½, :k₊½)
 
 julia> keys(pairs(mesh.edge_metrics.i₊½))
-(:J, :ξ̂, :η̂, :ζ̂)
+(:ξ̂, :η̂, :ζ̂, :ξ, :η, :ζ)
 
 julia> keys(pairs(mesh.cell_center_metrics))
-(:J, :ξ, :η, :ζ, :x₁, :x₂, :x₃)
+(:J, :ξ, :η, :ζ, :ξ̂, :η̂, :ζ̂, :x₁, :x₂, :x₃)
 ```
 
 ## Jacobian matrices of transformation
@@ -142,6 +139,9 @@ $$
 J^{-1} = \det [\textbf{J}^{-1}]
 $$
 
+These matrices can be accessed by calling `J = jacobian_matrix(mesh, I::CartesianIndex)`. The inverse can be found via `inv(J)`. Note that the inverse metrics found this way _will not_ be conservative and may introduce errors into your discretization. This is why the inverse metrics are stored in `mesh.metrics`.
+
+
 ## Using metrics in a PDE discretization
 
 Curvilinear transformations are often used to simulate PDEs like the heat equation or the Euler equations for fluid flow. A *vastly* simplified example is shown below, where the divergence of the flux ($\nabla \cdot q$) is found for a 1D rectlinear grid. A good description of metrics and PDE discretization is in Chapter 3 of [*Huang, W. & Russell, R. D. Adaptive Moving Mesh Methods*](https://link.springer.com/book/10.1007/978-1-4419-7916-2).
@@ -153,10 +153,10 @@ using CartesianDomains: shift
 
 x0, x1 = (-1.0, 1.0)
 ncells = 100
-nhalo = 1
+scheme = :meg6_symmetric
 
 # rectlinear_grid() is a CurvilinearGrid1D constructor for uniform geometry
-mesh = rectlinear_grid(x0, x1, ncells, nhalo)
+mesh = rectlinear_grid(x0, x1, scheme)
 ξx = mesh.cell_center_metrics.ξ.x₁
 
 const iaxis = 1
