@@ -4,6 +4,8 @@
 
 [![DOI](https://zenodo.org/badge/691738138.svg)](https://doi.org/10.5281/zenodo.14510380)
 
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.07508/status.svg)](https://doi.org/10.21105/joss.07508)
+
 `CurvilinearGrids.jl` is a Julia package that provides utilities for working with non-uniform curvilinear grids. The core function takes a grid and transforms it from $(x,y,z) \rightarrow (\xi,\eta,\zeta)$, where the transformed grid contains elements of unit length in each dimension. A common example of this is to use a body-fit mesh, e.g. a mesh around a wing, and transform it so that it becomes a uniform grid in $(\xi,\eta,\zeta)$. Then standard finite-difference stencils can be used on the uniform transformed grid. Below is an example of a cylindrical mesh in $(x,y)$ coordinates and the corresponding logical grid in $(\xi,\eta)$.
 
 ![Alt text](docs/image.png)
