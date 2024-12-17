@@ -9,7 +9,6 @@ using Polyester
 using KernelAbstractions
 using CartesianDomains
 
-using ..MetricTypes
 using ..MetricDiscretizationSchemes
 
 export AbstractCurvilinearGrid
@@ -31,6 +30,7 @@ export centroid, centroids
 export cellvolume, cellvolumes
 export radius, centroid_radius
 export jacobian_matrix
+export forward_cell_metrics, inverse_cell_metrics
 
 abstract type AbstractCurvilinearGrid end
 abstract type AbstractCurvilinearGrid1D <: AbstractCurvilinearGrid end

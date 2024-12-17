@@ -1,8 +1,5 @@
 module CurvilinearGrids
 
-include("metrics.jl")
-using .MetricTypes
-
 include("discretization_schemes/MetricDiscretizationSchemes.jl")
 using .MetricDiscretizationSchemes
 
@@ -29,6 +26,8 @@ export metrics_with_jacobian
 export cell_metrics, cell_indices
 export radius, centroid_radius
 export cellvolume, cellvolumes
+
+export forward_cell_metrics, inverse_cell_metrics
 
 include("adapt_to_gpu.jl")
 

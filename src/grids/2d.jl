@@ -382,6 +382,29 @@ The cell-centroid Jacobian (determinant of the Jacobian matrix)
 """
 jacobian(mesh::CurvilinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
 
+"""
+    forward_cell_metrics(mesh::AbstractCurvilinearGrid2D, idx)
+
+Get the forward cell metrics for a given cell index `idx`
+"""
+function forward_cell_metrics(mesh::AbstractCurvilinearGrid2D, idx)
+  (; x=mesh.cell_center_metrics.x₁[idx], y=mesh.cell_center_metrics.x₂[idx])
+end
+
+"""
+    inverse_cell_metrics(mesh::AbstractCurvilinearGrid2D, idx)
+
+Get the inverse cell metrics for a given cell index `idx`
+"""
+function inverse_cell_metrics(mesh::AbstractCurvilinearGrid2D, idx)
+  (;
+    ξ=mesh.cell_center_metrics.ξ[idx],
+    η=mesh.cell_center_metrics.η[idx],
+    ξ̂=mesh.cell_center_metrics.ξ̂[idx],
+    η̂=mesh.cell_center_metrics.η̂[idx],
+  )
+end
+
 # ------------------------------------------------------------------
 # Velocity Functions
 # ------------------------------------------------------------------
