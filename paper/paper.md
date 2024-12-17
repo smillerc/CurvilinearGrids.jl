@@ -97,7 +97,7 @@ When solving transformed PDEs in computational coordinates ($\xi,\eta,\zeta$), g
 
 The grid metrics (derivative terms in $\textbf{J}, \textbf{J}^{-1}$) at each cell-center or edge are accessed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Metrics (entries in the forward/inverse jacobian matrices) are contained in `StructArrays` for each dimension; forward metrics $(x_\xi, y_\xi, ...)$, inverse metrics $(\xi_x, \xi_y, ...)$, and normalized inverse metrics $(\hat{\xi}_x \equiv J\xi_x)$. Some authers define the normalized metric as $\hat{\xi}_x \equiv \xi_x/J$, but the definition of the forward and inverse jacobians are swapped. Chapter 3 in [@huang2011] has a particulariy lucid description of how these metrics can be included in PDE discretizations.
 
-Each grid type includes the follwoing metrics:
+Each grid type includes the following metrics:
 
 - Cell centered metrics: $(\eta_y, y_\xi, ...)$ via `grid.cell_center_metrics`
 - Edge centered metrics (`grid.edge_metrics`): inverse $\xi_x$, and normalized inverse $\hat{\xi}_x$ at $i+1/2, j+1/2, k+1/2$
