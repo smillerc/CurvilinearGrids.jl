@@ -175,6 +175,35 @@ function jacobian_matrix(mesh::CurvilinearGrid3D, (i, j, k))
   ]
 end
 
+"""
+    forward_cell_metrics(mesh::AbstractCurvilinearGrid3D, idx)
+
+Get the forward cell metrics for a given cell index `idx`
+"""
+function forward_cell_metrics(mesh::AbstractCurvilinearGrid3D, idx)
+  (;
+    x=mesh.cell_center_metrics.x₁[idx],
+    y=mesh.cell_center_metrics.x₂[idx],
+    z=mesh.cell_center_metrics.x₃[idx],
+  )
+end
+
+"""
+    inverse_cell_metrics(mesh::AbstractCurvilinearGrid3D, idx)
+
+Get the inverse cell metrics for a given cell index `idx`
+"""
+function inverse_cell_metrics(mesh::AbstractCurvilinearGrid3D, idx)
+  (;
+    ξ=mesh.cell_center_metrics.ξ[idx],
+    η=mesh.cell_center_metrics.η[idx],
+    ζ=mesh.cell_center_metrics.ζ[idx],
+    ξ̂=mesh.cell_center_metrics.ξ̂[idx],
+    η̂=mesh.cell_center_metrics.η̂[idx],
+    ζ̂=mesh.cell_center_metrics.ζ̂[idx],
+  )
+end
+
 # ------------------------------------------------------------------
 # Velocity Functions
 # ------------------------------------------------------------------

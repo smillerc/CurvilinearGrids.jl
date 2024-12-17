@@ -308,6 +308,24 @@ function jacobian_matrix(mesh::AbstractCurvilinearGrid1D, (i,)::NTuple{1,Int})
   return @SMatrix [xξ[i]]
 end
 
+"""
+    forward_cell_metrics(mesh::AbstractCurvilinearGrid1D, idx)
+
+Get the forward cell metrics for a given cell index `idx`
+"""
+function forward_cell_metrics(mesh::AbstractCurvilinearGrid1D, idx)
+  (; x=mesh.cell_center_metrics.x₁[idx],)
+end
+
+"""
+    inverse_cell_metrics(mesh::AbstractCurvilinearGrid2D, idx)
+
+Get the inverse cell metrics for a given cell index `idx`
+"""
+function inverse_cell_metrics(mesh::AbstractCurvilinearGrid1D, idx)
+  (; ξ=mesh.cell_center_metrics.ξ[idx], ξ̂=mesh.cell_center_metrics.ξ̂[idx])
+end
+
 # ------------------------------------------------------------------
 # Velocity Functions
 # ------------------------------------------------------------------
