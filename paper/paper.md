@@ -100,7 +100,7 @@ The grid metrics (derivative terms in $\textbf{J}, \textbf{J}^{-1}$) at each cel
 Each grid type includes the following metrics:
 
 - Cell centered metrics: $(\eta_y, y_\xi, ...)$ via `grid.cell_center_metrics`
-- Edge centered metrics (`grid.edge_metrics`): inverse $\xi_x$, and normalized inverse $\hat{\xi}_x$ at $i+1/2, j+1/2, k+1/2$
+- Edge centered metrics (`grid.edge_metrics`): Inverse $\xi_x$, and normalized inverse $\hat{\xi}_x$ at $i+1/2, j+1/2, k+1/2$
 - Temporal metrics: $\xi_t, \eta_t, \zeta_t$ for both cell-centered and edge metrics.
 
 Both edge and cell-centered metrics are required for many PDE discretizations -- the interpolation from cell-center to edge must be consistent, e.g. the same interpolation scheme must be shared by the PDE discretization and mesh metric computation. One such scheme that is included in `CurvilinearGrids.jl` is the 6th-order MEG scheme. Finding the forward metric $(\phi_\xi = \phi_{i+1/2} - \phi_{i-1/2})$ is accomplished by the following:
