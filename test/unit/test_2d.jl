@@ -1,5 +1,4 @@
-@testset "2D Rectangular Mesh"
-begin
+@testset "2D Rectangular Mesh" begin
   # include("common.jl")
 
   ni, nj = (40, 80)
