@@ -29,7 +29,7 @@ Grid metric computation is typically directly embedded into a particular simulat
 
 # Example Use
 
-Users provide `CurvilinearGrids.jl` with discrete coordinate points defined in real-space $(x,y,z)$. These coordinates are then used to compute the transformation to a uniform computational coordinate space $(\xi,\eta,\zeta)$. A common example of this is to use a body-fit or conformal grid and transform it so that it becomes a uniform grid in $(\xi,\eta,\zeta)$. Standard finite-difference stencils can be used on the uniform transformed grid. \autoref{fig:grid} shows an example of a curvilinear grid defined in real-space and it's representation in computational space. 
+Users provide `CurvilinearGrids.jl` with discrete coordinate points defined in real-space $(x,y,z)$. These coordinates are then used to compute the transformation to a uniform computational coordinate space $(\xi,\eta,\zeta)$. A common example of this is to use a body-fit or conformal grid and transform it so that it becomes a uniform grid in $(\xi,\eta,\zeta)$. Standard finite-difference stencils can be used on the uniform transformed grid. \autoref{fig:grid} shows an example of a curvilinear grid defined in real-space and its representation in computational space. 
 
 ![Curvilinear grid transformation.\label{fig:grid}](mesh.png)
 
@@ -95,7 +95,7 @@ $$
 
 When solving transformed PDEs in computational coordinates ($\xi,\eta,\zeta$), grid metrics **must** be included. Care must be taken if advection or motion is included in the governing equations so that the geometric conservation law (GCL) is observed [@thomas1979]. If the scheme does not follow the GCL, errors will build up and ultimately corrupt the solution. In the case of fluid dynamics, the mesh and governing equation discretizations must follow the same scheme and be *conservative* [@visbal2002]. One such conservative scheme is the Monotone Explicit Gradient (MEG) based reconstruction [@chamarthi2023; @chandravamsi2023], which is included in `CurvilinearGrids.jl`. Other common schemes include weighted essentially non-oscillatory (WENO) schemes of various order [@ma2024]. There is no restriction to particular schemes which can be added in the future.
 
-The grid metrics (derivative terms in $\textbf{J}, \textbf{J}^{-1}$) at each cell-center or edge are accessed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Metrics (entries in the forward/inverse jacobian matrices) are contained in `StructArrays` for each dimension; forward metrics $(x_\xi, y_\xi, ...)$, inverse metrics $(\xi_x, \xi_y, ...)$, and normalized inverse metrics $(\hat{\xi}_x \equiv J\xi_x)$. Some authors define the normalized metric as $\hat{\xi}_x \equiv \xi_x/J$, but the definition of the forward and inverse Jacobians are swapped. Chapter 3 in [@huang2011] has a particularly lucid description of how these metrics can be included in PDE discretizations.
+The grid metrics (derivative terms in $\textbf{J}, \textbf{J}^{-1}$) at each cell-center or edge are accessed through the `AbstractCurvilinearGrid` types exported by `CurvilinearGrids.jl`. The API currently supports 1D, 2D, and 3D geometry, with axisymmetric modes for 1D (spherical and cylindrical) and 2D (cylindrical RZ). Metrics (entries in the forward/inverse Jacobian matrices) are contained in `StructArrays` for each dimension; forward metrics $(x_\xi, y_\xi, ...)$, inverse metrics $(\xi_x, \xi_y, ...)$, and normalized inverse metrics $(\hat{\xi}_x \equiv J\xi_x)$. Some authors define the normalized metric as $\hat{\xi}_x \equiv \xi_x/J$, but the definition of the forward and inverse Jacobians are swapped. Chapter 3 in @huang2011 has a particularly lucid description of how these metrics can be included in PDE discretizations.
 
 Each grid type includes the following metrics:
 
@@ -103,7 +103,7 @@ Each grid type includes the following metrics:
 - Edge centered metrics (`grid.edge_metrics`): Inverse $\xi_x$, and normalized inverse $\hat{\xi}_x$ at $i+1/2, j+1/2, k+1/2$
 - Temporal metrics: $\xi_t, \eta_t, \zeta_t$ for both cell-centered and edge metrics.
 
-Both edge and cell-centered metrics are required for many PDE discretizations -- the interpolation from cell-center to edge must be consistent, e.g. the same interpolation scheme must be shared by the PDE discretization and mesh metric computation. One such scheme that is included in `CurvilinearGrids.jl` is the 6th-order MEG scheme. Finding the forward metric $(\phi_\xi = \phi_{i+1/2} - \phi_{i-1/2})$ is accomplished by the following:
+Both edge and cell-centered metrics are required for many PDE discretizations -- the interpolation from cell-center to edge must be consistent, i.e., the same interpolation scheme must be shared by the PDE discretization and mesh metric computation. One such scheme that is included in `CurvilinearGrids.jl` is the 6th-order MEG scheme. Finding the forward metric $(\phi_\xi = \phi_{i+1/2} - \phi_{i-1/2})$ is accomplished by the following:
                
 $$
 \begin{aligned}
