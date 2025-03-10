@@ -345,6 +345,7 @@ function rectlinear_grid(
   make_uniform=false,
   tile_layout=nothing,
   rank::Int=-1,
+  kwargs...,
 )
   if ni_cells < 2 || nj_cells < 2 || nk_cells < 2
     error(
@@ -362,6 +363,7 @@ function rectlinear_grid(
     make_uniform=make_uniform,
     tile_layout=tile_layout,
     rank=rank,
+    kwargs...,
   )
 end
 
@@ -378,8 +380,7 @@ function rectlinear_grid(
   backend=CPU(),
   is_static=true,
   make_uniform=false,
-  tile_layout=nothing,
-  rank::Int=-1,
+  kwargs...,
 ) where {T}
 
   #
@@ -411,76 +412,29 @@ function rectlinear_grid(
     error("Invalid z vector, spacing between vertices must be > 0 everywhere")
   end
 
-  if !isnothing(tile_layout)
-    if rank == -1
-      error(
-        "Tile layout is provided, but rank is invalid; make sure to specify the current MPI rank",
-      )
-    end
+  x3d = zeros(T, ni, nj, nk)
+  y3d = zeros(T, ni, nj, nk)
+  z3d = zeros(T, ni, nj, nk)
 
-    if rank == 0
-      error(
-        "Rank is 0, (MPI is zero-based), but needs to be one-based, do rank+1 for this call"
-      )
-    end
-
-    partition_fraction = max.(tile_layout, 1) # ensure no zeros or negative numbers
-    on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
-      cell_domain, partition_fraction, rank
-    )
-
-    if length(tiled_node_limits) != prod(partition_fraction)
-      error("Unable to partition the mesh to the desired tile layout")
-    end
-
-    x_local = zeros(T, size(node_subdomain))
-    y_local = zeros(T, size(node_subdomain))
-    z_local = zeros(T, size(node_subdomain))
-
-    @inbounds for (gidx, lidx) in
-                  zip(node_subdomain, CartesianIndices(size(node_subdomain)))
-      i, j, k = lidx.I
-      gi, gj, gk = gidx.I
-      x_local[i, j, k] = x[gi]
-      y_local[i, j, k] = y[gj]
-      z_local[i, j, k] = z[gk]
-    end
-
-    return CurvilinearGrid2D(
-      x_local,
-      y_local,
-      z_local,
-      discretization_scheme;
-      backend=backend,
-      on_bc=on_bc,
-      tiles=tiled_node_limits,
-      make_uniform=make_uniform,
-    )
-
-  else
-    x3d = zeros(T, ni, nj, nk)
-    y3d = zeros(T, ni, nj, nk)
-    z3d = zeros(T, ni, nj, nk)
-
-    @inbounds for k in 1:nk
-      for j in 1:nj
-        for i in 1:ni
-          x3d[i, j, k] = x[i]
-          y3d[i, j, k] = y[j]
-          z3d[i, j, k] = z[k]
-        end
+  @inbounds for k in 1:nk
+    for j in 1:nj
+      for i in 1:ni
+        x3d[i, j, k] = x[i]
+        y3d[i, j, k] = y[j]
+        z3d[i, j, k] = z[k]
       end
     end
-
-    return CurvilinearGrid3D(
-      x3d,
-      y3d,
-      z3d,
-      discretization_scheme;
-      backend=backend,
-      is_orthogonal=true,
-      is_static=is_static,
-      make_uniform=make_uniform,
-    )
   end
+
+  return CurvilinearGrid3D(
+    x3d,
+    y3d,
+    z3d,
+    discretization_scheme;
+    backend=backend,
+    is_orthogonal=true,
+    is_static=is_static,
+    make_uniform=make_uniform,
+    kwargs...,
+  )
 end

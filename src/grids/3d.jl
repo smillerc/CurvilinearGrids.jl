@@ -32,6 +32,8 @@ function CurvilinearGrid3D(
   is_orthogonal=false,
   tiles=nothing,
   make_uniform=false,
+  init_metrics=true,
+  kwargs...,
 ) where {T}
 
   #
@@ -89,7 +91,12 @@ function CurvilinearGrid3D(
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
+  # if init_metrics
   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+  # else
+  #   cell_center_metrics = nothing
+  #   edge_metrics = nothing
+  # end
 
   coords = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
@@ -139,7 +146,10 @@ function CurvilinearGrid3D(
     is_orthogonal,
   )
 
-  update!(m; force=true)
+  if init_metrics
+    update!(m; force=true)
+  end
+
   return m
 end
 

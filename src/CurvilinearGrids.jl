@@ -35,4 +35,7 @@ include("io/to_vtk.jl")
 using .VTKOutput
 export save_vtk
 
+include("mesh_functions/stretching_functions.jl")
+export one_sided_stretch, double_sided_stretch
+
 end
