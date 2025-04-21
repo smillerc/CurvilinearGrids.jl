@@ -1,20 +1,5 @@
 using Adapt
 
-# function Adapt.adapt_structure(to, ds::MonotoneExplicit6thOrderDiscretization)
-#   xᵢ₊½ = Adapt.adapt_storage(to, ds.xᵢ₊½)
-#   ∂²x = Adapt.adapt_storage(to, ds.∂²x)
-#   ∂x = Adapt.adapt_storage(to, ds.∂x)
-#   metric = Adapt.adapt_storage(to, ds.metric)
-#   inner_deriv1 = Adapt.adapt_storage(to, ds.inner_deriv1)
-#   outer_deriv1 = Adapt.adapt_storage(to, ds.outer_deriv1)
-#   inner_deriv2 = Adapt.adapt_storage(to, ds.inner_deriv2)
-#   outer_deriv2 = Adapt.adapt_storage(to, ds.outer_deriv2)
-
-#   return MonotoneExplicit6thOrderDiscretization(
-#     xᵢ₊½, ∂²x, ∂x, metric, inner_deriv1, outer_deriv1, inner_deriv2, outer_deriv2
-#   )
-# end
-
 function Adapt.adapt_structure(to, grid::CurvilinearGrid1D)
   node_coordinates = Adapt.adapt_structure(to, grid.node_coordinates)
   centroid_coordinates = Adapt.adapt_structure(to, grid.centroid_coordinates)
@@ -39,6 +24,7 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid1D)
     grid.onbc,
     grid.is_static,
     grid.is_orthogonal,
+    grid.discretization_scheme_name,
   )
 end
 
@@ -66,6 +52,7 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid2D)
     grid.onbc,
     grid.is_static,
     grid.is_orthogonal,
+    grid.discretization_scheme_name,
   )
 end
 
@@ -93,6 +80,7 @@ function Adapt.adapt_structure(to, grid::AxisymmetricGrid2D)
     grid.onbc,
     grid.is_static,
     grid.is_orthogonal,
+    grid.discretization_scheme_name,
   )
 end
 
@@ -120,5 +108,6 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid3D)
     grid.onbc,
     grid.is_static,
     grid.is_orthogonal,
+    grid.discretization_scheme_name,
   )
 end
