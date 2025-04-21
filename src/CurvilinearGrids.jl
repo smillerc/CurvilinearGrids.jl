@@ -38,4 +38,10 @@ export save_vtk
 include("mesh_functions/stretching_functions.jl")
 export one_sided_stretch, double_sided_stretch
 
+include("grids/surface_mesh.jl")
+export extract_surface_mesh
+
+include("mesh_functions/estimate_yplus.jl")
+export estimate_wall_distance
+
 end
