@@ -1,6 +1,4 @@
 @testset "2D Rectangular Mesh" begin
-  # include("common.jl")
-
   ni, nj = (40, 80)
   x0, x1 = (0, 2)
   y0, y1 = (1, 3)
@@ -71,11 +69,11 @@
   xc, yc = centroids(mesh)
   @test size(xc) == (40, 80)
   @test size(yc) == (40, 80)
+
+  surf = extract_surface_mesh(mesh, :ilo)
 end
 
 @testset "2D Wavy Mesh GCL" begin
-  # include("common.jl")
-
   function wavy_grid(nx, ny)
     x0, x1 = (0, 1)
     y0, y1 = (0, 1)
@@ -137,7 +135,6 @@ end
   # @test I₁_passes
   # @test I₂_passes
 
-  nothing
-
   save_vtk(mesh, "wavy")
+  nothing
 end
