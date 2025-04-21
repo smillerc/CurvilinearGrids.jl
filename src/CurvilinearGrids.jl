@@ -44,7 +44,4 @@ export extract_surface_mesh
 include("mesh_functions/estimate_yplus.jl")
 export estimate_wall_distance
 
-include("mesh_functions/estimate_yplus.jl")
-export estimate_wall_distance
-
 end
