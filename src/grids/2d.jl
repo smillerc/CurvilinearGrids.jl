@@ -214,11 +214,12 @@ function AxisymmetricGrid2D(
   #
   use_symmetric_conservative_metric_scheme = false
 
-  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
-  elseif Symbol(uppercase("$discretization_scheme")) === :MEG6_SYMMETRIC ||
+  elseif scheme_name === :MEG6_SYMMETRIC ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
@@ -299,6 +300,7 @@ function AxisymmetricGrid2D(
     _on_bc,
     is_static,
     is_orthogonal,
+    scheme_name,
   )
 
   update!(m)
