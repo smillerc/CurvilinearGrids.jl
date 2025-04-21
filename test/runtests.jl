@@ -16,5 +16,6 @@ include("unit/common.jl")
   include("unit/perturb_mesh.jl")
 
   include("unit/test_3d.jl")
+  include("unit/test_wall.jl")
   # include("unit/test_meg6.jl")
 end
