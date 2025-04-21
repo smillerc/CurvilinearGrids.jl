@@ -59,6 +59,23 @@ function save_vtk(mesh::CurvilinearGrid3D, fn="mesh")
   end
 end
 
+"""Write (x,y,z) coordinates to .vtk"""
+function save_vtk((x, y, z)::NTuple{3,AbstractArray{T,3}}, fn="mesh") where {T}
+  @info "Writing to $fn.vti"
+
+  vtk_grid(fn, x, y, z) do vtk
+  end
+end
+
+"""Write (x,y) coordinates to .vtk"""
+function save_vtk((x, y)::NTuple{2,AbstractMatrix{N}}, fn="mesh") where {N}
+  @info "Writing to $fn.vti"
+
+  vtk_grid(fn, x, y) do vtk
+  end
+end
+
+"""Write the mesh to .VTK format"""
 function save_vtk(mesh::AbstractCurvilinearGrid2D, fn="mesh")
   @info "Writing to $fn.vti"
 
