@@ -14,6 +14,7 @@ struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1
   onbc::@NamedTuple{ilo::Bool, ihi::Bool}
   is_static::Bool
   is_orthogonal::Bool
+  discretization_scheme_name::Symbol
 end
 
 struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
@@ -32,6 +33,7 @@ struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
   snap_to_axis::Bool
   is_static::Bool
   is_orthogonal::Bool
+  discretization_scheme_name::Symbol
 end
 
 struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
@@ -50,6 +52,7 @@ struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1
   snap_to_axis::Bool
   is_static::Bool
   is_orthogonal::Bool
+  discretization_scheme_name::Symbol
 end
 
 """
@@ -67,10 +70,16 @@ function CurvilinearGrid1D(
 ) where {T}
 
   #
-  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -124,6 +133,7 @@ function CurvilinearGrid1D(
     _on_bc,
     is_static,
     true,
+    scheme_name,
   )
 
   update!(m; force=true)
@@ -146,10 +156,16 @@ function SphericalGrid1D(
 ) where {T}
 
   #
-  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -204,6 +220,7 @@ function SphericalGrid1D(
     snap_to_axis,
     is_static,
     true,
+    scheme_name,
   )
 
   update!(m; force=true)
@@ -226,10 +243,16 @@ function CylindricalGrid1D(
 ) where {T}
 
   #
-  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -284,6 +307,7 @@ function CylindricalGrid1D(
     snap_to_axis,
     is_static,
     true,
+    scheme_name,
   )
 
   update!(m; force=true)

@@ -14,6 +14,7 @@ struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid3
   onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool, klo::Bool, khi::Bool}
   is_static::Bool
   is_orthogonal::Bool
+  discretization_scheme_name::Symbol
 end
 
 """
@@ -39,11 +40,12 @@ function CurvilinearGrid3D(
   #
   use_symmetric_conservative_metric_scheme = false
 
-  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
-  elseif Symbol(uppercase("$discretization_scheme")) === :MEG6_SYMMETRIC ||
+  elseif scheme_name === :MEG6_SYMMETRIC ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
@@ -144,6 +146,7 @@ function CurvilinearGrid3D(
     _on_bc,
     is_static,
     is_orthogonal,
+    scheme_name,
   )
 
   if init_metrics

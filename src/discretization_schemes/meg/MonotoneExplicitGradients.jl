@@ -41,7 +41,9 @@ function MontoneExplicitGradientScheme6thOrder(;
     )
   end
 
-  @assert all((celldims .- 2nhalo) .> 5) "The domain dimensions $(celldims) are too small to use a 6th order scheme"
+  if !all((celldims .- 2nhalo) .> 5)
+    @warn "The domain dimensions $(celldims) are too small to use a 6th order scheme"
+  end
 
   if use_cache
     cache = (;

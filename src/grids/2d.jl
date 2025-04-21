@@ -14,6 +14,7 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2
   onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
   is_static::Bool
   is_orthogonal::Bool
+  discretization_scheme_name::Symbol
 end
 
 """
@@ -36,6 +37,7 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid
   onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
   is_static::Bool
   is_orthogonal::Bool
+  discretization_scheme_name::Symbol
 end
 
 """
@@ -54,16 +56,19 @@ function CurvilinearGrid2D(
   is_orthogonal=false,
   tiles=nothing,
   make_uniform=false,
+  init_metrics=true,
+  kwargs...,
 ) where {T}
 
   #
   use_symmetric_conservative_metric_scheme = false
 
-  if Symbol(uppercase("$discretization_scheme")) === :MEG6 ||
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
-  elseif Symbol(uppercase("$discretization_scheme")) === :MEG6_SYMMETRIC ||
+  elseif scheme_name === :MEG6_SYMMETRIC ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
@@ -142,9 +147,12 @@ function CurvilinearGrid2D(
     _on_bc,
     is_static,
     is_orthogonal,
+    scheme_name,
   )
 
-  update!(m; force=true)
+  if init_metrics
+    update!(m; force=true)
+  end
 
   if make_uniform
     first_idx = first(m.iterators.cell.domain)
