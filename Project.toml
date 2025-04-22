@@ -24,7 +24,7 @@ WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
 
 [compat]
 Adapt = "4"
-CartesianDomains = "0.1"
+CartesianDomains = "0.1, 0.2"
 ChunkSplitters = "2, 3"
 FillArrays = "1"
 FiniteDifferences = "0.12"
