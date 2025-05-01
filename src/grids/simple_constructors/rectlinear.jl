@@ -159,6 +159,7 @@ function rectlinear_grid(
       "The number of cells specified must be > 1, given cell dims are $((ni_cells, nj_cells))",
     )
   end
+  sleep(0.1)
 
   return rectlinear_grid(
     range(x0, x1; length=ni_cells + 1) .|> T,
