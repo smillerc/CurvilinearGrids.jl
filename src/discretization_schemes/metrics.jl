@@ -178,8 +178,10 @@ function conservative_metric!(
   ζ, η = deriv_axes
 
   # ξ̂x = (y_η z)_ζ − (y_ζ z)_η
-  ∂ζ = mappedarray(*, y_η, z)
-  ∂η = mappedarray(*, y_ζ, z)
+  # ∂ζ = mappedarray(*, y_η, z) :: This is a mapped array, which is incompatible with GPU kernels
+  ∂ζ = y_η .* z
+  # ∂η = mappedarray(*, y_ζ, z) :: This is a mapped array, which is incompatible with GPU kernels
+  ∂η = y_ζ .* z
 
   cell_center_derivatives!(
     scheme,

@@ -43,7 +43,7 @@ function cell_center_derivatives!(
   #   inner_domain = domain
   # end
 
-  inner_kernel!(scheme.backend)(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, inner_domain, axis, ndrange=size(inner_domain))
+  ccd_inner_kernel!(scheme.backend)(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, inner_domain, axis, ndrange=size(inner_domain))
 
   # if !inner_domain_only
   index_offset = 0
@@ -52,19 +52,19 @@ function cell_center_derivatives!(
   lo_domain = lower_boundary_indices(domain, axis, index_offset)
 
   # the lo-side derivative ∂ϕ/∂ξ can only use ϕᴿᵢ₋½ instead of ϕᵢ₋½
-  lo_edge_kernel!(scheme.backend)(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, lo_domain, axis, ndrange=size(lo_domain))
+  ccd_lo_edge_kernel!(scheme.backend)(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, lo_domain, axis, ndrange=size(lo_domain))
 
   # select last index along given boundary axis
   hi_domain = upper_boundary_indices(domain, axis, index_offset)
 
   # the hi-side derivative ∂ϕ/∂ξ can only use ϕᴸᵢ₊½ instead of ϕᵢ₊½
-  hi_edge_kernel!(scheme.backend)(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, hi_domain, axis, ndrange=size(hi_domain))
+  ccd_hi_edge_kernel!(scheme.backend)(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, hi_domain, axis, ndrange=size(hi_domain))
   # end
 
   return nothing
 end
 
-@kernel inbounds = true function inner_kernel!(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, domain, axis)
+@kernel inbounds = true function ccd_inner_kernel!(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, domain, axis)
     idx = @index(Global)
     i = domain[idx]
 
@@ -80,7 +80,7 @@ end
     ϕ_ξ[i] = _ϕ_ξ
 end
 
-@kernel inbounds = true function lo_edge_kernel!(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, domain, axis)
+@kernel inbounds = true function ccd_lo_edge_kernel!(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, domain, axis)
     idx = @index(Global)
     i = domain[idx]
 
@@ -94,7 +94,7 @@ end
     ϕ_ξ[i] = _ϕ_ξ
 end
 
-@kernel inbounds = true function hi_edge_kernel!(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, domain, axis)
+@kernel inbounds = true function ccd_hi_edge_kernel!(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, domain, axis)
     idx = @index(Global)
     i = domain[idx]
 
