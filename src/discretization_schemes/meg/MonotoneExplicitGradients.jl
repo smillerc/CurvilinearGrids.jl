@@ -51,6 +51,8 @@ function MontoneExplicitGradientScheme6thOrder(;
       ∂ϕ=KernelAbstractions.zeros(backend, T, celldims),
       outer_deriv_1=KernelAbstractions.zeros(backend, T, celldims),
       outer_deriv_2=KernelAbstractions.zeros(backend, T, celldims),
+      inner_deriv_1=KernelAbstractions.zeros(backend, T, celldims),
+      inner_deriv_2=KernelAbstractions.zeros(backend, T, celldims),
     )
   else
     cache = nothing
