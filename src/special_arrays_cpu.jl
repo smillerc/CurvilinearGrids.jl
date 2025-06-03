@@ -2,42 +2,36 @@ module SpecialArrays
 
 export RectlinearArray
 
-mutable struct RectlinearArray{T,N,D,A<:Union{AbstractArray{T,D},T},M} <: AbstractArray{T,N}
+struct RectlinearArray{T,N,D,A<:AbstractArray{T,D},K,M} <: AbstractArray{T,N}
     data::A
     dims::NTuple{N,Int}
-    fixed_index::NTuple{M,Int}
+    fixed_indices::NTuple{K,Int}
+    valid_indices::NTuple{M,Int}
 end
 
 function RectlinearArray(data::AbstractArray{T}, fixed_index::Tuple) where {T}
     new_data = _drop_dims(data, fixed_index)
-    return RectlinearArray{eltype(data), ndims(data), ndims(new_data), typeof(new_data), length(fixed_index)}(new_data, size(data), fixed_index)
+    valid_indices = filter(i -> i ∉ fixed_index, Tuple(1:ndims(data)))
+    return RectlinearArray{eltype(data), ndims(data), ndims(new_data), typeof(new_data), length(fixed_index), length(valid_indices)}(new_data, size(data), fixed_index, valid_indices)
 end
 
 Base.size(A::RectlinearArray) = A.dims
 
 @inline function Base.getindex(A::RectlinearArray{T,N}, I::Vararg{Int, N}) where {T,N}
-    if !isa(A.data, Number)
-        _skip_index(A.data, A.fixed_index, I...)
-    else
-        A.data
-    end
+    _skip_index(A.data, A.valid_indices, I...)
 end
 
 @inline function Base.setindex!(A::RectlinearArray{T,N}, v, I::Vararg{Int,N}) where {T,N}
-    if !isa(A.data, Number)
-        A.data[_drop_index(I, A.fixed_index)...] = v
-    else
-        A.data = v
-    end
+    A.data[_drop_index(I, A.valid_indices)...] = v
 end
 
 Base.BroadcastStyle(::Type{<:RectlinearArray}) = Broadcast.ArrayStyle{RectlinearArray}()
 
-Base.similar(A::RectlinearArray{T,N}) where {T,N} = RectlinearArray(similar((isa(A.data, Number) ? [A.data] : A.data), A.dims), A.fixed_index)
+Base.similar(A::RectlinearArray{T,N}) where {T,N} = RectlinearArray(similar(A.data, A.dims), A.fixed_indices)
 
 function Base.similar(bc::Broadcast.Broadcasted{Broadcast.ArrayStyle{RectlinearArray}}, ::Type{ElType}) where {ElType}
     A = find_ra(bc)
-    RectlinearArray(similar((isa(A.data, Number) ? [A.data] : A.data), A.dims), A.fixed_index)
+    RectlinearArray(similar(A.data, A.dims), A.fixed_indices)
 end
 
 find_ra(bc::Base.Broadcast.Broadcasted) = find_ra(bc.args)
@@ -61,18 +55,18 @@ end
 
 # --- Begin Helper functions --- #
 
-function _drop_index(indices::NTuple{N, Int}, k::Tuple) where {N}
-    return Tuple([indices[i] for i in 1:N if i ∉ k])
+function _drop_index(indices::NTuple{N, Int}, valid_indices::NTuple{M,Int}) where {N,M}
+    return ntuple(i -> indices[valid_indices[i]], M)
 end
 
-function _skip_index(A::AbstractArray, fixed_index::Tuple, inds::Int...)
-    skip = _drop_index(inds, fixed_index)
+function _skip_index(A::AbstractArray, valid_indices::Tuple, inds::Int...)
+    skip = _drop_index(inds, valid_indices)
     return getindex(A, skip...)
 end
 
 function _drop_dims(A::AbstractArray, dims::Tuple)
     new_dims = ntuple(i -> i ∈ dims ? 1 : Colon(), Val(ndims(A)))
-    return A[new_dims...]
+    return isa(A[new_dims...], Number) ? [A[new_dims...]] : A[new_dims...]
 end
 
 # --- End Helper functions --- #
