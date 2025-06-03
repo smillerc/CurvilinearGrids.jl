@@ -41,6 +41,6 @@ using .SpecialArrays
     matmul!(output, Aᵣ, Bᵣ)
     KernelAbstractions.synchronize(CUDABackend())
 
-    @test isapprox(output, a*b)
+    @test isapprox(Array(output), A * Array(transpose(B)))
 
 end
