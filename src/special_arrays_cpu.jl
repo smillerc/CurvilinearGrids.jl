@@ -49,6 +49,16 @@ find_ra(::Any, rest) = find_ra(rest)
 
 IndexStyle(::Type{<:RectlinearArray}) = IndexStyle(typeof(RectlinearArray).parameters[1])
 
+function Base.Broadcast.materialize!(dest::RectlinearArray, bc::Broadcast.Broadcasted)
+    if isa(dest.data, Number)
+        dest.data = bc.f(map(arg -> isa(arg, RectlinearArray) ? arg.data : arg, bc.args)...)
+    else
+        new_bc = Broadcast.instantiate(Broadcast.Broadcasted(bc.f, map(arg -> isa(arg, RectlinearArray) ? arg.data : arg, bc.args), axes(dest.data)))
+        Broadcast.materialize!(dest.data, new_bc)
+    end 
+    return dest
+end
+
 # --- Begin Helper functions --- #
 
 function _drop_index(indices::NTuple{N, Int}, k::Tuple) where {N}
