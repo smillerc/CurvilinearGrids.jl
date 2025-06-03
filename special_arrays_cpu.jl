@@ -2,30 +2,42 @@ module SpecialArrays
 
 export RectlinearArray
 
-struct RectlinearArray{T,N,D} <: AbstractArray{T,N}
-    data::AbstractArray{T,D}
+mutable struct RectlinearArray{T,N,D,A<:Union{AbstractArray{T,D},T},M} <: AbstractArray{T,N}
+    data::A
     dims::NTuple{N,Int}
-    fixed_index::Tuple{Vararg{Int}}
+    fixed_index::NTuple{M,Int}
 end
 
 function RectlinearArray(data::AbstractArray{T}, fixed_index::Tuple) where {T}
     new_data = _drop_dims(data, fixed_index)
-    return RectlinearArray{eltype(data), ndims(data), ndims(new_data)}(new_data, size(data), fixed_index)
+    return RectlinearArray{eltype(data), ndims(data), ndims(new_data), typeof(new_data), length(fixed_index)}(new_data, size(data), fixed_index)
 end
 
 Base.size(A::RectlinearArray) = A.dims
 
-Base.getindex(A::RectlinearArray{T,N}, I::Vararg{Int, N}) where {T,N} = _skip_index(A.data, A.fixed_index, I...)
+@inline function Base.getindex(A::RectlinearArray{T,N}, I::Vararg{Int, N}) where {T,N}
+    if !isa(A.data, Number)
+        _skip_index(A.data, A.fixed_index, I...)
+    else
+        A.data
+    end
+end
 
-Base.setindex!(A::RectlinearArray{T,N}, v, I::Vararg{Int,N}) where {T,N} = (A.data[_drop_index(I, A.fixed_index)...] = v)
+@inline function Base.setindex!(A::RectlinearArray{T,N}, v, I::Vararg{Int,N}) where {T,N}
+    if !isa(A.data, Number)
+        A.data[_drop_index(I, A.fixed_index)...] = v
+    else
+        A.data = v
+    end
+end
 
 Base.BroadcastStyle(::Type{<:RectlinearArray}) = Broadcast.ArrayStyle{RectlinearArray}()
 
-Base.similar(A::RectlinearArray{T,N}) where {T,N} = RectlinearArray(similar(A.data, A.dims), A.fixed_index)
+Base.similar(A::RectlinearArray{T,N}) where {T,N} = RectlinearArray(similar((isa(A.data, Number) ? [A.data] : A.data), A.dims), A.fixed_index)
 
 function Base.similar(bc::Broadcast.Broadcasted{Broadcast.ArrayStyle{RectlinearArray}}, ::Type{ElType}) where {ElType}
     A = find_ra(bc)
-    RectlinearArray(similar(A.data, ElType, axes(bc)), A.fixed_index)
+    RectlinearArray(similar((isa(A.data, Number) ? [A.data] : A.data), A.dims), A.fixed_index)
 end
 
 find_ra(bc::Base.Broadcast.Broadcasted) = find_ra(bc.args)
