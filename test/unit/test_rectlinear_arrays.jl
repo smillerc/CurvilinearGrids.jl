@@ -1,8 +1,8 @@
 using Test, Random, KernelAbstractions, CUDA
 
-include("src/special_arrays.jl")
+include("src/RectlinearArrays.jl")
 
-using .SpecialArrays 
+using .RectlinearArrays
 
 @testset "Rectlinear2D 1 fixed axis" begin
     slice = rand(-0.9:0.01:0.9, 4)
@@ -80,7 +80,7 @@ end
     @test eltype(B_sim) == eltype(B)
 
     # Test broadcasting (this also tests the Base.similar implementation necessary for broadcasting)
-    B_zeros = RectlinearArray(zeros(Float64, (4,5,3)), (3,))
+    B_zeros = RectlinearArrays.zeros(Float64, (3,), (4,5,3))
     B_zeros .+= 10
     @test all(i -> i == 10, B_zeros)
     # --- End 1 fixed axis --- #
@@ -116,7 +116,7 @@ end
     @test eltype(D_sim) == eltype(D)
 
     # Test broadcasting (this also tests the Base.similar implementation necessary for broadcasting)
-    D_zeros = RectlinearArray(zeros(Float64, (4,5,3)), (2,3))
+    D_zeros = RectlinearArrays.zeros(Float64, (2,3), (4,5,3))
     D_zeros .+= 10
     @test all(i -> i == 10, D_zeros)
     # --- End 2 fixed axes --- #

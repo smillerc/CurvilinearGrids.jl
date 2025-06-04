@@ -1,8 +1,8 @@
 using BenchmarkTools, Random
 
-include("src/special_arrays_cpu.jl")
+include("src/RectlinearArrays.jl")
 
-using .SpecialArrays
+using .RectlinearArrays
 
 const SUITE = BenchmarkGroup()
 
