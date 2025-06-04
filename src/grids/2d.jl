@@ -65,11 +65,11 @@ function CurvilinearGrid2D(
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
     use_symmetric_conservative_metric_scheme = true
@@ -216,11 +216,11 @@ function AxisymmetricGrid2D(
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
     use_symmetric_conservative_metric_scheme = true
@@ -436,8 +436,8 @@ function _centroid_coordinates!(
   # Populate the centroid coordinates
   for idx in domain
     i, j = idx.I
-    centroids.x[idx] = 0.25(x[i, j] + x[i + 1, j] + x[i + 1, j + 1] + x[i, j + 1])
-    centroids.y[idx] = 0.25(y[i, j] + y[i + 1, j] + y[i + 1, j + 1] + y[i, j + 1])
+    centroids.x[idx] = 0.25(x[i, j] + x[i+1, j] + x[i+1, j+1] + x[i, j+1])
+    centroids.y[idx] = 0.25(y[i, j] + y[i+1, j] + y[i+1, j+1] + y[i, j+1])
   end
 
   return nothing
