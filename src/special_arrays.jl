@@ -45,6 +45,10 @@ find_ra(::Any, rest) = find_ra(rest)
 
 IndexStyle(::Type{<:RectlinearArray}) = IndexStyle(typeof(RectlinearArray).parameters[1])
 
+Base.eachindex(A::RectlinearArray) = eachindex(A.data)
+
+Base.CartesianIndices(A::RectlinearArray) = CartesianIndices(A.data)
+
 function Base.Broadcast.materialize!(dest::RectlinearArray, bc::Broadcast.Broadcasted)
     new_bc = Broadcast.instantiate(Broadcast.Broadcasted(bc.f, map(arg -> isa(arg, RectlinearArray) ? arg.data : arg, bc.args), axes(dest.data)))
     Broadcast.materialize!(dest.data, new_bc)
