@@ -3,6 +3,9 @@ module CurvilinearGrids
 include("discretization_schemes/MetricDiscretizationSchemes.jl")
 using .MetricDiscretizationSchemes
 
+include("RectlinearArrays.jl")
+using .RectlinearArrays
+
 include("grids/GridTypes.jl")
 using .GridTypes
 export AbstractCurvilinearGrid
@@ -43,9 +46,5 @@ export extract_surface_mesh
 
 include("mesh_functions/estimate_yplus.jl")
 export estimate_wall_distance
-
-include("RectlinearArrays.jl")
-using .RectlinearArrays
-export RectlinearArray
 
 end

@@ -10,6 +10,7 @@ using KernelAbstractions
 using CartesianDomains
 
 using ..MetricDiscretizationSchemes
+using ..RectlinearArrays
 
 export AbstractCurvilinearGrid
 export AbstractCurvilinearGrid1D

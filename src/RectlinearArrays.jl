@@ -140,6 +140,14 @@ Base.size(A::RectlinearArray) = A.dims
 @inline function Base.getindex(A::RectlinearArray{T,N}, I::Vararg{Int, N}) where {T,N}
     _skip_index(A.data, A.valid_indices, I...)
 end
+# This getindex function is intended for indices that return multiple values (e.g. a range like 2:9). This allocates a new array (much like Julia's standard getindex in this case) and therefore will not work in GPU code
+@inline function Base.getindex(A::RectlinearArray{T,N}, I::Vararg{Any, N}) where {T,N}
+    return RectlinearArray(reshape([A[i...] for i in Iterators.product(I...)], length.(I)), A.fixed_indices)
+end
+# This getindex function is intended for indices that return multiple values (e.g. a CartesianIndices). This allocates a new array (much like Julia's standard getindex in this case) and therefore will not work in GPU code
+@inline function Base.getindex(A::RectlinearArray{T,N}, I::CartesianIndices) where {T,N}
+    return RectlinearArray(reshape([A[i] for i in I], size(I)), A.fixed_indices)
+end
 
 # Define the setindex! function
 @inline function Base.setindex!(A::RectlinearArray{T,N}, v, I::Vararg{Int,N}) where {T,N}
@@ -172,12 +180,21 @@ IndexStyle(::Type{<:RectlinearArray}) = IndexStyle(typeof(RectlinearArray).param
 Base.eachindex(A::RectlinearArray) = eachindex(A.data)
 
 # Overload CartesianIndices for performance
-Base.CartesianIndices(A::RectlinearArray) = CartesianIndices(A.data)
+# Base.CartesianIndices(A::RectlinearArray) = CartesianIndices(A.data)
 
-# Overload materialize! for in-place broadcasting
+# Overload materialize! for in-place broadcasting; Changed broadcasting. This now essentially operates over the "largest" eachindex for the given arguments
 function Base.Broadcast.materialize!(dest::RectlinearArray, bc::Broadcast.Broadcasted)
-    new_bc = Broadcast.instantiate(Broadcast.Broadcasted(bc.f, map(arg -> isa(arg, RectlinearArray) ? arg.data : arg, bc.args), axes(dest.data)))
-    Broadcast.materialize!(dest.data, new_bc)
+    bc = Broadcast.instantiate(bc)
+    ref = _largest_eachindex(dest, bc.args...)
+    ref_index_space = eachindex(ref)
+
+    println("Running...")
+    println(typeof(ref))
+    println(ref_index_space)
+
+    for i in ref_index_space
+        dest[i] = bc.f((arg isa AbstractArray ? arg[i] : arg for arg in bc.args)...)
+    end
     return dest
 end
 
@@ -197,6 +214,21 @@ end
 function _drop_dims(A::AbstractArray, dims::Tuple)
     new_dims = ntuple(i -> i ∈ dims ? 1 : Colon(), Val(ndims(A)))
     return isa(A[new_dims...], Number) ? [A[new_dims...]] : A[new_dims...]
+end
+
+function _largest_eachindex(A...)
+    maxlen = -1
+    best = nothing
+    for a in A
+        if isa(a, AbstractArray)
+            len = length(eachindex(a))
+            if len > maxlen
+                maxlen = len
+                best = a
+            end
+        end
+    end
+    return best
 end
 
 # --- End Helper functions --- #
