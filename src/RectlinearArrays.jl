@@ -188,10 +188,6 @@ function Base.Broadcast.materialize!(dest::RectlinearArray, bc::Broadcast.Broadc
     ref = _largest_eachindex(dest, bc.args...)
     ref_index_space = eachindex(ref)
 
-    println("Running...")
-    println(typeof(ref))
-    println(ref_index_space)
-
     for i in ref_index_space
         dest[i] = bc.f((arg isa AbstractArray ? arg[i] : arg for arg in bc.args)...)
     end
