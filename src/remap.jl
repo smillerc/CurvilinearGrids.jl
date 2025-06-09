@@ -156,7 +156,7 @@ function scale_resolution(mesh::CurvilinearGrid3D, (α, β, γ)::NTuple{3,Real})
     range(1; stop=nk, step=inv(γ)), #
   )
 
-  new_mesh = CurvilinearGrid2D(new_x, new_y, new_z, mesh.discretization_scheme_name)
+  new_mesh = CurvilinearGrid3D(new_x, new_y, new_z, mesh.discretization_scheme_name)
 
   return new_mesh
 end
