@@ -17,6 +17,24 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2
   discretization_scheme_name::Symbol
 end
 
+struct RectlinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
+  node_coordinates::CO
+  centroid_coordinates::CE
+  node_velocities::NV
+  edge_metrics::EM
+  cell_center_metrics::CM
+  nhalo::Int
+  nnodes::NTuple{2,Int}
+  domain_limits::DL
+  iterators::CI
+  tiles::TI
+  discretization_scheme::DS
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
+  is_static::Bool
+  is_orthogonal::Bool
+  discretization_scheme_name::Symbol
+end
+
 """
 AxisymmetricGrid2D
 """
@@ -133,6 +151,151 @@ function CurvilinearGrid2D(
   end
 
   m = CurvilinearGrid2D(
+    coords,
+    centroids,
+    node_velocities,
+    edge_metrics,
+    cell_center_metrics,
+    nhalo,
+    nnodes,
+    limits,
+    domain_iterators,
+    tiles,
+    discr_scheme,
+    _on_bc,
+    is_static,
+    is_orthogonal,
+    scheme_name,
+  )
+
+  if init_metrics
+    update!(m; force=true)
+  end
+
+  if make_uniform
+    first_idx = first(m.iterators.cell.domain)
+
+    fill!(m.cell_center_metrics.J, m.cell_center_metrics.J[first_idx])
+
+    fill!(m.cell_center_metrics.x₁.ξ, m.cell_center_metrics.x₁.ξ[first_idx])
+    fill!(m.cell_center_metrics.x₂.ξ, m.cell_center_metrics.x₂.ξ[first_idx])
+    fill!(m.cell_center_metrics.x₁.η, m.cell_center_metrics.x₁.η[first_idx])
+    fill!(m.cell_center_metrics.x₂.η, m.cell_center_metrics.x₂.η[first_idx])
+
+    fill!(m.cell_center_metrics.ξ.x₁, m.cell_center_metrics.ξ.x₁[first_idx])
+    fill!(m.cell_center_metrics.ξ.x₂, m.cell_center_metrics.ξ.x₂[first_idx])
+    fill!(m.cell_center_metrics.η.x₁, m.cell_center_metrics.η.x₁[first_idx])
+    fill!(m.cell_center_metrics.η.x₂, m.cell_center_metrics.η.x₂[first_idx])
+
+    fill!(m.edge_metrics.i₊½.J, m.edge_metrics.i₊½.J[first_idx])
+
+    fill!(m.edge_metrics.i₊½.ξ̂.x₁, m.edge_metrics.i₊½.ξ̂.x₁[first_idx])
+    fill!(m.edge_metrics.i₊½.ξ̂.x₂, m.edge_metrics.i₊½.ξ̂.x₂[first_idx])
+    fill!(m.edge_metrics.i₊½.ξ̂.t, m.edge_metrics.i₊½.ξ̂.t[first_idx])
+    fill!(m.edge_metrics.i₊½.η̂.x₁, m.edge_metrics.i₊½.η̂.x₁[first_idx])
+    fill!(m.edge_metrics.i₊½.η̂.x₂, m.edge_metrics.i₊½.η̂.x₂[first_idx])
+    fill!(m.edge_metrics.i₊½.η̂.t, m.edge_metrics.i₊½.η̂.t[first_idx])
+
+    fill!(m.edge_metrics.j₊½.J, m.edge_metrics.j₊½.J[first_idx])
+
+    fill!(m.edge_metrics.j₊½.ξ̂.x₁, m.edge_metrics.j₊½.ξ̂.x₁[first_idx])
+    fill!(m.edge_metrics.j₊½.ξ̂.x₂, m.edge_metrics.j₊½.ξ̂.x₂[first_idx])
+    fill!(m.edge_metrics.j₊½.ξ̂.t, m.edge_metrics.j₊½.ξ̂.t[first_idx])
+    fill!(m.edge_metrics.j₊½.η̂.x₁, m.edge_metrics.j₊½.η̂.x₁[first_idx])
+    fill!(m.edge_metrics.j₊½.η̂.x₂, m.edge_metrics.j₊½.η̂.x₂[first_idx])
+    fill!(m.edge_metrics.j₊½.η̂.t, m.edge_metrics.j₊½.η̂.t[first_idx])
+  end
+
+  return m
+end
+
+function RectlinearGrid2D(
+  x::AbstractArray{T,2},
+  y::AbstractArray{T,2},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  on_bc=nothing,
+  is_static=false,
+  is_orthogonal=false,
+  tiles=nothing,
+  make_uniform=false,
+  init_metrics=true,
+  kwargs...,
+) where {T}
+
+  #
+  use_symmetric_conservative_metric_scheme = false
+
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  #
+  @assert size(x) == size(y)
+
+  nnodes = size(x)
+  ni, nj = nnodes
+
+  ncells = nnodes .- 1
+  ni_cells, nj_cells = ncells
+  lo = nhalo + 1
+  limits = (
+    node=(ilo=lo, ihi=ni + nhalo, jlo=lo, jhi=nj + nhalo),
+    cell=(ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo),
+  )
+
+  nodeCI = CartesianIndices(nnodes .+ 2nhalo)
+  cellCI = CartesianIndices(ncells .+ 2nhalo)
+
+  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
+  celldims = size(domain_iterators.cell.full)
+  nodedims = size(domain_iterators.node.full)
+
+  cell_center_metrics, edge_metrics = get_metric_soa_rectlinear2d(celldims, backend, T)
+
+  coords = StructArray((
+    x=KernelAbstractions.zeros(backend, T, nodedims),
+    y=KernelAbstractions.zeros(backend, T, nodedims),
+  ))
+
+  @views begin
+    copy!(coords.x[domain_iterators.node.domain], x)
+    copy!(coords.y[domain_iterators.node.domain], y)
+  end
+
+  centroids = StructArray((
+    x=KernelAbstractions.zeros(backend, T, celldims),
+    y=KernelAbstractions.zeros(backend, T, celldims),
+  ))
+
+  _centroid_coordinates!(centroids, coords, domain_iterators.cell.domain)
+
+  node_velocities = StructArray((
+    x=KernelAbstractions.zeros(backend, T, nodedims),
+    y=KernelAbstractions.zeros(backend, T, nodedims),
+  ))
+
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
+  )
+
+  if isnothing(on_bc)
+    _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true)
+  else
+    _on_bc = on_bc
+  end
+
+  m = RectlinearGrid2D(
     coords,
     centroids,
     node_velocities,
@@ -357,6 +520,20 @@ function update!(mesh::CurvilinearGrid2D; force=false)
 end
 
 """Update metrics after grid coordinates change"""
+function update!(mesh::RectlinearGrid2D; force=false)
+  if !mesh.is_static || force
+    _centroid_coordinates!(
+      mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
+    )
+    update_metrics!(mesh)
+    _check_valid_metrics(mesh)
+  else
+    error("Attempting to update grid metrics when grid.is_static = true!")
+  end
+  return nothing
+end
+
+"""Update metrics after grid coordinates change"""
 function update!(mesh::AxisymmetricGrid2D)
   _centroid_coordinates!(
     mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
@@ -391,6 +568,8 @@ end
 The cell-centroid Jacobian (determinant of the Jacobian matrix)
 """
 jacobian(mesh::CurvilinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
+
+jacobian(mesh::RectlinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
 
 """
     forward_cell_metrics(mesh::AbstractCurvilinearGrid2D, idx)

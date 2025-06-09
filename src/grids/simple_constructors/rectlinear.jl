@@ -172,6 +172,7 @@ function rectlinear_grid(
   )
 end
 
+# Added the 'rectlinear' flag in the function for testing purposes. Eventually, this flag should be removed and this should default to using RectlinearGrid2D.
 """
     rectlinear_grid(x, y, discretization_scheme::Symbol; backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CurvilinearGrid2D
 
@@ -181,6 +182,7 @@ function rectlinear_grid(
   x::AbstractVector{T},
   y::AbstractVector{T},
   discretization_scheme::Symbol;
+  rectlinear=true,
   backend=CPU(),
   is_static=true,
   make_uniform=false,
@@ -241,7 +243,15 @@ function rectlinear_grid(
       y_local[i, j] = y[gj]
     end
 
-    return CurvilinearGrid2D(
+    return !rectlinear ? CurvilinearGrid2D(
+      x_local,
+      y_local,
+      discretization_scheme;
+      backend=backend,
+      on_bc=on_bc,
+      tiles=tiled_node_limits,
+      make_uniform=make_uniform,
+    ) : RectlinearGrid2D(
       x_local,
       y_local,
       discretization_scheme;
@@ -262,7 +272,15 @@ function rectlinear_grid(
       end
     end
 
-    return CurvilinearGrid2D(
+    return !rectlinear ? CurvilinearGrid2D(
+      x2d,
+      y2d,
+      discretization_scheme;
+      backend=backend,
+      is_orthogonal=true,
+      is_static=is_static,
+      make_uniform=make_uniform,
+    ) : RectlinearGrid2D(
       x2d,
       y2d,
       discretization_scheme;
