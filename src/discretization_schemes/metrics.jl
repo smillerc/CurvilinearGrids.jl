@@ -348,10 +348,12 @@ function conservative_metrics!(
     xξ, xη, yξ, yη, ξx, ξy, ηx, ηy, metrics.J, domain; ndrange=size(domain)
   )
 
-  @. ξ̂x[domain] = ξx[domain] * metrics.J[domain]
-  @. η̂x[domain] = ηx[domain] * metrics.J[domain]
-  @. ξ̂y[domain] = ξy[domain] * metrics.J[domain]
-  @. η̂y[domain] = ηy[domain] * metrics.J[domain]
+  @views begin
+    @. ξ̂x[domain] = ξx[domain] * metrics.J[domain]
+    @. η̂x[domain] = ηx[domain] * metrics.J[domain]
+    @. ξ̂y[domain] = ξy[domain] * metrics.J[domain]
+    @. η̂y[domain] = ηy[domain] * metrics.J[domain]
+  end
 
   return nothing
 end

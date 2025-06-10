@@ -31,7 +31,23 @@ struct RectlinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme::DS
   onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
   is_static::Bool
-  is_orthogonal::Bool
+  discretization_scheme_name::Symbol
+end
+
+struct UniformGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
+  node_coordinates::CO
+  centroid_coordinates::CE
+  node_velocities::NV
+  edge_metrics::EM
+  cell_center_metrics::CM
+  nhalo::Int
+  nnodes::NTuple{2,Int}
+  domain_limits::DL
+  iterators::CI
+  tiles::TI
+  discretization_scheme::DS
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
+  is_static::Bool
   discretization_scheme_name::Symbol
 end
 
@@ -73,7 +89,6 @@ function CurvilinearGrid2D(
   is_static=false,
   is_orthogonal=false,
   tiles=nothing,
-  make_uniform=false,
   init_metrics=true,
   kwargs...,
 ) where {T}
@@ -172,54 +187,267 @@ function CurvilinearGrid2D(
     update!(m; force=true)
   end
 
-  if make_uniform
-    first_idx = first(m.iterators.cell.domain)
-
-    fill!(m.cell_center_metrics.J, m.cell_center_metrics.J[first_idx])
-
-    fill!(m.cell_center_metrics.x₁.ξ, m.cell_center_metrics.x₁.ξ[first_idx])
-    fill!(m.cell_center_metrics.x₂.ξ, m.cell_center_metrics.x₂.ξ[first_idx])
-    fill!(m.cell_center_metrics.x₁.η, m.cell_center_metrics.x₁.η[first_idx])
-    fill!(m.cell_center_metrics.x₂.η, m.cell_center_metrics.x₂.η[first_idx])
-
-    fill!(m.cell_center_metrics.ξ.x₁, m.cell_center_metrics.ξ.x₁[first_idx])
-    fill!(m.cell_center_metrics.ξ.x₂, m.cell_center_metrics.ξ.x₂[first_idx])
-    fill!(m.cell_center_metrics.η.x₁, m.cell_center_metrics.η.x₁[first_idx])
-    fill!(m.cell_center_metrics.η.x₂, m.cell_center_metrics.η.x₂[first_idx])
-
-    fill!(m.edge_metrics.i₊½.J, m.edge_metrics.i₊½.J[first_idx])
-
-    fill!(m.edge_metrics.i₊½.ξ̂.x₁, m.edge_metrics.i₊½.ξ̂.x₁[first_idx])
-    fill!(m.edge_metrics.i₊½.ξ̂.x₂, m.edge_metrics.i₊½.ξ̂.x₂[first_idx])
-    fill!(m.edge_metrics.i₊½.ξ̂.t, m.edge_metrics.i₊½.ξ̂.t[first_idx])
-    fill!(m.edge_metrics.i₊½.η̂.x₁, m.edge_metrics.i₊½.η̂.x₁[first_idx])
-    fill!(m.edge_metrics.i₊½.η̂.x₂, m.edge_metrics.i₊½.η̂.x₂[first_idx])
-    fill!(m.edge_metrics.i₊½.η̂.t, m.edge_metrics.i₊½.η̂.t[first_idx])
-
-    fill!(m.edge_metrics.j₊½.J, m.edge_metrics.j₊½.J[first_idx])
-
-    fill!(m.edge_metrics.j₊½.ξ̂.x₁, m.edge_metrics.j₊½.ξ̂.x₁[first_idx])
-    fill!(m.edge_metrics.j₊½.ξ̂.x₂, m.edge_metrics.j₊½.ξ̂.x₂[first_idx])
-    fill!(m.edge_metrics.j₊½.ξ̂.t, m.edge_metrics.j₊½.ξ̂.t[first_idx])
-    fill!(m.edge_metrics.j₊½.η̂.x₁, m.edge_metrics.j₊½.η̂.x₁[first_idx])
-    fill!(m.edge_metrics.j₊½.η̂.x₂, m.edge_metrics.j₊½.η̂.x₂[first_idx])
-    fill!(m.edge_metrics.j₊½.η̂.t, m.edge_metrics.j₊½.η̂.t[first_idx])
-  end
-
   return m
 end
 
 function RectlinearGrid2D(
-  x::AbstractArray{T,2},
-  y::AbstractArray{T,2},
+  x::AbstractVector{T},
+  y::AbstractVector{T},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  tile_layout=nothing,
+  rank::Int=-1,
+  init_metrics=true,
+) where {T}
+
+  use_symmetric_conservative_metric_scheme = false
+
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  on_bc = nothing
+
+  ni = length(x)
+  nj = length(y)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  if nj < 2
+    error("The y vector must have more than 2 points")
+  end
+
+  cell_domain = CartesianIndices((ni - 1, nj - 1))
+
+  if !all(diff(x) .> 0)
+    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(y) .> 0)
+    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !isnothing(tile_layout)
+    if rank == -1
+      error(
+        "Tile layout is provided, but rank is invalid; make sure to specify the current MPI rank",
+      )
+    end
+
+    if rank == 0
+      error(
+        "Rank is 0, (MPI is zero-based), but needs to be one-based, do rank+1 for this call"
+      )
+    end
+
+    partition_fraction = max.(tile_layout, 1) # ensure no zeros or negative numbers
+    on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
+      cell_domain, partition_fraction, rank
+    )
+
+    if length(tiled_node_limits) != prod(partition_fraction)
+      error("Unable to partition the mesh to the desired tile layout")
+    end
+
+    x_local = zeros(T, size(node_subdomain))
+    y_local = zeros(T, size(node_subdomain))
+
+    @inbounds for (gidx, lidx) in
+                  zip(node_subdomain, CartesianIndices(size(node_subdomain)))
+      i, j = lidx.I
+      gi, gj = gidx.I
+      x_local[i, j] = x[gi]
+      y_local[i, j] = y[gj]
+    end
+
+    m = RectlinearGrid2D(
+        _ru_grid_constructor(x_local, y_local, "rectlinear", discretization_scheme; backend=backend, on_bc=on_bc, tiles=tiled_node_limits)...
+    )
+
+  else
+    x2d = zeros(T, ni, nj)
+    y2d = zeros(T, ni, nj)
+
+    @inbounds for j in 1:nj
+      for i in 1:ni
+        x2d[i, j] = x[i]
+        y2d[i, j] = y[j]
+      end
+    end
+
+    m = RectlinearGrid2D(
+        _ru_grid_constructor(x2d, y2d, "rectlinear", discretization_scheme; backend=backend, is_static=is_static)...
+    )
+  end
+
+  if init_metrics
+      update!(m; force=true)
+  end
+  return m
+end
+function RectlinearGrid2D(
+  (x0, y0),
+  (x1, y1),
+  (ni_cells, nj_cells)::NTuple{2,Int},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  T=Float64,
+  is_static=true,
+  tile_layout=nothing,
+  rank::Int=-1,
+)
+  if ni_cells < 2 || nj_cells < 2
+    error(
+      "The number of cells specified must be > 1, given cell dims are $((ni_cells, nj_cells))",
+    )
+  end
+
+  return RectlinearGrid2D(
+    range(x0, x1; length=ni_cells + 1) .|> T,
+    range(y0, y1; length=nj_cells + 1) .|> T,
+    discretization_scheme;
+    backend=backend,
+    is_static=is_static,
+    tile_layout=tile_layout,
+    rank=rank,
+  )
+end
+
+function UniformGrid2D(
+  ∂x::T,
+  ∂y::T,
+  shape::NTuple{2, Int},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  tile_layout=nothing,
+  rank::Int=-1,
+  init_metrics=true,
+) where {T<:Real}
+
+  use_symmetric_conservative_metric_scheme = false
+
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  on_bc = nothing
+
+  x = Vector(0:∂x:shape[1])
+  y = Vector(0:∂y:shape[2])
+
+  ni = length(x)
+  nj = length(y)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  if nj < 2
+    error("The y vector must have more than 2 points")
+  end
+
+  cell_domain = CartesianIndices((ni - 1, nj - 1))
+
+  if !all(diff(x) .> 0)
+    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(y) .> 0)
+    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !isnothing(tile_layout)
+    if rank == -1
+      error(
+        "Tile layout is provided, but rank is invalid; make sure to specify the current MPI rank",
+      )
+    end
+
+    if rank == 0
+      error(
+        "Rank is 0, (MPI is zero-based), but needs to be one-based, do rank+1 for this call"
+      )
+    end
+
+    partition_fraction = max.(tile_layout, 1) # ensure no zeros or negative numbers
+    on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
+      cell_domain, partition_fraction, rank
+    )
+
+    if length(tiled_node_limits) != prod(partition_fraction)
+      error("Unable to partition the mesh to the desired tile layout")
+    end
+
+    x_local = zeros(T, size(node_subdomain))
+    y_local = zeros(T, size(node_subdomain))
+
+    @inbounds for (gidx, lidx) in
+                  zip(node_subdomain, CartesianIndices(size(node_subdomain)))
+      i, j = lidx.I
+      gi, gj = gidx.I
+      x_local[i, j] = x[gi]
+      y_local[i, j] = y[gj]
+    end
+
+    m = UniformGrid2D(
+        _ru_grid_constructor(x_local, y_local, "uniform", discretization_scheme; backend=backend, on_bc=on_bc, tiles=tiled_node_limits)...
+    )
+
+  else
+    x2d = zeros(T, ni, nj)
+    y2d = zeros(T, ni, nj)
+
+    @inbounds for j in 1:nj
+      for i in 1:ni
+        x2d[i, j] = x[i]
+        y2d[i, j] = y[j]
+      end
+    end
+
+    m = UniformGrid2D(
+        _ru_grid_constructor(x2d, y2d, "uniform", discretization_scheme; backend=backend, is_static=is_static)...
+    )
+  end
+
+  if init_metrics
+      update!(m; force=true)
+  end
+  return m
+end
+
+function _ru_grid_constructor(
+  x::AbstractArray{T, 2},
+  y::AbstractArray{T, 2},
+  tag::String,
   discretization_scheme::Symbol;
   backend=CPU(),
   on_bc=nothing,
   is_static=false,
-  is_orthogonal=false,
   tiles=nothing,
-  make_uniform=false,
-  init_metrics=true,
   kwargs...,
 ) where {T}
 
@@ -261,7 +489,11 @@ function RectlinearGrid2D(
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  cell_center_metrics, edge_metrics = get_metric_soa_rectlinear2d(celldims, backend, T)
+  if tag == "rectlinear"
+    cell_center_metrics, edge_metrics = get_metric_soa_rectlinear2d(celldims, backend, T)
+  elseif tag == "uniform"
+    cell_center_metrics, edge_metrics = get_metric_soa_uniform2d(celldims, backend, T)
+  end
 
   coords = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
@@ -295,7 +527,7 @@ function RectlinearGrid2D(
     _on_bc = on_bc
   end
 
-  m = RectlinearGrid2D(
+  return (
     coords,
     centroids,
     node_velocities,
@@ -309,49 +541,8 @@ function RectlinearGrid2D(
     discr_scheme,
     _on_bc,
     is_static,
-    is_orthogonal,
     scheme_name,
-  )
-
-  if init_metrics
-    update!(m; force=true)
-  end
-
-  if make_uniform
-    first_idx = first(m.iterators.cell.domain)
-
-    fill!(m.cell_center_metrics.J, m.cell_center_metrics.J[first_idx])
-
-    fill!(m.cell_center_metrics.x₁.ξ, m.cell_center_metrics.x₁.ξ[first_idx])
-    fill!(m.cell_center_metrics.x₂.ξ, m.cell_center_metrics.x₂.ξ[first_idx])
-    fill!(m.cell_center_metrics.x₁.η, m.cell_center_metrics.x₁.η[first_idx])
-    fill!(m.cell_center_metrics.x₂.η, m.cell_center_metrics.x₂.η[first_idx])
-
-    fill!(m.cell_center_metrics.ξ.x₁, m.cell_center_metrics.ξ.x₁[first_idx])
-    fill!(m.cell_center_metrics.ξ.x₂, m.cell_center_metrics.ξ.x₂[first_idx])
-    fill!(m.cell_center_metrics.η.x₁, m.cell_center_metrics.η.x₁[first_idx])
-    fill!(m.cell_center_metrics.η.x₂, m.cell_center_metrics.η.x₂[first_idx])
-
-    fill!(m.edge_metrics.i₊½.J, m.edge_metrics.i₊½.J[first_idx])
-
-    fill!(m.edge_metrics.i₊½.ξ̂.x₁, m.edge_metrics.i₊½.ξ̂.x₁[first_idx])
-    fill!(m.edge_metrics.i₊½.ξ̂.x₂, m.edge_metrics.i₊½.ξ̂.x₂[first_idx])
-    fill!(m.edge_metrics.i₊½.ξ̂.t, m.edge_metrics.i₊½.ξ̂.t[first_idx])
-    fill!(m.edge_metrics.i₊½.η̂.x₁, m.edge_metrics.i₊½.η̂.x₁[first_idx])
-    fill!(m.edge_metrics.i₊½.η̂.x₂, m.edge_metrics.i₊½.η̂.x₂[first_idx])
-    fill!(m.edge_metrics.i₊½.η̂.t, m.edge_metrics.i₊½.η̂.t[first_idx])
-
-    fill!(m.edge_metrics.j₊½.J, m.edge_metrics.j₊½.J[first_idx])
-
-    fill!(m.edge_metrics.j₊½.ξ̂.x₁, m.edge_metrics.j₊½.ξ̂.x₁[first_idx])
-    fill!(m.edge_metrics.j₊½.ξ̂.x₂, m.edge_metrics.j₊½.ξ̂.x₂[first_idx])
-    fill!(m.edge_metrics.j₊½.ξ̂.t, m.edge_metrics.j₊½.ξ̂.t[first_idx])
-    fill!(m.edge_metrics.j₊½.η̂.x₁, m.edge_metrics.j₊½.η̂.x₁[first_idx])
-    fill!(m.edge_metrics.j₊½.η̂.x₂, m.edge_metrics.j₊½.η̂.x₂[first_idx])
-    fill!(m.edge_metrics.j₊½.η̂.t, m.edge_metrics.j₊½.η̂.t[first_idx])
-  end
-
-  return m
+    )
 end
 
 """
@@ -534,6 +725,20 @@ function update!(mesh::RectlinearGrid2D; force=false)
 end
 
 """Update metrics after grid coordinates change"""
+function update!(mesh::UniformGrid2D; force=false)
+  if !mesh.is_static || force
+    _centroid_coordinates!(
+      mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
+    )
+    update_metrics!(mesh)
+    _check_valid_metrics(mesh)
+  else
+    error("Attempting to update grid metrics when grid.is_static = true!")
+  end
+  return nothing
+end
+
+"""Update metrics after grid coordinates change"""
 function update!(mesh::AxisymmetricGrid2D)
   _centroid_coordinates!(
     mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
@@ -564,12 +769,16 @@ end
 
 """
     jacobian(mesh::CurvilinearGrid2D, idx)
+    jacobian(mesh::RectlinearGrid2D, idx)
+    jacobian(mesh::UniformGrid2D, idx)
 
 The cell-centroid Jacobian (determinant of the Jacobian matrix)
 """
 jacobian(mesh::CurvilinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
 
 jacobian(mesh::RectlinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
+
+jacobian(mesh::UniformGrid2D, idx) = det(jacobian_matrix(mesh, idx))
 
 """
     forward_cell_metrics(mesh::AbstractCurvilinearGrid2D, idx)

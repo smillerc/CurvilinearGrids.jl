@@ -17,6 +17,8 @@ export AbstractCurvilinearGrid1D
 export AbstractCurvilinearGrid2D
 export AbstractCurvilinearGrid3D
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
+export RectlinearGrid2D
+export UniformGrid2D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 

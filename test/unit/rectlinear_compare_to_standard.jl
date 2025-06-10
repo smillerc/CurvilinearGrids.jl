@@ -1,7 +1,7 @@
 using Test, Random, CurvilinearGrids
 using CurvilinearGrids.RectlinearArrays
 
-@testset begin
+@testset "Rectlinear2D Equivalence Test" begin
     Random.seed!(1236)
 
     x = cumsum(rand(20));
