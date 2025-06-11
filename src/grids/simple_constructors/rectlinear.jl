@@ -10,10 +10,6 @@ function rectlinear_grid(
   discretization_scheme::Symbol;
   backend=CPU(),
   T=Float64,
-  is_static=true,
-  make_uniform=false,
-  tile_layout=nothing,
-  rank::Int=-1,
 )
   ni = ncells + 1
   x = collect(T, range(x0, x1; length=ni))
@@ -137,158 +133,154 @@ function rectlinear_spherical_grid(
   return SphericalGrid1D(r, discretization_scheme, snap_to_axis; backend=backend)
 end
 
-# """
-#     rectlinear_grid((x0, y0), (x1, y1), (ni_cells, nj_cells), discretization_scheme, backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CurvilinearGrid2D
-# 
-# Generate a 2D rectlinear grid using start/end points and cell resolution.
-# """
-# function rectlinear_grid(
-#   (x0, y0),
-#   (x1, y1),
-#   (ni_cells, nj_cells)::NTuple{2,Int},
-#   discretization_scheme::Symbol;
-#   backend=CPU(),
-#   T=Float64,
-#   is_static=true,
-#   make_uniform=false,
-#   tile_layout=nothing,
-#   rank::Int=-1,
-# )
-#   if ni_cells < 2 || nj_cells < 2
-#     error(
-#       "The number of cells specified must be > 1, given cell dims are $((ni_cells, nj_cells))",
-#     )
-#   end
-# 
-#   return rectlinear_grid(
-#     range(x0, x1; length=ni_cells + 1) .|> T,
-#     range(y0, y1; length=nj_cells + 1) .|> T,
-#     discretization_scheme;
-#     backend=backend,
-#     is_static=is_static,
-#     make_uniform=make_uniform,
-#     tile_layout=tile_layout,
-#     rank=rank,
-#   )
-# end
-# 
-# # Added the 'rectlinear' flag in the function for testing purposes. Eventually, this flag should be removed and this should default to using RectlinearGrid2D.
-# """
-#     rectlinear_grid(x, y, discretization_scheme::Symbol; backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CurvilinearGrid2D
-# 
-# Generate a 2D rectlinear grid using 1D x and y coordinate vectors
-# """
-# function rectlinear_grid(
-#   x::AbstractVector{T},
-#   y::AbstractVector{T},
-#   discretization_scheme::Symbol;
-#   rectlinear=true,
-#   backend=CPU(),
-#   is_static=true,
-#   make_uniform=false,
-#   tile_layout=nothing,
-#   rank::Int=-1,
-# ) where {T}
-# 
-#   use_symmetric_conservative_metric_scheme = false
-# 
-#   scheme_name = Symbol(uppercase("$discretization_scheme"))
-#   if scheme_name === :MEG6 ||
-#     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-#     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-#     nhalo = 5
-#   elseif scheme_name === :MEG6_SYMMETRIC ||
-#     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-#     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-#     nhalo = 5
-#     use_symmetric_conservative_metric_scheme = true
-#   else
-#     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
-#   end
-# 
-#   ni = length(x)
-#   nj = length(y)
-# 
-#   if ni < 2
-#     error("The x vector must have more than 2 points")
-#   end
-# 
-#   if nj < 2
-#     error("The y vector must have more than 2 points")
-#   end
-# 
-#   cell_domain = CartesianIndices((ni - 1, nj - 1))
-# 
-#   if !all(diff(x) .> 0)
-#     error("Invalid x vector, spacing between vertices must be > 0 everywhere")
-#   end
-# 
-#   if !all(diff(y) .> 0)
-#     error("Invalid y vector, spacing between vertices must be > 0 everywhere")
-#   end
-# 
-#   if !isnothing(tile_layout)
-#     if rank == -1
-#       error(
-#         "Tile layout is provided, but rank is invalid; make sure to specify the current MPI rank",
-#       )
-#     end
-# 
-#     if rank == 0
-#       error(
-#         "Rank is 0, (MPI is zero-based), but needs to be one-based, do rank+1 for this call"
-#       )
-#     end
-# 
-#     partition_fraction = max.(tile_layout, 1) # ensure no zeros or negative numbers
-#     on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
-#       cell_domain, partition_fraction, rank
-#     )
-# 
-#     if length(tiled_node_limits) != prod(partition_fraction)
-#       error("Unable to partition the mesh to the desired tile layout")
-#     end
-# 
-#     x_local = zeros(T, size(node_subdomain))
-#     y_local = zeros(T, size(node_subdomain))
-# 
-#     @inbounds for (gidx, lidx) in
-#                   zip(node_subdomain, CartesianIndices(size(node_subdomain)))
-#       i, j = lidx.I
-#       gi, gj = gidx.I
-#       x_local[i, j] = x[gi]
-#       y_local[i, j] = y[gj]
-#     end
-# 
-#     return RectlinearGrid2D(
-#       x_local,
-#       y_local,
-#       discretization_scheme;
-#       backend=backend,
-#       on_bc=on_bc,
-#       tiles=tiled_node_limits,
-#     )
-# 
-#   else
-#     x2d = zeros(T, ni, nj)
-#     y2d = zeros(T, ni, nj)
-# 
-#     @inbounds for j in 1:nj
-#       for i in 1:ni
-#         x2d[i, j] = x[i]
-#         y2d[i, j] = y[j]
-#       end
-#     end
-# 
-#     return RectlinearGrid2D(
-#       x2d,
-#       y2d,
-#       discretization_scheme;
-#       backend=backend,
-#       is_static=is_static,
-#     )
-#   end
-# end
+"""
+    rectlinear_grid((x0, y0), (x1, y1), (ni_cells, nj_cells), discretization_scheme, backend=CPU(), T=Float64, is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CurvilinearGrid2D
+
+Generate a 2D rectlinear grid using start/end points and cell resolution.
+"""
+function rectlinear_grid(
+  (x0, y0),
+  (x1, y1),
+  (ni_cells, nj_cells)::NTuple{2,Int},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  T=Float64,
+  is_static=true,
+  tile_layout=nothing,
+  rank::Int=-1,
+)
+  if ni_cells < 2 || nj_cells < 2
+    error(
+      "The number of cells specified must be > 1, given cell dims are $((ni_cells, nj_cells))",
+    )
+  end
+
+  return rectlinear_grid(
+    range(x0, x1; length=ni_cells + 1) .|> T,
+    range(y0, y1; length=nj_cells + 1) .|> T,
+    discretization_scheme;
+    backend=backend,
+    is_static=is_static,
+    tile_layout=tile_layout,
+    rank=rank,
+  )
+end
+
+# Added the 'rectlinear' flag in the function for testing purposes. Eventually, this flag should be removed and this should default to using RectlinearGrid2D.
+"""
+    rectlinear_grid(x, y, discretization_scheme::Symbol; backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CurvilinearGrid2D
+
+Generate a 2D rectlinear grid using 1D x and y coordinate vectors
+"""
+function rectlinear_grid(
+  x::AbstractVector{T},
+  y::AbstractVector{T},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  tile_layout=nothing,
+  rank::Int=-1,
+) where {T}
+
+  use_symmetric_conservative_metric_scheme = false
+
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  ni = length(x)
+  nj = length(y)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  if nj < 2
+    error("The y vector must have more than 2 points")
+  end
+
+  cell_domain = CartesianIndices((ni - 1, nj - 1))
+
+  if !all(diff(x) .> 0)
+    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(y) .> 0)
+    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !isnothing(tile_layout)
+    if rank == -1
+      error(
+        "Tile layout is provided, but rank is invalid; make sure to specify the current MPI rank",
+      )
+    end
+
+    if rank == 0
+      error(
+        "Rank is 0, (MPI is zero-based), but needs to be one-based, do rank+1 for this call"
+      )
+    end
+
+    partition_fraction = max.(tile_layout, 1) # ensure no zeros or negative numbers
+    on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
+      cell_domain, partition_fraction, rank
+    )
+
+    if length(tiled_node_limits) != prod(partition_fraction)
+      error("Unable to partition the mesh to the desired tile layout")
+    end
+
+    x_local = zeros(T, size(node_subdomain))
+    y_local = zeros(T, size(node_subdomain))
+
+    @inbounds for (gidx, lidx) in
+                  zip(node_subdomain, CartesianIndices(size(node_subdomain)))
+      i, j = lidx.I
+      gi, gj = gidx.I
+      x_local[i, j] = x[gi]
+      y_local[i, j] = y[gj]
+    end
+
+    return CurvilinearGrid2D(
+      x_local,
+      y_local,
+      discretization_scheme;
+      backend=backend,
+      on_bc=on_bc,
+      tiles=tiled_node_limits,
+    )
+
+  else
+    x2d = zeros(T, ni, nj)
+    y2d = zeros(T, ni, nj)
+
+    @inbounds for j in 1:nj
+      for i in 1:ni
+        x2d[i, j] = x[i]
+        y2d[i, j] = y[j]
+      end
+    end
+
+    return CurvilinearGrid2D(
+      x2d,
+      y2d,
+      discretization_scheme;
+      backend=backend,
+      is_static=is_static,
+    )
+  end
+end
 
 """
     axisymmetric_rectlinear_grid((x0, y0), (x1, y1), (ni_cells, nj_cells), discretization_scheme, snap_to_axis::Bool, rotational_axis::Symbol, backend=CPU(), T=Float64, is_static=true) -> AxisymmetricGrid2D

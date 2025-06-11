@@ -17,6 +17,23 @@ struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1
   discretization_scheme_name::Symbol
 end
 
+struct UniformGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
+  node_coordinates::CO
+  centroid_coordinates::CE
+  node_velocities::NV
+  edge_metrics::EM
+  cell_center_metrics::CM
+  nhalo::Int
+  nnodes::Int
+  domain_limits::DL
+  iterators::CI
+  tiles::TI
+  discretization_scheme::DS
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool}
+  is_static::Bool
+  discretization_scheme_name::Symbol
+end
+
 struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
   node_coordinates::CO
   centroid_coordinates::CE
@@ -138,6 +155,149 @@ function CurvilinearGrid1D(
 
   update!(m; force=true)
   return m
+end
+
+function UniformGrid1D(
+  (x0, x1),
+  ncells,
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  T=Float64,
+)
+  ni = ncells + 1
+  x = collect(T, range(x0, x1; length=ni))
+
+  m = UniformGrid1D(
+    _grid_constructor(x, discretization_scheme; backend=backend)...
+  )
+  update!(m; force=true)
+  return m
+end
+
+function UniformGrid1D(
+  x::AbstractVector{T},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  tile_layout=nothing,
+  rank::Int=-1,
+) where {T}
+
+  #
+  ni = length(x)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  if !isnothing(tile_layout)
+    if rank == -1
+      error(
+        "Tile layout is provided, but rank is invalid; make sure to specify the current MPI rank",
+      )
+    end
+
+    if rank == 0
+      error(
+        "Rank is 0, (MPI is zero-based), but needs to be one-based, do rank+1 for this call"
+      )
+    end
+
+    partition_fraction = max.(tile_layout, 1) # ensure no zeros or negative numbers
+    on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
+      cell_domain, partition_fraction, rank
+    )
+
+    if length(tiled_node_limits) != prod(partition_fraction)
+      error("Unable to partition the mesh to the desired tile layout")
+    end
+
+    x_local = zeros(T, size(node_subdomain))
+
+    @inbounds for (gidx, lidx) in
+                  zip(node_subdomain, CartesianIndices(size(node_subdomain)))
+      i, = lidx.I
+      gi, = gidx.I
+      x_local[i] = x[gi]
+    end
+
+    m = UniformGrid1D(
+      _grid_constructor(x_local, discretization_scheme; backend=backend, on_bc=on_bc, tiles=tiled_node_limits)...
+    )
+
+    update!(m; force=true)
+
+    return m
+  else
+    m = UniformGrid1D(
+      _grid_constructor(x, discretization_scheme; backend=backend, is_static=is_static)...
+    )
+
+    update!(m; force=true)
+
+    return m
+  end
+end
+
+function _grid_constructor(
+  x::AbstractVector{T},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  on_bc=nothing,
+  is_static=false,
+  tiles=nothing,
+) where {T}
+
+  #
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  ni = length(x)
+  ncells = ni - 1
+  ilo = nhalo + 1
+  limits = (node=(ilo=ilo, ihi=ni + nhalo), cell=(ilo=ilo, ihi=ncells + nhalo))
+
+  nodeCI = CartesianIndices((ni + 2nhalo,))
+  cellCI = CartesianIndices((ncells + 2nhalo,))
+
+  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
+
+  celldims = size(domain_iterators.cell.full)
+  nodedims = size(domain_iterators.node.full)
+
+  cell_center_metrics, edge_metrics = get_metric_soa_uniform1d(celldims, backend, T)
+
+  centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
+  coords = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
+
+  @views begin
+    copy!(coords.x[domain_iterators.node.domain], x)
+  end
+
+  node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
+
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
+  )
+
+  if isnothing(on_bc)
+    _on_bc = (ilo=true, ihi=true)
+  else
+    _on_bc = on_bc
+  end
+
+  return (coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, ni, limits, domain_iterators, tiles, discr_scheme, _on_bc, is_static, scheme_name)
 end
 
 """

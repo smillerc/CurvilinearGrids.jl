@@ -75,7 +75,7 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid
 end
 
 """
-    CurvilinearGrid2D(x::AbstractArray{T,2}, y::AbstractArray{T,2}, nhalo::Int, discretization_scheme=:MEG6; backend=CPU()) where {T}
+    CurvilinearGrid2D(x::AbstractArray{T,2}, y::AbstractArray{T,2}, discretization_scheme=::Symbol; backend=CPU()) where {T}
 
 Create a 2d grid with `x` and `y` coordinates. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
 The `nhalo` argument defines the number of halo cells along each dimension.
@@ -190,6 +190,15 @@ function CurvilinearGrid2D(
   return m
 end
 
+"""
+    RectlinearGrid2D(x::AbstractVector{T}, y::AbstractVector{T}, discretization_scheme=::Symbol; backend=CPU()) where {T}
+    RectlinearGrid2D((x0, y0), (x1, y1), (ni_cells, nj_cells)::NTuple{2, Int}, discretization_scheme=::Symbol; backend=CPU()) where {T}
+    RectlinearGrid2D((x0, y0), (x1, y1), (∂x, ∂y), discretization_scheme=::Symbol; backend=CPU()) where {T}
+
+Create a 2d grid with `x` and `y` coordinates. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
+
+This constructor utilizes `RectlinearArray`s to optimize data storage. Therefore, this should only be used when creating a rectlinear grid.
+"""
 function RectlinearGrid2D(
   x::AbstractVector{T},
   y::AbstractVector{T},
@@ -216,8 +225,6 @@ function RectlinearGrid2D(
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
-
-  on_bc = nothing
 
   ni = length(x)
   nj = length(y)
@@ -304,7 +311,6 @@ function RectlinearGrid2D(
   (ni_cells, nj_cells)::NTuple{2,Int},
   discretization_scheme::Symbol;
   backend=CPU(),
-  T=Float64,
   is_static=true,
   tile_layout=nothing,
   rank::Int=-1,
@@ -316,8 +322,9 @@ function RectlinearGrid2D(
   end
 
   return RectlinearGrid2D(
-    range(x0, x1; length=ni_cells + 1) .|> T,
-    range(y0, y1; length=nj_cells + 1) .|> T,
+    (x0, y0),
+    (x1,y1),
+    ((x1-x0) / ni_cells, (y1-y0) / nj_cells),
     discretization_scheme;
     backend=backend,
     is_static=is_static,
@@ -325,11 +332,10 @@ function RectlinearGrid2D(
     rank=rank,
   )
 end
-
-function UniformGrid2D(
-  ∂x::T,
-  ∂y::T,
-  shape::NTuple{2, Int},
+function RectlinearGrid2D(
+  (x0, y0),
+  (x1, y1),
+  (∂x, ∂y)::NTuple{2, T},
   discretization_scheme::Symbol;
   backend=CPU(),
   is_static=true,
@@ -354,10 +360,127 @@ function UniformGrid2D(
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
 
-  on_bc = nothing
+  x = Vector(x0:∂x:x1)
+  y = Vector(y0:∂y:y1)
 
-  x = Vector(0:∂x:shape[1])
-  y = Vector(0:∂y:shape[2])
+  ni = length(x)
+  nj = length(y)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  if nj < 2
+    error("The y vector must have more than 2 points")
+  end
+
+  cell_domain = CartesianIndices((ni - 1, nj - 1))
+
+  if !all(diff(x) .> 0)
+    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(y) .> 0)
+    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !isnothing(tile_layout)
+    if rank == -1
+      error(
+        "Tile layout is provided, but rank is invalid; make sure to specify the current MPI rank",
+      )
+    end
+
+    if rank == 0
+      error(
+        "Rank is 0, (MPI is zero-based), but needs to be one-based, do rank+1 for this call"
+      )
+    end
+
+    partition_fraction = max.(tile_layout, 1) # ensure no zeros or negative numbers
+    on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
+      cell_domain, partition_fraction, rank
+    )
+
+    if length(tiled_node_limits) != prod(partition_fraction)
+      error("Unable to partition the mesh to the desired tile layout")
+    end
+
+    x_local = zeros(T, size(node_subdomain))
+    y_local = zeros(T, size(node_subdomain))
+
+    @inbounds for (gidx, lidx) in
+                  zip(node_subdomain, CartesianIndices(size(node_subdomain)))
+      i, j = lidx.I
+      gi, gj = gidx.I
+      x_local[i, j] = x[gi]
+      y_local[i, j] = y[gj]
+    end
+
+    # This uses the uniform tag because the arrays end up uniform
+    m = UniformGrid2D(
+        _ru_grid_constructor(x_local, y_local, "uniform", discretization_scheme; backend=backend, on_bc=on_bc, tiles=tiled_node_limits)...
+    )
+
+  else
+    x2d = zeros(T, ni, nj)
+    y2d = zeros(T, ni, nj)
+
+    @inbounds for j in 1:nj
+      for i in 1:ni
+        x2d[i, j] = x[i]
+        y2d[i, j] = y[j]
+      end
+    end
+
+    m = UniformGrid2D(
+        _ru_grid_constructor(x2d, y2d, "uniform", discretization_scheme; backend=backend, is_static=is_static)...
+    )
+  end
+
+  if init_metrics
+      update!(m; force=true)
+  end
+  return m
+end
+
+"""
+    UniformGrid2D((x0, y0), (x1, y1), ∂x, shape::NTuple{2, Int}, discretization_scheme=::Symbol; backend=CPU()) where {T}
+
+Create a 2d uniform grid with a grid spacing and a shape. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
+
+This constructor utilizes `RectlinearArray`s to optimize data storage. Therefore, this should only be used when creating a uniform grid.
+"""
+function UniformGrid2D(
+  (x0, y0),
+  (x1, y1),
+  ∂x::T,
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  tile_layout=nothing,
+  rank::Int=-1,
+  init_metrics=true,
+) where {T<:Real}
+
+  use_symmetric_conservative_metric_scheme = false
+
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  x = Vector(x0:∂x:x1)
+  y = Vector(y0:∂x:y1)
 
   ni = length(x)
   nj = length(y)

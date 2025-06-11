@@ -141,7 +141,7 @@ Base.size(A::RectlinearArray) = A.dims
     _skip_index(A.data, A.valid_indices, I...)
 end
 # This getindex function is intended for indices that return multiple values (e.g. a range like 2:9). This allocates a new array (much like Julia's standard getindex in this case) and therefore will not work in GPU code
-@inline function Base.getindex(A::RectlinearArray{T,N}, I::Vararg{Any, N}) where {T,N}
+@inline function Base.getindex(A::RectlinearArray{T,N}, I::Vararg{UnitRange{Int}, N}) where {T,N}
     return RectlinearArray(reshape([A[i...] for i in Iterators.product(I...)], length.(I)), A.fixed_indices)
 end
 # This getindex function is intended for indices that return multiple values (e.g. a CartesianIndices). This allocates a new array (much like Julia's standard getindex in this case) and therefore will not work in GPU code
@@ -189,7 +189,17 @@ function Base.Broadcast.materialize!(dest::RectlinearArray, bc::Broadcast.Broadc
     ref_index_space = eachindex(ref)
 
     for i in ref_index_space
-        dest[i] = bc.f((arg isa AbstractArray ? arg[i] : arg for arg in bc.args)...)
+        args_i = map(arg -> begin
+            if arg isa AbstractArray
+                arg[i]
+            elseif arg isa Broadcast.Broadcasted
+                Base.materialize(arg)[i]
+            else
+                arg
+            end
+        end, bc.args)
+
+        dest[i] = bc.f(args_i...)
     end
     return dest
 end

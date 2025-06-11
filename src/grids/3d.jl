@@ -17,8 +17,42 @@ struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid3
   discretization_scheme_name::Symbol
 end
 
+struct RectlinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid3D
+  node_coordinates::CO
+  centroid_coordinates::CE
+  node_velocities::NV
+  edge_metrics::EM
+  cell_center_metrics::CM
+  nhalo::Int
+  nnodes::NTuple{3,Int}
+  domain_limits::DL
+  iterators::CI
+  tiles::TI
+  discretization_scheme::DS
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool, klo::Bool, khi::Bool}
+  is_static::Bool
+  discretization_scheme_name::Symbol
+end
+
+struct UniformGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid3D
+  node_coordinates::CO
+  centroid_coordinates::CE
+  node_velocities::NV
+  edge_metrics::EM
+  cell_center_metrics::CM
+  nhalo::Int
+  nnodes::NTuple{3,Int}
+  domain_limits::DL
+  iterators::CI
+  tiles::TI
+  discretization_scheme::DS
+  onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool, klo::Bool, khi::Bool}
+  is_static::Bool
+  discretization_scheme_name::Symbol
+end
+
 """
-    CurvilinearGrid3D(x, y, z, nhalo::Int; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, is_orthogonal=false, tiles=nothing, make_uniform=false)
+    CurvilinearGrid3D(x, y, z, discretization_scheme::Symbol; backend=CPU(), on_bc=nothing, is_static=false, is_orthogonal=false, tiles=nothing, init_metrics=true)
 
 Construct a curvilinear grid in 3D using 3D arrays of x/y/z coordinates.
 """
@@ -32,7 +66,6 @@ function CurvilinearGrid3D(
   is_static=false,
   is_orthogonal=false,
   tiles=nothing,
-  make_uniform=false,
   init_metrics=true,
   kwargs...,
 ) where {T}
@@ -156,8 +189,339 @@ function CurvilinearGrid3D(
   return m
 end
 
+"""
+    RectlinearGrid3D(x, y, z, discretization_scheme::Symbol; backend=CPU(), is_static=false, is_static=true,init_metrics=true)
+    RectlinearGrid3D((x0, y0, z0), (x1, y1, z1), (∂x, ∂y, ∂z), discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true)
+
+Construct a rectlinear grid in 3D using 3D arrays of x/y/z coordinates. This constructor utilizes `RectlinearArray`s to optimize data storage, and therefore should only be used with grids that are rectlinear.
+"""
+function RectlinearGrid3D(
+  x::AbstractVector{T},
+  y::AbstractVector{T},
+  z::AbstractVector{T},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  init_metrics=true,
+  kwargs...,
+) where {T}
+
+  #
+  ni = length(x)
+  nj = length(y)
+  nk = length(z)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  if nj < 2
+    error("The y vector must have more than 2 points")
+  end
+
+  if nk < 2
+    error("The z vector must have more than 2 points")
+  end
+
+  if !all(diff(x) .> 0)
+    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(y) .> 0)
+    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(z) .> 0)
+    error("Invalid z vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  x3d = zeros(T, ni, nj, nk)
+  y3d = zeros(T, ni, nj, nk)
+  z3d = zeros(T, ni, nj, nk)
+
+  @inbounds for k in 1:nk
+    for j in 1:nj
+      for i in 1:ni
+        x3d[i, j, k] = x[i]
+        y3d[i, j, k] = y[j]
+        z3d[i, j, k] = z[k]
+      end
+    end
+  end
+
+  m = RectlinearGrid3D(
+    _grid_constructor(x3d, y3d, z3d, "rectlinear", discretization_scheme; backend=backend, is_static=is_static, kwargs...)...
+  )
+
+  if init_metrics
+    update!(m; force=true)
+  end
+
+  return m
+end
+function RectlinearGrid3D(
+  # Semi-uniform rectlinear grid
+  (x0, y0, z0),
+  (x1, y1, z1),
+  (∂x, ∂y, ∂z)::NTuple{3, T},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  init_metrics=true,
+  kwargs...,
+) where {T<:Real}
+
+  #
+  x = x0:∂x:x1
+  y = y0:∂y:y1
+  z = z0:∂z:z1
+
+  ni = length(x)
+  nj = length(y)
+  nk = length(z)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  if nj < 2
+    error("The y vector must have more than 2 points")
+  end
+
+  if nk < 2
+    error("The z vector must have more than 2 points")
+  end
+
+  if !all(diff(x) .> 0)
+    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(y) .> 0)
+    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(z) .> 0)
+    error("Invalid z vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  x3d = zeros(T, ni, nj, nk)
+  y3d = zeros(T, ni, nj, nk)
+  z3d = zeros(T, ni, nj, nk)
+
+  @inbounds for k in 1:nk
+    for j in 1:nj
+      for i in 1:ni
+        x3d[i, j, k] = x[i]
+        y3d[i, j, k] = y[j]
+        z3d[i, j, k] = z[k]
+      end
+    end
+  end
+
+  # Here we use the 'uniform' tag because all of the metric matrices are uniform
+  m = RectlinearGrid3D(
+    _grid_constructor(x3d, y3d, z3d, "uniform", discretization_scheme; backend=backend, is_static=is_static, kwargs...)...
+  )
+
+  if init_metrics
+    update!(m; force=true)
+  end
+
+  return m
+end
+
+# True uniform grid
+"""
+    UniformGrid3D((x0, y0, z0), (x1, y1, z1), ∂x, shape::NTuple{3, Int}, discretization_scheme::Symbol; backend=CPU(), is_static=false,is_static=true, init_metrics=true)
+
+Construct a uniform grid in 3D using a grid spacing and a shape tuple. This constructor utilizes `RectlinearArray`s to optimize data storage, and therefore should only be used with grids that are uniform."""
+function UniformGrid3D(
+  (x0, y0, z0),
+  (x1, y1, z1),
+  ∂x::T,
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  on_bc=nothing,
+  is_static=true,
+  init_metrics=true,
+  kwargs...,
+) where {T<:Real}
+
+  #
+  x = x0:∂x:x1
+  y = y0:∂x:y1
+  z = z0:∂x:z1
+
+  ni = length(x)
+  nj = length(y)
+  nk = length(z)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  if nj < 2
+    error("The y vector must have more than 2 points")
+  end
+
+  if nk < 2
+    error("The z vector must have more than 2 points")
+  end
+
+  if !all(diff(x) .> 0)
+    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(y) .> 0)
+    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(z) .> 0)
+    error("Invalid z vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  x3d = zeros(T, ni, nj, nk)
+  y3d = zeros(T, ni, nj, nk)
+  z3d = zeros(T, ni, nj, nk)
+
+  @inbounds for k in 1:nk
+    for j in 1:nj
+      for i in 1:ni
+        x3d[i, j, k] = x[i]
+        y3d[i, j, k] = y[j]
+        z3d[i, j, k] = z[k]
+      end
+    end
+  end
+
+  m = UniformGrid3D(
+    _grid_constructor(x3d, y3d, z3d, "uniform", discretization_scheme; backend=backend, is_static=is_static, on_bc=on_bc, kwargs...)...
+  )
+
+  if init_metrics
+    update!(m; force=true)
+  end
+
+  return m
+end
+
+function _grid_constructor(
+  x::AbstractArray{T,3},
+  y::AbstractArray{T,3},
+  z::AbstractArray{T,3},
+  tag::String,
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  on_bc=nothing,
+  is_static=false,
+  tiles=nothing,
+  kwargs...,
+) where {T}
+
+  #
+  use_symmetric_conservative_metric_scheme = false
+
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  @assert size(x) == size(y) == size(y)
+
+  nnodes = size(x)
+  ni, nj, nk = nnodes
+
+  ncells = nnodes .- 1
+  ni_cells = ni - 1
+  nj_cells = nj - 1
+  nk_cells = nk - 1
+  lo = nhalo + 1
+
+  limits = (
+    node=(ilo=lo, ihi=ni + nhalo, jlo=lo, jhi=nj + nhalo, klo=lo, khi=nk + nhalo),
+    cell=(
+      ilo=lo,
+      ihi=ni_cells + nhalo,
+      jlo=lo,
+      jhi=nj_cells + nhalo,
+      klo=lo,
+      khi=nk_cells + nhalo,
+    ),
+  )
+
+  nodeCI = CartesianIndices(nnodes .+ 2nhalo)
+  cellCI = CartesianIndices(ncells .+ 2nhalo)
+
+  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
+
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true,
+    celldims=size(domain_iterators.cell.full),
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
+  )
+
+  celldims = size(domain_iterators.cell.full)
+  nodedims = size(domain_iterators.node.full)
+
+  # if init_metrics
+  if tag == "rectlinear"
+    cell_center_metrics, edge_metrics = get_metric_soa_rectlinear3d(celldims, backend, T)
+  else tag == "uniform"
+    cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, backend, T)
+  end
+  # else
+  #   cell_center_metrics = nothing
+  #   edge_metrics = nothing
+  # end
+
+  coords = StructArray((
+    x=KernelAbstractions.zeros(backend, T, nodedims),
+    y=KernelAbstractions.zeros(backend, T, nodedims),
+    z=KernelAbstractions.zeros(backend, T, nodedims),
+  ))
+
+  @views begin
+    copy!(coords.x[domain_iterators.node.domain], x)
+    copy!(coords.y[domain_iterators.node.domain], y)
+    copy!(coords.z[domain_iterators.node.domain], z)
+  end
+
+  centroids = StructArray((
+    x=KernelAbstractions.zeros(backend, T, celldims),
+    y=KernelAbstractions.zeros(backend, T, celldims),
+    z=KernelAbstractions.zeros(backend, T, celldims),
+  ))
+  # _centroid_coordinates!(centroids, coords, domain_iterators.cell.domain)
+
+  node_velocities = StructArray((
+    x=KernelAbstractions.zeros(backend, T, nodedims),
+    y=KernelAbstractions.zeros(backend, T, nodedims),
+    z=KernelAbstractions.zeros(backend, T, nodedims),
+  ))
+
+  if isnothing(on_bc)
+    _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true, klo=true, khi=true)
+  else
+    _on_bc = on_bc
+  end
+
+  return (coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, nnodes, limits, domain_iterators, tiles, discr_scheme, _on_bc, is_static, scheme_name)
+
+end
+
 """Update metrics after grid coordinates change"""
-function update!(mesh::CurvilinearGrid3D; force=false)
+function update!(mesh::AbstractCurvilinearGrid3D; force=false)
   if !mesh.is_static || force
     _centroid_coordinates!(
       mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
@@ -263,7 +627,7 @@ function _centroid_coordinates!(
   return nothing
 end
 
-function _check_valid_metrics(mesh::CurvilinearGrid3D)
+function _check_valid_metrics(mesh::AbstractCurvilinearGrid3D)
   domain = mesh.iterators.cell.domain
   i₊½_domain = expand(domain, 1, -1)
   j₊½_domain = expand(domain, 2, -1)
