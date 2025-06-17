@@ -10,9 +10,38 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   domain_limits::DL
   iterators::CI
   discretization_scheme::DS
-  onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
   is_static::Bool
   is_orthogonal::Bool
+  discretization_scheme_name::Symbol
+end
+
+struct RectlinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
+  node_coordinates::CO
+  centroid_coordinates::CE
+  node_velocities::NV
+  edge_metrics::EM
+  cell_center_metrics::CM
+  nhalo::Int
+  nnodes::NTuple{2,Int}
+  domain_limits::DL
+  iterators::CI
+  discretization_scheme::DS
+  is_static::Bool
+  discretization_scheme_name::Symbol
+end
+
+struct UniformGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
+  node_coordinates::CO
+  centroid_coordinates::CE
+  node_velocities::NV
+  edge_metrics::EM
+  cell_center_metrics::CM
+  nhalo::Int
+  nnodes::NTuple{2,Int}
+  domain_limits::DL
+  iterators::CI
+  discretization_scheme::DS
+  is_static::Bool
   discretization_scheme_name::Symbol
 end
 
@@ -39,7 +68,7 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
 end
 
 """
-    CurvilinearGrid2D(x::AbstractArray{T,2}, y::AbstractArray{T,2}, nhalo::Int, discretization_scheme=:MEG6; backend=CPU()) where {T}
+    CurvilinearGrid2D(x::AbstractArray{T,2}, y::AbstractArray{T,2}, discretization_scheme=::Symbol; backend=CPU()) where {T}
 
 Create a 2d grid with `x` and `y` coordinates. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
 The `nhalo` argument defines the number of halo cells along each dimension.
@@ -49,11 +78,230 @@ function CurvilinearGrid2D(
   y::AbstractArray{T,2},
   discretization_scheme::Symbol;
   backend=CPU(),
-  on_bc=nothing,
   is_static=false,
   is_orthogonal=false,
-  make_uniform=false,
   init_metrics=true,
+  empty_metrics=false,
+  kwargs...,
+) where {T}
+
+  m = CurvilinearGrid2D(
+    _grid_constructor(x, y, "curvilinear", discretization_scheme; backend=backend, is_static=is_static, is_orthogonal=is_orthogonal, empty_metrics=empty_metrics)...
+  )
+
+  if init_metrics && !empty_metrics
+    update!(m; force=true)
+  end
+
+  return m
+end
+
+"""
+    RectlinearGrid2D(x::AbstractVector{T}, y::AbstractVector{T}, discretization_scheme=::Symbol; backend=CPU()) where {T}
+    RectlinearGrid2D((x0, y0), (x1, y1), (ni_cells, nj_cells)::NTuple{2, Int}, discretization_scheme=::Symbol; backend=CPU()) where {T}
+    RectlinearGrid2D((x0, y0), (x1, y1), (∂x, ∂y), discretization_scheme=::Symbol; backend=CPU()) where {T}
+
+Create a 2d grid with `x` and `y` coordinates. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
+
+This constructor utilizes `RectlinearArray`s to optimize data storage. Therefore, this should only be used when creating a rectlinear grid.
+"""
+function RectlinearGrid2D(
+  x::AbstractVector{T},
+  y::AbstractVector{T},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  init_metrics=true,
+  empty_metrics=false,
+) where {T}
+
+  ni = length(x)
+  nj = length(y)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  if nj < 2
+    error("The y vector must have more than 2 points")
+  end
+
+  if !all(diff(x) .> 0)
+    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(y) .> 0)
+    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  x2d = zeros(T, ni, nj)
+  y2d = zeros(T, ni, nj)
+
+  @inbounds for j in 1:nj
+    for i in 1:ni
+      x2d[i, j] = x[i]
+      y2d[i, j] = y[j]
+    end
+  end
+
+  m = RectlinearGrid2D(
+      _grid_constructor(x2d, y2d, "rectlinear", discretization_scheme; backend=backend, is_static=is_static, empty_metrics=empty_metrics)...
+  )
+
+  if init_metrics && !empty_metrics
+      update!(m; force=true)
+  end
+  return m
+end
+function RectlinearGrid2D(
+  (x0, y0),
+  (x1, y1),
+  (ni_cells, nj_cells)::NTuple{2,Int},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  init_metrics=true,
+  empty_metrics=false,
+)
+  if ni_cells < 2 || nj_cells < 2
+    error(
+      "The number of cells specified must be > 1, given cell dims are $((ni_cells, nj_cells))",
+    )
+  end
+
+  return RectlinearGrid2D(
+    (x0, y0),
+    (x1,y1),
+    ((x1-x0) / ni_cells, (y1-y0) / nj_cells),
+    discretization_scheme;
+    backend=backend,
+    is_static=is_static,
+    init_metrics=init_metrics,
+    empty_metrics=empty_metrics,
+  )
+end
+function RectlinearGrid2D(
+  (x0, y0),
+  (x1, y1),
+  (∂x, ∂y)::NTuple{2, T},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  init_metrics=true,
+  empty_metrics=false,
+) where {T<:Real}
+
+  x = Vector(x0:∂x:x1)
+  y = Vector(y0:∂y:y1)
+
+  ni = length(x)
+  nj = length(y)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  if nj < 2
+    error("The y vector must have more than 2 points")
+  end
+
+  if !all(diff(x) .> 0)
+    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(y) .> 0)
+    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  x2d = zeros(T, ni, nj)
+  y2d = zeros(T, ni, nj)
+
+  @inbounds for j in 1:nj
+    for i in 1:ni
+      x2d[i, j] = x[i]
+      y2d[i, j] = y[j]
+    end
+  end
+
+  m = UniformGrid2D(
+      _grid_constructor(x2d, y2d, "uniform", discretization_scheme; backend=backend, is_static=is_static, empty_metrics=empty_metrics)...
+  )
+
+  if init_metrics && !empty_metrics
+      update!(m; force=true)
+  end
+  return m
+end
+
+"""
+    UniformGrid2D((x0, y0), (x1, y1), ∂x, discretization_scheme=::Symbol; backend=CPU()) where {T}
+
+Create a 2d uniform grid with a grid spacing and a shape. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
+
+This constructor utilizes `RectlinearArray`s to optimize data storage. Therefore, this should only be used when creating a uniform grid.
+"""
+function UniformGrid2D(
+  (x0, y0),
+  (x1, y1),
+  ∂x::T,
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  init_metrics=true,
+  empty_metrics=false,
+) where {T<:Real}
+
+  x = Vector(x0:∂x:x1)
+  y = Vector(y0:∂x:y1)
+
+  ni = length(x)
+  nj = length(y)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  if nj < 2
+    error("The y vector must have more than 2 points")
+  end
+
+  if !all(diff(x) .> 0)
+    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  if !all(diff(y) .> 0)
+    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+  end
+
+  x2d = zeros(T, ni, nj)
+  y2d = zeros(T, ni, nj)
+
+  @inbounds for j in 1:nj
+    for i in 1:ni
+      x2d[i, j] = x[i]
+      y2d[i, j] = y[j]
+    end
+  end
+
+  m = UniformGrid2D(
+      _grid_constructor(x2d, y2d, "uniform", discretization_scheme; backend=backend, is_static=is_static, empty_metrics=empty_metrics)...
+  )
+
+  if init_metrics && !empty_metrics
+      update!(m; force=true)
+  end
+  return m
+end
+
+function _grid_constructor(
+  x::AbstractArray{T, 2},
+  y::AbstractArray{T, 2},
+  tag::String,
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=false,
+  is_orthogonal=false,
+  empty_metrics=false,
   kwargs...,
 ) where {T}
 
@@ -95,7 +343,25 @@ function CurvilinearGrid2D(
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+  if tag == "rectlinear"
+    if empty_metrics
+      cell_center_metrics, edge_metrics = (nothing, nothing)
+    else
+      cell_center_metrics, edge_metrics = get_metric_soa_rectlinear2d(celldims, backend, T)
+    end
+  elseif tag == "uniform"
+    if empty_metrics
+      cell_center_metrics, edge_metrics = (nothing, nothing)
+    else
+      cell_center_metrics, edge_metrics = get_metric_soa_uniform2d(celldims, backend, T)
+    end
+  elseif tag == "curvilinear"
+    if empty_metrics
+      cell_center_metrics, edge_metrics = (nothing, nothing)
+    else
+      cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+    end
+  end
 
   coords = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
@@ -123,68 +389,39 @@ function CurvilinearGrid2D(
     use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
   )
 
-  if isnothing(on_bc)
-    _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true)
-  else
-    _on_bc = on_bc
+  if occursin(tag,"rectlinear,uniform")
+    return (
+      coords,
+      centroids,
+      node_velocities,
+      edge_metrics,
+      cell_center_metrics,
+      nhalo,
+      nnodes,
+      limits,
+      domain_iterators,
+      discr_scheme,
+      is_static,
+      scheme_name,
+    )
+  elseif tag == "curvilinear"
+    return (
+      coords,
+      centroids,
+      node_velocities,
+      edge_metrics,
+      cell_center_metrics,
+      nhalo,
+      nnodes,
+      limits,
+      domain_iterators,
+      discr_scheme,
+      is_static,
+      is_orthogonal,
+      scheme_name,
+    )
+
   end
-
-  m = CurvilinearGrid2D(
-    coords,
-    centroids,
-    node_velocities,
-    edge_metrics,
-    cell_center_metrics,
-    nhalo,
-    nnodes,
-    limits,
-    domain_iterators,
-    discr_scheme,
-    _on_bc,
-    is_static,
-    is_orthogonal,
-    scheme_name,
-  )
-
-  if init_metrics
-    update!(m; force=true)
-  end
-
-  if make_uniform
-    first_idx = first(m.iterators.cell.domain)
-
-    fill!(m.cell_center_metrics.J, m.cell_center_metrics.J[first_idx])
-
-    fill!(m.cell_center_metrics.x₁.ξ, m.cell_center_metrics.x₁.ξ[first_idx])
-    fill!(m.cell_center_metrics.x₂.ξ, m.cell_center_metrics.x₂.ξ[first_idx])
-    fill!(m.cell_center_metrics.x₁.η, m.cell_center_metrics.x₁.η[first_idx])
-    fill!(m.cell_center_metrics.x₂.η, m.cell_center_metrics.x₂.η[first_idx])
-
-    fill!(m.cell_center_metrics.ξ.x₁, m.cell_center_metrics.ξ.x₁[first_idx])
-    fill!(m.cell_center_metrics.ξ.x₂, m.cell_center_metrics.ξ.x₂[first_idx])
-    fill!(m.cell_center_metrics.η.x₁, m.cell_center_metrics.η.x₁[first_idx])
-    fill!(m.cell_center_metrics.η.x₂, m.cell_center_metrics.η.x₂[first_idx])
-
-    fill!(m.edge_metrics.i₊½.J, m.edge_metrics.i₊½.J[first_idx])
-
-    fill!(m.edge_metrics.i₊½.ξ̂.x₁, m.edge_metrics.i₊½.ξ̂.x₁[first_idx])
-    fill!(m.edge_metrics.i₊½.ξ̂.x₂, m.edge_metrics.i₊½.ξ̂.x₂[first_idx])
-    fill!(m.edge_metrics.i₊½.ξ̂.t, m.edge_metrics.i₊½.ξ̂.t[first_idx])
-    fill!(m.edge_metrics.i₊½.η̂.x₁, m.edge_metrics.i₊½.η̂.x₁[first_idx])
-    fill!(m.edge_metrics.i₊½.η̂.x₂, m.edge_metrics.i₊½.η̂.x₂[first_idx])
-    fill!(m.edge_metrics.i₊½.η̂.t, m.edge_metrics.i₊½.η̂.t[first_idx])
-
-    fill!(m.edge_metrics.j₊½.J, m.edge_metrics.j₊½.J[first_idx])
-
-    fill!(m.edge_metrics.j₊½.ξ̂.x₁, m.edge_metrics.j₊½.ξ̂.x₁[first_idx])
-    fill!(m.edge_metrics.j₊½.ξ̂.x₂, m.edge_metrics.j₊½.ξ̂.x₂[first_idx])
-    fill!(m.edge_metrics.j₊½.ξ̂.t, m.edge_metrics.j₊½.ξ̂.t[first_idx])
-    fill!(m.edge_metrics.j₊½.η̂.x₁, m.edge_metrics.j₊½.η̂.x₁[first_idx])
-    fill!(m.edge_metrics.j₊½.η̂.x₂, m.edge_metrics.j₊½.η̂.x₂[first_idx])
-    fill!(m.edge_metrics.j₊½.η̂.t, m.edge_metrics.j₊½.η̂.t[first_idx])
-  end
-
-  return m
 end
 
 """
@@ -338,7 +575,7 @@ function AxisymmetricGrid2D(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::CurvilinearGrid2D; force=false)
+function update!(mesh::AbstractCurvilinearGrid2D; force=false)
   if !mesh.is_static || force
     _centroid_coordinates!(
       mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
@@ -382,10 +619,16 @@ end
 
 """
     jacobian(mesh::CurvilinearGrid2D, idx)
+    jacobian(mesh::RectlinearGrid2D, idx)
+    jacobian(mesh::UniformGrid2D, idx)
 
 The cell-centroid Jacobian (determinant of the Jacobian matrix)
 """
 jacobian(mesh::CurvilinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
+
+jacobian(mesh::RectlinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
+
+jacobian(mesh::UniformGrid2D, idx) = det(jacobian_matrix(mesh, idx))
 
 """
     forward_cell_metrics(mesh::AbstractCurvilinearGrid2D, idx)

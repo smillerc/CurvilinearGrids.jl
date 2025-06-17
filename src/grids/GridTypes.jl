@@ -10,12 +10,15 @@ using KernelAbstractions
 using CartesianDomains
 
 using ..MetricDiscretizationSchemes
+using ..RectlinearArrays
 
 export AbstractCurvilinearGrid
 export AbstractCurvilinearGrid1D
 export AbstractCurvilinearGrid2D
 export AbstractCurvilinearGrid3D
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
+export RectlinearGrid2D, RectlinearGrid3D
+export UniformGrid1D, UniformGrid2D, UniformGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 

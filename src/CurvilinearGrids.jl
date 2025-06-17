@@ -3,6 +3,9 @@ module CurvilinearGrids
 include("discretization_schemes/MetricDiscretizationSchemes.jl")
 using .MetricDiscretizationSchemes
 
+include("RectlinearArrays.jl")
+using .RectlinearArrays
+
 include("grids/GridTypes.jl")
 using .GridTypes
 export AbstractCurvilinearGrid
@@ -10,6 +13,8 @@ export AbstractCurvilinearGrid1D
 export AbstractCurvilinearGrid2D
 export AbstractCurvilinearGrid3D
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
+export RectlinearGrid2D, RectlinearGrid3D
+export UniformGrid1D, UniformGrid2D, UniformGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 export rectlinear_grid,

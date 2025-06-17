@@ -10,7 +10,21 @@ struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   domain_limits::DL
   iterators::CI
   discretization_scheme::DS
-  onbc::@NamedTuple{ilo::Bool, ihi::Bool}
+  is_static::Bool
+  discretization_scheme_name::Symbol
+end
+
+struct UniformGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
+  node_coordinates::CO
+  centroid_coordinates::CE
+  node_velocities::NV
+  edge_metrics::EM
+  cell_center_metrics::CM
+  nhalo::Int
+  nnodes::Int
+  domain_limits::DL
+  iterators::CI
+  discretization_scheme::DS
   is_static::Bool
   discretization_scheme_name::Symbol
 end
@@ -58,8 +72,70 @@ function CurvilinearGrid1D(
   x::AbstractVector{T},
   discretization_scheme::Symbol;
   backend=CPU(),
-  on_bc=nothing,
   is_static=false,
+  empty_metrics=false,
+) where {T}
+
+  m = CurvilinearGrid1D(_grid_constructor(x, "curvilinear", discretization_scheme; backend=backend, is_static=is_static, empty_metrics=empty_metrics)...)
+
+  if !empty_metrics
+    update!(m; force=true)
+  end
+  return m
+end
+
+function UniformGrid1D(
+  (x0, x1),
+  ncells,
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  T=Float64,
+  empty_metrics=false,
+)
+  ni = ncells + 1
+  x = collect(T, range(x0, x1; length=ni))
+
+  m = UniformGrid1D(
+    _grid_constructor(x, "uniform", discretization_scheme; backend=backend, empty_metrics=empty_metrics)...
+  )
+
+  if !empty_metrics
+    update!(m; force=true)
+  end
+  return m
+end
+
+function UniformGrid1D(
+  x::AbstractVector{T},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  empty_metrics=false,
+) where {T}
+
+  #
+  ni = length(x)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
+  end
+
+  m = UniformGrid1D(
+    _grid_constructor(x, "uniform", discretization_scheme; backend=backend, is_static=is_static, empty_metrics=empty_metrics)...
+  )
+
+  update!(m; force=true)
+
+  return m
+end
+
+function _grid_constructor(
+  x::AbstractVector{T},
+  tag::String,
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=false,
+  empty_metrics=false,
   kwargs...,
 ) where {T}
 
@@ -91,7 +167,19 @@ function CurvilinearGrid1D(
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+  if tag == "curvilinear"
+    if empty_metrics
+      cell_center_metrics, edge_metrics = (nothing, nothing)
+    else
+      cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+    end
+  else
+    if empty_metrics
+      cell_center_metrics, edge_metrics = (nothing, nothing)
+    else
+      cell_center_metrics, edge_metrics = get_metric_soa_uniform1d(celldims, backend, T)
+    end
+  end
 
   centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
   coords = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
@@ -106,30 +194,8 @@ function CurvilinearGrid1D(
     use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
   )
 
-  if isnothing(on_bc)
-    _on_bc = (ilo=true, ihi=true)
-  else
-    _on_bc = on_bc
-  end
 
-  m = CurvilinearGrid1D(
-    coords,
-    centroids,
-    node_velocities,
-    edge_metrics,
-    cell_center_metrics,
-    nhalo,
-    ni,
-    limits,
-    domain_iterators,
-    discr_scheme,
-    _on_bc,
-    is_static,
-    scheme_name,
-  )
-
-  update!(m; force=true)
-  return m
+  return (coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, ni, limits, domain_iterators, discr_scheme, is_static, scheme_name)
 end
 
 """

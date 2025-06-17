@@ -10,10 +10,6 @@ function rectlinear_grid(
   discretization_scheme::Symbol;
   backend=CPU(),
   T=Float64,
-  is_static=true,
-  make_uniform=false,
-  tile_layout=nothing,
-  rank::Int=-1,
 )
   ni = ncells + 1
   x = collect(T, range(x0, x1; length=ni))
@@ -149,7 +145,6 @@ function rectlinear_grid(
   backend=CPU(),
   T=Float64,
   is_static=true,
-  make_uniform=false,
   tile_layout=nothing,
   rank::Int=-1,
 )
@@ -165,12 +160,12 @@ function rectlinear_grid(
     discretization_scheme;
     backend=backend,
     is_static=is_static,
-    make_uniform=make_uniform,
     tile_layout=tile_layout,
     rank=rank,
   )
 end
 
+# Added the 'rectlinear' flag in the function for testing purposes. Eventually, this flag should be removed and this should default to using RectlinearGrid2D.
 """
     rectlinear_grid(x, y, discretization_scheme::Symbol; backend=CPU(), is_static=true, make_uniform=false, tile_layout=nothing, rank::Int=-1) -> CurvilinearGrid2D
 
@@ -182,10 +177,26 @@ function rectlinear_grid(
   discretization_scheme::Symbol;
   backend=CPU(),
   is_static=true,
-  make_uniform=false,
   tile_layout=nothing,
   rank::Int=-1,
 ) where {T}
+
+  use_symmetric_conservative_metric_scheme = false
+
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
   ni = length(x)
   nj = length(y)
 
@@ -220,9 +231,7 @@ function rectlinear_grid(
     y2d,
     discretization_scheme;
     backend=backend,
-    is_orthogonal=true,
     is_static=is_static,
-    make_uniform=make_uniform,
   )
 end
 
