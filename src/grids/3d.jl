@@ -74,7 +74,8 @@ end
 
 """
     RectlinearGrid3D(x, y, z, discretization_scheme::Symbol; backend=CPU(), is_static=false, is_static=true,init_metrics=true)
-    RectlinearGrid3D((x0, y0, z0), (x1, y1, z1), (∂x, ∂y, ∂z), discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true)
+    RectlinearGrid3D((x0, y0, z0), (x1, y1, z1), (∂x, ∂y, ∂z)::NTuple{3,AbstractFloat}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true)
+    RectlinearGrid3D((x0, y0, z0), (x1, y1, z1), (ni, nj, nk)::NTuple{3,Int}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true)
 
 Construct a rectlinear grid in 3D using 3D arrays of x/y/z coordinates. This constructor utilizes `RectlinearArray`s to optimize data storage, and therefore should only be used with grids that are rectlinear.
 """
@@ -147,14 +148,34 @@ function RectlinearGrid3D(
   # Semi-uniform rectlinear grid
   (x0, y0, z0),
   (x1, y1, z1),
-  (∂x, ∂y, ∂z)::NTuple{3, T},
+  (ni, nj, nk)::NTuple{3, T},
   discretization_scheme::Symbol;
   backend=CPU(),
   is_static=true,
   init_metrics=true,
   empty_metrics=false,
   kwargs...,
-) where {T<:Real}
+) where {T<:Int}
+  
+  ∂x = (x1-x0)/ni
+  ∂y = (y1-y0)/nj
+  ∂z = (z1-z0)/nk
+
+  # Here we use the 'uniform' tag because all of the metric matrices are uniform
+  RectlinearGrid3D((x0, y0, z0), (x1, y1, z1), (∂x, ∂y, ∂z), discretization_scheme; backend=backend, is_static=is_static, init_metrics=init_metrics, empty_metrics=empty_metrics, kwargs...)
+end
+function RectlinearGrid3D(
+  # Semi-uniform rectlinear grid
+  (x0, y0, z0),
+  (x1, y1, z1),
+  (∂x, ∂y, ∂z)::NTuple{3,T},
+  discretization_scheme::Symbol;
+  backend=CPU(),
+  is_static=true,
+  init_metrics=true,
+  empty_metrics=false,
+  kwargs...,
+) where {T<:AbstractFloat}
 
   #
   x = x0:∂x:x1

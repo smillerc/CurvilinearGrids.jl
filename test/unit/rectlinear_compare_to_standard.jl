@@ -128,13 +128,10 @@ end
 @testset "Rectlinear3D Equivalence Test - Semi-Uniform" begin
     (x0, y0, z0) = (0, 1, 2)
     (x1, y1, z1) = (12, 13, 14)
-    (∂x, ∂y, ∂z) = (0.2, 0.3, 0.5)
-    x = x0:∂x:x1
-    y = y0:∂y:y1
-    z = z0:∂z:z1
+    (ni, nj, nk) = (20, 30, 40)
 
-    mesh_rect = RectlinearGrid3D((x0, y0, z0), (x1, y1, z1), (∂x, ∂y, ∂z), :MEG6)
-    mesh_curv = rectlinear_grid(x, y, z, :MEG6)
+    mesh_rect = RectlinearGrid3D((x0, y0, z0), (x1, y1, z1), (ni, nj, nk), :MEG6)
+    mesh_curv = rectlinear_grid((x0, y0, z0), (x1, y1, z1), (ni, nj, nk), :MEG6)
 
     # Test to see if the domains of each array match. Note that the halo cell regions will NOT match, though this isn't an issue because the problem isn't defined there.
     
