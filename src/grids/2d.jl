@@ -48,7 +48,7 @@ end
 """
 AxisymmetricGrid2D
 """
-struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
+struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -58,7 +58,6 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid
   nnodes::NTuple{2,Int}
   domain_limits::DL
   iterators::CI
-  tiles::TI
   discretization_scheme::DS
   snap_to_axis::Bool
   rotational_axis::Symbol
@@ -421,6 +420,7 @@ function _grid_constructor(
       is_orthogonal,
       scheme_name,
     )
+
   end
 end
 
@@ -440,8 +440,8 @@ function AxisymmetricGrid2D(
   is_static=false,
   on_bc=nothing,
   is_orthogonal=false,
-  tiles=nothing,
   make_uniform=false,
+  kwargs...,
 ) where {T}
 
   #
@@ -526,7 +526,6 @@ function AxisymmetricGrid2D(
     nnodes,
     limits,
     domain_iterators,
-    tiles,
     discr_scheme,
     snap_to_axis,
     rotational_axis,

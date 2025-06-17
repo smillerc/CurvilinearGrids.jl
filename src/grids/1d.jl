@@ -29,7 +29,7 @@ struct UniformGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   discretization_scheme_name::Symbol
 end
 
-struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
+struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -39,16 +39,14 @@ struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
   nnodes::Int
   domain_limits::DL
   iterators::CI
-  tiles::TI
   discretization_scheme::DS
   onbc::@NamedTuple{ilo::Bool, ihi::Bool}
   snap_to_axis::Bool
   is_static::Bool
-  is_orthogonal::Bool
   discretization_scheme_name::Symbol
 end
 
-struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
+struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -58,17 +56,15 @@ struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1
   nnodes::Int
   domain_limits::DL
   iterators::CI
-  tiles::TI
   discretization_scheme::DS
   onbc::@NamedTuple{ilo::Bool, ihi::Bool}
   snap_to_axis::Bool
   is_static::Bool
-  is_orthogonal::Bool
   discretization_scheme_name::Symbol
 end
 
 """
-    CurvilinearGrid1D(x, nhalo; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, tiles=nothing)
+    CurvilinearGrid1D(x::AbstractVector, discretization_scheme::Symbol; backend=CPU(), on_bc=nothing, is_static=false) 
 
 Construct a curvilinear grid in 1D using a vector of x coordinate points.
 """
@@ -140,6 +136,7 @@ function _grid_constructor(
   backend=CPU(),
   is_static=false,
   empty_metrics=false,
+  kwargs...,
 ) where {T}
 
   #
@@ -197,15 +194,12 @@ function _grid_constructor(
     use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
   )
 
-  if tag == "curvilinear"
-    return (coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, ni, limits, domain_iterators, discr_scheme, is_static, scheme_name)
-  else
-    return (coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, ni, limits, domain_iterators, discr_scheme, is_static, scheme_name)
-  end
+
+  return (coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, ni, limits, domain_iterators, discr_scheme, is_static, scheme_name)
 end
 
 """
-    SphericalGrid1D(x, nhalo, snap_to_axis::Bool; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, tiles=nothing)
+    SphericalGrid1D(x::AbstractVector, discretization_scheme::Symbol, snap_to_axis::Bool; backend=CPU(), on_bc=nothing, is_static=false)
 
 Construct a curvilinear grid in 1D with spherical symmetry using a vector of x coordinate points.
 """
@@ -216,7 +210,7 @@ function SphericalGrid1D(
   backend=CPU(),
   on_bc=nothing,
   is_static=false,
-  tiles=nothing,
+  kwargs...,
 ) where {T}
 
   #
@@ -278,12 +272,10 @@ function SphericalGrid1D(
     ni,
     limits,
     domain_iterators,
-    tiles,
     discr_scheme,
     _on_bc,
     snap_to_axis,
     is_static,
-    true,
     scheme_name,
   )
 
@@ -292,7 +284,7 @@ function SphericalGrid1D(
 end
 
 """
-    CylindricalGrid1D(x, nhalo, snap_to_axis::Bool; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, tiles=nothing)
+    CylindricalGrid1D(x::AbstractVector, discretization_scheme::Symbol, snap_to_axis::Bool; backend=CPU(), on_bc=nothing, is_static=false)
 
 Construct a curvilinear grid in 1D with cylindrical symmetry using a vector of x coordinate points.
 """
@@ -303,7 +295,7 @@ function CylindricalGrid1D(
   backend=CPU(),
   on_bc=nothing,
   is_static=false,
-  tiles=nothing,
+  kwargs...,
 ) where {T}
 
   #
@@ -365,12 +357,10 @@ function CylindricalGrid1D(
     ni,
     limits,
     domain_iterators,
-    tiles,
     discr_scheme,
     _on_bc,
     snap_to_axis,
     is_static,
-    true,
     scheme_name,
   )
 

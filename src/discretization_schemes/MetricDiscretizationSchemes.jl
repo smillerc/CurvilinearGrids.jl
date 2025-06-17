@@ -47,18 +47,28 @@ end
 
 function update_edge_metrics!(scheme, cell_metrics, edge_metrics, domain)
   for (axis, edge) in enumerate(keys(edge_metrics)) # axis -> (1, 2, 3), edge -> (i₊½, j₊½, k₊½)
-    for metric in keys(edge_metrics[edge]) # ξ, η, ζ, ξ̂, η̂, ζ̂
-      for (cell_component, edge_component) in zip(
-        StructArrays.components(cell_metrics[metric]),       # ∂ξ̂ᵢ/∂xᵢ
-        StructArrays.components(edge_metrics[edge][metric]), # ∂ξ̂/∂x|ᵢ₊½
-      ) # x₁, x₂, x₃
+    for metric in keys(edge_metrics[edge]) # J, ξ, η, ζ, ξ̂, η̂, ζ̂
+      if metric === :J
         interpolate_to_edge!(
           scheme,
-          edge_component, # ∂ξ̂/∂x|ᵢ₊½
-          cell_component, # ∂ξ̂ᵢ/∂xᵢ
+          edge_metrics[edge][:J], # Ji₊½, Jj₊½, Jk₊½)
+          cell_metrics[:J], # J 
           axis,
           domain,
         )
+      else
+        for (cell_component, edge_component) in zip(
+          StructArrays.components(cell_metrics[metric]),       # ∂ξ̂ᵢ/∂xᵢ
+          StructArrays.components(edge_metrics[edge][metric]), # ∂ξ̂/∂x|ᵢ₊½
+        ) # x₁, x₂, x₃
+          interpolate_to_edge!(
+            scheme,
+            edge_component, # ∂ξ̂/∂x|ᵢ₊½
+            cell_component, # ∂ξ̂ᵢ/∂xᵢ
+            axis,
+            domain,
+          )
+        end
       end
     end
   end
