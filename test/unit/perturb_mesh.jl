@@ -40,7 +40,7 @@ end
   x0, x1 = (0.0, 10.0)
   y0, y1 = (0.0, 0.5λ)
 
-  mesh = rectlinear_grid((x0, y0), (x1, y1), (501, 101), :meg6_symmetric; is_static=true)
+  mesh = rectilinear_grid((x0, y0), (x1, y1), (501, 101), :meg6_symmetric; is_static=true)
 
   perturb_coords!(mesh, x_interface, λ, k)
 

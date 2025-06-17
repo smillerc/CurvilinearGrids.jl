@@ -85,10 +85,10 @@ The `scheme` is currently limited to the following:
 
 A few convienence constructors have been added to make it simpler to generate certain types of grids. Use the `?` in the REPL to see the useage.
 
-- `rectlinear_grid`: A rectlinear grid in 1D/2D/3D
-- `rectlinear_cylindrical_grid`: A rectlinear grid with cylindrical symmetry
-- `rectlinear_spherical_grid`: A rectlinear grid with spherical symmetry
-- `axisymmetric_rectlinear_grid`: A rectlinear grid with axisymmetry about a given axis
+- `rectilinear_grid`: A rectilinear grid in 1D/2D/3D
+- `rectilinear_cylindrical_grid`: A rectilinear grid with cylindrical symmetry
+- `rectilinear_spherical_grid`: A rectilinear grid with spherical symmetry
+- `axisymmetric_rectilinear_grid`: A rectilinear grid with axisymmetry about a given axis
 
 - `rtheta_grid`: Provide (r,θ) coordinates to generate a polar mesh
 - `axisymmetric_rtheta_grid`: Provide (r,θ) coordinates to generate a polar mesh with axisymmetry
@@ -147,19 +147,19 @@ These matrices can be accessed by calling `J = jacobian_matrix(mesh, I::Cartesia
 
 ## Using metrics in a PDE discretization
 
-Curvilinear transformations are often used to simulate PDEs like the heat equation or the Euler equations for fluid flow. A *vastly* simplified example is shown below, where the divergence of the flux ($\nabla \cdot q$) is found for a 1D rectlinear grid. A good description of metrics and PDE discretization is in Chapter 3 of [*Huang, W. & Russell, R. D. Adaptive Moving Mesh Methods*](https://link.springer.com/book/10.1007/978-1-4419-7916-2).
+Curvilinear transformations are often used to simulate PDEs like the heat equation or the Euler equations for fluid flow. A *vastly* simplified example is shown below, where the divergence of the flux ($\nabla \cdot q$) is found for a 1D rectilinear grid. A good description of metrics and PDE discretization is in Chapter 3 of [*Huang, W. & Russell, R. D. Adaptive Moving Mesh Methods*](https://link.springer.com/book/10.1007/978-1-4419-7916-2).
 
 
 ```julia
-using CurvilinearGrids: rectlinear_grid
+using CurvilinearGrids: rectilinear_grid
 using CartesianDomains: shift
 
 x0, x1 = (-1.0, 1.0)
 ncells = 100
 scheme = :meg6_symmetric
 
-# rectlinear_grid() is a CurvilinearGrid1D constructor for uniform geometry
-mesh = rectlinear_grid(x0, x1, scheme)
+# rectilinear_grid() is a CurvilinearGrid1D constructor for uniform geometry
+mesh = rectilinear_grid(x0, x1, scheme)
 ξx = mesh.cell_center_metrics.ξ.x₁
 
 const iaxis = 1

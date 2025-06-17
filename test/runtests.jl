@@ -1,5 +1,5 @@
 using CurvilinearGrids
-using CurvilinearGrids.RectlinearArrays
+using CurvilinearGrids.RectilinearArrays
 using Test
 using StaticArrays
 using BenchmarkTools
@@ -15,7 +15,7 @@ include("unit/common.jl")
   include("unit/test_1d.jl")
 
   include("unit/test_2d.jl")
-  include("unit/test_rectlinear_arrays.jl")
+  include("unit/test_rectilinear_arrays.jl")
   include("unit/test_2d_axisymmetric.jl")
   include("unit/perturb_mesh.jl")
 

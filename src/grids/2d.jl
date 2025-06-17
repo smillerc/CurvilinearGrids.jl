@@ -15,7 +15,7 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme_name::Symbol
 end
 
-struct RectlinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
+struct RectilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -105,13 +105,13 @@ function CurvilinearGrid2D(
 end
 
 """
-    RectlinearGrid2D(x::AbstractVector{T}, y::AbstractVector{T}, discretization_scheme=::Symbol; backend=CPU()) where {T}
+    RectilinearGrid2D(x::AbstractVector{T}, y::AbstractVector{T}, discretization_scheme=::Symbol; backend=CPU()) where {T}
 
 Create a 2d grid with `x` and `y` coordinates. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
 
-This constructor utilizes `RectlinearArray`s to optimize data storage. Therefore, this should only be used when creating a rectlinear grid.
+This constructor utilizes `RectilinearArray`s to optimize data storage. Therefore, this should only be used when creating a rectilinear grid.
 """
-function RectlinearGrid2D(
+function RectilinearGrid2D(
   x::AbstractVector{T},
   y::AbstractVector{T},
   discretization_scheme::Symbol;
@@ -149,11 +149,11 @@ function RectlinearGrid2D(
     end
   end
 
-  m = RectlinearGrid2D(
+  m = RectilinearGrid2D(
     _grid_constructor(
       x2d,
       y2d,
-      :rectlinear,
+      :rectilinear,
       discretization_scheme;
       backend=backend,
       is_static=is_static,
@@ -168,11 +168,11 @@ function RectlinearGrid2D(
 end
 
 """
-    RectlinearGrid2D((x0, y0), (x1, y1), (ni_cells, nj_cells)::NTuple{2,Int}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true, empty_metrics=false)
+    RectilinearGrid2D((x0, y0), (x1, y1), (ni_cells, nj_cells)::NTuple{2,Int}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true, empty_metrics=false)
 
 TBW
 """
-function RectlinearGrid2D(
+function RectilinearGrid2D(
   (x0, y0),
   (x1, y1),
   (ni_cells, nj_cells)::NTuple{2,Int},
@@ -188,7 +188,7 @@ function RectlinearGrid2D(
     )
   end
 
-  return RectlinearGrid2D(
+  return RectilinearGrid2D(
     collect(range(x0, x1; length=ni_cells + 1)),
     collect(range(y0, y1; length=nj_cells + 1)),
     discretization_scheme;
@@ -200,11 +200,11 @@ function RectlinearGrid2D(
 end
 
 # """
-#     RectlinearGrid2D((x0, y0), (x1, y1), (∂x, ∂y)::NTuple{2,T}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true, empty_metrics=false) where {T<:Real}
+#     RectilinearGrid2D((x0, y0), (x1, y1), (∂x, ∂y)::NTuple{2,T}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true, empty_metrics=false) where {T<:Real}
 
 # TBW
 # """
-# function RectlinearGrid2D(
+# function RectilinearGrid2D(
 #   (x0, y0),
 #   (x1, y1),
 #   (∂x, ∂y)::NTuple{2,T},
@@ -269,7 +269,7 @@ end
 
 Create a 2d uniform grid with a grid spacing and a shape. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
 
-This constructor utilizes `RectlinearArray`s to optimize data storage. Therefore, this should only be used when creating a uniform grid.
+This constructor utilizes `RectilinearArray`s to optimize data storage. Therefore, this should only be used when creating a uniform grid.
 """
 function UniformGrid2D(
   (x0, y0),
@@ -379,11 +379,11 @@ function _grid_constructor(
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  if tag == :rectlinear
+  if tag == :rectilinear
     if empty_metrics
       cell_center_metrics, edge_metrics = (nothing, nothing)
     else
-      cell_center_metrics, edge_metrics = get_metric_soa_rectlinear2d(celldims, backend, T)
+      cell_center_metrics, edge_metrics = get_metric_soa_rectilinear2d(celldims, backend, T)
     end
   elseif tag == :uniform
     if empty_metrics
@@ -429,7 +429,7 @@ function _grid_constructor(
     use_symmetric_conservative_metric_scheme=false,
   )
 
-  if tag == :rectlinear || tag === :uniform
+  if tag == :rectilinear || tag === :uniform
     return (
       coords,
       centroids,
@@ -660,14 +660,14 @@ end
 
 """
     jacobian(mesh::CurvilinearGrid2D, idx)
-    jacobian(mesh::RectlinearGrid2D, idx)
+    jacobian(mesh::RectilinearGrid2D, idx)
     jacobian(mesh::UniformGrid2D, idx)
 
 The cell-centroid Jacobian (determinant of the Jacobian matrix)
 """
 jacobian(mesh::CurvilinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
 
-jacobian(mesh::RectlinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
+jacobian(mesh::RectilinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
 
 jacobian(mesh::UniformGrid2D, idx) = det(jacobian_matrix(mesh, idx))
 

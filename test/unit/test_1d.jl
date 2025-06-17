@@ -1,4 +1,4 @@
-@testset "CurvilinearGrid1D -- Rectlinear" begin
+@testset "CurvilinearGrid1D -- Rectilinear" begin
   ni = 40
   x0, x1 = (0.0, 20.0)
   mesh = CurvilinearGrid1D((x0, x1), ni, :meg6)

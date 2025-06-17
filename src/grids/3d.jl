@@ -15,7 +15,7 @@ struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid3D
   discretization_scheme_name::Symbol
 end
 
-struct RectlinearGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid3D
+struct RectilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid3D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -84,13 +84,13 @@ function CurvilinearGrid3D(
 end
 
 """
-    RectlinearGrid3D(x, y, z, discretization_scheme::Symbol; backend=CPU(), is_static=false, is_static=true,init_metrics=true)
-    RectlinearGrid3D((x0, y0, z0), (x1, y1, z1), (∂x, ∂y, ∂z)::NTuple{3,AbstractFloat}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true)
-    RectlinearGrid3D((x0, y0, z0), (x1, y1, z1), (ni, nj, nk)::NTuple{3,Int}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true)
+    RectilinearGrid3D(x, y, z, discretization_scheme::Symbol; backend=CPU(), is_static=false, is_static=true,init_metrics=true)
+    RectilinearGrid3D((x0, y0, z0), (x1, y1, z1), (∂x, ∂y, ∂z)::NTuple{3,AbstractFloat}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true)
+    RectilinearGrid3D((x0, y0, z0), (x1, y1, z1), (ni, nj, nk)::NTuple{3,Int}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true)
 
-Construct a rectlinear grid in 3D using 3D arrays of x/y/z coordinates. This constructor utilizes `RectlinearArray`s to optimize data storage, and therefore should only be used with grids that are rectlinear.
+Construct a rectilinear grid in 3D using 3D arrays of x/y/z coordinates. This constructor utilizes `RectilinearArray`s to optimize data storage, and therefore should only be used with grids that are rectilinear.
 """
-function RectlinearGrid3D(
+function RectilinearGrid3D(
   x::AbstractVector{T},
   y::AbstractVector{T},
   z::AbstractVector{T},
@@ -145,12 +145,12 @@ function RectlinearGrid3D(
     end
   end
 
-  m = RectlinearGrid3D(
+  m = RectilinearGrid3D(
     _grid_constructor(
       x3d,
       y3d,
       z3d,
-      :rectlinear,
+      :rectilinear,
       discretization_scheme;
       backend=backend,
       is_static=is_static,
@@ -166,8 +166,8 @@ function RectlinearGrid3D(
   return m
 end
 
-function RectlinearGrid3D(
-  # Semi-uniform rectlinear grid
+function RectilinearGrid3D(
+  # Semi-uniform rectilinear grid
   (x0, y0, z0),
   (x1, y1, z1),
   (ni, nj, nk)::NTuple{3,T},
@@ -183,7 +183,7 @@ function RectlinearGrid3D(
   ∂z = (z1 - z0) / nk
 
   # Here we use the 'uniform' tag because all of the metric matrices are uniform
-  RectlinearGrid3D(
+  RectilinearGrid3D(
     (x0, y0, z0),
     (x1, y1, z1),
     (∂x, ∂y, ∂z),
@@ -196,8 +196,8 @@ function RectlinearGrid3D(
   )
 end
 
-function RectlinearGrid3D(
-  # Semi-uniform rectlinear grid
+function RectilinearGrid3D(
+  # Semi-uniform rectilinear grid
   (x0, y0, z0),
   (x1, y1, z1),
   (∂x, ∂y, ∂z)::NTuple{3,T},
@@ -257,7 +257,7 @@ function RectlinearGrid3D(
   end
 
   # Here we use the 'uniform' tag because all of the metric matrices are uniform
-  m = RectlinearGrid3D(
+  m = RectilinearGrid3D(
     _grid_constructor(
       x3d,
       y3d,
@@ -282,7 +282,7 @@ end
 """
     UniformGrid3D((x0, y0, z0), (x1, y1, z1), ∂x, shape::NTuple{3, Int}, discretization_scheme::Symbol; backend=CPU(), is_static=false,is_static=true, init_metrics=true)
 
-Construct a uniform grid in 3D using a grid spacing and a shape tuple. This constructor utilizes `RectlinearArray`s to optimize data storage, and therefore should only be used with grids that are uniform."""
+Construct a uniform grid in 3D using a grid spacing and a shape tuple. This constructor utilizes `RectilinearArray`s to optimize data storage, and therefore should only be used with grids that are uniform."""
 function UniformGrid3D(
   (x0, y0, z0),
   (x1, y1, z1),
@@ -433,11 +433,11 @@ function _grid_constructor(
   nodedims = size(domain_iterators.node.full)
 
   # if init_metrics
-  if tag === :rectlinear
+  if tag === :rectilinear
     if empty_metrics
       cell_center_metrics, edge_metrics = (nothing, nothing)
     else
-      cell_center_metrics, edge_metrics = get_metric_soa_rectlinear3d(celldims, backend, T)
+      cell_center_metrics, edge_metrics = get_metric_soa_rectilinear3d(celldims, backend, T)
     end
   elseif tag === :uniform
     if empty_metrics
@@ -482,7 +482,7 @@ function _grid_constructor(
     z=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  if tag === :rectlinear || tag === :uniform
+  if tag === :rectilinear || tag === :uniform
     return (
       coords,
       centroids,

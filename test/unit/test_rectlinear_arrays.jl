@@ -1,9 +1,9 @@
 
-@testset "Rectlinear2D 1 fixed axis" begin
-  using CurvilinearGrids.RectlinearArrays
+@testset "Rectilinear2D 1 fixed axis" begin
+  using CurvilinearGrids.RectilinearArrays
   slice = rand(-0.9:0.01:0.9, 4)
   A = reshape(repeat(slice, 5, 1), 4, 5)
-  B = RectlinearArray(A, (2,))
+  B = RectilinearArray(A, (2,))
 
   # Test to see if the array looks like it should (this also tests the getindex function)
   @test B[1, 1] == B[1, 2] == B[1, 3] == B[1, 4] == B[1, 5]
@@ -47,11 +47,11 @@
   @test C[4, 1] == C[4, 2] == C[4, 3] == C[4, 4] == C[4, 5] == 12
 end
 
-@testset "Rectlinear3D 1/2 fixed axes" begin
+@testset "Rectilinear3D 1/2 fixed axes" begin
   # --- Begin 1 fixed axis --- #
   slice = rand(-0.9:0.01:0.9, 4, 5)
   A = repeat(slice, 1, 1, 3)
-  B = RectlinearArray(A, (3,))
+  B = RectilinearArray(A, (3,))
 
   # Test to see if the array looks like it should (this also tests the getindex function)
   @test B[1, 1, 1] == B[1, 1, 2] == B[1, 1, 3]
@@ -93,7 +93,7 @@ end
   @test eltype(B_sim) == eltype(B)
 
   # Test broadcasting (this also tests the Base.similar implementation necessary for broadcasting)
-  B_zeros = RectlinearArrays.zeros(Float64, (3,), (4, 5, 3))
+  B_zeros = RectilinearArrays.zeros(Float64, (3,), (4, 5, 3))
   B_zeros .+= 10
   @test all(i -> i == 10, B_zeros)
   # --- End 1 fixed axis --- #
@@ -101,7 +101,7 @@ end
   # --- Begin 2 fixed axes --- #
   slice = rand(-0.9:0.01:0.9, 4)
   C = repeat(slice, 1, 5, 3)
-  D = RectlinearArray(C, (2, 3))
+  D = RectilinearArray(C, (2, 3))
 
   # Test to see if the array looks like it should (this also tests the getindex function)
   @test D[1, 1, 1] == D[1, 1, 2] == D[1, 1, 3] == D[1, 3, 1] == D[1, 3, 2] == D[1, 3, 3]
@@ -141,7 +141,7 @@ end
   @test eltype(D_sim) == eltype(D)
 
   # Test broadcasting (this also tests the Base.similar implementation necessary for broadcasting)
-  D_zeros = RectlinearArrays.zeros(Float64, (2, 3), (4, 5, 3))
+  D_zeros = RectilinearArrays.zeros(Float64, (2, 3), (4, 5, 3))
   D_zeros .+= 10
   @test all(i -> i == 10, D_zeros)
   # --- End 2 fixed axes --- #
@@ -150,7 +150,7 @@ end
 @testset "Uniform1/2/3D" begin
   # --- Begin 1D --- #
   A = fill(5.0, (10,))
-  B = RectlinearArray(A, (1,))
+  B = RectilinearArray(A, (1,))
 
   # Test to see if the array looks like it should (this also tests the getindex function)
   @test all(i -> i == 5.0, B)
@@ -180,7 +180,7 @@ end
 
   # --- Begin 2D --- #
   C = fill(5.0, (4, 5))
-  D = RectlinearArray(C, (1, 2))
+  D = RectilinearArray(C, (1, 2))
 
   # Test to see if the array looks like it should (this also tests the getindex function)
   @test all(i -> i == 5.0, D)
@@ -210,7 +210,7 @@ end
 
   # --- Begin 3D --- #
   E = fill(5.0, (4, 5, 6))
-  F = RectlinearArray(E, (1, 2, 3))
+  F = RectilinearArray(E, (1, 2, 3))
 
   # Test to see if the array looks like it should (this also tests the getindex function)
   @test all(i -> i == 5.0, F)
@@ -240,7 +240,7 @@ end
 end
 
 if test_gpu
-  @testset "RectlinearArray2D GPU MatMul" begin
+  @testset "RectilinearArray2D GPU MatMul" begin
     # Simple kernel for matrix multiplication
     @kernel function matmul_kernel!(output, a, b)
       i, j = @index(Global, NTuple)
@@ -266,11 +266,11 @@ if test_gpu
 
     A = repeat(rand(Float32, 4), 1, 5)
     Aᵪ = CuArray(A)
-    Aᵣ = RectlinearArray(Aᵪ, (2,))
+    Aᵣ = RectilinearArray(Aᵪ, (2,))
 
     B = repeat(rand(Float32, 3), 1, 5)
     Bᵪ = CuArray(Array(transpose(B)))
-    Bᵣ = RectlinearArray(Bᵪ, (1,))
+    Bᵣ = RectilinearArray(Bᵪ, (1,))
 
     output = CUDA.zeros(Float32, (4, 3))
 
