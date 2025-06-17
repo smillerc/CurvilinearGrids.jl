@@ -1,8 +1,4 @@
-using BenchmarkTools, Random
-
-include("src/RectlinearArrays.jl")
-
-using .RectlinearArrays
+using BenchmarkTools, Random, CurvilinearGrids, CurvilinearGrids.RectlinearArrays
 
 const SUITE = BenchmarkGroup()
 
