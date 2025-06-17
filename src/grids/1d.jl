@@ -92,6 +92,12 @@ function CurvilinearGrid1D(
   return m
 end
 
+function CurvilinearGrid1D((x0, x1), ni, discretization_scheme::Symbol; kwargs...)
+  CurvilinearGrid1D(
+    collect(range(x0, x1; length=ni + 1)), discretization_scheme::Symbol; kwargs...
+  )
+end
+
 """
     UniformGrid1D((x0, x1), ncells, discretization_scheme::Symbol; backend=CPU(), T=Float64, empty_metrics=false)
 

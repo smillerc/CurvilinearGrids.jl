@@ -189,9 +189,8 @@ function RectlinearGrid2D(
   end
 
   return RectlinearGrid2D(
-    (x0, y0),
-    (x1, y1),
-    ((x1 - x0) / ni_cells, (y1 - y0) / nj_cells),
+    collect(range(x0, x1; length=ni_cells + 1)),
+    collect(range(y0, y1; length=nj_cells + 1)),
     discretization_scheme;
     backend=backend,
     is_static=is_static,
@@ -200,70 +199,70 @@ function RectlinearGrid2D(
   )
 end
 
-"""
-    RectlinearGrid2D((x0, y0), (x1, y1), (∂x, ∂y)::NTuple{2,T}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true, empty_metrics=false) where {T<:Real}
+# """
+#     RectlinearGrid2D((x0, y0), (x1, y1), (∂x, ∂y)::NTuple{2,T}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true, empty_metrics=false) where {T<:Real}
 
-TBW
-"""
-function RectlinearGrid2D(
-  (x0, y0),
-  (x1, y1),
-  (∂x, ∂y)::NTuple{2,T},
-  discretization_scheme::Symbol;
-  backend=CPU(),
-  is_static=true,
-  init_metrics=true,
-  empty_metrics=false,
-) where {T<:Real}
-  x = Vector(x0:∂x:x1)
-  y = Vector(y0:∂y:y1)
+# TBW
+# """
+# function RectlinearGrid2D(
+#   (x0, y0),
+#   (x1, y1),
+#   (∂x, ∂y)::NTuple{2,T},
+#   discretization_scheme::Symbol;
+#   backend=CPU(),
+#   is_static=true,
+#   init_metrics=true,
+#   empty_metrics=false,
+# ) where {T<:Real}
+#   x = Vector(x0:∂x:x1)
+#   y = Vector(y0:∂y:y1)
 
-  ni = length(x)
-  nj = length(y)
+#   ni = length(x)
+#   nj = length(y)
 
-  if ni < 2
-    error("The x vector must have more than 2 points")
-  end
+#   if ni < 2
+#     error("The x vector must have more than 2 points")
+#   end
 
-  if nj < 2
-    error("The y vector must have more than 2 points")
-  end
+#   if nj < 2
+#     error("The y vector must have more than 2 points")
+#   end
 
-  if !all(diff(x) .> 0)
-    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
-  end
+#   if !all(diff(x) .> 0)
+#     error("Invalid x vector, spacing between vertices must be > 0 everywhere")
+#   end
 
-  if !all(diff(y) .> 0)
-    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
-  end
+#   if !all(diff(y) .> 0)
+#     error("Invalid y vector, spacing between vertices must be > 0 everywhere")
+#   end
 
-  x2d = zeros(T, ni, nj)
-  y2d = zeros(T, ni, nj)
+#   x2d = zeros(T, ni, nj)
+#   y2d = zeros(T, ni, nj)
 
-  @inbounds for j in 1:nj
-    for i in 1:ni
-      x2d[i, j] = x[i]
-      y2d[i, j] = y[j]
-    end
-  end
+#   @inbounds for j in 1:nj
+#     for i in 1:ni
+#       x2d[i, j] = x[i]
+#       y2d[i, j] = y[j]
+#     end
+#   end
 
-  m = UniformGrid2D(
-    _grid_constructor(
-      x2d,
-      y2d,
-      :uniform,
-      discretization_scheme;
-      backend=backend,
-      is_static=is_static,
-      empty_metrics=empty_metrics,
-    )...,
-  )
+#   m = UniformGrid2D(
+#     _grid_constructor(
+#       x2d,
+#       y2d,
+#       :uniform,
+#       discretization_scheme;
+#       backend=backend,
+#       is_static=is_static,
+#       empty_metrics=empty_metrics,
+#     )...,
+#   )
 
-  if init_metrics && !empty_metrics
-    update!(m; force=true)
-  end
-  return m
-end
+#   if init_metrics && !empty_metrics
+#     update!(m; force=true)
+#   end
+#   return m
+# end
 
 """
     UniformGrid2D((x0, y0), (x1, y1), ∂x, discretization_scheme=::Symbol; backend=CPU()) where {T}
