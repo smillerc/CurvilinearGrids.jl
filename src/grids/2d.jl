@@ -106,8 +106,6 @@ end
 
 """
     RectlinearGrid2D(x::AbstractVector{T}, y::AbstractVector{T}, discretization_scheme=::Symbol; backend=CPU()) where {T}
-    RectlinearGrid2D((x0, y0), (x1, y1), (ni_cells, nj_cells)::NTuple{2, Int}, discretization_scheme=::Symbol; backend=CPU()) where {T}
-    RectlinearGrid2D((x0, y0), (x1, y1), (∂x, ∂y), discretization_scheme=::Symbol; backend=CPU()) where {T}
 
 Create a 2d grid with `x` and `y` coordinates. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
 
@@ -169,6 +167,11 @@ function RectlinearGrid2D(
   return m
 end
 
+"""
+    RectlinearGrid2D((x0, y0), (x1, y1), (ni_cells, nj_cells)::NTuple{2,Int}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true, empty_metrics=false)
+
+TBW
+"""
 function RectlinearGrid2D(
   (x0, y0),
   (x1, y1),
@@ -197,6 +200,11 @@ function RectlinearGrid2D(
   )
 end
 
+"""
+    RectlinearGrid2D((x0, y0), (x1, y1), (∂x, ∂y)::NTuple{2,T}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true, empty_metrics=false) where {T<:Real}
+
+TBW
+"""
 function RectlinearGrid2D(
   (x0, y0),
   (x1, y1),
@@ -479,14 +487,14 @@ function AxisymmetricGrid2D(
   #
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
-  if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+  if (
+    scheme_name === :MEG6 ||
+    scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme === :MontoneExplicitGradientScheme6thOrder
+  )
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
-  elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
+
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end

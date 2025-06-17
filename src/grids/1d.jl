@@ -64,7 +64,7 @@ struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
 end
 
 """
-    CurvilinearGrid1D(x::AbstractVector, discretization_scheme::Symbol; backend=CPU(), on_bc=nothing, is_static=false) 
+    CurvilinearGrid1D(x::AbstractVector{T}, discretization_scheme::Symbol; backend=CPU(), is_static=false, empty_metrics=false) where {T}
 
 Construct a curvilinear grid in 1D using a vector of x coordinate points.
 """
@@ -92,6 +92,11 @@ function CurvilinearGrid1D(
   return m
 end
 
+"""
+    UniformGrid1D((x0, x1), ncells, discretization_scheme::Symbol; backend=CPU(), T=Float64, empty_metrics=false)
+
+TBW
+"""
 function UniformGrid1D(
   (x0, x1),
   ncells,
@@ -115,6 +120,11 @@ function UniformGrid1D(
   return m
 end
 
+"""
+    UniformGrid1D(x::AbstractVector{T}, discretization_scheme::Symbol; backend=CPU(), is_static=true, empty_metrics=false) where {T}
+
+TBW
+"""
 function UniformGrid1D(
   x::AbstractVector{T},
   discretization_scheme::Symbol;
