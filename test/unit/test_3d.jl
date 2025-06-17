@@ -20,7 +20,7 @@
   z0, z1 = (-1, 2)
   ni, nj, nk = (40, 80, 120)
 
-  mesh = rectilinear_grid((x0, y0, z0), (x1, y1, z1), (ni, nj, nk), :meg6)
+  mesh = RectilinearGrid3D((x0, y0, z0), (x1, y1, z1), (ni, nj, nk), :meg6)
   domain = mesh.iterators.cell.domain
 
   cell_volume = 0.05 * 0.025 * 0.025
@@ -148,7 +148,7 @@ end
   save_vtk(mesh, "wavy3d")
   save_vtk(surf, "khi_surf")
 
-  # gcl(mesh)
+  gcl(mesh)
 end
 
 @testset "3D Sphere Sector, Symmetric Conservative Metrics" begin

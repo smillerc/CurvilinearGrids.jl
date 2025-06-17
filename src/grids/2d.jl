@@ -67,6 +67,32 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme_name::Symbol
 end
 
+function CurvilinearGrid2D(
+  (x0, y0),
+  (x1, y1),
+  (ni_cells, nj_cells)::NTuple{2,Int},
+  discretization_scheme::Symbol;
+  T=Float64,
+  kwargs...,
+)
+  x = range(x0, x1; length=ni_cells + 1)
+  y = range(y0, y1; length=nj_cells + 1)
+
+  ni = length(x)
+  nj = length(y)
+
+  X = zeros(T, ni, nj)
+  Y = zeros(T, ni, nj)
+  for j in eachindex(y)
+    for i in eachindex(x)
+      X[i, j] = x[i]
+      Y[i, j] = y[j]
+    end
+  end
+
+  return CurvilinearGrid2D(X, Y, discretization_scheme; kwargs...)
+end
+
 """
     CurvilinearGrid2D(x::AbstractArray{T,2}, y::AbstractArray{T,2}, discretization_scheme=::Symbol; backend=CPU()) where {T}
 
@@ -461,6 +487,36 @@ function _grid_constructor(
       scheme_name,
     )
   end
+end
+
+function AxisymmetricGrid2D(
+  (x0, y0),
+  (x1, y1),
+  (ni_cells, nj_cells)::NTuple{2,Int},
+  discretization_scheme::Symbol,
+  snap_to_axis::Bool,
+  rotational_axis::Symbol;
+  T=Float64,
+  kwargs...,
+)
+  x = range(x0, x1; length=ni_cells + 1)
+  y = range(y0, y1; length=nj_cells + 1)
+
+  ni = length(x)
+  nj = length(y)
+
+  X = zeros(T, ni, nj)
+  Y = zeros(T, ni, nj)
+  for j in eachindex(y)
+    for i in eachindex(x)
+      X[i, j] = x[i]
+      Y[i, j] = y[j]
+    end
+  end
+
+  return AxisymmetricGrid2D(
+    X, Y, discretization_scheme, snap_to_axis, rotational_axis; kwargs...
+  )
 end
 
 """

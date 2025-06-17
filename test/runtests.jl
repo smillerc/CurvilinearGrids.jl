@@ -7,6 +7,7 @@ using LinearAlgebra
 using StructArrays
 using WriteVTK
 using UnPack
+using KernelAbstractions
 
 const test_gpu = false
 
@@ -19,7 +20,7 @@ include("unit/common.jl")
   include("unit/test_2d_axisymmetric.jl")
   include("unit/perturb_mesh.jl")
 
-  # include("unit/test_3d.jl")
+  include("unit/test_3d.jl")
   include("unit/test_wall.jl")
   # include("unit/test_meg6.jl")
 end

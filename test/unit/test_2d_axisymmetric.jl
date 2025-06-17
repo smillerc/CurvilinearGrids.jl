@@ -5,7 +5,7 @@
   nr, nz = (8, 10)
   snap_to_axis = true
   symmetry_axis = :x # rotate about the pole axis
-  mesh = axisymmetric_rectilinear_grid(
+  mesh = AxisymmetricGrid2D(
     (r0, z0), (r1, z1), (nr, nz), :meg6_symmetric, snap_to_axis, symmetry_axis
   )
 
