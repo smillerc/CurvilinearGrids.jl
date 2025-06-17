@@ -62,8 +62,19 @@ function CurvilinearGrid3D(
   empty_metrics=false,
   kwargs...,
 ) where {T}
-
-  m = CurvilinearGrid3D(_grid_constructor(x, y, z, "curvilinear", discretization_scheme; backend=backend, is_static=is_static, is_orthogonal=is_orthogonal, empty_metrics=empty_metrics)...)
+  m = CurvilinearGrid3D(
+    _grid_constructor(
+      x,
+      y,
+      z,
+      :curvilinear,
+      discretization_scheme;
+      backend=backend,
+      is_static=is_static,
+      is_orthogonal=is_orthogonal,
+      empty_metrics=empty_metrics,
+    )...,
+  )
 
   if init_metrics && !empty_metrics
     update!(m; force=true)
@@ -135,7 +146,17 @@ function RectlinearGrid3D(
   end
 
   m = RectlinearGrid3D(
-    _grid_constructor(x3d, y3d, z3d, "rectlinear", discretization_scheme; backend=backend, is_static=is_static, empty_metrics=empty_metrics, kwargs...)...
+    _grid_constructor(
+      x3d,
+      y3d,
+      z3d,
+      :rectlinear,
+      discretization_scheme;
+      backend=backend,
+      is_static=is_static,
+      empty_metrics=empty_metrics,
+      kwargs...,
+    )...,
   )
 
   if init_metrics && !empty_metrics
@@ -144,11 +165,12 @@ function RectlinearGrid3D(
 
   return m
 end
+
 function RectlinearGrid3D(
   # Semi-uniform rectlinear grid
   (x0, y0, z0),
   (x1, y1, z1),
-  (ni, nj, nk)::NTuple{3, T},
+  (ni, nj, nk)::NTuple{3,T},
   discretization_scheme::Symbol;
   backend=CPU(),
   is_static=true,
@@ -156,14 +178,24 @@ function RectlinearGrid3D(
   empty_metrics=false,
   kwargs...,
 ) where {T<:Int}
-  
-  ∂x = (x1-x0)/ni
-  ∂y = (y1-y0)/nj
-  ∂z = (z1-z0)/nk
+  ∂x = (x1 - x0) / ni
+  ∂y = (y1 - y0) / nj
+  ∂z = (z1 - z0) / nk
 
   # Here we use the 'uniform' tag because all of the metric matrices are uniform
-  RectlinearGrid3D((x0, y0, z0), (x1, y1, z1), (∂x, ∂y, ∂z), discretization_scheme; backend=backend, is_static=is_static, init_metrics=init_metrics, empty_metrics=empty_metrics, kwargs...)
+  RectlinearGrid3D(
+    (x0, y0, z0),
+    (x1, y1, z1),
+    (∂x, ∂y, ∂z),
+    discretization_scheme;
+    backend=backend,
+    is_static=is_static,
+    init_metrics=init_metrics,
+    empty_metrics=empty_metrics,
+    kwargs...,
+  )
 end
+
 function RectlinearGrid3D(
   # Semi-uniform rectlinear grid
   (x0, y0, z0),
@@ -226,7 +258,17 @@ function RectlinearGrid3D(
 
   # Here we use the 'uniform' tag because all of the metric matrices are uniform
   m = RectlinearGrid3D(
-    _grid_constructor(x3d, y3d, z3d, "uniform", discretization_scheme; backend=backend, is_static=is_static, empty_metrics=empty_metrics, kwargs...)...
+    _grid_constructor(
+      x3d,
+      y3d,
+      z3d,
+      :uniform,
+      discretization_scheme;
+      backend=backend,
+      is_static=is_static,
+      empty_metrics=empty_metrics,
+      kwargs...,
+    )...,
   )
 
   if init_metrics && !empty_metrics
@@ -301,7 +343,17 @@ function UniformGrid3D(
   end
 
   m = UniformGrid3D(
-    _grid_constructor(x3d, y3d, z3d, "uniform", discretization_scheme; backend=backend, is_static=is_static, empty_metrics=empty_metrics, kwargs...)...
+    _grid_constructor(
+      x3d,
+      y3d,
+      z3d,
+      :uniform,
+      discretization_scheme;
+      backend=backend,
+      is_static=is_static,
+      empty_metrics=empty_metrics,
+      kwargs...,
+    )...,
   )
 
   if init_metrics && !empty_metrics
@@ -315,7 +367,7 @@ function _grid_constructor(
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
   z::AbstractArray{T,3},
-  tag::String,
+  tag::Symbol,
   discretization_scheme::Symbol;
   backend=CPU(),
   is_static=false,
@@ -381,19 +433,19 @@ function _grid_constructor(
   nodedims = size(domain_iterators.node.full)
 
   # if init_metrics
-  if tag == "rectlinear"
+  if tag === :rectlinear
     if empty_metrics
       cell_center_metrics, edge_metrics = (nothing, nothing)
     else
       cell_center_metrics, edge_metrics = get_metric_soa_rectlinear3d(celldims, backend, T)
     end
-  elseif tag == "uniform"
+  elseif tag === :uniform
     if empty_metrics
       cell_center_metrics, edge_metrics = (nothing, nothing)
     else
       cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, backend, T)
     end
-  elseif tag == "curvilinear"
+  elseif tag === :curvilinear
     if empty_metrics
       cell_center_metrics, edge_metrics = (nothing, nothing)
     else
@@ -430,10 +482,37 @@ function _grid_constructor(
     z=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  if occursin(tag, "rectlinear,uniform")
-    return (coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, nnodes, limits, domain_iterators, discr_scheme, is_static, scheme_name)
-  elseif tag == "curvilinear"
-    return (coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, nnodes, limits, domain_iterators, discr_scheme, is_static, is_orthogonal, scheme_name)
+  if tag === :rectlinear || tag === :uniform
+    return (
+      coords,
+      centroids,
+      node_velocities,
+      edge_metrics,
+      cell_center_metrics,
+      nhalo,
+      nnodes,
+      limits,
+      domain_iterators,
+      discr_scheme,
+      is_static,
+      scheme_name,
+    )
+  elseif tag === :curvilinear
+    return (
+      coords,
+      centroids,
+      node_velocities,
+      edge_metrics,
+      cell_center_metrics,
+      nhalo,
+      nnodes,
+      limits,
+      domain_iterators,
+      discr_scheme,
+      is_static,
+      is_orthogonal,
+      scheme_name,
+    )
   end
 end
 

@@ -84,9 +84,17 @@ function CurvilinearGrid2D(
   empty_metrics=false,
   kwargs...,
 ) where {T}
-
   m = CurvilinearGrid2D(
-    _grid_constructor(x, y, "curvilinear", discretization_scheme; backend=backend, is_static=is_static, is_orthogonal=is_orthogonal, empty_metrics=empty_metrics)...
+    _grid_constructor(
+      x,
+      y,
+      :curvilinear,
+      discretization_scheme;
+      backend=backend,
+      is_static=is_static,
+      is_orthogonal=is_orthogonal,
+      empty_metrics=empty_metrics,
+    )...,
   )
 
   if init_metrics && !empty_metrics
@@ -114,7 +122,6 @@ function RectlinearGrid2D(
   init_metrics=true,
   empty_metrics=false,
 ) where {T}
-
   ni = length(x)
   nj = length(y)
 
@@ -145,14 +152,23 @@ function RectlinearGrid2D(
   end
 
   m = RectlinearGrid2D(
-      _grid_constructor(x2d, y2d, "rectlinear", discretization_scheme; backend=backend, is_static=is_static, empty_metrics=empty_metrics)...
+    _grid_constructor(
+      x2d,
+      y2d,
+      :rectlinear,
+      discretization_scheme;
+      backend=backend,
+      is_static=is_static,
+      empty_metrics=empty_metrics,
+    )...,
   )
 
   if init_metrics && !empty_metrics
-      update!(m; force=true)
+    update!(m; force=true)
   end
   return m
 end
+
 function RectlinearGrid2D(
   (x0, y0),
   (x1, y1),
@@ -171,8 +187,8 @@ function RectlinearGrid2D(
 
   return RectlinearGrid2D(
     (x0, y0),
-    (x1,y1),
-    ((x1-x0) / ni_cells, (y1-y0) / nj_cells),
+    (x1, y1),
+    ((x1 - x0) / ni_cells, (y1 - y0) / nj_cells),
     discretization_scheme;
     backend=backend,
     is_static=is_static,
@@ -180,17 +196,17 @@ function RectlinearGrid2D(
     empty_metrics=empty_metrics,
   )
 end
+
 function RectlinearGrid2D(
   (x0, y0),
   (x1, y1),
-  (∂x, ∂y)::NTuple{2, T},
+  (∂x, ∂y)::NTuple{2,T},
   discretization_scheme::Symbol;
   backend=CPU(),
   is_static=true,
   init_metrics=true,
   empty_metrics=false,
 ) where {T<:Real}
-
   x = Vector(x0:∂x:x1)
   y = Vector(y0:∂y:y1)
 
@@ -224,11 +240,19 @@ function RectlinearGrid2D(
   end
 
   m = UniformGrid2D(
-      _grid_constructor(x2d, y2d, "uniform", discretization_scheme; backend=backend, is_static=is_static, empty_metrics=empty_metrics)...
+    _grid_constructor(
+      x2d,
+      y2d,
+      :uniform,
+      discretization_scheme;
+      backend=backend,
+      is_static=is_static,
+      empty_metrics=empty_metrics,
+    )...,
   )
 
   if init_metrics && !empty_metrics
-      update!(m; force=true)
+    update!(m; force=true)
   end
   return m
 end
@@ -250,7 +274,6 @@ function UniformGrid2D(
   init_metrics=true,
   empty_metrics=false,
 ) where {T<:Real}
-
   x = Vector(x0:∂x:x1)
   y = Vector(y0:∂x:y1)
 
@@ -284,19 +307,27 @@ function UniformGrid2D(
   end
 
   m = UniformGrid2D(
-      _grid_constructor(x2d, y2d, "uniform", discretization_scheme; backend=backend, is_static=is_static, empty_metrics=empty_metrics)...
+    _grid_constructor(
+      x2d,
+      y2d,
+      :uniform,
+      discretization_scheme;
+      backend=backend,
+      is_static=is_static,
+      empty_metrics=empty_metrics,
+    )...,
   )
 
   if init_metrics && !empty_metrics
-      update!(m; force=true)
+    update!(m; force=true)
   end
   return m
 end
 
 function _grid_constructor(
-  x::AbstractArray{T, 2},
-  y::AbstractArray{T, 2},
-  tag::String,
+  x::AbstractArray{T,2},
+  y::AbstractArray{T,2},
+  tag::Symbol,
   discretization_scheme::Symbol;
   backend=CPU(),
   is_static=false,
@@ -306,7 +337,6 @@ function _grid_constructor(
 ) where {T}
 
   #
-  use_symmetric_conservative_metric_scheme = false
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
@@ -317,7 +347,6 @@ function _grid_constructor(
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
-    use_symmetric_conservative_metric_scheme = true
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -343,19 +372,19 @@ function _grid_constructor(
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  if tag == "rectlinear"
+  if tag == :rectlinear
     if empty_metrics
       cell_center_metrics, edge_metrics = (nothing, nothing)
     else
       cell_center_metrics, edge_metrics = get_metric_soa_rectlinear2d(celldims, backend, T)
     end
-  elseif tag == "uniform"
+  elseif tag == :uniform
     if empty_metrics
       cell_center_metrics, edge_metrics = (nothing, nothing)
     else
       cell_center_metrics, edge_metrics = get_metric_soa_uniform2d(celldims, backend, T)
     end
-  elseif tag == "curvilinear"
+  elseif tag == :curvilinear
     if empty_metrics
       cell_center_metrics, edge_metrics = (nothing, nothing)
     else
@@ -386,10 +415,14 @@ function _grid_constructor(
   ))
 
   discr_scheme = MetricDiscretizationScheme(;
-    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
+    use_cache=true,
+    celldims=size(domain_iterators.cell.full),
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=false,
   )
 
-  if occursin(tag,"rectlinear,uniform")
+  if tag == :rectlinear || tag === :uniform
     return (
       coords,
       centroids,
@@ -404,7 +437,7 @@ function _grid_constructor(
       is_static,
       scheme_name,
     )
-  elseif tag == "curvilinear"
+  elseif tag === :curvilinear
     return (
       coords,
       centroids,
@@ -420,7 +453,6 @@ function _grid_constructor(
       is_orthogonal,
       scheme_name,
     )
-
   end
 end
 
@@ -445,7 +477,6 @@ function AxisymmetricGrid2D(
 ) where {T}
 
   #
-  use_symmetric_conservative_metric_scheme = false
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
@@ -456,7 +487,6 @@ function AxisymmetricGrid2D(
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
-    use_symmetric_conservative_metric_scheme = true
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -507,7 +537,11 @@ function AxisymmetricGrid2D(
   ))
 
   discr_scheme = MetricDiscretizationScheme(;
-    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
+    use_cache=true,
+    celldims=size(domain_iterators.cell.full),
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=false,
   )
 
   if isnothing(on_bc)
