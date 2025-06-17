@@ -78,7 +78,6 @@ function rectlinear_grid(
       discretization_scheme;
       backend=backend,
       on_bc=on_bc,
-      tiles=tiled_node_limits,
       make_uniform=make_uniform,
     )
 
@@ -198,8 +197,6 @@ function rectlinear_grid(
     error("The y vector must have more than 2 points")
   end
 
-  cell_domain = CartesianIndices((ni - 1, nj - 1))
-
   if !all(diff(x) .> 0)
     error("Invalid x vector, spacing between vertices must be > 0 everywhere")
   end
@@ -208,70 +205,25 @@ function rectlinear_grid(
     error("Invalid y vector, spacing between vertices must be > 0 everywhere")
   end
 
-  if !isnothing(tile_layout)
-    if rank == -1
-      error(
-        "Tile layout is provided, but rank is invalid; make sure to specify the current MPI rank",
-      )
+  x2d = zeros(T, ni, nj)
+  y2d = zeros(T, ni, nj)
+
+  @inbounds for j in 1:nj
+    for i in 1:ni
+      x2d[i, j] = x[i]
+      y2d[i, j] = y[j]
     end
-
-    if rank == 0
-      error(
-        "Rank is 0, (MPI is zero-based), but needs to be one-based, do rank+1 for this call"
-      )
-    end
-
-    partition_fraction = max.(tile_layout, 1) # ensure no zeros or negative numbers
-    on_bc, tiled_node_limits, node_subdomain, cell_subdomain = get_subdomain_limits(
-      cell_domain, partition_fraction, rank
-    )
-
-    if length(tiled_node_limits) != prod(partition_fraction)
-      error("Unable to partition the mesh to the desired tile layout")
-    end
-
-    x_local = zeros(T, size(node_subdomain))
-    y_local = zeros(T, size(node_subdomain))
-
-    @inbounds for (gidx, lidx) in
-                  zip(node_subdomain, CartesianIndices(size(node_subdomain)))
-      i, j = lidx.I
-      gi, gj = gidx.I
-      x_local[i, j] = x[gi]
-      y_local[i, j] = y[gj]
-    end
-
-    return CurvilinearGrid2D(
-      x_local,
-      y_local,
-      discretization_scheme;
-      backend=backend,
-      on_bc=on_bc,
-      tiles=tiled_node_limits,
-      make_uniform=make_uniform,
-    )
-
-  else
-    x2d = zeros(T, ni, nj)
-    y2d = zeros(T, ni, nj)
-
-    @inbounds for j in 1:nj
-      for i in 1:ni
-        x2d[i, j] = x[i]
-        y2d[i, j] = y[j]
-      end
-    end
-
-    return CurvilinearGrid2D(
-      x2d,
-      y2d,
-      discretization_scheme;
-      backend=backend,
-      is_orthogonal=true,
-      is_static=is_static,
-      make_uniform=make_uniform,
-    )
   end
+
+  return CurvilinearGrid2D(
+    x2d,
+    y2d,
+    discretization_scheme;
+    backend=backend,
+    is_orthogonal=true,
+    is_static=is_static,
+    make_uniform=make_uniform,
+  )
 end
 
 """

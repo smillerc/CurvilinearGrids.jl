@@ -1,5 +1,5 @@
 
-struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
+struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -9,7 +9,6 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2
   nnodes::NTuple{2,Int}
   domain_limits::DL
   iterators::CI
-  tiles::TI
   discretization_scheme::DS
   onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
   is_static::Bool
@@ -20,7 +19,7 @@ end
 """
 AxisymmetricGrid2D
 """
-struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid2D
+struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -30,7 +29,6 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid
   nnodes::NTuple{2,Int}
   domain_limits::DL
   iterators::CI
-  tiles::TI
   discretization_scheme::DS
   snap_to_axis::Bool
   rotational_axis::Symbol
@@ -54,7 +52,6 @@ function CurvilinearGrid2D(
   on_bc=nothing,
   is_static=false,
   is_orthogonal=false,
-  tiles=nothing,
   make_uniform=false,
   init_metrics=true,
   kwargs...,
@@ -65,11 +62,11 @@ function CurvilinearGrid2D(
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
-     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
-         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
     use_symmetric_conservative_metric_scheme = true
@@ -142,7 +139,6 @@ function CurvilinearGrid2D(
     nnodes,
     limits,
     domain_iterators,
-    tiles,
     discr_scheme,
     _on_bc,
     is_static,
@@ -207,8 +203,8 @@ function AxisymmetricGrid2D(
   is_static=false,
   on_bc=nothing,
   is_orthogonal=false,
-  tiles=nothing,
   make_uniform=false,
+  kwargs...,
 ) where {T}
 
   #
@@ -216,11 +212,11 @@ function AxisymmetricGrid2D(
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
-     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
-         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
     use_symmetric_conservative_metric_scheme = true
@@ -293,7 +289,6 @@ function AxisymmetricGrid2D(
     nnodes,
     limits,
     domain_iterators,
-    tiles,
     discr_scheme,
     snap_to_axis,
     rotational_axis,
@@ -436,8 +431,8 @@ function _centroid_coordinates!(
   # Populate the centroid coordinates
   for idx in domain
     i, j = idx.I
-    centroids.x[idx] = 0.25(x[i, j] + x[i+1, j] + x[i+1, j+1] + x[i, j+1])
-    centroids.y[idx] = 0.25(y[i, j] + y[i+1, j] + y[i+1, j+1] + y[i, j+1])
+    centroids.x[idx] = 0.25(x[i, j] + x[i + 1, j] + x[i + 1, j + 1] + x[i, j + 1])
+    centroids.y[idx] = 0.25(y[i, j] + y[i + 1, j] + y[i + 1, j + 1] + y[i, j + 1])
   end
 
   return nothing

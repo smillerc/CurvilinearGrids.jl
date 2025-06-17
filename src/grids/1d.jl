@@ -12,7 +12,6 @@ struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   discretization_scheme::DS
   onbc::@NamedTuple{ilo::Bool, ihi::Bool}
   is_static::Bool
-  is_orthogonal::Bool
   discretization_scheme_name::Symbol
 end
 
@@ -30,7 +29,6 @@ struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   onbc::@NamedTuple{ilo::Bool, ihi::Bool}
   snap_to_axis::Bool
   is_static::Bool
-  is_orthogonal::Bool
   discretization_scheme_name::Symbol
 end
 
@@ -48,7 +46,6 @@ struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   onbc::@NamedTuple{ilo::Bool, ihi::Bool}
   snap_to_axis::Bool
   is_static::Bool
-  is_orthogonal::Bool
   discretization_scheme_name::Symbol
 end
 
@@ -128,7 +125,6 @@ function CurvilinearGrid1D(
     discr_scheme,
     _on_bc,
     is_static,
-    true,
     scheme_name,
   )
 
@@ -214,7 +210,6 @@ function SphericalGrid1D(
     _on_bc,
     snap_to_axis,
     is_static,
-    true,
     scheme_name,
   )
 
@@ -300,7 +295,6 @@ function CylindricalGrid1D(
     _on_bc,
     snap_to_axis,
     is_static,
-    true,
     scheme_name,
   )
 

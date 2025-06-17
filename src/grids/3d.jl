@@ -1,5 +1,5 @@
 
-struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid3D
+struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid3D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -9,7 +9,6 @@ struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid3
   nnodes::NTuple{3,Int}
   domain_limits::DL
   iterators::CI
-  tiles::TI
   discretization_scheme::DS
   onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool, klo::Bool, khi::Bool}
   is_static::Bool
@@ -18,7 +17,7 @@ struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid3
 end
 
 """
-    CurvilinearGrid3D(x, y, z, nhalo::Int; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, is_orthogonal=false, tiles=nothing, make_uniform=false)
+    CurvilinearGrid3D(x, y, z, nhalo::Int; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, is_orthogonal=false, make_uniform=false)
 
 Construct a curvilinear grid in 3D using 3D arrays of x/y/z coordinates.
 """
@@ -31,7 +30,6 @@ function CurvilinearGrid3D(
   on_bc=nothing,
   is_static=false,
   is_orthogonal=false,
-  tiles=nothing,
   make_uniform=false,
   init_metrics=true,
   kwargs...,
@@ -141,7 +139,6 @@ function CurvilinearGrid3D(
     nnodes,
     limits,
     domain_iterators,
-    tiles,
     discr_scheme,
     _on_bc,
     is_static,
