@@ -1,4 +1,8 @@
 
+"""
+A 2D curvilinear grid. Curvilinear implies that the coorindates must be described
+by 2 indices, e.g. `x -> x(i,j)` and `y -> y(i,j)`
+"""
 struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
@@ -15,6 +19,10 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme_name::Symbol
 end
 
+"""
+A 2D rectilinear grid. Rectilinear implies that the coorindates can be described
+by 1D vectors, e.g. `x -> x(i)` and `y -> y(j)`
+"""
 struct RectilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
@@ -30,6 +38,10 @@ struct RectilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme_name::Symbol
 end
 
+"""
+A 2D uniform grid. Grid coordinates can change over time, but transformations must be rigid
+in order to maintain coordinate uniformity
+"""
 struct UniformGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
@@ -67,6 +79,12 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme_name::Symbol
 end
 
+"""
+    CurvilinearGrid2D((x0, y0), (x1, y1), (ni_cells, nj_cells)::NTuple{2,Int}, discretization_scheme::Symbol; T=Float64)
+
+Create a `CurvilinearGrid2D` with start/end points `(x0, y0), (x1, y1)`, and the number of cells in each dimension. This will create a rectilinear-style
+grid, but still remain curvilinear, such that the grid can dynamically change. For a grid that stays purely rectilinear, use the `RectilinearGrid2D` constructor instead.
+"""
 function CurvilinearGrid2D(
   (x0, y0),
   (x1, y1),
@@ -96,8 +114,7 @@ end
 """
     CurvilinearGrid2D(x::AbstractArray{T,2}, y::AbstractArray{T,2}, discretization_scheme=::Symbol; backend=CPU()) where {T}
 
-Create a 2d grid with `x` and `y` coordinates. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
-The `nhalo` argument defines the number of halo cells along each dimension.
+Create a `CurvilinearGrid2D` with 2D `x` and `y` coordinates. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
 """
 function CurvilinearGrid2D(
   x::AbstractArray{T,2},
