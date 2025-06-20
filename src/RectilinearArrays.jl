@@ -257,7 +257,7 @@ find_ra(a::RectilinearArray, rest) = a
 find_ra(::Any, rest) = find_ra(rest)
 
 # Specify how to index a RectilinearArray
-IndexStyle(::Type{<:RectilinearArray}) = IndexStyle(typeof(RectilinearArray).parameters[4])
+# Base.IndexStyle(::Type{<:RectilinearArray}) = IndexStyle(typeof(RectilinearArray).parameters[4])
 
 # Overload eachindex for performance
 Base.eachindex(A::RectilinearArray) = eachindex(A.data)
@@ -281,10 +281,14 @@ function Base.Broadcast.materialize!(dest::RectilinearArray, bc::Broadcast.Broad
         arg
       end
     end, bc.args)
-
     dest[i] = bc.f(args_i...)
   end
   return dest
+end
+
+# Overload the all function to enforce boolean values
+function Base.all(A::RectilinearArray)
+    return all(Bool.(A.data))
 end
 
 # --- End overload functions --- #
