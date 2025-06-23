@@ -227,6 +227,7 @@ function get_metric_soa_rectilinear3d(celldims::NTuple{3,Int}, backend, T)
 
   edge_metrics = (
     i₊½=(
+      J=KernelAbstractions.zeros(backend, T, celldims),
       ξ=StructArray((
         x₁=RectilinearArrays.zeros(T, backend, (2,3), celldims),
         x₂=RectilinearArrays.zeros(T, backend, (1,2,3), celldims),
@@ -262,6 +263,7 @@ function get_metric_soa_rectilinear3d(celldims::NTuple{3,Int}, backend, T)
       )),
     ),
     j₊½=(
+      J=KernelAbstractions.zeros(backend, T, celldims),
       ξ=StructArray((
         x₁=RectilinearArrays.zeros(T, backend, (2,3), celldims),
         x₂=RectilinearArrays.zeros(T, backend, (1,2,3), celldims),
@@ -297,6 +299,7 @@ function get_metric_soa_rectilinear3d(celldims::NTuple{3,Int}, backend, T)
       )),
     ),
     k₊½=(
+      J=KernelAbstractions.zeros(backend, T, celldims),
       ξ=StructArray((
         x₁=RectilinearArrays.zeros(T, backend, (2,3), celldims),
         x₂=RectilinearArrays.zeros(T, backend, (1,2,3), celldims),
@@ -394,6 +397,7 @@ function get_metric_soa_uniform3d(celldims::NTuple{3,Int}, backend, T)
 
   edge_metrics = (
     i₊½=(
+      J=KernelAbstractions.zeros(backend, T, celldims),
       ξ=StructArray((
         x₁=RectilinearArrays.zeros(T, backend, (1,2,3), celldims),
         x₂=RectilinearArrays.zeros(T, backend, (1,2,3), celldims),
@@ -429,6 +433,7 @@ function get_metric_soa_uniform3d(celldims::NTuple{3,Int}, backend, T)
       )),
     ),
     j₊½=(
+      J=KernelAbstractions.zeros(backend, T, celldims),
       ξ=StructArray((
         x₁=RectilinearArrays.zeros(T, backend, (1,2,3), celldims),
         x₂=RectilinearArrays.zeros(T, backend, (1,2,3), celldims),
@@ -464,6 +469,7 @@ function get_metric_soa_uniform3d(celldims::NTuple{3,Int}, backend, T)
       )),
     ),
     k₊½=(
+      J=KernelAbstractions.zeros(backend, T, celldims),
       ξ=StructArray((
         x₁=RectilinearArrays.zeros(T, backend, (1,2,3), celldims),
         x₂=RectilinearArrays.zeros(T, backend, (1,2,3), celldims),
@@ -619,6 +625,7 @@ function get_metric_soa_rectilinear2d(celldims::NTuple{2,Int}, backend, T)
 
   edge_metrics = (
     i₊½=(
+      J=KernelAbstractions.zeros(backend, T, celldims),
       ξ=StructArray((
         x₁=RectilinearArrays.zeros(T, backend, (2,), celldims),
         x₂=RectilinearArrays.zeros(T, backend, (1,2), celldims),
@@ -639,6 +646,7 @@ function get_metric_soa_rectilinear2d(celldims::NTuple{2,Int}, backend, T)
       )),
     ),
     j₊½=(
+      J=KernelAbstractions.zeros(backend, T, celldims),
       ξ=StructArray((
         x₁=RectilinearArrays.zeros(T, backend, (2,), celldims),
         x₂=RectilinearArrays.zeros(T, backend, (1,2), celldims),
@@ -700,6 +708,7 @@ function get_metric_soa_uniform2d(celldims::NTuple{2,Int}, backend, T)
 
   edge_metrics = (
     i₊½=(
+      J=RectilinearArrays.zeros(T, backend, (1,2), celldims),
       ξ=StructArray((
         x₁=RectilinearArrays.zeros(T, backend, (1,2), celldims),
         x₂=RectilinearArrays.zeros(T, backend, (1,2), celldims),
@@ -720,6 +729,7 @@ function get_metric_soa_uniform2d(celldims::NTuple{2,Int}, backend, T)
       )),
     ),
     j₊½=(
+      J=RectilinearArrays.zeros(T, backend, (1,2), celldims),
       ξ=StructArray((
         x₁=RectilinearArrays.zeros(T, backend, (1,2), celldims),
         x₂=RectilinearArrays.zeros(T, backend, (1,2), celldims),
@@ -774,7 +784,7 @@ end
 
 function get_metric_soa_uniform1d(celldims::NTuple{1,Int}, backend, T)
   cell_center_metrics = (
-  J=RectilinearArrays.zeros(T, backend, (1,), celldims),
+    J=RectilinearArrays.zeros(T, backend, (1,), celldims),
     ξ=StructArray((
       x₁=RectilinearArrays.zeros(T, backend, (1,), celldims),
       t=RectilinearArrays.zeros(T, backend, (1,), celldims),
@@ -788,6 +798,7 @@ function get_metric_soa_uniform1d(celldims::NTuple{1,Int}, backend, T)
 
   edge_metrics = (
     i₊½=(
+      J=RectilinearArrays.zeros(T, backend, (1,), celldims),
       ξ=StructArray((x₁=RectilinearArrays.zeros(T, backend, (1,), celldims),)),
       ξ̂=StructArray((
         x₁=RectilinearArrays.zeros(T, backend, (1,), celldims),

@@ -33,7 +33,7 @@ function gcl(mesh::AbstractCurvilinearGrid2D, ϵ=5e-13)
   return nothing
 end
 
-function gcl(mesh::CurvilinearGrid3D, ϵ=5e-13)
+function gcl(mesh::AbstractCurvilinearGrid3D, ϵ=5e-13)
   I₁_passes = true
   I₂_passes = true
   I₃_passes = true
