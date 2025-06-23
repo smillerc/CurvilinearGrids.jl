@@ -99,6 +99,11 @@ function CurvilinearGrid2D(
   return CurvilinearGrid2D(x, y, discretization_scheme; T=T, kwargs...)
 end
 
+"""
+    CurvilinearGrid2D(x::AbstractVector{T}, y::AbstractVector{T}, discretization_scheme::Symbol; kwargs...) where {T}
+
+Create a `CurvilinearGrid2D` with 1D `x` and `y` coordinate vectors. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
+"""
 function CurvilinearGrid2D(
   x::AbstractVector{T}, y::AbstractVector{T}, discretization_scheme::Symbol; kwargs...
 ) where {T}
@@ -156,9 +161,9 @@ end
 """
     RectilinearGrid2D(x::AbstractVector{T}, y::AbstractVector{T}, discretization_scheme=::Symbol; backend=CPU()) where {T}
 
-Create a 2d grid with `x` and `y` coordinates. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
-
-This constructor utilizes `RectilinearArray`s to optimize data storage. Therefore, this should only be used when creating a rectilinear grid.
+Create a `RectilinearGrid2D` with `x` and `y` coordinate vectors. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
+The `RectilinearGrid2D` type uses specialized storage based on the assertion that x and y are defined purely by 1D vectors, rather than 2D arrays. Any dynamic motion must
+obey this restriction. For a fully dynamic mesh with 2D varying coordinates, use a `CurvilinearGrid2D` type instead.
 """
 function RectilinearGrid2D(
   x::AbstractVector{T},
@@ -219,7 +224,9 @@ end
 """
     RectilinearGrid2D((x0, y0), (x1, y1), (ni_cells, nj_cells)::NTuple{2,Int}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true, empty_metrics=false)
 
-TBW
+Create a `RectilinearGrid2D` with start/end points `(x0, y0), (x1, y1)`, and the number of cells in each dimension.
+The `RectilinearGrid2D` type uses specialized storage based on the assertion that x and y are defined purely by 1D vectors, rather than 2D arrays. Any dynamic motion must
+obey this restriction. For a fully dynamic mesh with 2D varying coordinates, use a `CurvilinearGrid2D` type instead.
 """
 function RectilinearGrid2D(
   (x0, y0),
@@ -252,8 +259,8 @@ end
     UniformGrid2D((x0, y0), (x1, y1), ∂x, discretization_scheme=::Symbol; backend=CPU()) where {T}
 
 Create a 2d uniform grid with a grid spacing and a shape. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
-
-This constructor utilizes `RectilinearArray`s to optimize data storage. Therefore, this should only be used when creating a uniform grid.
+The `UniformGrid2D` type uses specialized storage based on the assertion that x and y uniform and can be stored with reduced date. Any dynamic motion must
+obey this restriction. For a fully dynamic mesh with 2D varying coordinates, use a `CurvilinearGrid2D` type instead.
 """
 function UniformGrid2D(
   (x0, y0),
@@ -447,6 +454,12 @@ function _grid_constructor(
   end
 end
 
+"""
+    AxisymmetricGrid2D((x0, y0), (x1, y1), (ni_cells, nj_cells)::NTuple{2,Int}, discretization_scheme::Symbol, snap_to_axis::Bool, rotational_axis::Symbol; T=Float64)
+
+Create an axisymmetric 2d grid with end points as `(x0, y0)`, and `(x1, y1)`, and `(ni_cells, nj_cells)`, with the symmetry axis `rotational_axis = :x` or `rotational_axis = :y`. 
+Enforce coordinates to stay on the axis via `snap_to_axis=true`. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions. 
+"""
 function AxisymmetricGrid2D(
   (x0, y0),
   (x1, y1),
@@ -480,8 +493,8 @@ end
 """
     AxisymmetricGrid2D(x::AbstractMatrix{T}, y::AbstractMatrix{T},  nhalo::Int,  snap_to_axis::Bool,  rotational_axis::Symbol;  T=Float64, backend=CPU())
 
-Create an axisymmetric 2d grid with `x` and `y` coordinates, with the symmetry axis `rotational_axis = :x` or `rotational_axis = :y`. Enforce coordinates to stay on the axis via `snap_to_axis=True`.
-The input coordinates do not include halo / ghost data since the geometry is undefined in these regions. The `nhalo` argument defines the number of halo cells along each dimension.
+Create an axisymmetric 2d grid with `x` and `y` coordinates, with the symmetry axis `rotational_axis = :x` or `rotational_axis = :y`. Enforce coordinates to stay on the axis via `snap_to_axis=true`.
+The input coordinates do not include halo / ghost data since the geometry is undefined in these regions. 
 """
 function AxisymmetricGrid2D(
   x::AbstractMatrix{T},
