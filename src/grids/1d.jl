@@ -174,9 +174,9 @@ function _grid_constructor(
 
   #
   use_symmetric_conservative_metric_scheme = false
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
   nhalo = nhalo_lookup[scheme_name]
 
-  scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
