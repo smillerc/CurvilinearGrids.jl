@@ -74,7 +74,6 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid1D)
     grid.domain_limits,
     grid.iterators,
     discretization_scheme,
-    grid.onbc,
     grid.is_static,
     grid.discretization_scheme_name,
   )
@@ -100,7 +99,6 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid2D)
     grid.domain_limits,
     grid.iterators,
     discretization_scheme,
-    grid.onbc,
     grid.is_static,
     grid.is_orthogonal,
     grid.discretization_scheme_name,
@@ -154,7 +152,6 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid3D)
     grid.domain_limits,
     grid.iterators,
     discretization_scheme,
-    grid.onbc,
     grid.is_static,
     grid.is_orthogonal,
     grid.discretization_scheme_name,
