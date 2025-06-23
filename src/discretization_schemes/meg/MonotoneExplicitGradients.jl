@@ -34,7 +34,7 @@ function MontoneExplicitGradientScheme6thOrder(;
   T=Float64,
   use_symmetric_conservative_metric_scheme=false,
 )
-  nhalo = 5
+  nhalo = 6
   if use_cache && isnothing(celldims)
     error(
       "When use_cache=true (default), celldims must be an NTuple providing the dimensions of the cell-based domain",
