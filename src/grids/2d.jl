@@ -93,9 +93,15 @@ function CurvilinearGrid2D(
   T=Float64,
   kwargs...,
 )
-  x = range(x0, x1; length=ni_cells + 1)
-  y = range(y0, y1; length=nj_cells + 1)
+  x = range(x0, x1; length=ni_cells + 1) .|> T
+  y = range(y0, y1; length=nj_cells + 1) .|> T
 
+  return CurvilinearGrid2D(x, y, discretization_scheme; T=T, kwargs...)
+end
+
+function CurvilinearGrid2D(
+  x::AbstractVector{T}, y::AbstractVector{T}, discretization_scheme::Symbol; kwargs...
+) where {T}
   ni = length(x)
   nj = length(y)
 
@@ -324,14 +330,14 @@ function _grid_constructor(
   #
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
+  nhalo = nhalo_lookup[scheme_name]
+
   if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -494,13 +500,14 @@ function AxisymmetricGrid2D(
   #
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
+  nhalo = nhalo_lookup[scheme_name]
+
   if (
     scheme_name === :MEG6 ||
     scheme_name === :MEG6_SYMMETRIC ||
     discretization_scheme === :MontoneExplicitGradientScheme6thOrder
   )
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
 
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")

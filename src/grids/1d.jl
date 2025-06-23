@@ -174,16 +174,17 @@ function _grid_constructor(
 
   #
   use_symmetric_conservative_metric_scheme = false
+  nhalo = nhalo_lookup[scheme_name]
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
+
   elseif scheme_name === :MEG6_SYMMETRIC ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
+
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -266,14 +267,14 @@ function SphericalGrid1D(
   #
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
+  nhalo = nhalo_lookup[scheme_name]
+
   if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -355,14 +356,14 @@ function CylindricalGrid1D(
   #
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
+  nhalo = nhalo_lookup[scheme_name]
+
   if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
