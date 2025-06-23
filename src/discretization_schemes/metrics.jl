@@ -328,22 +328,20 @@ function conservative_metrics!(
     error("Size mismatch for the given x, y coordinate arrays, they must all be the same")
   end
 
-  @views begin
-    ξ̂x = metrics.ξ̂.x₁
-    η̂x = metrics.η̂.x₁
-    ξ̂y = metrics.ξ̂.x₂
-    η̂y = metrics.η̂.x₂
+  ξ̂x = metrics.ξ̂.x₁
+  η̂x = metrics.η̂.x₁
+  ξ̂y = metrics.ξ̂.x₂
+  η̂y = metrics.η̂.x₂
 
-    ξx = metrics.ξ.x₁
-    ηx = metrics.η.x₁
-    ξy = metrics.ξ.x₂
-    ηy = metrics.η.x₂
+  ξx = metrics.ξ.x₁
+  ηx = metrics.η.x₁
+  ξy = metrics.ξ.x₂
+  ηy = metrics.η.x₂
 
-    xξ = metrics.x₁.ξ
-    xη = metrics.x₁.η
-    yξ = metrics.x₂.ξ
-    yη = metrics.x₂.η
-  end
+  xξ = metrics.x₁.ξ
+  xη = metrics.x₁.η
+  yξ = metrics.x₂.ξ
+  yη = metrics.x₂.η
 
   # This kernel finds the jacobian matrix and determinant from the 
   # forward metrics. No need to use the more complicated conservative_metric!
