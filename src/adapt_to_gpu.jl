@@ -112,6 +112,8 @@ function Adapt.adapt_structure(to, grid::AxisymmetricGrid2D)
   edge_metrics = Adapt.adapt_structure(to, grid.edge_metrics)
   cell_center_metrics = Adapt.adapt_structure(to, grid.cell_center_metrics)
 
+  discretization_scheme = Adapt.adapt_structure(to, grid.discretization_scheme)
+
   return AxisymmetricGrid2D(
     node_coordinates,
     centroid_coordinates,

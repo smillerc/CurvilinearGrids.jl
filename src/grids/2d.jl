@@ -340,10 +340,10 @@ function _grid_constructor(
   nhalo = nhalo_lookup[scheme_name]
 
   if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
   elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
@@ -666,8 +666,8 @@ function update!(mesh::AxisymmetricGrid2D)
 
   if mesh.snap_to_axis
     _snap_nodes_to_axis(mesh)
-  else
-    _check_nodes_along_axis(mesh)
+    # else
+    #   _check_nodes_along_axis(mesh)
   end
 
   _check_valid_metrics(mesh)
@@ -743,8 +743,8 @@ function _centroid_coordinates!(
   # Populate the centroid coordinates
   for idx in domain
     i, j = idx.I
-    centroids.x[idx] = 0.25(x[i, j] + x[i + 1, j] + x[i + 1, j + 1] + x[i, j + 1])
-    centroids.y[idx] = 0.25(y[i, j] + y[i + 1, j] + y[i + 1, j + 1] + y[i, j + 1])
+    centroids.x[idx] = 0.25(x[i, j] + x[i+1, j] + x[i+1, j+1] + x[i, j+1])
+    centroids.y[idx] = 0.25(y[i, j] + y[i+1, j] + y[i+1, j+1] + y[i, j+1])
   end
 
   return nothing
