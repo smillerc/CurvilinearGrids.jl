@@ -46,7 +46,7 @@ struct UniformGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid3D
 end
 
 """
-    CurvilinearGrid3D(x, y, z, discretization_scheme::Symbol; backend=CPU(), on_bc=nothing, is_static=false, is_orthogonal=false, tiles=nothing, init_metrics=true)
+    CurvilinearGrid3D(x, y, z, discretization_scheme::Symbol; backend=CPU(), is_static=false, is_orthogonal=false, tiles=nothing, init_metrics=true)
 
 Construct a curvilinear grid in 3D using 3D arrays of x/y/z coordinates.
 """

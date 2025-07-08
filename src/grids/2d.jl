@@ -73,7 +73,6 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme::DS
   snap_to_axis::Bool
   rotational_axis::Symbol
-  onbc::@NamedTuple{ilo::Bool, ihi::Bool, jlo::Bool, jhi::Bool}
   is_static::Bool
   is_orthogonal::Bool
   discretization_scheme_name::Symbol
@@ -340,10 +339,10 @@ function _grid_constructor(
   nhalo = nhalo_lookup[scheme_name]
 
   if scheme_name === :MEG6 ||
-     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
   elseif scheme_name === :MEG6_SYMMETRIC ||
-         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
@@ -504,7 +503,6 @@ function AxisymmetricGrid2D(
   rotational_axis::Symbol;
   backend=CPU(),
   is_static=false,
-  on_bc=nothing,
   is_orthogonal=false,
   make_uniform=false,
   kwargs...,
@@ -579,12 +577,6 @@ function AxisymmetricGrid2D(
     use_symmetric_conservative_metric_scheme=false,
   )
 
-  if isnothing(on_bc)
-    _on_bc = (ilo=true, ihi=true, jlo=true, jhi=true)
-  else
-    _on_bc = on_bc
-  end
-
   m = AxisymmetricGrid2D(
     coords,
     centroids,
@@ -598,7 +590,6 @@ function AxisymmetricGrid2D(
     discr_scheme,
     snap_to_axis,
     rotational_axis,
-    _on_bc,
     is_static,
     is_orthogonal,
     scheme_name,
@@ -743,8 +734,8 @@ function _centroid_coordinates!(
   # Populate the centroid coordinates
   for idx in domain
     i, j = idx.I
-    centroids.x[idx] = 0.25(x[i, j] + x[i+1, j] + x[i+1, j+1] + x[i, j+1])
-    centroids.y[idx] = 0.25(y[i, j] + y[i+1, j] + y[i+1, j+1] + y[i, j+1])
+    centroids.x[idx] = 0.25(x[i, j] + x[i + 1, j] + x[i + 1, j + 1] + x[i, j + 1])
+    centroids.y[idx] = 0.25(y[i, j] + y[i + 1, j] + y[i + 1, j + 1] + y[i, j + 1])
   end
 
   return nothing
