@@ -1,6 +1,4 @@
-@testset "2D Rectangular Mesh"
-
-begin
+@testset "2D Rectangular Mesh" begin
   ni, nj = (40, 80)
   x0, x1 = (0, 2)
   y0, y1 = (1, 3)
