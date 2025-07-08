@@ -254,7 +254,7 @@ function _uniform_grid_constructor(
 
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
-  discr_scheme = MetricDiscretizationScheme(;
+  discr_scheme = MontoneExplicitGradientScheme6thOrder(;
     use_cache=true,
     celldims=size(domain_iterators.cell.full),
     backend=backend,

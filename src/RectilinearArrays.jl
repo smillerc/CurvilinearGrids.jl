@@ -45,12 +45,12 @@ function RectilinearArray(A::AbstractArray{T}, fixed_indices::NTuple{K,Int}) whe
   new_A = _drop_dims(A, fixed_indices, KernelAbstractions.get_backend(A))
   valid_indices = filter(i -> i ∉ fixed_indices, ntuple(i -> i, ndims(A)))
   return RectilinearArray{
-    eltype(A),
+    T,
     ndims(A),
     ndims(new_A),
     typeof(new_A),
     K,
-    length(valid_indices),
+    ndims(A)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
@@ -80,12 +80,12 @@ function RectilinearArray(
   new_A = _drop_dims(A, fixed_indices, CPU())
   valid_indices = filter(i -> i ∉ fixed_indices, ntuple(i -> i, N))
   return RectilinearArray{
-    eltype(A),
+    T,
     ndims(A),
     ndims(new_A),
     typeof(new_A),
     length(fixed_indices),
-    length(valid_indices),
+    length(dims)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
@@ -98,12 +98,12 @@ function RectilinearArray(
   new_A = _drop_dims(A, fixed_indices, CPU())
   valid_indices = filter(i -> i ∉ fixed_indices, ntuple(i -> i, N))
   return RectilinearArray{
-    eltype(A),
+    T,
     ndims(A),
     ndims(new_A),
     typeof(new_A),
     length(fixed_indices),
-    length(valid_indices),
+    length(dims)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
@@ -116,12 +116,12 @@ function RectilinearArray(
   new_A = _drop_dims(A, fixed_indices, backend)
   valid_indices = filter(i -> i ∉ fixed_indices, ntuple(i -> i, N))
   return RectilinearArray{
-    eltype(A),
+    T,
     ndims(A),
     ndims(new_A),
     typeof(new_A),
     length(fixed_indices),
-    length(valid_indices),
+    length(dims)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
@@ -134,12 +134,12 @@ function RectilinearArray(
   new_A = _drop_dims(A, fixed_indices, backend)
   valid_indices = filter(i -> i ∉ fixed_indices, ntuple(i -> i, N))
   return RectilinearArray{
-    eltype(A),
+    T,
     ndims(A),
     ndims(new_A),
     typeof(new_A),
     length(fixed_indices),
-    length(valid_indices),
+    length(dims)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
@@ -155,7 +155,7 @@ function RectilinearArray(fixed_indices::Tuple{Vararg{Int}}, dims::Dims{N}) wher
     ndims(new_A),
     typeof(new_A),
     length(fixed_indices),
-    length(valid_indices),
+    length(dims)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
@@ -171,36 +171,36 @@ function RectilinearArray(fixed_indices::Tuple{Vararg{Int}}, dims::Vararg{Int,N}
     ndims(new_A),
     typeof(new_A),
     length(fixed_indices),
-    length(valid_indices),
+    length(dims)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
 end
 
 # Define a zeros function
-function zeros(::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Int...) where {T}
+@inline function zeros(::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Int...) where {T}
   return RectilinearArray(Base.zeros(T, dims...), fixed_indices)
 end
 
-function zeros(::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Dims) where {T}
+@inline function zeros(::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Dims) where {T}
   return RectilinearArray(Base.zeros(T, dims), fixed_indices)
 end
-function zeros(
+@inline function zeros(
   ::Type{T}, backend::Backend, fixed_indices::Tuple{Vararg{Int}}, dims::Int...
 ) where {T}
   return RectilinearArray(KernelAbstractions.zeros(backend, T, dims...), fixed_indices)
 end
 
-function zeros(
+@inline function zeros(
   ::Type{T}, backend::Backend, fixed_indices::Tuple{Vararg{Int}}, dims::Dims
 ) where {T}
   return RectilinearArray(KernelAbstractions.zeros(backend, T, dims), fixed_indices)
 end
-function zeros(fixed_indices::Tuple{Vararg{Int}}, dims::Int...)
+@inline function zeros(fixed_indices::Tuple{Vararg{Int}}, dims::Int...)
   return RectilinearArray(Base.zeros(Float64, dims...), fixed_indices)
 end
 
-function zeros(fixed_indices::Tuple{Vararg{Int}}, dims::Dims)
+@inline function zeros(fixed_indices::Tuple{Vararg{Int}}, dims::Dims)
   return RectilinearArray(Base.zeros(Float64, dims), fixed_indices)
 end
 
