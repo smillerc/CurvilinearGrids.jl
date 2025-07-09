@@ -62,7 +62,24 @@ function CurvilinearGrid3D(
   empty_metrics=false,
   kwargs...,
 ) where {T}
-  m = _curvilinear_grid_constructor(
+
+  use_symmetric_conservative_metric_scheme = false
+
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, is_orthogonal, scheme_name = _curvilinear_grid_constructor(
         x,
         y,
         z,
@@ -72,6 +89,40 @@ function CurvilinearGrid3D(
         is_orthogonal=is_orthogonal,
         empty_metrics=empty_metrics,
       )
+
+  celldims = size(iterators.cell.full)
+
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true,
+    celldims=celldims,
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
+  )
+
+  # if init_metrics
+  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+  # if empty_metrics
+  #   cell_center_metrics, edge_metrics = (nothing, nothing)
+  # else
+  #   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+  # end
+
+  m = CurvilinearGrid3D(
+    coords,
+    centroids,
+    node_velocities,
+    edge_metrics,
+    cell_center_metrics,
+    nhalo,
+    nnodes,
+    limits,
+    iterators,
+    discr_scheme,
+    is_static,
+    is_orthogonal,
+    scheme_name,
+  )
 
   if init_metrics && !empty_metrics
     update!(m; force=true)
@@ -142,7 +193,23 @@ function RectilinearGrid3D(
     end
   end
 
-  m = _rectilinear_grid_constructor(
+  use_symmetric_conservative_metric_scheme = false
+
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, scheme_name = _rectilinear_grid_constructor(
         x3d,
         y3d,
         z3d,
@@ -152,6 +219,39 @@ function RectilinearGrid3D(
         empty_metrics=empty_metrics,
         kwargs...,
       )
+
+  celldims = size(iterators.cell.full)
+
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true,
+    celldims=celldims,
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
+  )
+
+  # if init_metrics
+  cell_center_metrics, edge_metrics = get_metric_soa_rectilinear3d(celldims, backend, T)
+  # if empty_metrics
+  #   cell_center_metrics, edge_metrics = (nothing, nothing)
+  # else
+  #   cell_center_metrics, edge_metrics = get_metric_soa_rectilinear3d(celldims, backend, T)
+  # end
+
+  m = RectilinearGrid3D(
+    coords,
+    centroids,
+    node_velocities,
+    edge_metrics,
+    cell_center_metrics,
+    nhalo,
+    nnodes,
+    limits,
+    iterators,
+    discr_scheme,
+    is_static,
+    scheme_name,
+  )
 
   if init_metrics && !empty_metrics
     update!(m; force=true)
@@ -250,8 +350,23 @@ function RectilinearGrid3D(
     end
   end
 
-  # Here we use the 'uniform' tag because all of the metric matrices are uniform
-  m = _rectilinear_grid_constructor(
+  use_symmetric_conservative_metric_scheme = false
+
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, scheme_name = _uniform_grid_constructor(
         x3d,
         y3d,
         z3d,
@@ -261,6 +376,43 @@ function RectilinearGrid3D(
         empty_metrics=empty_metrics,
         kwargs...,
       )
+
+  celldims = size(iterators.cell.full)
+
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true,
+    celldims=celldims,
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
+  )
+
+  # if init_metrics
+  cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, backend, T)
+  # if empty_metrics
+  #   cell_center_metrics, edge_metrics = (nothing, nothing)
+  # else
+  #   cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, backend, T)
+  # end
+  # else
+  #   cell_center_metrics = nothing
+  #   edge_metrics = nothing
+  # end
+
+  m = RectilinearGrid3D(
+    coords,
+    centroids,
+    node_velocities,
+    edge_metrics,
+    cell_center_metrics,
+    nhalo,
+    nnodes,
+    limits,
+    iterators,
+    discr_scheme,
+    is_static,
+    scheme_name,
+  )
 
   if init_metrics && !empty_metrics
     update!(m; force=true)
@@ -333,7 +485,23 @@ function UniformGrid3D(
     end
   end
 
-  m = _uniform_grid_constructor(
+  use_symmetric_conservative_metric_scheme = false
+
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, scheme_name = _uniform_grid_constructor(
         x3d,
         y3d,
         z3d,
@@ -343,6 +511,43 @@ function UniformGrid3D(
         empty_metrics=empty_metrics,
         kwargs...,
       )
+
+  celldims = size(iterators.cell.full)
+
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true,
+    celldims=celldims,
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
+  )
+
+  # if init_metrics
+  cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, backend, T)
+  # if empty_metrics
+  #   cell_center_metrics, edge_metrics = (nothing, nothing)
+  # else
+  #   cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, backend, T)
+  # end
+  # else
+  #   cell_center_metrics = nothing
+  #   edge_metrics = nothing
+  # end
+
+  m = UniformGrid3D(
+    coords,
+    centroids,
+    node_velocities,
+    edge_metrics,
+    cell_center_metrics,
+    nhalo,
+    nnodes,
+    limits,
+    iterators,
+    discr_scheme,
+    is_static,
+    scheme_name,
+  )
 
   if init_metrics && !empty_metrics
     update!(m; force=true)
@@ -408,23 +613,8 @@ function _curvilinear_grid_constructor(
 
   domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
 
-  discr_scheme = MetricDiscretizationScheme(;
-    use_cache=true,
-    celldims=size(domain_iterators.cell.full),
-    backend=backend,
-    T=T,
-    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
-  )
-
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
-
-  # if init_metrics
-  if empty_metrics
-    cell_center_metrics, edge_metrics = (nothing, nothing)
-  else
-    cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
-  end
 
   coords = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
@@ -451,17 +641,14 @@ function _curvilinear_grid_constructor(
     z=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  return CurvilinearGrid3D{typeof(coords), typeof(centroids), typeof(node_velocities), typeof(edge_metrics), typeof(cell_center_metrics), typeof(limits), typeof(domain_iterators), typeof(discr_scheme)}(
+  return (
     coords,
     centroids,
     node_velocities,
-    edge_metrics,
-    cell_center_metrics,
     nhalo,
     nnodes,
     limits,
     domain_iterators,
-    discr_scheme,
     is_static,
     is_orthogonal,
     scheme_name,
@@ -524,23 +711,8 @@ function _rectilinear_grid_constructor(
 
   domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
 
-  discr_scheme = MetricDiscretizationScheme(;
-    use_cache=true,
-    celldims=size(domain_iterators.cell.full),
-    backend=backend,
-    T=T,
-    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
-  )
-
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
-
-  # if init_metrics
-  if empty_metrics
-    cell_center_metrics, edge_metrics = (nothing, nothing)
-  else
-    cell_center_metrics, edge_metrics = get_metric_soa_rectilinear3d(celldims, backend, T)
-  end
 
   coords = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
@@ -567,17 +739,14 @@ function _rectilinear_grid_constructor(
     z=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  return RectilinearGrid3D{typeof(coords), typeof(centroids), typeof(node_velocities), typeof(edge_metrics), typeof(cell_center_metrics), typeof(limits), typeof(domain_iterators), typeof(discr_scheme)}(
+  return (
     coords,
     centroids,
     node_velocities,
-    edge_metrics,
-    cell_center_metrics,
     nhalo,
     nnodes,
     limits,
     domain_iterators,
-    discr_scheme,
     is_static,
     scheme_name,
   )
@@ -639,28 +808,8 @@ function _uniform_grid_constructor(
 
   domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
 
-  discr_scheme = MetricDiscretizationScheme(;
-    use_cache=true,
-    celldims=size(domain_iterators.cell.full),
-    backend=backend,
-    T=T,
-    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
-  )
-
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
-
-  # if init_metrics
-  cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, backend, T)
-  # if empty_metrics
-  #   cell_center_metrics, edge_metrics = (nothing, nothing)
-  # else
-  #   cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, backend, T)
-  # end
-  # else
-  #   cell_center_metrics = nothing
-  #   edge_metrics = nothing
-  # end
 
   coords = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
@@ -687,17 +836,14 @@ function _uniform_grid_constructor(
     z=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  return UniformGrid3D{typeof(coords), typeof(centroids), typeof(node_velocities), typeof(edge_metrics), typeof(cell_center_metrics), typeof(limits), typeof(domain_iterators), typeof(discr_scheme)}(
+  return (
     coords,
     centroids,
     node_velocities,
-    edge_metrics,
-    cell_center_metrics,
     nhalo,
     nnodes,
     limits,
     domain_iterators,
-    discr_scheme,
     is_static,
     scheme_name,
   )

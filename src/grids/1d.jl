@@ -104,11 +104,12 @@ function CurvilinearGrid1D(
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  if empty_metrics
-    cell_center_metrics, edge_metrics = (nothing, nothing)
-  else
-    cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
-  end
+  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+  # if empty_metrics
+  #   cell_center_metrics, edge_metrics = (nothing, nothing)
+  # else
+  #   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+  # end
 
   centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
   coords = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
@@ -157,7 +158,7 @@ function UniformGrid1D(
   ni = ncells + 1
   x = collect(T, range(x0, x1; length=ni))
 
-  m = _uniform_grid_constructor(
+  m = UniformGrid1D(
         x, discretization_scheme; backend=backend, empty_metrics=empty_metrics
       )
 
@@ -187,7 +188,7 @@ function UniformGrid1D(
     error("The x vector must have more than 2 points")
   end
 
-  m = _uniform_grid_constructor(
+  coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, scheme_name = _grid_constructor(
         x,
         discretization_scheme;
         backend=backend,
@@ -195,12 +196,56 @@ function UniformGrid1D(
         empty_metrics=empty_metrics,
       )
 
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  celldims = size(iterators.cell.full)
+
+  cell_center_metrics, edge_metrics = get_metric_soa_uniform1d(celldims, backend, T)
+  # if empty_metrics
+  #   cell_center_metrics, edge_metrics = (nothing, nothing)
+  # else
+  #   cell_center_metrics, edge_metrics = get_metric_soa_uniform1d(celldims, backend, T)
+  # end
+
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true,
+    celldims=celldims,
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=false,
+  )
+
+  m = UniformGrid1D(
+    coords,
+    centroids,
+    node_velocities,
+    edge_metrics,
+    cell_center_metrics,
+    nhalo,
+    nnodes,
+    limits,
+    iterators,
+    discr_scheme,
+    is_static,
+    scheme_name,
+  )
+
   update!(m; force=true)
 
   return m
 end
 
-function _uniform_grid_constructor(
+function _grid_constructor(
   x::AbstractVector{T},
   discretization_scheme::Symbol;
   backend=KernelAbstractions.CPU(),
@@ -238,13 +283,6 @@ function _uniform_grid_constructor(
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  cell_center_metrics, edge_metrics = get_metric_soa_uniform1d(celldims, backend, T)
-  # if empty_metrics
-  #   cell_center_metrics, edge_metrics = (nothing, nothing)
-  # else
-  #   cell_center_metrics, edge_metrics = get_metric_soa_uniform1d(celldims, backend, T)
-  # end
-
   centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
   coords = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
@@ -254,15 +292,7 @@ function _uniform_grid_constructor(
 
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
-  discr_scheme = MontoneExplicitGradientScheme6thOrder(;
-    use_cache=true,
-    celldims=size(domain_iterators.cell.full),
-    backend=backend,
-    T=T,
-    use_symmetric_conservative_metric_scheme=false,
-  )
-
-  return UniformGrid1D{typeof(coords), typeof(centroids), typeof(node_velocities), typeof(edge_metrics), typeof(cell_center_metrics), typeof(limits), typeof(domain_iterators), typeof(discr_scheme)}(coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, ni, limits, domain_iterators, discr_scheme, is_static, scheme_name)
+  return (coords, centroids, node_velocities, nhalo, ni, limits, domain_iterators, is_static, scheme_name)
 end
 
 """
