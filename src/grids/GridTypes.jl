@@ -40,6 +40,8 @@ abstract type AbstractCurvilinearGrid1D <: AbstractCurvilinearGrid end
 abstract type AbstractCurvilinearGrid2D <: AbstractCurvilinearGrid end
 abstract type AbstractCurvilinearGrid3D <: AbstractCurvilinearGrid end
 
+const nhalo_lookup = Dict(:MEG6 => 5, :MEG6_SYMMETRIC => 5)
+
 # Helper functions to eliminate floating point values below ϵ; these
 # are used to "clean" the jacobian matrices, so we don't get
 # numbers like 1e-18, when in reality they should be 0.0

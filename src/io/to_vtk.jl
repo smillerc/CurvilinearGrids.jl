@@ -75,7 +75,6 @@ function save_vtk((x, y)::NTuple{2,AbstractMatrix{N}}, fn="mesh") where {N}
   end
 end
 
-"""Write the mesh to .VTK format"""
 function save_vtk(mesh::AbstractCurvilinearGrid2D, fn="mesh")
   @info "Writing to $fn.vti"
 
@@ -97,6 +96,14 @@ function save_vtk(mesh::AbstractCurvilinearGrid2D, fn="mesh")
       mesh.cell_center_metrics.η.x₁[domain],
       mesh.cell_center_metrics.η.x₂[domain],
       mesh.cell_center_metrics.η.t[domain],
+    )
+
+    vtk["dx_di", VTKCellData(), component_names=["xi", "eta"]] = (
+      mesh.cell_center_metrics.x₁.ξ[domain], mesh.cell_center_metrics.x₁.η[domain]
+    )
+
+    vtk["dy_di", VTKCellData(), component_names=["xi", "eta"]] = (
+      mesh.cell_center_metrics.x₂.ξ[domain], mesh.cell_center_metrics.x₂.η[domain]
     )
   end
 end

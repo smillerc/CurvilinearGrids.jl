@@ -261,93 +261,16 @@ function RectilinearGrid3D(
 end
 
 function RectilinearGrid3D(
-  # Semi-uniform rectilinear grid
   (x0, y0, z0),
   (x1, y1, z1),
-  (ni, nj, nk)::NTuple{3,T},
+  (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
   discretization_scheme::Symbol;
-  backend=CPU(),
-  is_static=true,
-  init_metrics=true,
-  empty_metrics=false,
   kwargs...,
-) where {T<:Int}
-  ∂x = (x1 - x0) / ni
-  ∂y = (y1 - y0) / nj
-  ∂z = (z1 - z0) / nk
-
-  # Here we use the 'uniform' tag because all of the metric matrices are uniform
-  RectilinearGrid3D(
-    (x0, y0, z0),
-    (x1, y1, z1),
-    (∂x, ∂y, ∂z),
-    discretization_scheme;
-    backend=backend,
-    is_static=is_static,
-    init_metrics=init_metrics,
-    empty_metrics=empty_metrics,
-    kwargs...,
-  )
-end
-
-function RectilinearGrid3D(
-  # Semi-uniform rectilinear grid
-  (x0, y0, z0),
-  (x1, y1, z1),
-  (∂x, ∂y, ∂z)::NTuple{3,T},
-  discretization_scheme::Symbol;
-  backend=CPU(),
-  is_static=true,
-  init_metrics=true,
-  empty_metrics=false,
-  kwargs...,
-) where {T<:AbstractFloat}
-
-  #
-  x = x0:∂x:x1
-  y = y0:∂y:y1
-  z = z0:∂z:z1
-
-  ni = length(x)
-  nj = length(y)
-  nk = length(z)
-
-  if ni < 2
-    error("The x vector must have more than 2 points")
-  end
-
-  if nj < 2
-    error("The y vector must have more than 2 points")
-  end
-
-  if nk < 2
-    error("The z vector must have more than 2 points")
-  end
-
-  if !all(diff(x) .> 0)
-    error("Invalid x vector, spacing between vertices must be > 0 everywhere")
-  end
-
-  if !all(diff(y) .> 0)
-    error("Invalid y vector, spacing between vertices must be > 0 everywhere")
-  end
-
-  if !all(diff(z) .> 0)
-    error("Invalid z vector, spacing between vertices must be > 0 everywhere")
-  end
-
-  x3d = zeros(T, ni, nj, nk)
-  y3d = zeros(T, ni, nj, nk)
-  z3d = zeros(T, ni, nj, nk)
-
-  @inbounds for k in 1:nk
-    for j in 1:nj
-      for i in 1:ni
-        x3d[i, j, k] = x[i]
-        y3d[i, j, k] = y[j]
-        z3d[i, j, k] = z[k]
-      end
-    end
+)
+  if ni_cells < 2 || nj_cells < 2 || nk_cells < 2
+    error(
+      "The number of cells specified must be > 1, given cell dims are $((ni_cells, nj_cells, nk_cells))",
+    )
   end
 
   use_symmetric_conservative_metric_scheme = false
@@ -413,15 +336,8 @@ function RectilinearGrid3D(
     is_static,
     scheme_name,
   )
-
-  if init_metrics && !empty_metrics
-    update!(m; force=true)
-  end
-
-  return m
 end
 
-# True uniform grid
 """
     UniformGrid3D((x0, y0, z0), (x1, y1, z1), ∂x, shape::NTuple{3, Int}, discretization_scheme::Symbol; backend=CPU(), is_static=false,is_static=true, init_metrics=true)
 
@@ -572,14 +488,14 @@ function _curvilinear_grid_constructor(
   use_symmetric_conservative_metric_scheme = false
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
+  nhalo = nhalo_lookup[scheme_name]
+
   if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
     use_symmetric_conservative_metric_scheme = true
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")

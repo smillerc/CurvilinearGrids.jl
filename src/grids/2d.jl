@@ -1,4 +1,8 @@
 
+"""
+A 2D curvilinear grid. Curvilinear implies that the coorindates must be described
+by 2 indices, e.g. `x -> x(i,j)` and `y -> y(i,j)`
+"""
 struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
@@ -15,6 +19,10 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme_name::Symbol
 end
 
+"""
+A 2D rectilinear grid. Rectilinear implies that the coorindates can be described
+by 1D vectors, e.g. `x -> x(i)` and `y -> y(j)`
+"""
 struct RectilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
@@ -30,6 +38,10 @@ struct RectilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme_name::Symbol
 end
 
+"""
+A 2D uniform grid. Grid coordinates can change over time, but transformations must be rigid
+in order to maintain coordinate uniformity
+"""
 struct UniformGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   node_coordinates::CO
   centroid_coordinates::CE
@@ -67,6 +79,12 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme_name::Symbol
 end
 
+"""
+    CurvilinearGrid2D((x0, y0), (x1, y1), (ni_cells, nj_cells)::NTuple{2,Int}, discretization_scheme::Symbol; T=Float64)
+
+Create a `CurvilinearGrid2D` with start/end points `(x0, y0), (x1, y1)`, and the number of cells in each dimension. This will create a rectilinear-style
+grid, but still remain curvilinear, such that the grid can dynamically change. For a grid that stays purely rectilinear, use the `RectilinearGrid2D` constructor instead.
+"""
 function CurvilinearGrid2D(
   (x0, y0),
   (x1, y1),
@@ -75,9 +93,20 @@ function CurvilinearGrid2D(
   T=Float64,
   kwargs...,
 )
-  x = range(x0, x1; length=ni_cells + 1)
-  y = range(y0, y1; length=nj_cells + 1)
+  x = range(x0, x1; length=ni_cells + 1) .|> T
+  y = range(y0, y1; length=nj_cells + 1) .|> T
 
+  return CurvilinearGrid2D(x, y, discretization_scheme; T=T, kwargs...)
+end
+
+"""
+    CurvilinearGrid2D(x::AbstractVector{T}, y::AbstractVector{T}, discretization_scheme::Symbol; kwargs...) where {T}
+
+Create a `CurvilinearGrid2D` with 1D `x` and `y` coordinate vectors. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
+"""
+function CurvilinearGrid2D(
+  x::AbstractVector{T}, y::AbstractVector{T}, discretization_scheme::Symbol; kwargs...
+) where {T}
   ni = length(x)
   nj = length(y)
 
@@ -96,8 +125,7 @@ end
 """
     CurvilinearGrid2D(x::AbstractArray{T,2}, y::AbstractArray{T,2}, discretization_scheme=::Symbol; backend=CPU()) where {T}
 
-Create a 2d grid with `x` and `y` coordinates. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
-The `nhalo` argument defines the number of halo cells along each dimension.
+Create a `CurvilinearGrid2D` with 2D `x` and `y` coordinates. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
 """
 function CurvilinearGrid2D(
   x::AbstractArray{T,2},
@@ -177,9 +205,9 @@ end
 """
     RectilinearGrid2D(x::AbstractVector{T}, y::AbstractVector{T}, discretization_scheme=::Symbol; backend=CPU()) where {T}
 
-Create a 2d grid with `x` and `y` coordinates. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
-
-This constructor utilizes `RectilinearArray`s to optimize data storage. Therefore, this should only be used when creating a rectilinear grid.
+Create a `RectilinearGrid2D` with `x` and `y` coordinate vectors. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
+The `RectilinearGrid2D` type uses specialized storage based on the assertion that x and y are defined purely by 1D vectors, rather than 2D arrays. Any dynamic motion must
+obey this restriction. For a fully dynamic mesh with 2D varying coordinates, use a `CurvilinearGrid2D` type instead.
 """
 function RectilinearGrid2D(
   x::AbstractVector{T},
@@ -282,7 +310,9 @@ end
 """
     RectilinearGrid2D((x0, y0), (x1, y1), (ni_cells, nj_cells)::NTuple{2,Int}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true, empty_metrics=false)
 
-TBW
+Create a `RectilinearGrid2D` with start/end points `(x0, y0), (x1, y1)`, and the number of cells in each dimension.
+The `RectilinearGrid2D` type uses specialized storage based on the assertion that x and y are defined purely by 1D vectors, rather than 2D arrays. Any dynamic motion must
+obey this restriction. For a fully dynamic mesh with 2D varying coordinates, use a `CurvilinearGrid2D` type instead.
 """
 function RectilinearGrid2D(
   (x0, y0),
@@ -311,77 +341,12 @@ function RectilinearGrid2D(
   )
 end
 
-# """
-#     RectilinearGrid2D((x0, y0), (x1, y1), (∂x, ∂y)::NTuple{2,T}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true, empty_metrics=false) where {T<:Real}
-
-# TBW
-# """
-# function RectilinearGrid2D(
-#   (x0, y0),
-#   (x1, y1),
-#   (∂x, ∂y)::NTuple{2,T},
-#   discretization_scheme::Symbol;
-#   backend=CPU(),
-#   is_static=true,
-#   init_metrics=true,
-#   empty_metrics=false,
-# ) where {T<:Real}
-#   x = Vector(x0:∂x:x1)
-#   y = Vector(y0:∂y:y1)
-
-#   ni = length(x)
-#   nj = length(y)
-
-#   if ni < 2
-#     error("The x vector must have more than 2 points")
-#   end
-
-#   if nj < 2
-#     error("The y vector must have more than 2 points")
-#   end
-
-#   if !all(diff(x) .> 0)
-#     error("Invalid x vector, spacing between vertices must be > 0 everywhere")
-#   end
-
-#   if !all(diff(y) .> 0)
-#     error("Invalid y vector, spacing between vertices must be > 0 everywhere")
-#   end
-
-#   x2d = zeros(T, ni, nj)
-#   y2d = zeros(T, ni, nj)
-
-#   @inbounds for j in 1:nj
-#     for i in 1:ni
-#       x2d[i, j] = x[i]
-#       y2d[i, j] = y[j]
-#     end
-#   end
-
-#   m = UniformGrid2D(
-#     _grid_constructor(
-#       x2d,
-#       y2d,
-#       :uniform,
-#       discretization_scheme;
-#       backend=backend,
-#       is_static=is_static,
-#       empty_metrics=empty_metrics,
-#     )...,
-#   )
-
-#   if init_metrics && !empty_metrics
-#     update!(m; force=true)
-#   end
-#   return m
-# end
-
 """
     UniformGrid2D((x0, y0), (x1, y1), ∂x, discretization_scheme=::Symbol; backend=CPU()) where {T}
 
 Create a 2d uniform grid with a grid spacing and a shape. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions.
-
-This constructor utilizes `RectilinearArray`s to optimize data storage. Therefore, this should only be used when creating a uniform grid.
+The `UniformGrid2D` type uses specialized storage based on the assertion that x and y uniform and can be stored with reduced date. Any dynamic motion must
+obey this restriction. For a fully dynamic mesh with 2D varying coordinates, use a `CurvilinearGrid2D` type instead.
 """
 function UniformGrid2D(
   (x0, y0),
@@ -499,14 +464,14 @@ function _curvilinear_grid_constructor(
   #
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
+  nhalo = nhalo_lookup[scheme_name]
+
   if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -731,6 +696,12 @@ function _uniform_grid_constructor(
   )
 end
 
+"""
+    AxisymmetricGrid2D((x0, y0), (x1, y1), (ni_cells, nj_cells)::NTuple{2,Int}, discretization_scheme::Symbol, snap_to_axis::Bool, rotational_axis::Symbol; T=Float64)
+
+Create an axisymmetric 2d grid with end points as `(x0, y0)`, and `(x1, y1)`, and `(ni_cells, nj_cells)`, with the symmetry axis `rotational_axis = :x` or `rotational_axis = :y`. 
+Enforce coordinates to stay on the axis via `snap_to_axis=true`. The input coordinates do not include halo / ghost data since the geometry is undefined in these regions. 
+"""
 function AxisymmetricGrid2D(
   (x0, y0),
   (x1, y1),
@@ -764,8 +735,8 @@ end
 """
     AxisymmetricGrid2D(x::AbstractMatrix{T}, y::AbstractMatrix{T},  nhalo::Int,  snap_to_axis::Bool,  rotational_axis::Symbol;  T=Float64, backend=CPU())
 
-Create an axisymmetric 2d grid with `x` and `y` coordinates, with the symmetry axis `rotational_axis = :x` or `rotational_axis = :y`. Enforce coordinates to stay on the axis via `snap_to_axis=True`.
-The input coordinates do not include halo / ghost data since the geometry is undefined in these regions. The `nhalo` argument defines the number of halo cells along each dimension.
+Create an axisymmetric 2d grid with `x` and `y` coordinates, with the symmetry axis `rotational_axis = :x` or `rotational_axis = :y`. Enforce coordinates to stay on the axis via `snap_to_axis=true`.
+The input coordinates do not include halo / ghost data since the geometry is undefined in these regions. 
 """
 function AxisymmetricGrid2D(
   x::AbstractMatrix{T},
@@ -784,13 +755,14 @@ function AxisymmetricGrid2D(
   #
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
+  nhalo = nhalo_lookup[scheme_name]
+
   if (
     scheme_name === :MEG6 ||
     scheme_name === :MEG6_SYMMETRIC ||
     discretization_scheme === :MontoneExplicitGradientScheme6thOrder
   )
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
 
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
@@ -936,8 +908,8 @@ function update!(mesh::AxisymmetricGrid2D)
 
   if mesh.snap_to_axis
     _snap_nodes_to_axis(mesh)
-  else
-    _check_nodes_along_axis(mesh)
+    # else
+    #   _check_nodes_along_axis(mesh)
   end
 
   _check_valid_metrics(mesh)
@@ -1013,8 +985,8 @@ function _centroid_coordinates!(
   # Populate the centroid coordinates
   for idx in domain
     i, j = idx.I
-    centroids.x[idx] = 0.25(x[i, j] + x[i + 1, j] + x[i + 1, j + 1] + x[i, j + 1])
-    centroids.y[idx] = 0.25(y[i, j] + y[i + 1, j] + y[i + 1, j + 1] + y[i, j + 1])
+    centroids.x[idx] = 0.25(x[i, j] + x[i+1, j] + x[i+1, j+1] + x[i, j+1])
+    centroids.y[idx] = 0.25(y[i, j] + y[i+1, j] + y[i+1, j+1] + y[i, j+1])
   end
 
   return nothing
