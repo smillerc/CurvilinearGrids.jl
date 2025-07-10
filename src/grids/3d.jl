@@ -289,14 +289,32 @@ function RectilinearGrid3D(
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
 
+  x = collect(range(x0, x1; length=ni_cells + 1))
+  y = collect(range(y0, y1; length=nj_cells + 1))
+  z = collect(range(z0, z1; length=nk_cells + 1))
+
+  x3d = zeros(ni_cells, nj_cells, nk_cells)
+  y3d = zeros(ni_cells, nj_cells, nk_cells)
+  z3d = zeros(ni_cells, nj_cells, nk_cells)
+
+  @inbounds for k in 1:nk_cells
+    for j in 1:nj_cells
+      for i in 1:ni_cells
+        x3d[i, j, k] = x[i]
+        y3d[i, j, k] = y[j]
+        z3d[i, j, k] = z[k]
+      end
+    end
+  end
+
   coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, scheme_name = _uniform_grid_constructor(
         x3d,
         y3d,
         z3d,
         discretization_scheme;
-        backend=backend,
-        is_static=is_static,
-        empty_metrics=empty_metrics,
+        backend=CPU(),
+        is_static=true,
+        empty_metrics=false,
         kwargs...,
       )
 
@@ -305,13 +323,13 @@ function RectilinearGrid3D(
   discr_scheme = MetricDiscretizationScheme(;
     use_cache=true,
     celldims=celldims,
-    backend=backend,
-    T=T,
+    backend=CPU(),
+    T=eltype(x),
     use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
   )
 
   # if init_metrics
-  cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, backend, T)
+      cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, CPU(), eltype(x))
   # if empty_metrics
   #   cell_center_metrics, edge_metrics = (nothing, nothing)
   # else
@@ -336,6 +354,10 @@ function RectilinearGrid3D(
     is_static,
     scheme_name,
   )
+
+  update!(m; force=true)
+
+  return m
 end
 
 """
