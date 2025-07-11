@@ -130,7 +130,7 @@ end
   )
 end
 
-@inline function coords(mesh::CurvilinearGrid3D)
+@inline function coords(mesh::AbstractCurvilinearGrid3D)
   return @views (
     mesh.node_coordinates.x[mesh.iterators.node.domain],
     mesh.node_coordinates.y[mesh.iterators.node.domain],
@@ -155,7 +155,7 @@ end
   )
 end
 
-@inline function centroids(mesh::CurvilinearGrid3D)
+@inline function centroids(mesh::AbstractCurvilinearGrid3D)
   return @views (
     mesh.centroid_coordinates.x[mesh.iterators.cell.domain],
     mesh.centroid_coordinates.y[mesh.iterators.cell.domain],

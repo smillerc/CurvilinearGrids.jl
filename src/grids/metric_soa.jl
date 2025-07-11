@@ -782,7 +782,7 @@ function get_metric_soa(celldims::NTuple{1,Int}, backend, T)
   return cell_center_metrics, edge_metrics
 end
 
-function get_metric_soa_uniform1d(celldims::NTuple{1,Int}, backend, T)
+function get_metric_soa_uniform1d(celldims::NTuple{1,Int}, backend::Backend, ::Type{T}) where {T}
   cell_center_metrics = (
     J=RectilinearArrays.zeros(T, backend, (1,), celldims),
     ξ=StructArray((
