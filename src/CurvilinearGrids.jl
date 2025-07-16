@@ -29,7 +29,7 @@ export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
 export cell_metrics, cell_indices
-export radius, centroid_radius
+export radius, centroid_radius, centroid_radii
 export cellvolume, cellvolumes
 
 export forward_cell_metrics, inverse_cell_metrics

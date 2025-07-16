@@ -31,7 +31,7 @@ export update!
 export coord, coords, coords!, cellsize, cellsize_withhalo
 export centroid, centroids
 export cellvolume, cellvolumes
-export radius, centroid_radius
+export radius, centroid_radius, centroid_radii
 export jacobian_matrix
 export forward_cell_metrics, inverse_cell_metrics
 
@@ -253,6 +253,17 @@ Get the radial centroid coordinate of a 2D axisymmetric mesh
     return mesh.centroid_coordinates.y[i, j]
   else
     return mesh.centroid_coordinates.x[i, j]
+  end
+end
+
+@views centroid_radii(mesh::SphericalGrid1D) = mesh.centroid_coordinates.x
+@views centroid_radii(mesh::CylindricalGrid1D) = mesh.centroid_coordinates.x
+
+@views function centroid_radii(mesh::AxisymmetricGrid2D)
+  if mesh.rotational_axis === :x
+    return mesh.centroid_coordinates.y
+  else
+    return mesh.centroid_coordinates.x
   end
 end
 
