@@ -989,21 +989,6 @@ end
     centroids.y[didx] = 0.25(y[i, j] + y[i+1, j] + y[i+1, j+1] + y[i, j+1])
 end
 
-# function _centroid_coordinates!(
-#   centroids::StructArray{T,2}, coords::StructArray{T,2}, domain
-# ) where {T}
-#   x = coords.x
-#   y = coords.y
-#   # Populate the centroid coordinates
-#   for idx in domain
-#     i, j = idx.I
-#     centroids.x[idx] = 0.25(x[i, j] + x[i+1, j] + x[i+1, j+1] + x[i, j+1])
-#     centroids.y[idx] = 0.25(y[i, j] + y[i+1, j] + y[i+1, j+1] + y[i, j+1])
-#   end
-# 
-#   return nothing
-# end
-
 function _check_valid_metrics(mesh::AbstractCurvilinearGrid2D)
   domain = mesh.iterators.cell.domain
   i₊½_domain = expand(domain, 1, -1)

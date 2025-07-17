@@ -532,19 +532,6 @@ end
     centroids.x[idx] = 0.5(x[i] + x[i + 1])
 end
 
-# function _centroid_coordinates!(
-#   centroids::StructArray{T,1}, coords::StructArray{T,1}, domain
-# ) where {T}
-#   x = coords.x
-#   # Populate the centroid coordinates
-#   for idx in domain
-#     i, = idx.I
-#     centroids.x[idx] = 0.5(x[i] + x[i + 1])
-#   end
-# 
-#   return nothing
-# end
-
 function _check_valid_metrics(mesh::AbstractCurvilinearGrid1D)
   domain = mesh.iterators.cell.domain
   i₊½_domain = expand(domain, 1, -1)
