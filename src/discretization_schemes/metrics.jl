@@ -205,8 +205,10 @@ function conservative_metric!(
     compute_gradients=true, # compute the gradients ∂²ϕ, ∂ϕ required for (y_ζ z)_η
   ) # 2nd outer deriv term
 
-  @. ξ̂x = scheme.cache.outer_deriv_1 - scheme.cache.outer_deriv_2
-  @. ξ̂x = ξ̂x * (abs(ξ̂x) >= ϵ)
+  @views begin
+    @. ξ̂x[domain] = scheme.cache.outer_deriv_1[domain] - scheme.cache.outer_deriv_2[domain]
+    @. ξ̂x[domain] = ξ̂x[domain] * (abs(ξ̂x[domain]) >= ϵ)
+  end
 end
 
 """
@@ -297,15 +299,17 @@ function conservative_metrics!(
   # ζ̂z = (x_ξ y)_η − (x_η y)_ξ
   conservative_metric!(scheme, ζ̂z, x_ξ, x_η, y, (η, ξ), domain)
 
-  @. ξx = ξ̂x / metrics.J
-  @. ηx = η̂x / metrics.J
-  @. ζx = ζ̂x / metrics.J
-  @. ξy = ξ̂y / metrics.J
-  @. ηy = η̂y / metrics.J
-  @. ζy = ζ̂y / metrics.J
-  @. ξz = ξ̂z / metrics.J
-  @. ηz = η̂z / metrics.J
-  @. ζz = ζ̂z / metrics.J
+  @views begin
+    @. ξx[domain] = ξ̂x[domain] / metrics.J[domain]
+    @. ηx[domain] = η̂x[domain] / metrics.J[domain]
+    @. ζx[domain] = ζ̂x[domain] / metrics.J[domain]
+    @. ξy[domain] = ξ̂y[domain] / metrics.J[domain]
+    @. ηy[domain] = η̂y[domain] / metrics.J[domain]
+    @. ζy[domain] = ζ̂y[domain] / metrics.J[domain]
+    @. ξz[domain] = ξ̂z[domain] / metrics.J[domain]
+    @. ηz[domain] = η̂z[domain] / metrics.J[domain]
+    @. ζz[domain] = ζ̂z[domain] / metrics.J[domain]
+  end
 
   return nothing
 end
@@ -326,22 +330,20 @@ function conservative_metrics!(
     error("Size mismatch for the given x, y coordinate arrays, they must all be the same")
   end
 
-  @views begin
-    ξ̂x = metrics.ξ̂.x₁
-    η̂x = metrics.η̂.x₁
-    ξ̂y = metrics.ξ̂.x₂
-    η̂y = metrics.η̂.x₂
+  ξ̂x = metrics.ξ̂.x₁
+  η̂x = metrics.η̂.x₁
+  ξ̂y = metrics.ξ̂.x₂
+  η̂y = metrics.η̂.x₂
 
-    ξx = metrics.ξ.x₁
-    ηx = metrics.η.x₁
-    ξy = metrics.ξ.x₂
-    ηy = metrics.η.x₂
+  ξx = metrics.ξ.x₁
+  ηx = metrics.η.x₁
+  ξy = metrics.ξ.x₂
+  ηy = metrics.η.x₂
 
-    xξ = metrics.x₁.ξ
-    xη = metrics.x₁.η
-    yξ = metrics.x₂.ξ
-    yη = metrics.x₂.η
-  end
+  xξ = metrics.x₁.ξ
+  xη = metrics.x₁.η
+  yξ = metrics.x₂.ξ
+  yη = metrics.x₂.η
 
   # This kernel finds the jacobian matrix and determinant from the 
   # forward metrics. No need to use the more complicated conservative_metric!
@@ -350,10 +352,12 @@ function conservative_metrics!(
     xξ, xη, yξ, yη, ξx, ξy, ηx, ηy, metrics.J, domain; ndrange=size(domain)
   )
 
-  @. ξ̂x = ξx * metrics.J
-  @. η̂x = ηx * metrics.J
-  @. ξ̂y = ξy * metrics.J
-  @. η̂y = ηy * metrics.J
+  @views begin
+    @. ξ̂x[domain] = ξx[domain] * metrics.J[domain]
+    @. η̂x[domain] = ηx[domain] * metrics.J[domain]
+    @. ξ̂y[domain] = ξy[domain] * metrics.J[domain]
+    @. η̂y[domain] = ηy[domain] * metrics.J[domain]
+  end
 
   return nothing
 end
@@ -379,6 +383,7 @@ end
   η_y[idx] = _inv_jacobian[2, 2]
 end
 
+# Does this require domain limiting?
 function conservative_metrics!(
   ::DiscretizationScheme, metrics, x::AbstractArray{T,1}, domain
 ) where {T}

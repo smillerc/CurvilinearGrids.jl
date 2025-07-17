@@ -2,7 +2,7 @@
   ni, nj = (40, 80)
   x0, x1 = (0, 2)
   y0, y1 = (1, 3)
-  mesh = rectlinear_grid((x0, y0), (x1, y1), (ni, nj), :MEG6)
+  mesh = RectilinearGrid2D((x0, y0), (x1, y1), (ni, nj), :MEG6)
   domain = mesh.iterators.cell.domain
 
   @test mesh.iterators.cell.full == CartesianIndices((50, 90))
@@ -42,15 +42,19 @@
   @test all(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain] .≈ 0.0)
   @test all(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain] .≈ 0.0)
   @test all(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain] .≈ 0.05)
+
   @test all(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain] .≈ 0.025)
   @test all(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain] .≈ 0.0)
   @test all(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain] .≈ 0.0)
   @test all(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain] .≈ 0.05)
 
+  @test all(mesh.edge_metrics.i₊½.J[i₊½_domain] .≈ 0.00125)
   @test all(mesh.edge_metrics.i₊½.ξ.x₁[i₊½_domain] .≈ 20.0)
   @test all(mesh.edge_metrics.i₊½.ξ.x₂[i₊½_domain] .≈ 0.0)
   @test all(mesh.edge_metrics.i₊½.η.x₁[i₊½_domain] .≈ 0.0)
   @test all(mesh.edge_metrics.i₊½.η.x₂[i₊½_domain] .≈ 40.0)
+
+  @test all(mesh.edge_metrics.j₊½.J[j₊½_domain] .≈ 0.00125)
   @test all(mesh.edge_metrics.j₊½.ξ.x₁[j₊½_domain] .≈ 20.0)
   @test all(mesh.edge_metrics.j₊½.ξ.x₂[j₊½_domain] .≈ 0.0)
   @test all(mesh.edge_metrics.j₊½.η.x₁[j₊½_domain] .≈ 0.0)

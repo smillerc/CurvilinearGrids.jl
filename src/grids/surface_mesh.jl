@@ -1,6 +1,6 @@
 using CartesianDomains
 
-function extract_surface_mesh(mesh::CurvilinearGrid2D, loc::Symbol)
+function extract_surface_mesh(mesh::AbstractCurvilinearGrid2D, loc::Symbol)
   i, j, = (1, 2)
   full = mesh.iterators.node.domain
 
@@ -20,7 +20,7 @@ function extract_surface_mesh(mesh::CurvilinearGrid2D, loc::Symbol)
   return (x, y)
 end
 
-function extract_surface_mesh(mesh::CurvilinearGrid3D, loc::Symbol)
+function extract_surface_mesh(mesh::AbstractCurvilinearGrid3D, loc::Symbol)
   i, j, k = (1, 2, 3)
   full = mesh.iterators.node.domain
 

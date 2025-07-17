@@ -1,5 +1,5 @@
 
-struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
+struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -9,15 +9,12 @@ struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1
   nnodes::Int
   domain_limits::DL
   iterators::CI
-  tiles::TI
   discretization_scheme::DS
-  onbc::@NamedTuple{ilo::Bool, ihi::Bool}
   is_static::Bool
-  is_orthogonal::Bool
   discretization_scheme_name::Symbol
 end
 
-struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
+struct UniformGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -27,16 +24,29 @@ struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
   nnodes::Int
   domain_limits::DL
   iterators::CI
-  tiles::TI
+  discretization_scheme::DS
+  is_static::Bool
+  discretization_scheme_name::Symbol
+end
+
+struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
+  node_coordinates::CO
+  centroid_coordinates::CE
+  node_velocities::NV
+  edge_metrics::EM
+  cell_center_metrics::CM
+  nhalo::Int
+  nnodes::Int
+  domain_limits::DL
+  iterators::CI
   discretization_scheme::DS
   onbc::@NamedTuple{ilo::Bool, ihi::Bool}
   snap_to_axis::Bool
   is_static::Bool
-  is_orthogonal::Bool
   discretization_scheme_name::Symbol
 end
 
-struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1D
+struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   node_coordinates::CO
   centroid_coordinates::CE
   node_velocities::NV
@@ -46,30 +56,28 @@ struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,TI,DS} <: AbstractCurvilinearGrid1
   nnodes::Int
   domain_limits::DL
   iterators::CI
-  tiles::TI
   discretization_scheme::DS
   onbc::@NamedTuple{ilo::Bool, ihi::Bool}
   snap_to_axis::Bool
   is_static::Bool
-  is_orthogonal::Bool
   discretization_scheme_name::Symbol
 end
 
 """
-    CurvilinearGrid1D(x, nhalo; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, tiles=nothing)
+    CurvilinearGrid1D(x::AbstractVector{T}, discretization_scheme::Symbol; backend=CPU(), is_static=false, empty_metrics=false) where {T}
 
 Construct a curvilinear grid in 1D using a vector of x coordinate points.
 """
 function CurvilinearGrid1D(
   x::AbstractVector{T},
   discretization_scheme::Symbol;
-  backend=CPU(),
-  on_bc=nothing,
+  backend=KernelAbstractions.CPU(),
   is_static=false,
-  tiles=nothing,
+  empty_metrics=false,
 ) where {T}
-
   #
+  use_symmetric_conservative_metric_scheme = false
+
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
@@ -79,7 +87,6 @@ function CurvilinearGrid1D(
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
-    use_symmetric_conservative_metric_scheme = true
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -98,6 +105,11 @@ function CurvilinearGrid1D(
   nodedims = size(domain_iterators.node.full)
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+  # if empty_metrics
+  #   cell_center_metrics, edge_metrics = (nothing, nothing)
+  # else
+  #   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
+  # end
 
   centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
   coords = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
@@ -109,39 +121,183 @@ function CurvilinearGrid1D(
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
   discr_scheme = MetricDiscretizationScheme(;
-    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
+    use_cache=true,
+    celldims=size(domain_iterators.cell.full),
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=false,
   )
 
-  if isnothing(on_bc)
-    _on_bc = (ilo=true, ihi=true)
-  else
-    _on_bc = on_bc
+  m = CurvilinearGrid1D(coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, ni, limits, domain_iterators, discr_scheme, is_static, scheme_name)
+
+  if !empty_metrics
+    update!(m; force=true)
+  end
+  return m
+end
+
+function CurvilinearGrid1D((x0, x1), ni, discretization_scheme::Symbol; kwargs...)
+  CurvilinearGrid1D(
+    collect(range(x0, x1; length=ni + 1)), discretization_scheme::Symbol; kwargs...
+  )
+end
+
+"""
+    UniformGrid1D((x0, x1), ncells, discretization_scheme::Symbol; backend=CPU(), T=Float64, empty_metrics=false)
+
+TBW
+"""
+function UniformGrid1D(
+  (x0, x1),
+  ncells,
+  discretization_scheme::Symbol;
+  backend=KernelAbstractions.CPU(),
+  T=Float64,
+  empty_metrics=false,
+)
+  ni = ncells + 1
+  x = collect(T, range(x0, x1; length=ni))
+
+  m = UniformGrid1D(
+        x, discretization_scheme; backend=backend, empty_metrics=empty_metrics
+      )
+
+  if !empty_metrics
+    update!(m; force=true)
+  end
+  return m
+end
+
+"""
+    UniformGrid1D(x::AbstractVector{T}, discretization_scheme::Symbol; backend=CPU(), is_static=true, empty_metrics=false) where {T}
+
+TBW
+"""
+function UniformGrid1D(
+  x::AbstractVector{T},
+  discretization_scheme::Symbol;
+  backend=KernelAbstractions.CPU(),
+  is_static=true,
+  empty_metrics=false,
+) where {T}
+
+  #
+  ni = length(x)
+
+  if ni < 2
+    error("The x vector must have more than 2 points")
   end
 
-  m = CurvilinearGrid1D(
+  coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, scheme_name = _grid_constructor(
+        x,
+        discretization_scheme;
+        backend=backend,
+        is_static=is_static,
+        empty_metrics=empty_metrics,
+      )
+
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+    nhalo = 5
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  celldims = size(iterators.cell.full)
+
+  cell_center_metrics, edge_metrics = get_metric_soa_uniform1d(celldims, backend, T)
+  # if empty_metrics
+  #   cell_center_metrics, edge_metrics = (nothing, nothing)
+  # else
+  #   cell_center_metrics, edge_metrics = get_metric_soa_uniform1d(celldims, backend, T)
+  # end
+
+  discr_scheme = MetricDiscretizationScheme(;
+    use_cache=true,
+    celldims=celldims,
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=false,
+  )
+
+  m = UniformGrid1D(
     coords,
     centroids,
     node_velocities,
     edge_metrics,
     cell_center_metrics,
     nhalo,
-    ni,
+    nnodes,
     limits,
-    domain_iterators,
-    tiles,
+    iterators,
     discr_scheme,
-    _on_bc,
     is_static,
-    true,
     scheme_name,
   )
 
   update!(m; force=true)
+
   return m
 end
 
+function _grid_constructor(
+  x::AbstractVector{T},
+  discretization_scheme::Symbol;
+  backend=KernelAbstractions.CPU(),
+  is_static=false,
+  empty_metrics=false,
+  kwargs...,
+) where {T}
+
+  #
+  use_symmetric_conservative_metric_scheme = false
+  scheme_name = Symbol(uppercase("$discretization_scheme"))
+  nhalo = nhalo_lookup[scheme_name]
+
+  if scheme_name === :MEG6 ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+
+  elseif scheme_name === :MEG6_SYMMETRIC ||
+    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
+
+  else
+    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
+  end
+
+  ni = length(x)
+  ncells = ni - 1
+  ilo = nhalo + 1
+  limits = (node=(ilo=ilo, ihi=ni + nhalo), cell=(ilo=ilo, ihi=ncells + nhalo))
+
+  nodeCI = CartesianIndices((ni + 2nhalo,))
+  cellCI = CartesianIndices((ncells + 2nhalo,))
+
+  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
+
+  celldims = size(domain_iterators.cell.full)
+  nodedims = size(domain_iterators.node.full)
+
+  centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
+  coords = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
+
+  @views begin
+    copy!(coords.x[domain_iterators.node.domain], x)
+  end
+
+  node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
+
+  return (coords, centroids, node_velocities, nhalo, ni, limits, domain_iterators, is_static, scheme_name)
+end
+
 """
-    SphericalGrid1D(x, nhalo, snap_to_axis::Bool; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, tiles=nothing)
+    SphericalGrid1D(x::AbstractVector, discretization_scheme::Symbol, snap_to_axis::Bool; backend=CPU(), on_bc=nothing, is_static=false)
 
 Construct a curvilinear grid in 1D with spherical symmetry using a vector of x coordinate points.
 """
@@ -152,20 +308,20 @@ function SphericalGrid1D(
   backend=CPU(),
   on_bc=nothing,
   is_static=false,
-  tiles=nothing,
+  kwargs...,
 ) where {T}
 
   #
+
   scheme_name = Symbol(uppercase("$discretization_scheme"))
+  nhalo = nhalo_lookup[scheme_name]
+
   if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-    use_symmetric_conservative_metric_scheme = true
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -195,7 +351,11 @@ function SphericalGrid1D(
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
   discr_scheme = MetricDiscretizationScheme(;
-    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
+    use_cache=true,
+    celldims=size(domain_iterators.cell.full),
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=false,
   )
 
   if isnothing(on_bc)
@@ -214,12 +374,10 @@ function SphericalGrid1D(
     ni,
     limits,
     domain_iterators,
-    tiles,
     discr_scheme,
     _on_bc,
     snap_to_axis,
     is_static,
-    true,
     scheme_name,
   )
 
@@ -228,7 +386,7 @@ function SphericalGrid1D(
 end
 
 """
-    CylindricalGrid1D(x, nhalo, snap_to_axis::Bool; backend=CPU(), discretization_scheme=:MEG6, on_bc=nothing, is_static=false, tiles=nothing)
+    CylindricalGrid1D(x::AbstractVector, discretization_scheme::Symbol, snap_to_axis::Bool; backend=CPU(), on_bc=nothing, is_static=false)
 
 Construct a curvilinear grid in 1D with cylindrical symmetry using a vector of x coordinate points.
 """
@@ -239,20 +397,20 @@ function CylindricalGrid1D(
   backend=CPU(),
   on_bc=nothing,
   is_static=false,
-  tiles=nothing,
+  kwargs...,
 ) where {T}
 
   #
+
   scheme_name = Symbol(uppercase("$discretization_scheme"))
+  nhalo = nhalo_lookup[scheme_name]
+
   if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-    use_symmetric_conservative_metric_scheme = true
   else
     error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
   end
@@ -282,7 +440,11 @@ function CylindricalGrid1D(
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
   discr_scheme = MetricDiscretizationScheme(;
-    use_cache=true, celldims=size(domain_iterators.cell.full), backend=backend, T=T
+    use_cache=true,
+    celldims=size(domain_iterators.cell.full),
+    backend=backend,
+    T=T,
+    use_symmetric_conservative_metric_scheme=false,
   )
 
   if isnothing(on_bc)
@@ -301,12 +463,10 @@ function CylindricalGrid1D(
     ni,
     limits,
     domain_iterators,
-    tiles,
     discr_scheme,
     _on_bc,
     snap_to_axis,
     is_static,
-    true,
     scheme_name,
   )
 
