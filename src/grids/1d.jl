@@ -131,7 +131,7 @@ function CurvilinearGrid1D(
   m = CurvilinearGrid1D(coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, ni, limits, domain_iterators, discr_scheme, is_static, scheme_name)
 
   if !empty_metrics
-    update!(m; force=true)
+    update!(m, backend; force=true)
   end
   return m
 end
@@ -163,7 +163,7 @@ function UniformGrid1D(
       )
 
   if !empty_metrics
-    update!(m; force=true)
+    update!(m, backend; force=true)
   end
   return m
 end
@@ -240,7 +240,7 @@ function UniformGrid1D(
     scheme_name,
   )
 
-  update!(m; force=true)
+  update!(m, backend; force=true)
 
   return m
 end
@@ -381,7 +381,7 @@ function SphericalGrid1D(
     scheme_name,
   )
 
-  update!(m; force=true)
+  update!(m, backend; force=true)
   return m
 end
 
@@ -470,14 +470,14 @@ function CylindricalGrid1D(
     scheme_name,
   )
 
-  update!(m; force=true)
+  update!(m, backend; force=true)
   return m
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AbstractCurvilinearGrid1D; force=false)
+function update!(mesh::AbstractCurvilinearGrid1D, backend; force=false)
   if !mesh.is_static || force
-    _centroid_coordinates!(
+    _centroid_coordinates_kernel!(backend)(
       mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
     )
     update_metrics!(mesh)
@@ -522,18 +522,28 @@ end
 # Coordinate Functions
 # ------------------------------------------------------------------
 
-function _centroid_coordinates!(
-  centroids::StructArray{T,1}, coords::StructArray{T,1}, domain
-) where {T}
-  x = coords.x
-  # Populate the centroid coordinates
-  for idx in domain
-    i, = idx.I
-    centroids.x[idx] = 0.5(x[i] + x[i + 1])
-  end
+@kernel inbounds = true function _centroid_coordinates_kernel!(centroids::StructArray{T,1}, coords::StructArray{T,1}, domain) where {T}
+    idx = @index(Global)
+    didx = domain[idx]
+    i, = didx.I 
 
-  return nothing
+    x = coords.x
+    
+    centroids.x[idx] = 0.5(x[i] + x[i + 1])
 end
+
+# function _centroid_coordinates!(
+#   centroids::StructArray{T,1}, coords::StructArray{T,1}, domain
+# ) where {T}
+#   x = coords.x
+#   # Populate the centroid coordinates
+#   for idx in domain
+#     i, = idx.I
+#     centroids.x[idx] = 0.5(x[i] + x[i + 1])
+#   end
+# 
+#   return nothing
+# end
 
 function _check_valid_metrics(mesh::AbstractCurvilinearGrid1D)
   domain = mesh.iterators.cell.domain

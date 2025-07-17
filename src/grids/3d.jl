@@ -265,6 +265,7 @@ function RectilinearGrid3D(
   (x1, y1, z1),
   (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
   discretization_scheme::Symbol;
+  backend=CPU(),
   kwargs...,
 )
   if ni_cells < 2 || nj_cells < 2 || nk_cells < 2
@@ -312,7 +313,7 @@ function RectilinearGrid3D(
         y3d,
         z3d,
         discretization_scheme;
-        backend=CPU(),
+        backend=backend,
         is_static=true,
         empty_metrics=false,
         kwargs...,
@@ -323,7 +324,7 @@ function RectilinearGrid3D(
   discr_scheme = MetricDiscretizationScheme(;
     use_cache=true,
     celldims=celldims,
-    backend=CPU(),
+    backend=backend,
     T=eltype(x),
     use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
   )
