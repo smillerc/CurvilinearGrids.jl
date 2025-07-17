@@ -529,7 +529,7 @@ end
 
     x = coords.x
     
-    centroids.x[idx] = 0.5(x[i] + x[i + 1])
+    centroids.x[didx] = 0.5(x[i] + x[i + 1])
 end
 
 function _check_valid_metrics(mesh::AbstractCurvilinearGrid1D)
