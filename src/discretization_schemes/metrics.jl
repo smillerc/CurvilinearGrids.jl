@@ -178,15 +178,17 @@ function conservative_metric!(
   ζ, η = deriv_axes
 
   # ξ̂x = (y_η z)_ζ − (y_ζ z)_η
-  ∂ζ = mappedarray(*, y_η, z)
-  ∂η = mappedarray(*, y_ζ, z)
+  # ∂ζ = mappedarray(*, y_η, z) :: This is a mapped array, which is incompatible with GPU kernels
+  scheme.cache.inner_deriv_1 .= y_η .* z
+  # ∂η = mappedarray(*, y_ζ, z) :: This is a mapped array, which is incompatible with GPU kernels
+  scheme.cache.inner_deriv_2 .= y_ζ .* z
 
   cell_center_derivatives!(
     scheme,
     scheme.cache.outer_deriv_1,
     scheme.cache.∂²ϕ,
     scheme.cache.∂ϕ,
-    ∂ζ, # (y_η z)_ζ
+    scheme.cache.inner_deriv_1, # (y_η z)_ζ
     ζ, # do along the ζ dimension
     domain;
     compute_gradients=true, # compute the gradients ∂²ϕ, ∂ϕ required for (y_η z)_ζ
@@ -197,7 +199,7 @@ function conservative_metric!(
     scheme.cache.outer_deriv_2,
     scheme.cache.∂²ϕ,
     scheme.cache.∂ϕ,
-    ∂η, # (y_ζ z)_η
+    scheme.cache.inner_deriv_2, # (y_ζ z)_η
     η, # do along the η dimension
     domain;
     compute_gradients=true, # compute the gradients ∂²ϕ, ∂ϕ required for (y_ζ z)_η

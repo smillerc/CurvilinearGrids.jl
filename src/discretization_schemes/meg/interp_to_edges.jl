@@ -29,8 +29,8 @@ function interpolate_to_edge!(
   nhalo = 3
   ∂ϕ = scheme.cache.∂ϕ
   ∂²ϕ = scheme.cache.∂²ϕ
-  first_deriv!(∂ϕ, ϕ, axis, domain, nhalo)
-  second_deriv!(∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, domain, nhalo)
+  first_deriv!(∂ϕ, ϕ, axis, domain, scheme.backend, nhalo)
+  second_deriv!(∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, domain, scheme.backend, nhalo)
 
   # domain = CartesianIndices(ϕ)
   inner_domain = domain # expand(domain, axis, 0)

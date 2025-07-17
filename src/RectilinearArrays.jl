@@ -40,17 +40,17 @@ julia> B = RectilinearArray(A, (1,))
  1  2
 ```
 """
-function RectilinearArray(A::AbstractArray{T}, fixed_indices::Tuple) where {T}
+function RectilinearArray(A::AbstractArray{T}, fixed_indices::NTuple{K,Int}) where {T,K}
   @assert ndims(A) > 0 "RectilinearArray does not support 0-dimensional arrays."
-  new_A = _drop_dims(A, fixed_indices)
-  valid_indices = filter(i -> i ∉ fixed_indices, Tuple(1:ndims(A)))
+  new_A = _drop_dims(A, fixed_indices, KernelAbstractions.get_backend(A))
+  valid_indices = filter(i -> i ∉ fixed_indices, ntuple(i -> i, ndims(A)))
   return RectilinearArray{
-    eltype(A),
+    T,
     ndims(A),
     ndims(new_A),
     typeof(new_A),
-    length(fixed_indices),
-    length(valid_indices),
+    K,
+    ndims(A)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
@@ -73,134 +73,134 @@ julia> A = RectilinearArray(Float64, (1,), (2,2))
 ```
 """
 function RectilinearArray(
-  ::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Dims
-) where {T}
+  ::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Dims{N}
+) where {T,N}
   @assert length(dims) > 0 "RectilinearArray does not support 0-dimensional arrays."
   A = Array{T}(undef, dims)
-  new_A = _drop_dims(A, fixed_indices)
-  valid_indices = filter(i -> i ∉ fixed_indices, Tuple(1:ndims(A)))
+  new_A = _drop_dims(A, fixed_indices, CPU())
+  valid_indices = filter(i -> i ∉ fixed_indices, ntuple(i -> i, N))
   return RectilinearArray{
-    eltype(A),
+    T,
     ndims(A),
     ndims(new_A),
     typeof(new_A),
     length(fixed_indices),
-    length(valid_indices),
+    length(dims)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
 end
 function RectilinearArray(
-  ::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Int...
-) where {T}
+    ::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Vararg{Int, N}
+) where {T,N}
   @assert length(dims) > 0 "RectilinearArray does not support 0-dimensional arrays."
   A = Array{T}(undef, dims)
-  new_A = _drop_dims(A, fixed_indices)
-  valid_indices = filter(i -> i ∉ fixed_indices, Tuple(1:ndims(A)))
+  new_A = _drop_dims(A, fixed_indices, CPU())
+  valid_indices = filter(i -> i ∉ fixed_indices, ntuple(i -> i, N))
   return RectilinearArray{
-    eltype(A),
+    T,
     ndims(A),
     ndims(new_A),
     typeof(new_A),
     length(fixed_indices),
-    length(valid_indices),
+    length(dims)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
 end
 function RectilinearArray(
-  ::Type{T}, backend::Backend, fixed_indices::Tuple{Vararg{Int}}, dims::Dims
-) where {T}
+  ::Type{T}, backend::Backend, fixed_indices::Tuple{Vararg{Int}}, dims::Dims{N}
+) where {T,N}
   @assert length(dims) > 0 "RectilinearArray does not support 0-dimensional arrays."
   A = allocate(backend, T, dims)
-  new_A = _drop_dims(A, fixed_indices)
-  valid_indices = filter(i -> i ∉ fixed_indices, Tuple(1:ndims(A)))
+  new_A = _drop_dims(A, fixed_indices, backend)
+  valid_indices = filter(i -> i ∉ fixed_indices, ntuple(i -> i, N))
   return RectilinearArray{
-    eltype(A),
+    T,
     ndims(A),
     ndims(new_A),
     typeof(new_A),
     length(fixed_indices),
-    length(valid_indices),
+    length(dims)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
 end
 function RectilinearArray(
-  ::Type{T}, backend::Backend, fixed_indices::Tuple{Vararg{Int}}, dims::Int...
-) where {T}
+    ::Type{T}, backend::Backend, fixed_indices::Tuple{Vararg{Int}}, dims::Vararg{Int,N}
+) where {T,N}
   @assert length(dims) > 0 "RectilinearArray does not support 0-dimensional arrays."
   A = allocate(backend, T, dims)
-  new_A = _drop_dims(A, fixed_indices)
-  valid_indices = filter(i -> i ∉ fixed_indices, Tuple(1:ndims(A)))
+  new_A = _drop_dims(A, fixed_indices, backend)
+  valid_indices = filter(i -> i ∉ fixed_indices, ntuple(i -> i, N))
   return RectilinearArray{
-    eltype(A),
+    T,
     ndims(A),
     ndims(new_A),
     typeof(new_A),
     length(fixed_indices),
-    length(valid_indices),
+    length(dims)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
 end
-function RectilinearArray(fixed_indices::Tuple{Vararg{Int}}, dims::Dims)
+function RectilinearArray(fixed_indices::Tuple{Vararg{Int}}, dims::Dims{N}) where {N}
   @assert length(dims) > 0 "RectilinearArray does not support 0-dimensional arrays."
   A = Array{Float64}(undef, dims)
-  new_A = _drop_dims(A, fixed_indices)
-  valid_indices = filter(i -> i ∉ fixed_indices, Tuple(1:ndims(A)))
+  new_A = _drop_dims(A, fixed_indices, CPU())
+  valid_indices = filter(i -> i ∉ fixed_indices, ntuple(i -> i, N))
   return RectilinearArray{
     eltype(A),
     ndims(A),
     ndims(new_A),
     typeof(new_A),
     length(fixed_indices),
-    length(valid_indices),
+    length(dims)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
 end
-function RectilinearArray(fixed_indices::Tuple{Vararg{Int}}, dims::Int...)
+function RectilinearArray(fixed_indices::Tuple{Vararg{Int}}, dims::Vararg{Int,N}) where {N}
   @assert length(dims) > 0 "RectilinearArray does not support 0-dimensional arrays."
   A = Array{Float64}(undef, dims)
-  new_A = _drop_dims(A, fixed_indices)
-  valid_indices = filter(i -> i ∉ fixed_indices, Tuple(1:ndims(A)))
+  new_A = _drop_dims(A, fixed_indices, CPU())
+  valid_indices = filter(i -> i ∉ fixed_indices, ntuple(i -> i, N))
   return RectilinearArray{
     eltype(A),
     ndims(A),
     ndims(new_A),
     typeof(new_A),
     length(fixed_indices),
-    length(valid_indices),
+    length(dims)-length(fixed_indices),
   }(
     new_A, size(A), fixed_indices, valid_indices
   )
 end
 
 # Define a zeros function
-function zeros(::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Int...) where {T}
+@inline function zeros(::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Int...) where {T}
   return RectilinearArray(Base.zeros(T, dims...), fixed_indices)
 end
 
-function zeros(::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Dims) where {T}
+@inline function zeros(::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Dims) where {T}
   return RectilinearArray(Base.zeros(T, dims), fixed_indices)
 end
-function zeros(
+@inline function zeros(
   ::Type{T}, backend::Backend, fixed_indices::Tuple{Vararg{Int}}, dims::Int...
 ) where {T}
   return RectilinearArray(KernelAbstractions.zeros(backend, T, dims...), fixed_indices)
 end
 
-function zeros(
+@inline function zeros(
   ::Type{T}, backend::Backend, fixed_indices::Tuple{Vararg{Int}}, dims::Dims
 ) where {T}
   return RectilinearArray(KernelAbstractions.zeros(backend, T, dims), fixed_indices)
 end
-function zeros(fixed_indices::Tuple{Vararg{Int}}, dims::Int...)
+@inline function zeros(fixed_indices::Tuple{Vararg{Int}}, dims::Int...)
   return RectilinearArray(Base.zeros(Float64, dims...), fixed_indices)
 end
 
-function zeros(fixed_indices::Tuple{Vararg{Int}}, dims::Dims)
+@inline function zeros(fixed_indices::Tuple{Vararg{Int}}, dims::Dims)
   return RectilinearArray(Base.zeros(Float64, dims), fixed_indices)
 end
 
@@ -304,9 +304,27 @@ function _skip_index(A::AbstractArray, valid_indices::Tuple, inds::Int...)
   return getindex(A, skip...)
 end
 
-function _drop_dims(A::AbstractArray, dims::Tuple)
-  new_dims = ntuple(i -> i ∈ dims ? 1 : Colon(), Val(ndims(A)))
-  return isa(A[new_dims...], Number) ? [A[new_dims...]] : A[new_dims...]
+# function _drop_dims(A::AbstractArray, dims::Tuple)
+#   new_dims = ntuple(i -> i ∈ dims ? 1 : Colon(), Val(ndims(A)))
+#   return isa(A[new_dims...], Number) ? [A[new_dims...]] : A[new_dims...]
+# end
+@kernel function copy_kernel!(R, A, keep_dims)
+    idx = @index(Global, Cartesian)
+    full_idx = ntuple(i -> (i ∈ keep_dims ? idx[findfirst(==(i), keep_dims)] : 1), ndims(A))
+    @inbounds R[idx] = A[full_idx...]
+end
+function _drop_dims(A::AbstractArray, dims::Tuple{Vararg{Int}}, backend::Backend)
+    nd = ndims(A)
+    all_dims = collect(1:nd)
+    keep_dims = ntuple(j -> filter(i -> i ∉ dims, all_dims)[j], nd - length(dims))
+
+    new_shape = ntuple(i -> size(A, keep_dims[i]), nd - length(dims))
+    R = similar(A, eltype(A), new_shape)
+
+    kernel! = copy_kernel!(backend)
+    kernel!(R, A, keep_dims; ndrange=size(R))
+
+    return R
 end
 
 function _largest_eachindex(A...)
