@@ -6,7 +6,7 @@ function translate!(grid::AbstractCurvilinearGrid1D, translation_vector::SVector
 
     grid.node_coordinates.x[grid.iterators.node.domain] .+= translation_vector[1]
 
-    update!(grid; force=true)
+    update!(grid, grid.discretization_scheme.backend; force=true)
 end
 function translate!(grid::AbstractCurvilinearGrid2D, translation_vector::SVector)
     @assert length(size(grid.node_coordinates)) == length(translation_vector)
@@ -14,7 +14,7 @@ function translate!(grid::AbstractCurvilinearGrid2D, translation_vector::SVector
     grid.node_coordinates.x[grid.iterators.node.domain] .+= translation_vector[1]
     grid.node_coordinates.y[grid.iterators.node.domain] .+= translation_vector[2]
 
-    update!(grid; force=true)
+    update!(grid, grid.discretization_scheme.backend; force=true)
 end
 function translate!(grid::AbstractCurvilinearGrid3D, translation_vector::SVector)
     @assert length(size(grid.node_coordinates)) == length(translation_vector)
@@ -23,7 +23,7 @@ function translate!(grid::AbstractCurvilinearGrid3D, translation_vector::SVector
     grid.node_coordinates.y[grid.iterators.node.domain] .+= translation_vector[2]
     grid.node_coordinates.z[grid.iterators.node.domain] .+= translation_vector[3]
 
-    update!(grid; force=true)
+    update!(grid, grid.discretization_scheme.backend; force=true)
 end
 
 function rotate!(grid::AbstractCurvilinearGrid2D, rotation_angle)
@@ -40,7 +40,7 @@ function rotate!(grid::AbstractCurvilinearGrid2D, rotation_angle)
         grid.node_coordinates.y[c] = (rotation_matrix*point)[2]
     end
 
-    update!(grid; force=true)
+    update!(grid, grid.discretization_scheme.backend; force=true)
 end
 function rotate!(grid::AbstractCurvilinearGrid3D, axis_vector::SVector, rotation_angle)
     @assert axis_vector[1]^2 + axis_vector[2]^2 + axis_vector[3]^2 == 1.0
@@ -61,24 +61,24 @@ function rotate!(grid::AbstractCurvilinearGrid3D, axis_vector::SVector, rotation
         grid.node_coordinates.z[c] = rotated_point[3]
     end
 
-    update!(grid; force=true)
+    update!(grid, grid.discretization_scheme.backend; force=true)
 end
 
 function scale!(grid::AbstractCurvilinearGrid1D, factor)
-    grid.node_coordinates.x .* factor
+    grid.node_coordinates.x .*= factor
 
-    update!(grid; force=true)
+    update!(grid, grid.discretization_scheme.backend; force=true)
 end
 function scale!(grid::AbstractCurvilinearGrid2D, factor)
-    grid.node_coordinates.x .* factor
-    grid.node_coordinates.y .* factor
+    grid.node_coordinates.x .*= factor
+    grid.node_coordinates.y .*= factor
 
-    update!(grid; force=true)
+    update!(grid, grid.discretization_scheme.backend; force=true)
 end
 function scale!(grid::AbstractCurvilinearGrid3D, factor)
-    grid.node_coordinates.x .* factor
-    grid.node_coordinates.y .* factor
-    grid.node_coordinates.z .* factor
+    grid.node_coordinates.x .*= factor
+    grid.node_coordinates.y .*= factor
+    grid.node_coordinates.z .*= factor
 
-    update!(grid; force=true)
+    update!(grid, grid.discretization_scheme.backend; force=true)
 end

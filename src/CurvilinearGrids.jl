@@ -50,7 +50,7 @@ include("mesh_functions/estimate_yplus.jl")
 export estimate_wall_distance
 
 include("mesh_functions/rigid_body_transformations.jl")
-export translate!, rotate!
+export translate!, rotate!, scale!
 
 include("remap.jl")
 export change_resolution, scale_resolution, remap_cell_data
