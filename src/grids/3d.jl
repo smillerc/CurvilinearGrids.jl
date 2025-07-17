@@ -125,7 +125,7 @@ function CurvilinearGrid3D(
   )
 
   if init_metrics && !empty_metrics
-    update!(m; force=true)
+    update!(m, backend; force=true)
   end
 
   return m
@@ -254,7 +254,7 @@ function RectilinearGrid3D(
   )
 
   if init_metrics && !empty_metrics
-    update!(m; force=true)
+    update!(m, backend; force=true)
   end
 
   return m
@@ -265,6 +265,7 @@ function RectilinearGrid3D(
   (x1, y1, z1),
   (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
   discretization_scheme::Symbol;
+  backend=CPU(),
   kwargs...,
 )
   if ni_cells < 2 || nj_cells < 2 || nk_cells < 2
@@ -312,7 +313,7 @@ function RectilinearGrid3D(
         y3d,
         z3d,
         discretization_scheme;
-        backend=CPU(),
+        backend=backend,
         is_static=true,
         empty_metrics=false,
         kwargs...,
@@ -323,7 +324,7 @@ function RectilinearGrid3D(
   discr_scheme = MetricDiscretizationScheme(;
     use_cache=true,
     celldims=celldims,
-    backend=CPU(),
+    backend=backend,
     T=eltype(x),
     use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
   )
@@ -355,7 +356,7 @@ function RectilinearGrid3D(
     scheme_name,
   )
 
-  update!(m; force=true)
+  update!(m, backend; force=true)
 
   return m
 end
@@ -488,7 +489,7 @@ function UniformGrid3D(
   )
 
   if init_metrics && !empty_metrics
-    update!(m; force=true)
+    update!(m, backend; force=true)
   end
 
   return m
@@ -788,11 +789,11 @@ function _uniform_grid_constructor(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AbstractCurvilinearGrid3D; force=false)
+function update!(mesh::AbstractCurvilinearGrid3D, backend; force=false)
   if !mesh.is_static || force
-    _centroid_coordinates!(
-      mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
-    )
+    _centroid_coordinates_kernel!(backend)(
+                                           mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain, ndrange=size(mesh.iterators.cell.domain)
+                                          )
     update_metrics!(mesh)
     _check_valid_metrics(mesh)
   else
@@ -861,37 +862,29 @@ end
 # Private Functions
 # ------------------------------------------------------------------
 
-function _centroid_coordinates!(
-  centroids::StructArray{T,3}, coords::StructArray{T,3}, domain
-) where {T}
+@kernel inbounds = true function _centroid_coordinates_kernel!(centroids::StructArray{T,3}, coords::StructArray{T,3}, domain) where {T}
+    idx = @index(Global)
+    didx = domain[idx]
+    i, j, k = didx.I
 
-  # Populate the centroid coordinates
-  x = coords.x
-  y = coords.y
-  z = coords.z
+    x = coords.x
+    y = coords.y
+    z = coords.z
 
-  @batch for idx in domain
-    i, j, k = idx.I
-    #! format: off
-    centroids.x[idx] = 0.125(
+    centroids.x[didx] = 0.125(
       x[i, j, k    ] + x[i + 1, j, k    ] + x[i + 1, j + 1, k    ] + x[i, j + 1, k    ] +
       x[i, j, k + 1] + x[i + 1, j, k + 1] + x[i + 1, j + 1, k + 1] + x[i, j + 1, k + 1]
     )
     
-    centroids.y[idx] = 0.125(
+    centroids.y[didx] = 0.125(
       y[i, j, k    ] + y[i + 1, j, k    ] + y[i + 1, j + 1, k    ] + y[i, j + 1, k    ] +
       y[i, j, k + 1] + y[i + 1, j, k + 1] + y[i + 1, j + 1, k + 1] + y[i, j + 1, k + 1]
     )
     
-    centroids.z[idx] = 0.125(
+    centroids.z[didx] = 0.125(
       z[i, j, k    ] + z[i + 1, j, k    ] + z[i + 1, j + 1, k    ] + z[i, j + 1, k    ] +
       z[i, j, k + 1] + z[i + 1, j, k + 1] + z[i + 1, j + 1, k + 1] + z[i, j + 1, k + 1]
     )
-    #! format: on
-
-  end
-
-  return nothing
 end
 
 function _check_valid_metrics(mesh::AbstractCurvilinearGrid3D)
