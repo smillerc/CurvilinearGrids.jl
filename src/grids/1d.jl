@@ -478,7 +478,7 @@ end
 function update!(mesh::AbstractCurvilinearGrid1D, backend; force=false)
   if !mesh.is_static || force
     _centroid_coordinates_kernel!(backend)(
-      mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
+      mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain, ndrange=size(mesh.iterators.cell.domain)
     )
     update_metrics!(mesh)
     _check_valid_metrics(mesh)

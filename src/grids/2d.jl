@@ -513,7 +513,7 @@ function _curvilinear_grid_constructor(
     y=KernelAbstractions.zeros(backend, T, celldims),
   ))
 
-  _centroid_coordinates!(centroids, coords, domain_iterators.cell.domain)
+  _centroid_coordinates_kernel!(backend)(centroids, coords, domain_iterators.cell.domain, ndrange=size(domain_iterators.cell.domain))
 
   node_velocities = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
@@ -595,7 +595,7 @@ function _rectilinear_grid_constructor(
     y=KernelAbstractions.zeros(backend, T, celldims),
   ))
 
-  _centroid_coordinates!(centroids, coords, domain_iterators.cell.domain)
+  _centroid_coordinates_kernel!(backend)(centroids, coords, domain_iterators.cell.domain, ndrange=size(domain_iterators.cell.domain))
 
   node_velocities = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
@@ -676,7 +676,7 @@ function _uniform_grid_constructor(
     y=KernelAbstractions.zeros(backend, T, celldims),
   ))
 
-  _centroid_coordinates!(centroids, coords, domain_iterators.cell.domain)
+  _centroid_coordinates_kernel!(backend)(centroids, coords, domain_iterators.cell.domain, ndrange=size(domain_iterators.cell.domain))
 
   node_velocities = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
@@ -806,7 +806,7 @@ function AxisymmetricGrid2D(
     y=KernelAbstractions.zeros(backend, T, celldims),
   ))
 
-  # _centroid_coordinates!(centroids, coords, domain_iterators.cell.domain)
+  # _centroid_coordinates_kernel!(backend)(centroids, coords, domain_iterators.cell.domain, ndrange=size(domain_iterators.cell.domain))
 
   node_velocities = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
@@ -889,7 +889,7 @@ end
 function update!(mesh::AbstractCurvilinearGrid2D, backend; force=false)
   if !mesh.is_static || force
     _centroid_coordinates_kernel!(backend)(
-      mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
+      mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain, ndrange=size(mesh.iterators.cell.domain)
     )
     update_metrics!(mesh)
     _check_valid_metrics(mesh)
@@ -900,9 +900,9 @@ function update!(mesh::AbstractCurvilinearGrid2D, backend; force=false)
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AxisymmetricGrid2D)
-  _centroid_coordinates!(
-    mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain
+function update!(mesh::AxisymmetricGrid2D, backend)
+  _centroid_coordinates_kernel!(backend)(
+    mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain, ndrange=size(mesh.iterators.cell.domain)
   )
   update_metrics!(mesh)
 
