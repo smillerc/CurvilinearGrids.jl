@@ -62,7 +62,6 @@ function CurvilinearGrid3D(
   empty_metrics=false,
   kwargs...,
 ) where {T}
-
   use_symmetric_conservative_metric_scheme = false
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
@@ -80,15 +79,15 @@ function CurvilinearGrid3D(
   end
 
   coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, is_orthogonal, scheme_name = _curvilinear_grid_constructor(
-        x,
-        y,
-        z,
-        discretization_scheme;
-        backend=backend,
-        is_static=is_static,
-        is_orthogonal=is_orthogonal,
-        empty_metrics=empty_metrics,
-      )
+    x,
+    y,
+    z,
+    discretization_scheme;
+    backend=backend,
+    is_static=is_static,
+    is_orthogonal=is_orthogonal,
+    empty_metrics=empty_metrics,
+  )
 
   celldims = size(iterators.cell.full)
 
@@ -132,11 +131,62 @@ function CurvilinearGrid3D(
 end
 
 """
+    CurvilinearGrid3D(x::AbstractVector{T}, y::AbstractVector{T}, z::AbstractVector{T}, discretization_scheme::Symbol; kwargs...)
+
+Construct a curvilinear grid in 3D using x/y/z vector coordinates.
+"""
+function CurvilinearGrid3D(
+  x::AbstractVector{T},
+  y::AbstractVector{T},
+  z::AbstractVector{T},
+  discretization_scheme::Symbol;
+  kwargs...,
+)
+  x3d = zeros(T, ni, nj, nk)
+  y3d = zeros(T, ni, nj, nk)
+  z3d = zeros(T, ni, nj, nk)
+
+  @inbounds for k in 1:nk
+    for j in 1:nj
+      for i in 1:ni
+        x3d[i, j, k] = x[i]
+        y3d[i, j, k] = y[j]
+        z3d[i, j, k] = z[k]
+      end
+    end
+  end
+
+  return CurvilinearGrid3D(x3d, y3d, z3d, discretization_scheme; kwargs...)
+end
+
+"""
+    CurvilinearGrid3D((x0, y0, z0), (x1, y1, z1), (ni_cells, nj_cells, nk_cells)::NTuple{3,Int}, discretization_scheme::Symbol; kwargs...)
+
+Construct a curvilinear grid in 3D using start/end coordinates and dimensions along each axis.
+"""
+function CurvilinearGrid3D(
+  (x0, y0, z0),
+  (x1, y1, z1),
+  (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
+  discretization_scheme::Symbol;
+  kwargs...,
+)
+  return CurvilinearGrid3D(
+    range(x0, x1; length=ni_cells + 1),
+    range(y0, y1; length=nj_cells + 1),
+    range(z0, z1; length=nk_cells + 1),
+    discretization_scheme;
+    kwargs...,
+  )
+end
+
+"""
     RectilinearGrid3D(x, y, z, discretization_scheme::Symbol; backend=CPU(), is_static=false, is_static=true,init_metrics=true)
     RectilinearGrid3D((x0, y0, z0), (x1, y1, z1), (∂x, ∂y, ∂z)::NTuple{3,AbstractFloat}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true)
     RectilinearGrid3D((x0, y0, z0), (x1, y1, z1), (ni, nj, nk)::NTuple{3,Int}, discretization_scheme::Symbol; backend=CPU(), is_static=true, init_metrics=true)
 
-Construct a rectilinear grid in 3D using 3D arrays of x/y/z coordinates. This constructor utilizes `RectilinearArray`s to optimize data storage, and therefore should only be used with grids that are rectilinear.
+Construct a rectilinear grid in 3D using 3D arrays of x/y/z coordinates. This constructor utilizes `RectilinearArray`s to optimize 
+data storage, and therefore should only be used with grids that are rectilinear.
 """
 function RectilinearGrid3D(
   x::AbstractVector{T},
@@ -210,15 +260,15 @@ function RectilinearGrid3D(
   end
 
   coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, scheme_name = _rectilinear_grid_constructor(
-        x3d,
-        y3d,
-        z3d,
-        discretization_scheme;
-        backend=backend,
-        is_static=is_static,
-        empty_metrics=empty_metrics,
-        kwargs...,
-      )
+    x3d,
+    y3d,
+    z3d,
+    discretization_scheme;
+    backend=backend,
+    is_static=is_static,
+    empty_metrics=empty_metrics,
+    kwargs...,
+  )
 
   celldims = size(iterators.cell.full)
 
@@ -230,13 +280,7 @@ function RectilinearGrid3D(
     use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
   )
 
-  # if init_metrics
   cell_center_metrics, edge_metrics = get_metric_soa_rectilinear3d(celldims, backend, T)
-  # if empty_metrics
-  #   cell_center_metrics, edge_metrics = (nothing, nothing)
-  # else
-  #   cell_center_metrics, edge_metrics = get_metric_soa_rectilinear3d(celldims, backend, T)
-  # end
 
   m = RectilinearGrid3D(
     coords,
@@ -265,106 +309,22 @@ function RectilinearGrid3D(
   (x1, y1, z1),
   (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
   discretization_scheme::Symbol;
-  backend=CPU(),
   kwargs...,
 )
-  if ni_cells < 2 || nj_cells < 2 || nk_cells < 2
-    error(
-      "The number of cells specified must be > 1, given cell dims are $((ni_cells, nj_cells, nk_cells))",
-    )
-  end
-
-  use_symmetric_conservative_metric_scheme = false
-
-  scheme_name = Symbol(uppercase("$discretization_scheme"))
-  if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-  elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-    use_symmetric_conservative_metric_scheme = true
-  else
-    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
-  end
-
-  x = collect(range(x0, x1; length=ni_cells + 1))
-  y = collect(range(y0, y1; length=nj_cells + 1))
-  z = collect(range(z0, z1; length=nk_cells + 1))
-
-  x3d = zeros(ni_cells, nj_cells, nk_cells)
-  y3d = zeros(ni_cells, nj_cells, nk_cells)
-  z3d = zeros(ni_cells, nj_cells, nk_cells)
-
-  @inbounds for k in 1:nk_cells
-    for j in 1:nj_cells
-      for i in 1:ni_cells
-        x3d[i, j, k] = x[i]
-        y3d[i, j, k] = y[j]
-        z3d[i, j, k] = z[k]
-      end
-    end
-  end
-
-  coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, scheme_name = _uniform_grid_constructor(
-        x3d,
-        y3d,
-        z3d,
-        discretization_scheme;
-        backend=backend,
-        is_static=true,
-        empty_metrics=false,
-        kwargs...,
-      )
-
-  celldims = size(iterators.cell.full)
-
-  discr_scheme = MetricDiscretizationScheme(;
-    use_cache=true,
-    celldims=celldims,
-    backend=backend,
-    T=eltype(x),
-    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
+  return RectilinearGrid3D(
+    range(x0, x1; length=ni_cells + 1),
+    range(y0, y1; length=nj_cells + 1),
+    range(z0, z1; length=nk_cells + 1),
+    discretization_scheme;
+    kwargs...,
   )
-
-  # if init_metrics
-      cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, CPU(), eltype(x))
-  # if empty_metrics
-  #   cell_center_metrics, edge_metrics = (nothing, nothing)
-  # else
-  #   cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, backend, T)
-  # end
-  # else
-  #   cell_center_metrics = nothing
-  #   edge_metrics = nothing
-  # end
-
-  m = RectilinearGrid3D(
-    coords,
-    centroids,
-    node_velocities,
-    edge_metrics,
-    cell_center_metrics,
-    nhalo,
-    nnodes,
-    limits,
-    iterators,
-    discr_scheme,
-    is_static,
-    scheme_name,
-  )
-
-  update!(m, backend; force=true)
-
-  return m
 end
 
 """
     UniformGrid3D((x0, y0, z0), (x1, y1, z1), ∂x, shape::NTuple{3, Int}, discretization_scheme::Symbol; backend=CPU(), is_static=false,is_static=true, init_metrics=true)
 
-Construct a uniform grid in 3D using a grid spacing and a shape tuple. This constructor utilizes `RectilinearArray`s to optimize data storage, and therefore should only be used with grids that are uniform."""
+Construct a uniform grid in 3D using a grid spacing and a shape tuple. This constructor utilizes `RectilinearArray`s to 
+optimize data storage, and therefore should only be used with grids that are uniform."""
 function UniformGrid3D(
   (x0, y0, z0),
   (x1, y1, z1),
@@ -441,15 +401,15 @@ function UniformGrid3D(
   end
 
   coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, scheme_name = _uniform_grid_constructor(
-        x3d,
-        y3d,
-        z3d,
-        discretization_scheme;
-        backend=backend,
-        is_static=is_static,
-        empty_metrics=empty_metrics,
-        kwargs...,
-      )
+    x3d,
+    y3d,
+    z3d,
+    discretization_scheme;
+    backend=backend,
+    is_static=is_static,
+    empty_metrics=empty_metrics,
+    kwargs...,
+  )
 
   celldims = size(iterators.cell.full)
 
@@ -495,6 +455,7 @@ function UniformGrid3D(
   return m
 end
 
+# common grid constructor for curvilinear grids
 function _curvilinear_grid_constructor(
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
@@ -593,6 +554,8 @@ function _curvilinear_grid_constructor(
     scheme_name,
   )
 end
+
+# common grid constructor for rectilinear grids
 function _rectilinear_grid_constructor(
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
@@ -690,6 +653,8 @@ function _rectilinear_grid_constructor(
     scheme_name,
   )
 end
+
+# common grid constructor for uniform grids
 function _uniform_grid_constructor(
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
@@ -792,8 +757,11 @@ end
 function update!(mesh::AbstractCurvilinearGrid3D, backend; force=false)
   if !mesh.is_static || force
     _centroid_coordinates_kernel!(backend)(
-                                           mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain, ndrange=size(mesh.iterators.cell.domain)
-                                          )
+      mesh.centroid_coordinates,
+      mesh.node_coordinates,
+      mesh.iterators.cell.domain;
+      ndrange=size(mesh.iterators.cell.domain),
+    )
     update_metrics!(mesh)
     _check_valid_metrics(mesh)
   else
@@ -862,28 +830,51 @@ end
 # Private Functions
 # ------------------------------------------------------------------
 
-@kernel inbounds = true function _centroid_coordinates_kernel!(centroids::StructArray{T,3}, coords::StructArray{T,3}, domain) where {T}
-    idx = @index(Global)
-    didx = domain[idx]
-    i, j, k = didx.I
+@kernel inbounds = true function _centroid_coordinates_kernel!(
+  centroids::StructArray{T,3}, coords::StructArray{T,3}, domain
+) where {T}
+  idx = @index(Global)
+  didx = domain[idx]
+  i, j, k = didx.I
 
-    x = coords.x
-    y = coords.y
-    z = coords.z
+  x = coords.x
+  y = coords.y
+  z = coords.z
 
-    centroids.x[didx] = 0.125(
-      x[i, j, k    ] + x[i + 1, j, k    ] + x[i + 1, j + 1, k    ] + x[i, j + 1, k    ] +
-      x[i, j, k + 1] + x[i + 1, j, k + 1] + x[i + 1, j + 1, k + 1] + x[i, j + 1, k + 1]
+  centroids.x[didx] =
+    0.125(
+      x[i, j, k] +
+      x[i + 1, j, k] +
+      x[i + 1, j + 1, k] +
+      x[i, j + 1, k] +
+      x[i, j, k + 1] +
+      x[i + 1, j, k + 1] +
+      x[i + 1, j + 1, k + 1] +
+      x[i, j + 1, k + 1]
     )
-    
-    centroids.y[didx] = 0.125(
-      y[i, j, k    ] + y[i + 1, j, k    ] + y[i + 1, j + 1, k    ] + y[i, j + 1, k    ] +
-      y[i, j, k + 1] + y[i + 1, j, k + 1] + y[i + 1, j + 1, k + 1] + y[i, j + 1, k + 1]
+
+  centroids.y[didx] =
+    0.125(
+      y[i, j, k] +
+      y[i + 1, j, k] +
+      y[i + 1, j + 1, k] +
+      y[i, j + 1, k] +
+      y[i, j, k + 1] +
+      y[i + 1, j, k + 1] +
+      y[i + 1, j + 1, k + 1] +
+      y[i, j + 1, k + 1]
     )
-    
-    centroids.z[didx] = 0.125(
-      z[i, j, k    ] + z[i + 1, j, k    ] + z[i + 1, j + 1, k    ] + z[i, j + 1, k    ] +
-      z[i, j, k + 1] + z[i + 1, j, k + 1] + z[i + 1, j + 1, k + 1] + z[i, j + 1, k + 1]
+
+  centroids.z[didx] =
+    0.125(
+      z[i, j, k] +
+      z[i + 1, j, k] +
+      z[i + 1, j + 1, k] +
+      z[i, j + 1, k] +
+      z[i, j, k + 1] +
+      z[i + 1, j, k + 1] +
+      z[i + 1, j + 1, k + 1] +
+      z[i, j + 1, k + 1]
     )
 end
 
