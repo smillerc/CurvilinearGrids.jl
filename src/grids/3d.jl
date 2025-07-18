@@ -141,7 +141,7 @@ function CurvilinearGrid3D(
   z::AbstractVector{T},
   discretization_scheme::Symbol;
   kwargs...,
-)
+) where {T}
   x3d = zeros(T, ni, nj, nk)
   y3d = zeros(T, ni, nj, nk)
   z3d = zeros(T, ni, nj, nk)
@@ -169,12 +169,13 @@ function CurvilinearGrid3D(
   (x1, y1, z1),
   (ni_cells, nj_cells, nk_cells)::NTuple{3,Int},
   discretization_scheme::Symbol;
+  T=Float64,
   kwargs...,
 )
   return CurvilinearGrid3D(
-    range(x0, x1; length=ni_cells + 1),
-    range(y0, y1; length=nj_cells + 1),
-    range(z0, z1; length=nk_cells + 1),
+    range(x0, x1; length=ni_cells + 1) .|> T,
+    range(y0, y1; length=nj_cells + 1) .|> T,
+    range(z0, z1; length=nk_cells + 1) .|> T,
     discretization_scheme;
     kwargs...,
   )
