@@ -124,7 +124,7 @@ function CurvilinearGrid3D(
   )
 
   if init_metrics && !empty_metrics
-    update!(m, backend; force=true)
+    update!(m; force=true)
   end
 
   return m
@@ -299,7 +299,7 @@ function RectilinearGrid3D(
   )
 
   if init_metrics && !empty_metrics
-    update!(m, backend; force=true)
+    update!(m; force=true)
   end
 
   return m
@@ -450,7 +450,7 @@ function UniformGrid3D(
   )
 
   if init_metrics && !empty_metrics
-    update!(m, backend; force=true)
+    update!(m; force=true)
   end
 
   return m
@@ -755,9 +755,9 @@ function _uniform_grid_constructor(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AbstractCurvilinearGrid3D, backend; force=false)
+function update!(mesh::AbstractCurvilinearGrid3D; force=false)
   if !mesh.is_static || force
-    _centroid_coordinates_kernel!(backend)(
+    _centroid_coordinates_kernel!(mesh.discretization_scheme.backend)(
       mesh.centroid_coordinates,
       mesh.node_coordinates,
       mesh.iterators.cell.domain;
