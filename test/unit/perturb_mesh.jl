@@ -28,7 +28,7 @@ function perturb_coords!(mesh, x_interface, λ, k)
     mesh.node_coordinates.x[i, j] += x_pert
   end
 
-  CurvilinearGrids.update!(mesh, mesh.discretization_scheme.backend; force=true)
+  CurvilinearGrids.update!(mesh; force=true)
   return nothing
 end
 

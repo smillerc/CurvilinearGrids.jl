@@ -194,7 +194,7 @@ function CurvilinearGrid2D(
   )
 
   if init_metrics && !empty_metrics
-    update!(m, backend; force=true)
+    update!(m; force=true)
   end
 
   return m
@@ -300,7 +300,7 @@ function RectilinearGrid2D(
   )
 
   if init_metrics && !empty_metrics
-    update!(m, backend; force=true)
+    update!(m; force=true)
   end
   return m
 end
@@ -443,7 +443,7 @@ function UniformGrid2D(
   )
 
   if init_metrics && !empty_metrics
-    update!(m, backend; force=true)
+    update!(m; force=true)
   end
   return m
 end
@@ -850,7 +850,7 @@ function AxisymmetricGrid2D(
     scheme_name,
   )
 
-  update!(m, backend)
+  update!(m)
 
   if make_uniform
     first_idx = first(m.iterators.cell.domain)
@@ -890,9 +890,9 @@ function AxisymmetricGrid2D(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AbstractCurvilinearGrid2D, backend; force=false)
+function update!(mesh::AbstractCurvilinearGrid2D; force=false)
   if !mesh.is_static || force
-    _centroid_coordinates_kernel!(backend)(
+    _centroid_coordinates_kernel!(mesh.discretization_scheme.backend)(
       mesh.centroid_coordinates,
       mesh.node_coordinates,
       mesh.iterators.cell.domain;
@@ -907,8 +907,8 @@ function update!(mesh::AbstractCurvilinearGrid2D, backend; force=false)
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AxisymmetricGrid2D, backend)
-  _centroid_coordinates_kernel!(backend)(
+function update!(mesh::AxisymmetricGrid2D)
+  _centroid_coordinates_kernel!(mesh.discretization_scheme.backend)(
     mesh.centroid_coordinates,
     mesh.node_coordinates,
     mesh.iterators.cell.domain;

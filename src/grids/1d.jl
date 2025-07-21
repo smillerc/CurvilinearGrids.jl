@@ -129,7 +129,7 @@ function CurvilinearGrid1D(
   m = CurvilinearGrid1D(coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, ni, limits, domain_iterators, discr_scheme, is_static, scheme_name)
 
   if !empty_metrics
-    update!(m, backend; force=true)
+    update!(m; force=true)
   end
   return m
 end
@@ -163,7 +163,7 @@ function UniformGrid1D(
       )
 
   if !empty_metrics
-    update!(m, backend; force=true)
+    update!(m; force=true)
   end
   return m
 end
@@ -240,7 +240,7 @@ function UniformGrid1D(
     scheme_name,
   )
 
-  update!(m, backend; force=true)
+  update!(m; force=true)
 
   return m
 end
@@ -373,7 +373,7 @@ function SphericalGrid1D(
     scheme_name,
   )
 
-  update!(m, backend; force=true)
+  update!(m; force=true)
   return m
 end
 
@@ -454,14 +454,14 @@ function CylindricalGrid1D(
     scheme_name,
   )
 
-  update!(m, backend; force=true)
+  update!(m; force=true)
   return m
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AbstractCurvilinearGrid1D, backend; force=false)
+function update!(mesh::AbstractCurvilinearGrid1D; force=false)
   if !mesh.is_static || force
-    _centroid_coordinates_kernel!(backend)(
+    _centroid_coordinates_kernel!(mesh.discretization_scheme.backend)(
       mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain, ndrange=size(mesh.iterators.cell.domain)
     )
     update_metrics!(mesh)
