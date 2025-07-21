@@ -6,7 +6,7 @@ function translate!(grid::AbstractCurvilinearGrid1D, translation_vector::SVector
 
     grid.node_coordinates.x[grid.iterators.node.domain] .+= translation_vector[1]
 
-    update!(grid, grid.discretization_scheme.backend; force=true)
+    update!(grid; force=true)
 end
 function translate!(grid::AbstractCurvilinearGrid2D, translation_vector::SVector)
     @assert length(size(grid.node_coordinates)) == length(translation_vector)
@@ -14,7 +14,7 @@ function translate!(grid::AbstractCurvilinearGrid2D, translation_vector::SVector
     grid.node_coordinates.x[grid.iterators.node.domain] .+= translation_vector[1]
     grid.node_coordinates.y[grid.iterators.node.domain] .+= translation_vector[2]
 
-    update!(grid, grid.discretization_scheme.backend; force=true)
+    update!(grid; force=true)
 end
 function translate!(grid::AbstractCurvilinearGrid3D, translation_vector::SVector)
     @assert length(size(grid.node_coordinates)) == length(translation_vector)
@@ -23,10 +23,10 @@ function translate!(grid::AbstractCurvilinearGrid3D, translation_vector::SVector
     grid.node_coordinates.y[grid.iterators.node.domain] .+= translation_vector[2]
     grid.node_coordinates.z[grid.iterators.node.domain] .+= translation_vector[3]
 
-    update!(grid, grid.discretization_scheme.backend; force=true)
+    update!(grid; force=true)
 end
 
-function rotate!(grid::AbstractCurvilinearGrid2D, rotation_angle)
+function rotate!(grid::AbstractCurvilinearGrid2D, rotation_angle::Quantity{T, NoDims, typeof(Unitful.°)}) where {T}
     domain = grid.iterators.node.domain
     rotation_matrix = [cos(rotation_angle * u"°") -sin(rotation_angle * u"°");
                         sin(rotation_angle * u"°") cos(rotation_angle * u"°")]
@@ -40,9 +40,9 @@ function rotate!(grid::AbstractCurvilinearGrid2D, rotation_angle)
         grid.node_coordinates.y[c] = (rotation_matrix*point)[2]
     end
 
-    update!(grid, grid.discretization_scheme.backend; force=true)
+    update!(grid; force=true)
 end
-function rotate!(grid::AbstractCurvilinearGrid3D, axis_vector::SVector, rotation_angle)
+function rotate!(grid::AbstractCurvilinearGrid3D, axis_vector::SVector, rotation_angle::Quantity{T, NoDims, typeof(Unitful.°)}) where {T}
     @assert axis_vector[1]^2 + axis_vector[2]^2 + axis_vector[3]^2 == 1.0
 
     domain = grid.iterators.node.domain
@@ -61,24 +61,18 @@ function rotate!(grid::AbstractCurvilinearGrid3D, axis_vector::SVector, rotation
         grid.node_coordinates.z[c] = rotated_point[3]
     end
 
-    update!(grid, grid.discretization_scheme.backend; force=true)
+    update!(grid; force=true)
 end
 
-function scale!(grid::AbstractCurvilinearGrid1D, factor)
-    grid.node_coordinates.x .*= factor
+function scale!(grid::AbstractCurvilinearGrid, anchor::SVector, factor)
+    @assert length(size(grid.node_coordinates)) == length(anchor)
+    domain = grid.iterators.node.domain
+    fields = propertynames(grid.node_coordinates)
+    for dim in eachindex(fields)
+        getproperty(grid.node_coordinates, fields[dim])[domain] .-= anchor[dim]
+        getproperty(grid.node_coordinates, fields[dim])[domain] .*= factor
+        getproperty(grid.node_coordinates, fields[dim])[domain] .+= anchor[dim]
+    end
 
-    update!(grid, grid.discretization_scheme.backend; force=true)
-end
-function scale!(grid::AbstractCurvilinearGrid2D, factor)
-    grid.node_coordinates.x .*= factor
-    grid.node_coordinates.y .*= factor
-
-    update!(grid, grid.discretization_scheme.backend; force=true)
-end
-function scale!(grid::AbstractCurvilinearGrid3D, factor)
-    grid.node_coordinates.x .*= factor
-    grid.node_coordinates.y .*= factor
-    grid.node_coordinates.z .*= factor
-
-    update!(grid, grid.discretization_scheme.backend; force=true)
+    update!(grid; force=true)
 end
