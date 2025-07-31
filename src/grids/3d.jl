@@ -142,6 +142,10 @@ function CurvilinearGrid3D(
   discretization_scheme::Symbol;
   kwargs...,
 ) where {T}
+  ni = length(x)
+  nj = length(y)
+  nk = length(z)
+
   x3d = zeros(T, ni, nj, nk)
   y3d = zeros(T, ni, nj, nk)
   z3d = zeros(T, ni, nj, nk)
