@@ -15,7 +15,7 @@ function cell_center_derivatives!(
 end
 
 function cell_center_derivatives!(
-  scheme::MontoneExplicitGradientScheme6thOrder,
+  scheme, #::MontoneExplicitGradientScheme6thOrder,
   ϕ_ξ,
   ∂²ϕ,
   ∂ϕ,
@@ -33,33 +33,33 @@ function cell_center_derivatives!(
 
   # # are we computing the derivatives on the inner portion of the domain only? if so
   # # we don't need to use one-sided stencils along the edges
-  # if size(domain) == size(ϕ)
-  #   inner_domain_only = false
-  # domain = CartesianIndices(ϕ)
-  inner_domain = expand(domain, axis, -1)
-  # inner_domain = domain
-  # else
-  #   inner_domain_only = true
-  #   inner_domain = domain
-  # end
+  if size(domain) == size(ϕ)
+    inner_domain_only = false
+    domain = CartesianIndices(ϕ)
+    inner_domain = expand(domain, axis, -1)
+    # inner_domain = domain
+  else
+    inner_domain_only = true
+    inner_domain = domain
+  end
 
   ccd_inner_kernel!(scheme.backend)(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, inner_domain, axis, ndrange=size(inner_domain))
 
-  # if !inner_domain_only
-  index_offset = 0
+  if !inner_domain_only
+    index_offset = 0
 
-  # select first index along given boundary axis
-  lo_domain = lower_boundary_indices(domain, axis, index_offset)
+    # select first index along given boundary axis
+    lo_domain = lower_boundary_indices(domain, axis, index_offset)
 
-  # the lo-side derivative ∂ϕ/∂ξ can only use ϕᴿᵢ₋½ instead of ϕᵢ₋½
-  ccd_lo_edge_kernel!(scheme.backend)(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, lo_domain, axis, ndrange=size(lo_domain))
+    # the lo-side derivative ∂ϕ/∂ξ can only use ϕᴿᵢ₋½ instead of ϕᵢ₋½
+    ccd_lo_edge_kernel!(scheme.backend)(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, lo_domain, axis, ndrange=size(lo_domain))
 
-  # select last index along given boundary axis
-  hi_domain = upper_boundary_indices(domain, axis, index_offset)
+    # select last index along given boundary axis
+    hi_domain = upper_boundary_indices(domain, axis, index_offset)
 
-  # the hi-side derivative ∂ϕ/∂ξ can only use ϕᴸᵢ₊½ instead of ϕᵢ₊½
-  ccd_hi_edge_kernel!(scheme.backend)(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, hi_domain, axis, ndrange=size(hi_domain))
-  # end
+    # the hi-side derivative ∂ϕ/∂ξ can only use ϕᴸᵢ₊½ instead of ϕᵢ₊½
+    ccd_hi_edge_kernel!(scheme.backend)(ϕ, ∂ϕ, ∂²ϕ, ϕ_ξ, ϵ, hi_domain, axis, ndrange=size(hi_domain))
+  end
 
   return nothing
 end
@@ -111,34 +111,34 @@ end
 function first_deriv!(∂ϕ::AbstractArray, ϕ::AbstractArray, axis::Int, domain, backend, nhalo=3)
   # are we computing the derivatives on the inner portion of the domain only? if so
   # we don't need to use one-sided stencils along the edges
-  # if size(domain) == size(ϕ)
-  # inner_domain_only = false
-  # domain = CartesianIndices(ϕ)
-  inner_domain = expand(domain, axis, -nhalo)
-  # else
-  #   inner_domain_only = true
-  #   inner_domain = domain
-  # end
+  if size(domain) == size(ϕ)
+    inner_domain_only = false
+    domain = CartesianIndices(ϕ)
+    inner_domain = expand(domain, axis, -nhalo)
+  else
+    inner_domain_only = true
+    inner_domain = domain
+  end
 
   _first_deriv_inner_kernel!(backend)(ϕ, ∂ϕ, axis, inner_domain, ndrange=size(inner_domain))
 
-  # if !inner_domain_only
-  index_offset = 0
+  if !inner_domain_only
+    index_offset = 0
 
-  # select first index along given boundary axis
-  lo_domain = lower_boundary_indices(domain, axis, index_offset)
+    # select first index along given boundary axis
+    lo_domain = lower_boundary_indices(domain, axis, index_offset)
 
-  # and then iterate along that domain to calculate the derivatives
-  # of the first three cells using one-sided and mixed-offset stencils
-  _first_deriv_lo_kernel!(backend)(ϕ, ∂ϕ, axis, lo_domain, ndrange=size(lo_domain))
+    # and then iterate along that domain to calculate the derivatives
+    # of the first three cells using one-sided and mixed-offset stencils
+    _first_deriv_lo_kernel!(backend)(ϕ, ∂ϕ, axis, lo_domain, ndrange=size(lo_domain))
 
-  # select last index along given boundary axis
-  hi_domain = upper_boundary_indices(domain, axis, index_offset)
+    # select last index along given boundary axis
+    hi_domain = upper_boundary_indices(domain, axis, index_offset)
 
-  # and then iterate along that domain to calculate the derivatives
-  # of the last three cells using one-sided and mixed-offset stencils
-  _first_deriv_hi_kernel!(backend)(ϕ, ∂ϕ, axis, hi_domain, ndrange=size(hi_domain))
-  # end
+    # and then iterate along that domain to calculate the derivatives
+    # of the last three cells using one-sided and mixed-offset stencils
+    _first_deriv_hi_kernel!(backend)(ϕ, ∂ϕ, axis, hi_domain, ndrange=size(hi_domain))
+  end
 end
 
 @kernel inbounds = true function _first_deriv_inner_kernel!(ϕ, ∂ϕ, axis, domain)
@@ -195,37 +195,37 @@ function second_deriv!(
 
   # are we computing the derivatives on the inner portion of the domain only? if so
   # we don't need to use one-sided stencils along the edges
-  # if size(domain) == size(ϕ)
-  #   inner_domain_only = false
-  # domain = CartesianIndices(ϕ)
-  inner_domain = expand(domain, axis, -nhalo)
-  # else
-  #   inner_domain_only = true
-  #   inner_domain = domain
-  # end
+  if size(domain) == size(ϕ)
+    inner_domain_only = false
+    domain = CartesianIndices(ϕ)
+    inner_domain = expand(domain, axis, -nhalo)
+  else
+    inner_domain_only = true
+    inner_domain = domain
+  end
 
   _second_deriv_inner_kernel!(backend)(ϕ, ∂ϕ, ∂²ϕ, axis, inner_domain, ndrange=size(inner_domain))
 
   # The edges require one-sided or mixed stencils. For the 2nd derivative, 
   # just call take the deriv of the deriv
-  # if !inner_domain_only
-  index_offset = 0
+  if !inner_domain_only
+    index_offset = 0
 
-  # select first index along given boundary axis
-  lo_domain = lower_boundary_indices(domain, axis, index_offset)
+    # select first index along given boundary axis
+    lo_domain = lower_boundary_indices(domain, axis, index_offset)
 
-  # and then iterate along that domain to calculate the derivatives
-  # of the first three cells using one-sided and mixed-offset stencils
+    # and then iterate along that domain to calculate the derivatives
+    # of the first three cells using one-sided and mixed-offset stencils
 
-  _second_deriv_lo_kernel!(backend)(ϕ, ∂ϕ, ∂²ϕ, axis, lo_domain, ndrange=size(lo_domain))
+    _second_deriv_lo_kernel!(backend)(ϕ, ∂ϕ, ∂²ϕ, axis, lo_domain, ndrange=size(lo_domain))
 
-  # select last index along given boundary axis
-  hi_domain = upper_boundary_indices(domain, axis, index_offset)
+    # select last index along given boundary axis
+    hi_domain = upper_boundary_indices(domain, axis, index_offset)
 
-  # and then iterate along that domain to calculate the derivatives
-  # of the last three cells using one-sided and mixed-offset stencils
-  _second_deriv_hi_kernel!(backend)(ϕ, ∂ϕ, ∂²ϕ, axis, hi_domain, ndrange=size(hi_domain))
-  # end
+    # and then iterate along that domain to calculate the derivatives
+    # of the last three cells using one-sided and mixed-offset stencils
+    _second_deriv_hi_kernel!(backend)(ϕ, ∂ϕ, ∂²ϕ, axis, hi_domain, ndrange=size(hi_domain))
+  end
 end
 
 @kernel inbounds = true function _second_deriv_inner_kernel!(ϕ, ∂ϕ, ∂²ϕ, axis, domain)

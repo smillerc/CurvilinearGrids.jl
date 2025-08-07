@@ -291,6 +291,10 @@ function Base.all(A::RectilinearArray)
     return all(Bool.(A.data))
 end
 
+function KernelAbstractions.get_backend(A::RectilinearArray)
+    return KernelAbstractions.get_backend(A.data)
+end
+
 # --- End overload functions --- #
 
 # --- Begin Helper functions --- #
