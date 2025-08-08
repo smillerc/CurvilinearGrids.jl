@@ -176,6 +176,21 @@ function RectilinearArray(fixed_indices::Tuple{Vararg{Int}}, dims::Vararg{Int,N}
     new_A, size(A), fixed_indices, valid_indices
   )
 end
+# This one is for showing / copying from gpu. It has no fixed indices so as to not remove necessary data. DON'T USE THIS AS A REGULAR RECTILINEARARRAY
+function RectilinearArray(A::RectilinearArray{T,N}) where {T,N}
+  @assert ndims(A) > 0 "RectilinearArray does not support 0-dimensional arrays."
+  
+  return RectilinearArray{
+    T,
+    ndims(A),
+    ndims(A.data),
+    typeof(A.data),
+    length(A.fixed_indices),
+    ndims(A)-length(A.fixed_indices),
+  }(
+    Array(A), size(A), A.fixed_indices, A.valid_indices
+  )
+end
 
 # Define a zeros function
 @inline function zeros(::Type{T}, fixed_indices::Tuple{Vararg{Int}}, dims::Int...) where {T}
