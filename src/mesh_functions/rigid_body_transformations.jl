@@ -28,8 +28,8 @@ end
 
 function rotate!(grid::AbstractCurvilinearGrid2D, rotation_angle::Quantity{T, NoDims, typeof(Unitful.°)}) where {T}
     domain = grid.iterators.node.domain
-    rotation_matrix = [cos(rotation_angle * u"°") -sin(rotation_angle * u"°");
-                        sin(rotation_angle * u"°") cos(rotation_angle * u"°")]
+    rotation_matrix = [cos(rotation_angle) -sin(rotation_angle);
+                        sin(rotation_angle) cos(rotation_angle)]
     point = Vector{Float64}(undef, 2)
 
     for c in domain
@@ -54,7 +54,7 @@ function rotate!(grid::AbstractCurvilinearGrid3D, axis_vector::SVector, rotation
         point[2] = grid.node_coordinates[c].y 
         point[3] = grid.node_coordinates[c].z
 
-        rotated_point .= (point .* cos(rotation_angle * u"°")) + (cross(axis_vector, point) .* sin(rotation_angle * u"°")) + (axis_vector .* dot(axis_vector, point) .* (1 - cos(rotation_angle * u"°")))
+        rotated_point .= (point .* cos(rotation_angle)) + (cross(axis_vector, point) .* sin(rotation_angle)) + (axis_vector .* dot(axis_vector, point) .* (1 - cos(rotation_angle)))
 
         grid.node_coordinates.x[c] = rotated_point[1]
         grid.node_coordinates.y[c] = rotated_point[2]
