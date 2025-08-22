@@ -3,8 +3,7 @@ module CurvilinearGrids
 include("discretization_schemes/MetricDiscretizationSchemes.jl")
 using .MetricDiscretizationSchemes
 
-include("RectilinearArrays.jl")
-using .RectilinearArrays
+using RectilinearArrays
 
 include("grids/GridTypes.jl")
 using .GridTypes
