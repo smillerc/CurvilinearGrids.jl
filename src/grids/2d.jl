@@ -891,8 +891,9 @@ end
 
 """Update metrics after grid coordinates change"""
 function update!(mesh::AbstractCurvilinearGrid2D; force=false)
+  backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
   if !mesh.is_static || force
-    _centroid_coordinates_kernel!(mesh.discretization_scheme.backend)(
+    _centroid_coordinates_kernel!(backend)(
       mesh.centroid_coordinates,
       mesh.node_coordinates,
       mesh.iterators.cell.domain;
@@ -908,7 +909,8 @@ end
 
 """Update metrics after grid coordinates change"""
 function update!(mesh::AxisymmetricGrid2D)
-  _centroid_coordinates_kernel!(mesh.discretization_scheme.backend)(
+  backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
+  _centroid_coordinates_kernel!(backend)(
     mesh.centroid_coordinates,
     mesh.node_coordinates,
     mesh.iterators.cell.domain;

@@ -126,7 +126,20 @@ function CurvilinearGrid1D(
     use_symmetric_conservative_metric_scheme=false,
   )
 
-  m = CurvilinearGrid1D(coords, centroids, node_velocities, edge_metrics, cell_center_metrics, nhalo, ni, limits, domain_iterators, discr_scheme, is_static, scheme_name)
+  m = CurvilinearGrid1D(
+    coords,
+    centroids,
+    node_velocities,
+    edge_metrics,
+    cell_center_metrics,
+    nhalo,
+    ni,
+    limits,
+    domain_iterators,
+    discr_scheme,
+    is_static,
+    scheme_name,
+  )
 
   if !empty_metrics
     update!(m; force=true)
@@ -158,9 +171,7 @@ function UniformGrid1D(
   ni = ncells + 1
   x = collect(T, range(x0, x1; length=ni))
 
-  m = UniformGrid1D(
-        x, discretization_scheme; backend=backend, empty_metrics=empty_metrics
-      )
+  m = UniformGrid1D(x, discretization_scheme; backend=backend, empty_metrics=empty_metrics)
 
   if !empty_metrics
     update!(m; force=true)
@@ -189,12 +200,12 @@ function UniformGrid1D(
   end
 
   coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, scheme_name = _grid_constructor(
-        x,
-        discretization_scheme;
-        backend=backend,
-        is_static=is_static,
-        empty_metrics=empty_metrics,
-      )
+    x,
+    discretization_scheme;
+    backend=backend,
+    is_static=is_static,
+    empty_metrics=empty_metrics,
+  )
 
   if scheme_name === :MEG6 ||
     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
@@ -293,7 +304,17 @@ function _grid_constructor(
 
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
-  return (coords, centroids, node_velocities, nhalo, ni, limits, domain_iterators, is_static, scheme_name)
+  return (
+    coords,
+    centroids,
+    node_velocities,
+    nhalo,
+    ni,
+    limits,
+    domain_iterators,
+    is_static,
+    scheme_name,
+  )
 end
 
 """
@@ -460,9 +481,13 @@ end
 
 """Update metrics after grid coordinates change"""
 function update!(mesh::AbstractCurvilinearGrid1D; force=false)
+  backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
   if !mesh.is_static || force
-    _centroid_coordinates_kernel!(mesh.discretization_scheme.backend)(
-      mesh.centroid_coordinates, mesh.node_coordinates, mesh.iterators.cell.domain, ndrange=size(mesh.iterators.cell.domain)
+    _centroid_coordinates_kernel!(backend)(
+      mesh.centroid_coordinates,
+      mesh.node_coordinates,
+      mesh.iterators.cell.domain;
+      ndrange=size(mesh.iterators.cell.domain),
     )
     update_metrics!(mesh)
     _check_valid_metrics(mesh)
@@ -506,14 +531,16 @@ end
 # Coordinate Functions
 # ------------------------------------------------------------------
 
-@kernel inbounds = true function _centroid_coordinates_kernel!(centroids::StructArray{T,1}, coords::StructArray{T,1}, domain) where {T}
-    idx = @index(Global)
-    didx = domain[idx]
-    i, = didx.I 
+@kernel inbounds = true function _centroid_coordinates_kernel!(
+  centroids::StructArray{T,1}, coords::StructArray{T,1}, domain
+) where {T}
+  idx = @index(Global)
+  didx = domain[idx]
+  i, = didx.I
 
-    x = coords.x
-    
-    centroids.x[didx] = 0.5(x[i] + x[i + 1])
+  x = coords.x
+
+  centroids.x[didx] = 0.5(x[i] + x[i + 1])
 end
 
 function _check_valid_metrics(mesh::AbstractCurvilinearGrid1D)

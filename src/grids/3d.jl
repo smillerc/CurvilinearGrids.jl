@@ -66,11 +66,11 @@ function CurvilinearGrid3D(
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
     use_symmetric_conservative_metric_scheme = true
@@ -252,11 +252,11 @@ function RectilinearGrid3D(
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
     use_symmetric_conservative_metric_scheme = true
@@ -393,11 +393,11 @@ function UniformGrid3D(
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
     use_symmetric_conservative_metric_scheme = true
@@ -480,10 +480,10 @@ function _curvilinear_grid_constructor(
   nhalo = nhalo_lookup[scheme_name]
 
   if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
   elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     use_symmetric_conservative_metric_scheme = true
   else
@@ -578,11 +578,11 @@ function _rectilinear_grid_constructor(
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
     use_symmetric_conservative_metric_scheme = true
@@ -677,11 +677,11 @@ function _uniform_grid_constructor(
 
   scheme_name = Symbol(uppercase("$discretization_scheme"))
   if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+     discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
   elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
+         discretization_scheme == :MontoneExplicitGradientScheme6thOrder
     MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
     nhalo = 5
     use_symmetric_conservative_metric_scheme = true
@@ -761,7 +761,8 @@ end
 """Update metrics after grid coordinates change"""
 function update!(mesh::AbstractCurvilinearGrid3D; force=false)
   if !mesh.is_static || force
-    _centroid_coordinates_kernel!(mesh.discretization_scheme.backend)(
+    backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
+    _centroid_coordinates_kernel!(backend)(
       mesh.centroid_coordinates,
       mesh.node_coordinates,
       mesh.iterators.cell.domain;
@@ -849,37 +850,37 @@ end
   centroids.x[didx] =
     0.125(
       x[i, j, k] +
-      x[i + 1, j, k] +
-      x[i + 1, j + 1, k] +
-      x[i, j + 1, k] +
-      x[i, j, k + 1] +
-      x[i + 1, j, k + 1] +
-      x[i + 1, j + 1, k + 1] +
-      x[i, j + 1, k + 1]
+      x[i+1, j, k] +
+      x[i+1, j+1, k] +
+      x[i, j+1, k] +
+      x[i, j, k+1] +
+      x[i+1, j, k+1] +
+      x[i+1, j+1, k+1] +
+      x[i, j+1, k+1]
     )
 
   centroids.y[didx] =
     0.125(
       y[i, j, k] +
-      y[i + 1, j, k] +
-      y[i + 1, j + 1, k] +
-      y[i, j + 1, k] +
-      y[i, j, k + 1] +
-      y[i + 1, j, k + 1] +
-      y[i + 1, j + 1, k + 1] +
-      y[i, j + 1, k + 1]
+      y[i+1, j, k] +
+      y[i+1, j+1, k] +
+      y[i, j+1, k] +
+      y[i, j, k+1] +
+      y[i+1, j, k+1] +
+      y[i+1, j+1, k+1] +
+      y[i, j+1, k+1]
     )
 
   centroids.z[didx] =
     0.125(
       z[i, j, k] +
-      z[i + 1, j, k] +
-      z[i + 1, j + 1, k] +
-      z[i, j + 1, k] +
-      z[i, j, k + 1] +
-      z[i + 1, j, k + 1] +
-      z[i + 1, j + 1, k + 1] +
-      z[i, j + 1, k + 1]
+      z[i+1, j, k] +
+      z[i+1, j+1, k] +
+      z[i, j+1, k] +
+      z[i, j, k+1] +
+      z[i+1, j, k+1] +
+      z[i+1, j+1, k+1] +
+      z[i, j+1, k+1]
     )
 end
 
