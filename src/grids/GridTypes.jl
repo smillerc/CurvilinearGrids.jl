@@ -86,12 +86,14 @@ include("simple_constructors/simple_constructors.jl")
 
 function update_metrics!(mesh::AbstractCurvilinearGrid, t::Real=0)
   # Update the metrics within the non-halo region, e.g., the domain
+  backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
   MetricDiscretizationSchemes.update_metrics!(
     mesh.discretization_scheme,
     mesh.centroid_coordinates,
     mesh.cell_center_metrics,
     mesh.edge_metrics,
     mesh.iterators.cell.domain,
+    backend,
   )
 
   return nothing

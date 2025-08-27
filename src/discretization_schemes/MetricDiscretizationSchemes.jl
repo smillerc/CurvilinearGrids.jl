@@ -21,13 +21,17 @@ include("metrics.jl") # forward_metrics!, conservative_metrics!
 export DiscretizationScheme
 export update_metrics!, update_cell_center_metrics!, update_edge_metrics!
 
-function update_metrics!(scheme, centroid_coordinates, cell_metrics, edge_metrics, domain)
-  update_cell_center_metrics!(scheme, centroid_coordinates, cell_metrics, domain)
-  update_edge_metrics!(scheme, cell_metrics, edge_metrics, domain)
+function update_metrics!(
+  scheme, centroid_coordinates, cell_metrics, edge_metrics, domain, backend
+)
+  update_cell_center_metrics!(scheme, centroid_coordinates, cell_metrics, domain, backend)
+  update_edge_metrics!(scheme, cell_metrics, edge_metrics, domain, backend)
   return nothing
 end
 
-function update_cell_center_metrics!(scheme, centroid_coordinates, cell_metrics, domain)
+function update_cell_center_metrics!(
+  scheme, centroid_coordinates, cell_metrics, domain, backend
+)
   forward_metrics!(
     scheme, cell_metrics, StructArrays.components(centroid_coordinates)..., domain
   )
@@ -45,7 +49,7 @@ function update_cell_center_metrics!(scheme, centroid_coordinates, cell_metrics,
   return nothing
 end
 
-function update_edge_metrics!(scheme, cell_metrics, edge_metrics, domain)
+function update_edge_metrics!(scheme, cell_metrics, edge_metrics, domain, backend)
   for (axis, edge) in enumerate(keys(edge_metrics)) # axis -> (1, 2, 3), edge -> (i₊½, j₊½, k₊½)
     for metric in keys(edge_metrics[edge]) # J, ξ, η, ζ, ξ̂, η̂, ζ̂
       if metric === :J
@@ -55,6 +59,7 @@ function update_edge_metrics!(scheme, cell_metrics, edge_metrics, domain)
           cell_metrics[:J], # J 
           axis,
           domain,
+          backend,
         )
       else
         for (cell_component, edge_component) in zip(
@@ -67,6 +72,7 @@ function update_edge_metrics!(scheme, cell_metrics, edge_metrics, domain)
             cell_component, # ∂ξ̂ᵢ/∂xᵢ
             axis,
             domain,
+            backend,
           )
         end
       end

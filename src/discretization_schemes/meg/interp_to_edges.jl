@@ -18,6 +18,7 @@ function interpolate_to_edge!(
   ϕ::AbstractArray{T,N},
   axis::Int,
   domain,
+  backend,
 ) where {T,N}
 
   #
@@ -25,7 +26,7 @@ function interpolate_to_edge!(
     error("The given ϕᵢ₊½ and ϕ arrays must have the same size and indexing scheme")
   end
 
-  backend = KernelAbstractions.get_backend(scheme.cache.outer_deriv_1)
+  # backend = KernelAbstractions.get_backend(scheme.cache.outer_deriv_1)
   #   nhalo = scheme.nhalo_for_derivs # 3
   nhalo = 3
   ∂ϕ = scheme.cache.∂ϕ
