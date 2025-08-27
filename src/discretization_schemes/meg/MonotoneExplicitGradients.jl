@@ -5,6 +5,7 @@ using KernelAbstractions
 using MappedArrays
 using CartesianDomains
 using MappedArrays
+using Adapt
 
 using ..DiscretizationSchemes
 using ..DiscretizationSchemes: DiscretizationScheme
@@ -18,11 +19,36 @@ export reconstruct_interface,
 
 export cell_center_derivatives!, interpolate_to_edge!
 
-struct MontoneExplicitGradientScheme6thOrder{C,B} <: DiscretizationScheme
+struct MontoneExplicitGradientScheme6thOrder{C} <: DiscretizationScheme
   cache::C
-  backend::B
   nhalo::Int
   use_symmetric_conservative_metric_scheme::Bool
+end
+
+function Adapt.adapt_structure(
+  to, scheme::MontoneExplicitGradientScheme6thOrder{C}
+) where {C<:Nothing}
+
+  #
+  return MontoneExplicitGradientScheme6thOrder(
+    nothing, scheme.nhalo, scheme.use_symmetric_conservative_metric_scheme
+  )
+end
+
+function Adapt.adapt_structure(to, scheme::MontoneExplicitGradientScheme6thOrder)
+
+  #
+  cache = (;
+    ∂²ϕ=Adapt.adapt_structure(to, scheme.cache.∂²ϕ),
+    ∂ϕ=Adapt.adapt_structure(to, scheme.cache.∂ϕ),
+    outer_deriv_1=Adapt.adapt_structure(to, scheme.cache.outer_deriv_1),
+    outer_deriv_2=Adapt.adapt_structure(to, scheme.cache.outer_deriv_2),
+    inner_deriv_1=Adapt.adapt_structure(to, scheme.cache.inner_deriv_1),
+    inner_deriv_2=Adapt.adapt_structure(to, scheme.cache.inner_deriv_2),
+  )
+  return MontoneExplicitGradientScheme6thOrder(
+    cache, scheme.nhalo, scheme.use_symmetric_conservative_metric_scheme
+  )
 end
 
 # The MEG6 scheme requires a halo of 5 cells in all dimensions
@@ -59,7 +85,7 @@ function MontoneExplicitGradientScheme6thOrder(;
   end
 
   return MontoneExplicitGradientScheme6thOrder(
-    cache, backend, nhalo, use_symmetric_conservative_metric_scheme
+    cache, nhalo, use_symmetric_conservative_metric_scheme
   )
 end
 
@@ -167,7 +193,7 @@ function ∂_hiedge_6th_order(ϕ₁, ϕ₂, ϕ₃, ϕ₄, ϕ₅, ϕ₆)
     (10 / 3) * ϕ₃ +   #
     5ϕ₄ -             #
     5ϕ₅ +             #
-    (137//60) * ϕ₆    #
+    (137 // 60) * ϕ₆    #
   )
 
   # FiniteDifferenceMethod(-4:1, 1)
@@ -213,24 +239,38 @@ end
 function meg6_ϕᴸᴿᵢ₊½(ϕᵢ₋₄, ϕᵢ₋₃, ϕᵢ₋₂, ϕᵢ₋₁, ϕᵢ, ϕᵢ₊₁, ϕᵢ₊₂, ϕᵢ₊₃, ϕᵢ₊₄, ϕᵢ₊₅)
   ϕᴸᵢ₊½ = (
     +(35 / 48) * ϕᵢ                #
-    + (257 / 480) * ϕᵢ₊₁           #
-    - (19 / 180) * ϕᵢ₊₂            #
-    + (7 / 480) * ϕᵢ₊₃             #
-    - (1 / 1440) * (ϕᵢ₊₄ + ϕᵢ₋₄)   #
-    - (103 / 480) * ϕᵢ₋₁           #
-    + (2 / 45) * ϕᵢ₋₂              #
-    - (1 / 480) * ϕᵢ₋₃             #
+    +
+    (257 / 480) * ϕᵢ₊₁           #
+    -
+    (19 / 180) * ϕᵢ₊₂            #
+    +
+    (7 / 480) * ϕᵢ₊₃             #
+    -
+    (1 / 1440) * (ϕᵢ₊₄ + ϕᵢ₋₄)   #
+    -
+    (103 / 480) * ϕᵢ₋₁           #
+    +
+    (2 / 45) * ϕᵢ₋₂              #
+    -
+    (1 / 480) * ϕᵢ₋₃             #
   )
 
   ϕᴿᵢ₊½ = (
     +(257 / 480) * ϕᵢ              #
-    + (35 / 48) * ϕᵢ₊₁             #
-    - (103 / 480) * ϕᵢ₊₂           #
-    + (2 / 45) * ϕᵢ₊₃              #
-    - (1 / 480) * ϕᵢ₊₄             #
-    - (1 / 1440) * (ϕᵢ₊₅ + ϕᵢ₋₃)   #
-    - (19 / 180) * ϕᵢ₋₁            #
-    + (7 / 480) * ϕᵢ₋₂             #
+    +
+    (35 / 48) * ϕᵢ₊₁             #
+    -
+    (103 / 480) * ϕᵢ₊₂           #
+    +
+    (2 / 45) * ϕᵢ₊₃              #
+    -
+    (1 / 480) * ϕᵢ₊₄             #
+    -
+    (1 / 1440) * (ϕᵢ₊₅ + ϕᵢ₋₃)   #
+    -
+    (19 / 180) * ϕᵢ₋₁            #
+    +
+    (7 / 480) * ϕᵢ₋₂             #
   )
 
   return (ϕᴸᵢ₊½, ϕᴿᵢ₊½)

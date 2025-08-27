@@ -65,9 +65,8 @@ function forward_metrics!(
     jacobian[idx] = det(_jacobian_matrix)
   end
 
-  jacobian_2d_kernel!(scheme.backend)(
-    xξ, xη, yξ, yη, metrics.J, domain; ndrange=size(domain)
-  )
+  backend = KernelAbstractions.get_backend(x)
+  jacobian_2d_kernel!(backend)(xξ, xη, yξ, yη, metrics.J, domain; ndrange=size(domain))
 
   return nothing
 end
@@ -120,7 +119,8 @@ function forward_metrics!(
   cell_center_derivatives!(scheme, zη, z, η, domain)
   cell_center_derivatives!(scheme, zζ, z, ζ, domain)
 
-  jacobian_3d_kernel!(scheme.backend)(
+  backend = KernelAbstractions.get_backend(x)
+  jacobian_3d_kernel!(backend)(
     xξ, xη, xζ, yξ, yη, yζ, zξ, zη, zζ, metrics.J, domain; ndrange=size(domain)
   )
 
@@ -348,7 +348,8 @@ function conservative_metrics!(
   # This kernel finds the jacobian matrix and determinant from the 
   # forward metrics. No need to use the more complicated conservative_metric!
   # function in 2D
-  inverse_metric_2d_kernel!(scheme.backend)(
+  backend = KernelAbstractions.get_backend(x)
+  inverse_metric_2d_kernel!(backend)(
     xξ, xη, yξ, yη, ξx, ξy, ηx, ηy, metrics.J, domain; ndrange=size(domain)
   )
 
@@ -429,8 +430,11 @@ function symmetric_conservative_metric!(
 
   ζ, η = deriv_axes
 
-  ∂ζ = mappedarray((a, b, c, d) -> a * b - c * d, y_η, z, z_η, y)
-  ∂η = mappedarray((a, b, c, d) -> a * b - c * d, y_ζ, z, z_ζ, y)
+  # ∂ζ = mappedarray((a, b, c, d) -> a * b - c * d, y_η, z, z_η, y)
+  @. scheme.cache.inner_deriv_1 = y_η * z - z_η * y
+
+  # ∂η = mappedarray((a, b, c, d) -> a * b - c * d, y_ζ, z, z_ζ, y)
+  @. scheme.cache.inner_deriv_2 = y_ζ * z - z_ζ * y
 
   # From Nonomura et. al
   # ξ̂x =  (1/2) * [ 
@@ -443,10 +447,10 @@ function symmetric_conservative_metric!(
     scheme.cache.outer_deriv_1,
     scheme.cache.∂²ϕ,
     scheme.cache.∂ϕ,
-    ∂ζ,
-    ζ,
+    scheme.cache.inner_deriv_1, # (y_η z)_ζ
+    ζ, # do along the ζ dimension
     domain;
-    compute_gradients=true,
+    compute_gradients=true, # compute the gradients ∂²ϕ, ∂ϕ required for (y_η z)_ζ
   ) # 1st outer deriv term
 
   cell_center_derivatives!(
@@ -454,14 +458,17 @@ function symmetric_conservative_metric!(
     scheme.cache.outer_deriv_2,
     scheme.cache.∂²ϕ,
     scheme.cache.∂ϕ,
-    ∂η,
-    η,
+    scheme.cache.inner_deriv_2, # (y_ζ z)_η
+    η, # do along the η dimension
     domain;
-    compute_gradients=true,
+    compute_gradients=true, # compute the gradients ∂²ϕ, ∂ϕ required for (y_ζ z)_η
   ) # 2nd outer deriv term
 
-  @. ξ̂x = (1 / 2) * (scheme.cache.outer_deriv_1 - scheme.cache.outer_deriv_2)
-  @. ξ̂x = ξ̂x * (abs(ξ̂x) >= ϵ)
+  @views begin
+    @. ξ̂x[domain] =
+      (1 / 2) * (scheme.cache.outer_deriv_1[domain] - scheme.cache.outer_deriv_2[domain])
+    @. ξ̂x[domain] = ξ̂x[domain] * (abs(ξ̂x[domain]) >= ϵ)
+  end
 end
 
 """
