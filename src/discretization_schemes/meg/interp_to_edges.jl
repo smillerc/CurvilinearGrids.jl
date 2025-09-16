@@ -1,5 +1,5 @@
 """
-    interpolate_to_edges!(scheme::MontoneExplicitGradientScheme6thOrder, ϕᵢ₊½::AbstractArray{T,N}, ϕ::AbstractArray{T,N}, axis::Int, domain, nhalo=3) where {T,N}
+    interpolate_to_edges!(scheme::MonotoneExplicitGradientScheme, ϕᵢ₊½::AbstractArray{T,N}, ϕ::AbstractArray{T,N}, axis::Int, domain, nhalo=3) where {T,N}
 
 Interpolate the cell-centered quantity `ϕ` to the i+1/2 edge `ϕᵢ₊½` using the MEG6 scheme. 
 The `axis` specifies which dimension, e.g. `1 => ϕᵢ₊½, 2 => ϕⱼ₊½, 3 => ϕₖ₊½`. The domain sizes for this
@@ -13,7 +13,7 @@ the full domain is CartesianIndices((10, 10)), and the inner domain (with 2 halo
 CartesianIndices((3:8, 3:8)), the size passed to this function must be CartesianIndices((2:9, 2:9))
 """
 function interpolate_to_edge!(
-  scheme::MontoneExplicitGradientScheme6thOrder,
+  scheme::MonotoneExplicitGradientScheme,
   ϕᵢ₊½::AbstractArray{T,N},
   ϕ::AbstractArray{T,N},
   axis::Int,
@@ -31,8 +31,8 @@ function interpolate_to_edge!(
   nhalo = 3
   ∂ϕ = scheme.cache.∂ϕ
   ∂²ϕ = scheme.cache.∂²ϕ
-  first_deriv!(∂ϕ, ϕ, axis, domain, backend, nhalo)
-  second_deriv!(∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, domain, backend, nhalo)
+  compute_first_derivatives!(scheme, ∂ϕ, ϕ, axis, domain, backend)
+  compute_second_derivatives!(scheme, ∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, domain, backend)
 
   # domain = CartesianIndices(ϕ)
   inner_domain = domain # expand(domain, axis, 0)

@@ -1,149 +1,6 @@
 
-using MappedArrays
-using UnPack
-
 """
-    forward_metrics!(scheme::DiscretizationScheme, metrics, x::AbstractArray{T,1}) where {T}
-
-Compute the forward metrics ∂x/∂ξ, or `x_ξ` based on the centroid coordinates `x`.
-"""
-function forward_metrics!(
-  scheme::DiscretizationScheme, metrics, x::AbstractArray{T,1}, domain
-) where {T}
-  # axes
-  ξ = 1
-
-  @views begin
-    xξ = metrics.x₁.ξ
-  end
-
-  cell_center_derivatives!(scheme, xξ, x, ξ, domain)
-
-  return nothing
-end
-
-"""
-    forward_metrics!(scheme::DiscretizationScheme, metrics, x::AbstractArray{T,2}, y::AbstractArray{T,2}) where {T}
-
-Compute the forward metrics ∂xᵢ/∂ξᵢ, i.e., `x_ξ, x_η, y_ξ, y_η`, based on the centroid coordinates `x` and `y`.
-"""
-function forward_metrics!(
-  scheme::DiscretizationScheme,
-  metrics,
-  x::AbstractArray{T,2},
-  y::AbstractArray{T,2},
-  domain,
-) where {T}
-
-  # axes
-  ξ, η = (1, 2)
-
-  if size(x) != size(y)
-    error("Size mismatch for the given x, y coordinate arrays, they must all be the same")
-  end
-
-  @views begin
-    xξ = metrics.x₁.ξ
-    xη = metrics.x₁.η
-    yξ = metrics.x₂.ξ
-    yη = metrics.x₂.η
-  end
-
-  cell_center_derivatives!(scheme, xξ, x, ξ, domain)
-  cell_center_derivatives!(scheme, xη, x, η, domain)
-  cell_center_derivatives!(scheme, yξ, y, ξ, domain)
-  cell_center_derivatives!(scheme, yη, y, η, domain)
-
-  @kernel inbounds = true function jacobian_2d_kernel!(x_ξ, x_η, y_ξ, y_η, jacobian, domain)
-    I = @index(Global, Cartesian)
-    idx = domain[I]
-    _jacobian_matrix = @SMatrix [
-      x_ξ[idx] x_η[idx]
-      y_ξ[idx] y_η[idx]
-    ]
-
-    jacobian[idx] = det(_jacobian_matrix)
-  end
-
-  backend = KernelAbstractions.get_backend(x)
-  jacobian_2d_kernel!(backend)(xξ, xη, yξ, yη, metrics.J, domain; ndrange=size(domain))
-
-  return nothing
-end
-
-"""
-    forward_metrics!(scheme::DiscretizationScheme, metrics, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}) where {T}
-
-Compute the forward metrics ∂xᵢ/∂ξᵢ, i.e., `x_ξ, x_η, x_ζ, y_ξ, y_η, y_ζ, z_ξ, z_η, z_ζ`, based on the centroid coordinates `x` and `y`, and `z`.
-
-"""
-function forward_metrics!(
-  scheme::DiscretizationScheme,
-  metrics,
-  x::AbstractArray{T,3},
-  y::AbstractArray{T,3},
-  z::AbstractArray{T,3},
-  domain,
-) where {T}
-
-  # axes
-  ξ, η, ζ = (1, 2, 3)
-
-  if !(size(x) == size(y) == size(z))
-    error(
-      "Size mismatch for the given x, y, z coordinate arrays, they must all be the same"
-    )
-  end
-
-  @views begin
-    xξ = metrics.x₁.ξ
-    xη = metrics.x₁.η
-    xζ = metrics.x₁.ζ
-
-    yξ = metrics.x₂.ξ
-    yη = metrics.x₂.η
-    yζ = metrics.x₂.ζ
-
-    zξ = metrics.x₃.ξ
-    zη = metrics.x₃.η
-    zζ = metrics.x₃.ζ
-  end
-
-  cell_center_derivatives!(scheme, xξ, x, ξ, domain)
-  cell_center_derivatives!(scheme, xη, x, η, domain)
-  cell_center_derivatives!(scheme, xζ, x, ζ, domain)
-  cell_center_derivatives!(scheme, yξ, y, ξ, domain)
-  cell_center_derivatives!(scheme, yη, y, η, domain)
-  cell_center_derivatives!(scheme, yζ, y, ζ, domain)
-  cell_center_derivatives!(scheme, zξ, z, ξ, domain)
-  cell_center_derivatives!(scheme, zη, z, η, domain)
-  cell_center_derivatives!(scheme, zζ, z, ζ, domain)
-
-  backend = KernelAbstractions.get_backend(x)
-  jacobian_3d_kernel!(backend)(
-    xξ, xη, xζ, yξ, yη, yζ, zξ, zη, zζ, metrics.J, domain; ndrange=size(domain)
-  )
-
-  return nothing
-end
-
-# The compute kernel to find the jacobian in 3D
-@kernel inbounds = true function jacobian_3d_kernel!(
-  xξ, xη, xζ, yξ, yη, yζ, zξ, zη, zζ, J, domain
-)
-  I = @index(Global, Cartesian)
-  idx = domain[I]
-  jacobian = @SMatrix [
-    xξ[idx] xη[idx] xζ[idx]
-    yξ[idx] yη[idx] yζ[idx]
-    zξ[idx] zη[idx] zζ[idx]
-  ]
-
-  J[idx] = det(jacobian)
-end
-
-"""
-    conservative_metric!(scheme::DiscretizationScheme, ξ̂x, y_η, y_ζ, z, deriv_axes, domain)
+    conservative_metric!(scheme, ξ̂x, y_η, y_ζ, z, deriv_axes, domain)
 
 Compute the Jacobian-normalized conservative metric. This is taken from 
 Thomas P, Lombard C. AIAA J 1979;17(10):1030–7 (https://doi.org/10.2514/3.61273).
@@ -154,7 +11,7 @@ be applied to any other metric, e.g., ξ̂, η̂, ζ̂ for (x,y,z). The formula 
 are precomputed elsewhere by the discretization scheme `scheme`.
 """
 function conservative_metric!(
-  scheme::DiscretizationScheme,
+  scheme,
   ξ̂x::AbstractArray{T,3},
   y_η::AbstractArray{T,3},
   y_ζ::AbstractArray{T,3},
@@ -212,17 +69,17 @@ function conservative_metric!(
 end
 
 """
-    conservative_metrics!(scheme::DiscretizationScheme, metrics, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, domain) where {T}
+    conservative_metrics!(scheme, metrics, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, domain) where {T}
 
 Compute all the inverse metrics ∂ξ̂ᵢ/∂xᵢ using the conservative scheme from Thomas P, Lombard C. AIAA J 1979;17(10):1030–7 (https://doi.org/10.2514/3.61273) 
 """
 function conservative_metrics!(
-  scheme::DiscretizationScheme,
+  scheme,
   metrics,
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
   z::AbstractArray{T,3},
-  domain,
+  inner_cell_domain,
 ) where {T}
 
   # axes
@@ -234,97 +91,91 @@ function conservative_metrics!(
     )
   end
 
-  @views begin
-    ξ̂x = metrics.ξ̂.x₁
-    η̂x = metrics.η̂.x₁
-    ζ̂x = metrics.ζ̂.x₁
+  ξ̂x = metrics.ξ̂.x₁
+  η̂x = metrics.η̂.x₁
+  ζ̂x = metrics.ζ̂.x₁
 
-    ξ̂y = metrics.ξ̂.x₂
-    η̂y = metrics.η̂.x₂
-    ζ̂y = metrics.ζ̂.x₂
+  ξ̂y = metrics.ξ̂.x₂
+  η̂y = metrics.η̂.x₂
+  ζ̂y = metrics.ζ̂.x₂
 
-    ξ̂z = metrics.ξ̂.x₃
-    η̂z = metrics.η̂.x₃
-    ζ̂z = metrics.ζ̂.x₃
+  ξ̂z = metrics.ξ̂.x₃
+  η̂z = metrics.η̂.x₃
+  ζ̂z = metrics.ζ̂.x₃
 
-    ξx = metrics.ξ.x₁
-    ηx = metrics.η.x₁
-    ζx = metrics.ζ.x₁
+  ξx = metrics.ξ.x₁
+  ηx = metrics.η.x₁
+  ζx = metrics.ζ.x₁
 
-    ξy = metrics.ξ.x₂
-    ηy = metrics.η.x₂
-    ζy = metrics.ζ.x₂
+  ξy = metrics.ξ.x₂
+  ηy = metrics.η.x₂
+  ζy = metrics.ζ.x₂
 
-    ξz = metrics.ξ.x₃
-    ηz = metrics.η.x₃
-    ζz = metrics.ζ.x₃
+  ξz = metrics.ξ.x₃
+  ηz = metrics.η.x₃
+  ζz = metrics.ζ.x₃
 
-    x_ξ = metrics.x₁.ξ
-    x_η = metrics.x₁.η
-    x_ζ = metrics.x₁.ζ
+  x_ξ = metrics.x₁.ξ
+  x_η = metrics.x₁.η
+  x_ζ = metrics.x₁.ζ
 
-    y_ξ = metrics.x₂.ξ
-    y_η = metrics.x₂.η
-    y_ζ = metrics.x₂.ζ
+  y_ξ = metrics.x₂.ξ
+  y_η = metrics.x₂.η
+  y_ζ = metrics.x₂.ζ
 
-    z_ξ = metrics.x₃.ξ
-    z_η = metrics.x₃.η
-    z_ζ = metrics.x₃.ζ
-  end
+  z_ξ = metrics.x₃.ξ
+  z_η = metrics.x₃.η
+  z_ζ = metrics.x₃.ζ
 
   # ξ̂x = (y_η z)_ζ − (y_ζ z)_η
-  conservative_metric!(scheme, ξ̂x, y_η, y_ζ, z, (ζ, η), domain)
+  conservative_metric!(scheme, ξ̂x, y_η, y_ζ, z, (ζ, η), inner_cell_domain)
 
   # η̂x = (y_ζ z)_ξ − (y_ξ z)_ζ
-  conservative_metric!(scheme, η̂x, y_ζ, y_ξ, z, (ξ, ζ), domain)
+  conservative_metric!(scheme, η̂x, y_ζ, y_ξ, z, (ξ, ζ), inner_cell_domain)
 
   # ζ̂x = (y_ξ z)_η − (y_η z)_ξ
-  conservative_metric!(scheme, ζ̂x, y_ξ, y_η, z, (η, ξ), domain)
+  conservative_metric!(scheme, ζ̂x, y_ξ, y_η, z, (η, ξ), inner_cell_domain)
 
   # ξ̂y = (z_η x)_ζ − (z_ζ x)_η
-  conservative_metric!(scheme, ξ̂y, z_η, z_ζ, x, (ζ, η), domain)
+  conservative_metric!(scheme, ξ̂y, z_η, z_ζ, x, (ζ, η), inner_cell_domain)
 
   # η̂y = (z_ζ x)_ξ − (z_ξ x)_ζ
-  conservative_metric!(scheme, η̂y, z_ζ, z_ξ, x, (ξ, ζ), domain)
+  conservative_metric!(scheme, η̂y, z_ζ, z_ξ, x, (ξ, ζ), inner_cell_domain)
 
   # ζ̂y = (z_ξ x)_η − (z_η x)_ξ
-  conservative_metric!(scheme, ζ̂y, z_ξ, z_η, x, (η, ξ), domain)
+  conservative_metric!(scheme, ζ̂y, z_ξ, z_η, x, (η, ξ), inner_cell_domain)
 
   # ξ̂z = (x_η y)_ζ − (x_ζ y)_η
-  conservative_metric!(scheme, ξ̂z, x_η, x_ζ, y, (ζ, η), domain)
+  conservative_metric!(scheme, ξ̂z, x_η, x_ζ, y, (ζ, η), inner_cell_domain)
 
   # η̂z = (x_ζ y)_ξ − (x_ξ y)_ζ
-  conservative_metric!(scheme, η̂z, x_ζ, x_ξ, y, (ξ, ζ), domain)
+  conservative_metric!(scheme, η̂z, x_ζ, x_ξ, y, (ξ, ζ), inner_cell_domain)
 
   # ζ̂z = (x_ξ y)_η − (x_η y)_ξ
-  conservative_metric!(scheme, ζ̂z, x_ξ, x_η, y, (η, ξ), domain)
+  conservative_metric!(scheme, ζ̂z, x_ξ, x_η, y, (η, ξ), inner_cell_domain)
 
   @views begin
-    @. ξx[domain] = ξ̂x[domain] / metrics.J[domain]
-    @. ηx[domain] = η̂x[domain] / metrics.J[domain]
-    @. ζx[domain] = ζ̂x[domain] / metrics.J[domain]
-    @. ξy[domain] = ξ̂y[domain] / metrics.J[domain]
-    @. ηy[domain] = η̂y[domain] / metrics.J[domain]
-    @. ζy[domain] = ζ̂y[domain] / metrics.J[domain]
-    @. ξz[domain] = ξ̂z[domain] / metrics.J[domain]
-    @. ηz[domain] = η̂z[domain] / metrics.J[domain]
-    @. ζz[domain] = ζ̂z[domain] / metrics.J[domain]
+    @. ξx[inner_cell_domain] = ξ̂x[inner_cell_domain] / metrics.J[inner_cell_domain]
+    @. ηx[inner_cell_domain] = η̂x[inner_cell_domain] / metrics.J[inner_cell_domain]
+    @. ζx[inner_cell_domain] = ζ̂x[inner_cell_domain] / metrics.J[inner_cell_domain]
+    @. ξy[inner_cell_domain] = ξ̂y[inner_cell_domain] / metrics.J[inner_cell_domain]
+    @. ηy[inner_cell_domain] = η̂y[inner_cell_domain] / metrics.J[inner_cell_domain]
+    @. ζy[inner_cell_domain] = ζ̂y[inner_cell_domain] / metrics.J[inner_cell_domain]
+    @. ξz[inner_cell_domain] = ξ̂z[inner_cell_domain] / metrics.J[inner_cell_domain]
+    @. ηz[inner_cell_domain] = η̂z[inner_cell_domain] / metrics.J[inner_cell_domain]
+    @. ζz[inner_cell_domain] = ζ̂z[inner_cell_domain] / metrics.J[inner_cell_domain]
   end
 
   return nothing
 end
 
 """
-    conservative_metrics!(scheme::DiscretizationScheme, metrics, x::AbstractArray{T,2}, y::AbstractArray{T,2}, domain) where {T}
+    conservative_metrics!(scheme, metrics, x::AbstractArray{T,2}, y::AbstractArray{T,2}, domain) where {T}
 
 Compute all the inverse metrics ∂ξ̂ᵢ/∂xᵢ. This 2D version is simpler than 3D, which requires the scheme from Thomas & Lombard. 
 """
 function conservative_metrics!(
-  scheme::DiscretizationScheme,
-  metrics,
-  x::AbstractArray{T,2},
-  y::AbstractArray{T,2},
-  domain,
+  scheme, metrics, x::AbstractArray{T,2}, y::AbstractArray{T,2}, domain
 ) where {T}
   if size(x) != size(y)
     error("Size mismatch for the given x, y coordinate arrays, they must all be the same")
@@ -385,9 +236,7 @@ end
 end
 
 # Does this require domain limiting?
-function conservative_metrics!(
-  ::DiscretizationScheme, metrics, x::AbstractArray{T,1}, domain
-) where {T}
+function conservative_metrics!(scheme, metrics, x::AbstractArray{T,1}, domain) where {T}
   @. metrics.ξ.x₁ = inv(metrics.x₁.ξ)
   @. metrics.J = abs(metrics.x₁.ξ)
   @. metrics.ξ̂.x₁ = metrics.ξ.x₁ * metrics.J
@@ -396,7 +245,7 @@ function conservative_metrics!(
 end
 
 """
-    symmetric_conservative_metric!(scheme::DiscretizationScheme, ξ̂x, y_η, y_ζ, z, deriv_axes, domain)
+    symmetric_conservative_metric!(scheme, ξ̂x, y_η, y_ζ, z, deriv_axes, domain)
 
 Compute the Jacobian-normalized conservative metric. This is taken from 
 T. Nonomura et al. / Computers & Fluids 107 (2015) 242–255 [http://dx.doi.org/10.1016/j.compfluid.2014.09.025]
@@ -408,7 +257,7 @@ The inner derivative terms `(y_η, y_ζ)` are precomputed elsewhere by the
 discretization scheme `scheme`.
 """
 function symmetric_conservative_metric!(
-  scheme::DiscretizationScheme,
+  scheme,
   ξ̂x::AbstractArray{T,3},
   y_η::AbstractArray{T,3},
   z_η::AbstractArray{T,3},
@@ -472,12 +321,12 @@ function symmetric_conservative_metric!(
 end
 
 """
-    symmetric_conservative_metrics!(scheme::DiscretizationScheme, metrics, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, domain) where {T}
+    symmetric_conservative_metrics!(scheme, metrics, x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, domain) where {T}
 
 Compute all the inverse metrics ∂ξ̂ᵢ/∂xᵢ using the symmetric conservative scheme from Nonomura et al. / Computers & Fluids 107 (2015) 242–255 [http://dx.doi.org/10.1016/j.compfluid.2014.09.025]
 """
 function symmetric_conservative_metrics!(
-  scheme::DiscretizationScheme,
+  scheme,
   metrics,
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
@@ -563,4 +412,10 @@ function symmetric_conservative_metrics!(
   @. ζz = ζ̂z / metrics.J
 
   return nothing
+end
+
+function symmetric_conservative_metrics!(
+  scheme, metrics, x::AbstractArray{T,2}, y::AbstractArray{T,2}, domain
+) where {T}
+  conservative_metrics!(scheme, metrics, x, y, domain)
 end
