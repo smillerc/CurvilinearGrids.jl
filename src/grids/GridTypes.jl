@@ -9,6 +9,7 @@ using Polyester
 using KernelAbstractions
 using CartesianDomains
 
+using ..DiscretizationSchemes
 using ..MetricDiscretizationSchemes
 using ..RectilinearArrays
 
@@ -381,6 +382,27 @@ metrics this way will not be conservative, e.g. observe the geometric
 conservation law.
 """
 jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
+
+function get_metric_disc_scheme(discretization_scheme_name)
+  scheme_name = Symbol(uppercase("$discretization_scheme_name"))
+  use_symmetric_conservative_metric_scheme = false
+  if scheme_name === :MEG6
+    order = 6
+    MetricDiscretizationScheme = MonotoneExplicitGradientScheme
+  elseif scheme_name === :MEG6_SYMMETRIC
+    order = 6
+    MetricDiscretizationScheme = MonotoneExplicitGradientScheme
+    use_symmetric_conservative_metric_scheme = true
+  else
+    error("Only $(:MEG6) is supported for now")
+  end
+
+  nhalo = DiscretizationSchemes.nhalo_lookup[scheme_name]
+
+  return MetricDiscretizationScheme,
+  order, use_symmetric_conservative_metric_scheme, nhalo,
+  scheme_name
+end
 
 # """
 # Get the Jacobian of the forward transformation (ξ,η,ζ) → (x,y,z).

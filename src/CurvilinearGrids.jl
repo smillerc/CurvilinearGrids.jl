@@ -1,6 +1,10 @@
 module CurvilinearGrids
 
-include("discretization_schemes/MetricDiscretizationSchemes.jl")
+include("discretization_schemes/DiscretizationSchemes.jl")
+using .DiscretizationSchemes
+export MonotoneExplicitGradientScheme
+
+include("metric_schemes/MetricDiscretizationSchemes.jl")
 using .MetricDiscretizationSchemes
 
 include("RectilinearArrays.jl")

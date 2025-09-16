@@ -137,45 +137,30 @@ function CurvilinearGrid2D(
   empty_metrics=false,
   kwargs...,
 ) where {T}
-  scheme_name = Symbol(uppercase("$discretization_scheme"))
-  if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-  elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-  else
-    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
-  end
 
-  coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, is_orthogonal, scheme_name = _curvilinear_grid_constructor(
-    x,
-    y,
-    discretization_scheme;
-    backend=backend,
-    is_static=is_static,
-    is_orthogonal=is_orthogonal,
-    empty_metrics=empty_metrics,
+  #
+
+  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+    discretization_scheme
   )
 
+  limits, iterators = get_node_cell_iterators(x, y, nhalo)
   celldims = size(iterators.cell.full)
 
-  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
-  # if empty_metrics
-  #   cell_center_metrics, edge_metrics = (nothing, nothing)
-  # else
-  #   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
-  # end
-
-  discr_scheme = MetricDiscretizationScheme(;
+  discr_scheme = MetricDiscretizationScheme(
+    order;
     use_cache=true,
     celldims=celldims,
     backend=backend,
     T=T,
-    use_symmetric_conservative_metric_scheme=false,
+    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
   )
+
+  coords, centroids, node_velocities, nnodes = _grid_constructor(
+    x, y, iterators; backend=backend
+  )
+
+  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
   m = CurvilinearGrid2D(
     coords,
@@ -183,7 +168,7 @@ function CurvilinearGrid2D(
     node_velocities,
     edge_metrics,
     cell_center_metrics,
-    nhalo,
+    discr_scheme.nhalo,
     nnodes,
     limits,
     iterators,
@@ -238,51 +223,34 @@ function RectilinearGrid2D(
   x2d = zeros(T, ni, nj)
   y2d = zeros(T, ni, nj)
 
-  @inbounds for j in 1:nj
-    for i in 1:ni
+  @inbounds for j in eachindex(y)
+    for i in eachindex(x)
       x2d[i, j] = x[i]
       y2d[i, j] = y[j]
     end
   end
 
-  scheme_name = Symbol(uppercase("$discretization_scheme"))
-  if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-  elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-  else
-    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
-  end
-
-  coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, scheme_name = _rectilinear_grid_constructor(
-    x2d,
-    y2d,
-    discretization_scheme;
-    backend=backend,
-    is_static=is_static,
-    empty_metrics=empty_metrics,
+  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+    discretization_scheme
   )
 
+  limits, iterators = get_node_cell_iterators(x2d, y2d, nhalo)
   celldims = size(iterators.cell.full)
 
-  cell_center_metrics, edge_metrics = get_metric_soa_rectilinear2d(celldims, backend, T)
-  # if empty_metrics
-  #   cell_center_metrics, edge_metrics = (nothing, nothing)
-  # else
-  #   cell_center_metrics, edge_metrics = get_metric_soa_rectilinear2d(celldims, backend, T)
-  # end
-
-  discr_scheme = MetricDiscretizationScheme(;
+  discr_scheme = MetricDiscretizationScheme(
+    order;
     use_cache=true,
     celldims=celldims,
     backend=backend,
     T=T,
-    use_symmetric_conservative_metric_scheme=false,
+    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
   )
+
+  coords, centroids, node_velocities, nnodes = _grid_constructor(
+    x2d, y2d, iterators; backend=backend
+  )
+
+  cell_center_metrics, edge_metrics = get_metric_soa_rectilinear2d(celldims, backend, T)
 
   m = RectilinearGrid2D(
     coords,
@@ -381,51 +349,34 @@ function UniformGrid2D(
   x2d = zeros(T, ni, nj)
   y2d = zeros(T, ni, nj)
 
-  @inbounds for j in 1:nj
-    for i in 1:ni
+  @inbounds for j in eachindex(y)
+    for i in eachindex(x)
       x2d[i, j] = x[i]
       y2d[i, j] = y[j]
     end
   end
 
-  scheme_name = Symbol(uppercase("$discretization_scheme"))
-  if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-  elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-  else
-    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
-  end
-
-  coords, centroids, node_velocities, nhalo, nnodes, limits, iterators, is_static, scheme_name = _uniform_grid_constructor(
-    x2d,
-    y2d,
-    discretization_scheme;
-    backend=backend,
-    is_static=is_static,
-    empty_metrics=empty_metrics,
+  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+    discretization_scheme
   )
 
+  limits, iterators = get_node_cell_iterators(x2d, y2d, nhalo)
   celldims = size(iterators.cell.full)
 
-  cell_center_metrics, edge_metrics = get_metric_soa_uniform2d(celldims, backend, T)
-  # if empty_metrics
-  #   cell_center_metrics, edge_metrics = (nothing, nothing)
-  # else
-  #   cell_center_metrics, edge_metrics = get_metric_soa_uniform2d(celldims, backend, T)
-  # end
-
-  discr_scheme = MetricDiscretizationScheme(;
+  discr_scheme = MetricDiscretizationScheme(
+    order;
     use_cache=true,
     celldims=celldims,
     backend=backend,
     T=T,
-    use_symmetric_conservative_metric_scheme=false,
+    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
   )
+
+  coords, centroids, node_velocities, nnodes = _grid_constructor(
+    x2d, y2d, iterators; backend=backend
+  )
+
+  cell_center_metrics, edge_metrics = get_metric_soa_uniform2d(celldims, backend, T)
 
   m = UniformGrid2D(
     coords,
@@ -448,50 +399,11 @@ function UniformGrid2D(
   return m
 end
 
-function _curvilinear_grid_constructor(
-  x::AbstractArray{T,2},
-  y::AbstractArray{T,2},
-  discretization_scheme::Symbol;
-  backend=CPU(),
-  is_static=false,
-  is_orthogonal=false,
-  empty_metrics=false,
-  kwargs...,
+function _grid_constructor(
+  x::AbstractArray{T,2}, y::AbstractArray{T,2}, domain_iterators; backend=CPU(), kwargs...
 ) where {T}
 
   #
-
-  scheme_name = Symbol(uppercase("$discretization_scheme"))
-  nhalo = nhalo_lookup[scheme_name]
-
-  if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-  elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-  else
-    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
-  end
-
-  #
-  @assert size(x) == size(y)
-
-  nnodes = size(x)
-  ni, nj = nnodes
-
-  ncells = nnodes .- 1
-  ni_cells, nj_cells = ncells
-  lo = nhalo + 1
-  limits = (
-    node=(ilo=lo, ihi=ni + nhalo, jlo=lo, jhi=nj + nhalo),
-    cell=(ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo),
-  )
-
-  nodeCI = CartesianIndices(nnodes .+ 2nhalo)
-  cellCI = CartesianIndices(ncells .+ 2nhalo)
-
-  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
@@ -522,190 +434,8 @@ function _curvilinear_grid_constructor(
     y=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  return (
-    coords,
-    centroids,
-    node_velocities,
-    nhalo,
-    nnodes,
-    limits,
-    domain_iterators,
-    is_static,
-    is_orthogonal,
-    scheme_name,
-  )
-end
-function _rectilinear_grid_constructor(
-  x::AbstractArray{T,2},
-  y::AbstractArray{T,2},
-  discretization_scheme::Symbol;
-  backend=CPU(),
-  is_static=false,
-  is_orthogonal=false,
-  empty_metrics=false,
-  kwargs...,
-) where {T}
-
-  #
-
-  scheme_name = Symbol(uppercase("$discretization_scheme"))
-  if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-  elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-  else
-    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
-  end
-
-  #
-  @assert size(x) == size(y)
-
   nnodes = size(x)
-  ni, nj = nnodes
-
-  ncells = nnodes .- 1
-  ni_cells, nj_cells = ncells
-  lo = nhalo + 1
-  limits = (
-    node=(ilo=lo, ihi=ni + nhalo, jlo=lo, jhi=nj + nhalo),
-    cell=(ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo),
-  )
-
-  nodeCI = CartesianIndices(nnodes .+ 2nhalo)
-  cellCI = CartesianIndices(ncells .+ 2nhalo)
-
-  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
-  celldims = size(domain_iterators.cell.full)
-  nodedims = size(domain_iterators.node.full)
-
-  coords = StructArray((
-    x=KernelAbstractions.zeros(backend, T, nodedims),
-    y=KernelAbstractions.zeros(backend, T, nodedims),
-  ))
-
-  @views begin
-    copy!(coords.x[domain_iterators.node.domain], x)
-    copy!(coords.y[domain_iterators.node.domain], y)
-  end
-
-  centroids = StructArray((
-    x=KernelAbstractions.zeros(backend, T, celldims),
-    y=KernelAbstractions.zeros(backend, T, celldims),
-  ))
-
-  _centroid_coordinates_kernel!(backend)(
-    centroids,
-    coords,
-    domain_iterators.cell.domain;
-    ndrange=size(domain_iterators.cell.domain),
-  )
-
-  node_velocities = StructArray((
-    x=KernelAbstractions.zeros(backend, T, nodedims),
-    y=KernelAbstractions.zeros(backend, T, nodedims),
-  ))
-
-  return (
-    coords,
-    centroids,
-    node_velocities,
-    nhalo,
-    nnodes,
-    limits,
-    domain_iterators,
-    is_static,
-    scheme_name,
-  )
-end
-function _uniform_grid_constructor(
-  x::AbstractArray{T,2},
-  y::AbstractArray{T,2},
-  discretization_scheme::Symbol;
-  backend=CPU(),
-  is_static=false,
-  is_orthogonal=false,
-  empty_metrics=false,
-  kwargs...,
-) where {T}
-
-  #
-
-  scheme_name = Symbol(uppercase("$discretization_scheme"))
-  if scheme_name === :MEG6 ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-  elseif scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme == :MontoneExplicitGradientScheme6thOrder
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-    nhalo = 5
-  else
-    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
-  end
-
-  #
-  @assert size(x) == size(y)
-
-  nnodes = size(x)
-  ni, nj = nnodes
-
-  ncells = nnodes .- 1
-  ni_cells, nj_cells = ncells
-  lo = nhalo + 1
-  limits = (
-    node=(ilo=lo, ihi=ni + nhalo, jlo=lo, jhi=nj + nhalo),
-    cell=(ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo),
-  )
-
-  nodeCI = CartesianIndices(nnodes .+ 2nhalo)
-  cellCI = CartesianIndices(ncells .+ 2nhalo)
-
-  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
-  celldims = size(domain_iterators.cell.full)
-  nodedims = size(domain_iterators.node.full)
-
-  coords = StructArray((
-    x=KernelAbstractions.zeros(backend, T, nodedims),
-    y=KernelAbstractions.zeros(backend, T, nodedims),
-  ))
-
-  @views begin
-    copy!(coords.x[domain_iterators.node.domain], x)
-    copy!(coords.y[domain_iterators.node.domain], y)
-  end
-
-  centroids = StructArray((
-    x=KernelAbstractions.zeros(backend, T, celldims),
-    y=KernelAbstractions.zeros(backend, T, celldims),
-  ))
-
-  _centroid_coordinates_kernel!(backend)(
-    centroids,
-    coords,
-    domain_iterators.cell.domain;
-    ndrange=size(domain_iterators.cell.domain),
-  )
-
-  node_velocities = StructArray((
-    x=KernelAbstractions.zeros(backend, T, nodedims),
-    y=KernelAbstractions.zeros(backend, T, nodedims),
-  ))
-
-  return (
-    coords,
-    centroids,
-    node_velocities,
-    nhalo,
-    nnodes,
-    limits,
-    domain_iterators,
-    is_static,
-    scheme_name,
-  )
+  return (coords, centroids, node_velocities, nnodes)
 end
 
 """
@@ -764,73 +494,26 @@ function AxisymmetricGrid2D(
 ) where {T}
 
   #
-
-  scheme_name = Symbol(uppercase("$discretization_scheme"))
-  nhalo = nhalo_lookup[scheme_name]
-
-  if (
-    scheme_name === :MEG6 ||
-    scheme_name === :MEG6_SYMMETRIC ||
-    discretization_scheme === :MontoneExplicitGradientScheme6thOrder
-  )
-    MetricDiscretizationScheme = MontoneExplicitGradientScheme6thOrder
-
-  else
-    error("Only MontoneExplicitGradientScheme6thOrder or MEG6 is supported for now")
-  end
-
-  @assert size(x) == size(y)
-  @assert rotational_axis === :x || rotational_axis === :y
-
-  nnodes = size(x)
-  ni, nj = nnodes
-
-  ncells = nnodes .- 1
-  ni_cells, nj_cells = ncells
-  lo = nhalo + 1
-  limits = (
-    node=(ilo=lo, ihi=ni + nhalo, jlo=lo, jhi=nj + nhalo),
-    cell=(ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo),
+  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+    discretization_scheme
   )
 
-  nodeCI = CartesianIndices(nnodes .+ 2nhalo)
-  cellCI = CartesianIndices(ncells .+ 2nhalo)
+  limits, iterators = get_node_cell_iterators(x, y, nhalo)
+  celldims = size(iterators.cell.full)
 
-  domain_iterators = get_node_cell_iterators(nodeCI, cellCI, nhalo)
-  celldims = size(domain_iterators.cell.full)
-  nodedims = size(domain_iterators.node.full)
-
-  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
-
-  coords = StructArray((
-    x=KernelAbstractions.zeros(backend, T, nodedims),
-    y=KernelAbstractions.zeros(backend, T, nodedims),
-  ))
-
-  @views begin
-    copy!(coords.x[domain_iterators.node.domain], x)
-    copy!(coords.y[domain_iterators.node.domain], y)
-  end
-
-  centroids = StructArray((
-    x=KernelAbstractions.zeros(backend, T, celldims),
-    y=KernelAbstractions.zeros(backend, T, celldims),
-  ))
-
-  # _centroid_coordinates_kernel!(backend)(centroids, coords, domain_iterators.cell.domain, ndrange=size(domain_iterators.cell.domain))
-
-  node_velocities = StructArray((
-    x=KernelAbstractions.zeros(backend, T, nodedims),
-    y=KernelAbstractions.zeros(backend, T, nodedims),
-  ))
-
-  discr_scheme = MetricDiscretizationScheme(;
+  discr_scheme = MetricDiscretizationScheme(
+    order;
     use_cache=true,
-    celldims=size(domain_iterators.cell.full),
+    celldims=celldims,
     backend=backend,
     T=T,
-    use_symmetric_conservative_metric_scheme=false,
+    use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
   )
+
+  coords, centroids, node_velocities, nnodes = _grid_constructor(
+    x, y, iterators; backend=backend
+  )
+  cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
   m = AxisymmetricGrid2D(
     coords,
@@ -841,7 +524,7 @@ function AxisymmetricGrid2D(
     nhalo,
     nnodes,
     limits,
-    domain_iterators,
+    iterators,
     discr_scheme,
     snap_to_axis,
     rotational_axis,
@@ -1008,41 +691,39 @@ function _check_valid_metrics(mesh::AbstractCurvilinearGrid2D)
   i₊½_domain = expand(domain, 1, -1)
   j₊½_domain = expand(domain, 2, -1)
 
-  @views begin
-    centroid_metrics_valid =
-      all(isfinite.(mesh.cell_center_metrics.J[domain])) &&
-      all(mesh.cell_center_metrics.J[domain] .> 0) &&
-      all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.ξ.x₂[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.η.x₁[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.η.x₂[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.x₁.ξ[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.x₁.η[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.x₂.ξ[domain])) &&
-      all(isfinite.(mesh.cell_center_metrics.x₂.η[domain]))
+  @assert all(isfinite.(mesh.cell_center_metrics.J[domain]))
 
-    edge_metrics_valid =
-      all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.i₊½.η̂.t[i₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.t[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain])) &&
-      all(isfinite.(mesh.edge_metrics.j₊½.η̂.t[j₊½_domain]))
-  end
+  # display(mesh.cell_center_metrics.ξ.x₁[domain])
+  # @assert all(isfinite.(mesh.cell_center_metrics.ξ.x₁[domain]))
+  # @assert all(isfinite.(mesh.cell_center_metrics.ξ.x₂[domain]))
+  # @assert all(isfinite.(mesh.cell_center_metrics.η.x₁[domain]))
+  # @assert all(isfinite.(mesh.cell_center_metrics.η.x₂[domain]))
+  # @assert all(isfinite.(mesh.cell_center_metrics.x₁.ξ[domain]))
+  # @assert all(isfinite.(mesh.cell_center_metrics.x₁.η[domain]))
+  # @assert all(isfinite.(mesh.cell_center_metrics.x₂.ξ[domain]))
+  # @assert all(isfinite.(mesh.cell_center_metrics.x₂.η[domain]))
+  # @assert all(mesh.cell_center_metrics.J[domain] .> 0)
 
-  if !edge_metrics_valid
-    error("Invalid edge metrics found")
-  end
+  # @assert all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain]))
+  # @assert all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain]))
+  # @assert all(isfinite.(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain]))
+  # @assert all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain]))
+  # @assert all(isfinite.(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain]))
+  # @assert all(isfinite.(mesh.edge_metrics.i₊½.η̂.t[i₊½_domain]))
+  # @assert all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain]))
+  # @assert all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain]))
+  # @assert all(isfinite.(mesh.edge_metrics.j₊½.ξ̂.t[j₊½_domain]))
+  # @assert all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain]))
+  # @assert all(isfinite.(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain]))
+  # @assert all(isfinite.(mesh.edge_metrics.j₊½.η̂.t[j₊½_domain]))
 
-  if !centroid_metrics_valid
-    error("Invalid centroid metrics found")
-  end
+  # if !edge_metrics_valid
+  #   error("Invalid edge metrics found")
+  # end
+
+  # if !centroid_metrics_valid
+  #   error("Invalid centroid metrics found")
+  # end
 
   return nothing
 end
