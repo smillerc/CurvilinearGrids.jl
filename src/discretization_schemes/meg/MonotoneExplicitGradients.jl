@@ -7,16 +7,16 @@ struct MonotoneExplicitGradientScheme{N,C,DS} <: DiscretizationScheme
 end
 
 function Adapt.adapt_structure(
-  to, scheme::MonotoneExplicitGradientScheme{N,C}
-) where {N,C<:Nothing}
+  to, scheme::MonotoneExplicitGradientScheme{N,C,DS}
+) where {N,C<:Nothing,DS}
 
   #
-  return MonotoneExplicitGradientScheme{N,Nothing}(
-    nothing, scheme.nhalo, scheme.use_symmetric_conservative_metric_scheme
+  return MonotoneExplicitGradientScheme{N,Nothing,DS}(
+    nothing, scheme.nhalo, scheme.derivative_scheme, scheme.use_symmetric_conservative_metric_scheme
   )
 end
 
-function Adapt.adapt_structure(to, scheme::MonotoneExplicitGradientScheme{N,C}) where {N,C}
+function Adapt.adapt_structure(to, scheme::MonotoneExplicitGradientScheme{N,C,DS}) where {N,C,DS}
 
   #
   cache = (;
@@ -27,8 +27,8 @@ function Adapt.adapt_structure(to, scheme::MonotoneExplicitGradientScheme{N,C}) 
     inner_deriv_1=Adapt.adapt_structure(to, scheme.cache.inner_deriv_1),
     inner_deriv_2=Adapt.adapt_structure(to, scheme.cache.inner_deriv_2),
   )
-  return MonotoneExplicitGradientScheme{N,typeof(cache)}(
-    cache, scheme.nhalo, scheme.use_symmetric_conservative_metric_scheme
+  return MonotoneExplicitGradientScheme{N,typeof(cache),DS}(
+    cache, scheme.nhalo, scheme.derivative_scheme, scheme.use_symmetric_conservative_metric_scheme
   )
 end
 
