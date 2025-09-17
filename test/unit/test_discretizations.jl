@@ -1,7 +1,9 @@
 using Test
 using CartesianDomains, KernelAbstractions
 using CurvilinearGrids
+using StructArrays
 using CurvilinearGrids.DiscretizationSchemes
+using CurvilinearGrids.DiscretizationSchemes: central_derivative
 using CurvilinearGrids.MetricDiscretizationSchemes
 
 @testset "MonotoneExplicitGradientScheme basic constructors" begin
@@ -257,4 +259,35 @@ begin
     meg, cell_center_metrics, StructArrays.components(centroid_coordinates)..., inner_domain
   )
   cell_center_metrics.x₁.ξ[inner_domain]
+end
+
+@testset "Stencil Floating Point Error" begin
+  function central_derivative_naive(fm3, fm2, fm1, fp1, fp2, fp3)
+    return (
+      -1 / 60 * fm3 + 3 / 20 * fm2 - 3 / 4 * fm1 + 3 / 4 * fp1 - 3 / 20 * fp2 + 1 / 60 * fp3
+    )
+  end
+
+  vals = 1e4ones(8)
+  for i in eachindex(vals)
+    pert = 100eps() * rand() # add perturbations > than epsilon (~2e-16)
+    # @show pert
+    vals[i] += pert
+  end
+
+  # The naive version reports a derivative of ~ 1e-13, when it _should_ be 0.0! The `central_derivative`
+  # function uses the Kahan compensated sum to counteract floating-point roundoff error
+  # @show abs(central_derivative_naive(vals[1:6]...))
+  # @show central_derivative(vals[1:2]...)
+  # @show central_derivative(vals[1:4]...)
+  # @show central_derivative(vals[1:6]...)
+  # @show central_derivative(vals[1:8]...)
+
+  @test iszero(central_derivative(vals[1:2]...))
+  @test iszero(central_derivative(vals[1:4]...))
+  @test iszero(central_derivative(vals[1:6]...))
+  @test iszero(central_derivative(vals[1:8]...))
+
+  @test abs(central_derivative_naive(vals[1:6]...)) > 0 &&
+    iszero(central_derivative(vals[1:6]...))
 end

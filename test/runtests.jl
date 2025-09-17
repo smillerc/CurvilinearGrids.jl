@@ -35,6 +35,6 @@ include("unit/common.jl")
   @info "Wall"
   include("unit/test_wall.jl")
 
-  @info "MEG Schemes"
-  include("unit/test_meg6_updated.jl")
+  @info "Discretization Schemes"
+  include("unit/test_discretizations.jl")
 end

@@ -386,15 +386,21 @@ jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
 function get_metric_disc_scheme(discretization_scheme_name)
   scheme_name = Symbol(uppercase("$discretization_scheme_name"))
   use_symmetric_conservative_metric_scheme = false
-  if scheme_name === :MEG6
+  # if scheme_name === :MEG4 || scheme_name === :MEG4_SYMMETRIC
+  #   order = 4
+  #   MetricDiscretizationScheme = MonotoneExplicitGradientScheme
+  #   if scheme_name === :MEG6_SYMMETRIC
+  #     use_symmetric_conservative_metric_scheme = true
+  #   end
+  if scheme_name === :MEG6 || scheme_name === :MEG6_SYMMETRIC
     order = 6
     MetricDiscretizationScheme = MonotoneExplicitGradientScheme
-  elseif scheme_name === :MEG6_SYMMETRIC
-    order = 6
-    MetricDiscretizationScheme = MonotoneExplicitGradientScheme
-    use_symmetric_conservative_metric_scheme = true
+    if scheme_name === :MEG6_SYMMETRIC
+      use_symmetric_conservative_metric_scheme = true
+    end
   else
-    error("Only $(:MEG6) is supported for now")
+    error("Only $((:MEG6)) is supported for now")
+    # error("Only $((:MEG4, :MEG6)) is supported for now")
   end
 
   nhalo = DiscretizationSchemes.nhalo_lookup[scheme_name]
