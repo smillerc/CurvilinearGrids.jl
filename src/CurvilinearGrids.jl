@@ -40,6 +40,10 @@ include("io/to_vtk.jl")
 using .VTKOutput
 export save_vtk
 
+include("io/to_h5.jl")
+using .H5Output
+export write_coordinates, read_coordinates
+
 include("mesh_functions/stretching_functions.jl")
 export one_sided_stretch, double_sided_stretch, one_sided_with_initial_spacing
 
