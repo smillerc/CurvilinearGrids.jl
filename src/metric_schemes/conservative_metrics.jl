@@ -342,43 +342,41 @@ function symmetric_conservative_metrics!(
     )
   end
 
-  @views begin
-    ξ̂x = metrics.ξ̂.x₁
-    η̂x = metrics.η̂.x₁
-    ζ̂x = metrics.ζ̂.x₁
+  ξ̂x = metrics.ξ̂.x₁
+  η̂x = metrics.η̂.x₁
+  ζ̂x = metrics.ζ̂.x₁
 
-    ξ̂y = metrics.ξ̂.x₂
-    η̂y = metrics.η̂.x₂
-    ζ̂y = metrics.ζ̂.x₂
+  ξ̂y = metrics.ξ̂.x₂
+  η̂y = metrics.η̂.x₂
+  ζ̂y = metrics.ζ̂.x₂
 
-    ξ̂z = metrics.ξ̂.x₃
-    η̂z = metrics.η̂.x₃
-    ζ̂z = metrics.ζ̂.x₃
+  ξ̂z = metrics.ξ̂.x₃
+  η̂z = metrics.η̂.x₃
+  ζ̂z = metrics.ζ̂.x₃
 
-    ξx = metrics.ξ.x₁
-    ηx = metrics.η.x₁
-    ζx = metrics.ζ.x₁
+  ξx = metrics.ξ.x₁
+  ηx = metrics.η.x₁
+  ζx = metrics.ζ.x₁
 
-    ξy = metrics.ξ.x₂
-    ηy = metrics.η.x₂
-    ζy = metrics.ζ.x₂
+  ξy = metrics.ξ.x₂
+  ηy = metrics.η.x₂
+  ζy = metrics.ζ.x₂
 
-    ξz = metrics.ξ.x₃
-    ηz = metrics.η.x₃
-    ζz = metrics.ζ.x₃
+  ξz = metrics.ξ.x₃
+  ηz = metrics.η.x₃
+  ζz = metrics.ζ.x₃
 
-    x_ξ = metrics.x₁.ξ
-    x_η = metrics.x₁.η
-    x_ζ = metrics.x₁.ζ
+  x_ξ = metrics.x₁.ξ
+  x_η = metrics.x₁.η
+  x_ζ = metrics.x₁.ζ
 
-    y_ξ = metrics.x₂.ξ
-    y_η = metrics.x₂.η
-    y_ζ = metrics.x₂.ζ
+  y_ξ = metrics.x₂.ξ
+  y_η = metrics.x₂.η
+  y_ζ = metrics.x₂.ζ
 
-    z_ξ = metrics.x₃.ξ
-    z_η = metrics.x₃.η
-    z_ζ = metrics.x₃.ζ
-  end
+  z_ξ = metrics.x₃.ξ
+  z_η = metrics.x₃.η
+  z_ζ = metrics.x₃.ζ
 
   # ξ̂x = (1/2) * [(y_η z - z_η y)_ζ - (y_ζ z - z_ζ y)_η]
   # ξ̂y = (1/2) * [(z_η x - x_η z)_ζ - (z_ζ x - x_ζ z)_η]
@@ -404,9 +402,11 @@ function symmetric_conservative_metrics!(
   @. ξx = ξ̂x / metrics.J
   @. ηx = η̂x / metrics.J
   @. ζx = ζ̂x / metrics.J
+
   @. ξy = ξ̂y / metrics.J
   @. ηy = η̂y / metrics.J
   @. ζy = ζ̂y / metrics.J
+
   @. ξz = ξ̂z / metrics.J
   @. ηz = η̂z / metrics.J
   @. ζz = ζ̂z / metrics.J

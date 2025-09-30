@@ -96,7 +96,7 @@ function forward_metrics!(
 ) where {T}
 
   # axes
-  ξ, η, ζ = (1, 2, 3)
+  ξaxis, ηaxis, ζaxis = (1, 2, 3)
 
   if !(size(x) == size(y) == size(z))
     error(
@@ -116,36 +116,25 @@ function forward_metrics!(
   zη = metrics.x₃.η
   zζ = metrics.x₃.ζ
 
-  cell_center_derivatives!(
-    scheme, xξ, x, ξ, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true
-  )
-  cell_center_derivatives!(
-    scheme, xη, x, η, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true
-  )
-  cell_center_derivatives!(
-    scheme, xζ, x, ζ, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true
-  )
-  cell_center_derivatives!(
-    scheme, yξ, y, ξ, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true
-  )
-  cell_center_derivatives!(
-    scheme, yη, y, η, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true
-  )
-  cell_center_derivatives!(
-    scheme, yζ, y, ζ, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true
-  )
-  cell_center_derivatives!(
-    scheme, zξ, z, ξ, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true
-  )
-  cell_center_derivatives!(
-    scheme, zη, z, η, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true
-  )
-  cell_center_derivatives!(
-    scheme, zζ, z, ζ, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true
-  )
+  #! format: off
+  cell_center_derivatives!(scheme, xξ, x, ξaxis, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true) # ∂x/∂ξ
+  cell_center_derivatives!(scheme, xη, x, ηaxis, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true) # ∂x/∂η
+  cell_center_derivatives!(scheme, xζ, x, ζaxis, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true) # ∂x/∂ζ 
+
+  #
+  cell_center_derivatives!(scheme, yξ, y, ξaxis, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true) # ∂y/∂ξ
+  cell_center_derivatives!(scheme, yη, y, ηaxis, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true) # ∂y/∂η
+  cell_center_derivatives!(scheme, yζ, y, ζaxis, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true) # ∂y/∂ζ
+
+  #
+  cell_center_derivatives!(scheme, zξ, z, ξaxis, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true) # ∂z/∂ξ
+  cell_center_derivatives!(scheme, zη, z, ηaxis, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true) # ∂z/∂η
+  cell_center_derivatives!(scheme, zζ, z, ζaxis, inner_cell_domain; compute_gradients=true, use_one_sided_on_edges=true) # ∂z/∂ζ
+  #! format: on
 
   backend = KernelAbstractions.get_backend(x)
   jacobian_3d_kernel!(backend)(
+    metrics.J,
     xξ,
     xη,
     xζ,
@@ -155,7 +144,6 @@ function forward_metrics!(
     zξ,
     zη,
     zζ,
-    metrics.J,
     inner_cell_domain;
     ndrange=size(inner_cell_domain),
   )
@@ -165,9 +153,9 @@ end
 
 # The compute kernel to find the jacobian in 3D
 @kernel inbounds = true function jacobian_3d_kernel!(
-  xξ, xη, xζ, yξ, yη, yζ, zξ, zη, zζ, J, domain
+  J, xξ, xη, xζ, yξ, yη, yζ, zξ, zη, zζ, domain
 )
-  I = @index(Global, Cartesian)
+  I = @index(Global, Linear)
   idx = domain[I]
   jacobian = @SMatrix [
     xξ[idx] xη[idx] xζ[idx]
