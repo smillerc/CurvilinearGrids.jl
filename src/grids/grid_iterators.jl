@@ -4,11 +4,11 @@ function get_iterators(
 
   #
   if halo_coords_included
-    cellCI = CartesianIndices(nodedims .- 1 .+ 2nhalo)
-    nodeCI = CartesianIndices(nodedims .+ 2nhalo)
-  else
     cellCI = CartesianIndices(nodedims .- 1)
     nodeCI = CartesianIndices(nodedims)
+  else
+    cellCI = CartesianIndices(nodedims .- 1 .+ 2nhalo)
+    nodeCI = CartesianIndices(nodedims .+ 2nhalo)
   end
 
   node = (full=nodeCI, domain=expand(nodeCI, -nhalo))
