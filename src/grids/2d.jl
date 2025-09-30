@@ -135,6 +135,7 @@ function CurvilinearGrid2D(
   is_orthogonal=false,
   init_metrics=true,
   empty_metrics=false,
+  halo_coords_included=false,
   kwargs...,
 ) where {T}
 
@@ -144,7 +145,8 @@ function CurvilinearGrid2D(
     discretization_scheme
   )
 
-  limits, iterators = get_node_cell_iterators(x, y, nhalo)
+  # limits, iterators = get_node_cell_iterators(x, y, nhalo)
+  limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
   discr_scheme = MetricDiscretizationScheme(
@@ -200,6 +202,7 @@ function RectilinearGrid2D(
   is_static=true,
   init_metrics=true,
   empty_metrics=false,
+  halo_coords_included=false,
 ) where {T}
   ni = length(x)
   nj = length(y)
@@ -234,7 +237,8 @@ function RectilinearGrid2D(
     discretization_scheme
   )
 
-  limits, iterators = get_node_cell_iterators(x2d, y2d, nhalo)
+  # limits, iterators = get_node_cell_iterators(x2d, y2d, nhalo)
+  limits, iterators = get_iterators(size(x2d), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
   discr_scheme = MetricDiscretizationScheme(
@@ -289,6 +293,7 @@ function RectilinearGrid2D(
   is_static=true,
   init_metrics=true,
   empty_metrics=false,
+  halo_coords_included=false,
 )
   if ni_cells < 2 || nj_cells < 2
     error(
@@ -304,6 +309,7 @@ function RectilinearGrid2D(
     is_static=is_static,
     init_metrics=init_metrics,
     empty_metrics=empty_metrics,
+    halo_coords_included=halo_coords_included,
   )
 end
 
@@ -323,6 +329,7 @@ function UniformGrid2D(
   is_static=true,
   init_metrics=true,
   empty_metrics=false,
+  halo_coords_included=false,
 ) where {T<:Real}
   x = Vector(x0:∂x:x1)
   y = Vector(y0:∂x:y1)
@@ -360,7 +367,8 @@ function UniformGrid2D(
     discretization_scheme
   )
 
-  limits, iterators = get_node_cell_iterators(x2d, y2d, nhalo)
+  # limits, iterators = get_node_cell_iterators(x2d, y2d, nhalo)
+  limits, iterators = get_iterators(size(x2d), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
   discr_scheme = MetricDiscretizationScheme(
@@ -452,6 +460,7 @@ function AxisymmetricGrid2D(
   snap_to_axis::Bool,
   rotational_axis::Symbol;
   T=Float64,
+  halo_coords_included=false,
   kwargs...,
 )
   x = range(x0, x1; length=ni_cells + 1)
@@ -470,7 +479,13 @@ function AxisymmetricGrid2D(
   end
 
   return AxisymmetricGrid2D(
-    X, Y, discretization_scheme, snap_to_axis, rotational_axis; kwargs...
+    X,
+    Y,
+    discretization_scheme,
+    snap_to_axis,
+    rotational_axis;
+    halo_coords_included=halo_coords_included,
+    kwargs...,
   )
 end
 
@@ -490,6 +505,7 @@ function AxisymmetricGrid2D(
   is_static=false,
   is_orthogonal=false,
   make_uniform=false,
+  halo_coords_included=false,
   kwargs...,
 ) where {T}
 
@@ -498,7 +514,8 @@ function AxisymmetricGrid2D(
     discretization_scheme
   )
 
-  limits, iterators = get_node_cell_iterators(x, y, nhalo)
+  # limits, iterators = get_node_cell_iterators(x, y, nhalo)
+  limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
   discr_scheme = MetricDiscretizationScheme(
@@ -573,16 +590,24 @@ function AxisymmetricGrid2D(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AbstractCurvilinearGrid2D; force=false)
-  backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
+function update!(
+  mesh::AbstractCurvilinearGrid2D; force=false, include_halo_region::Bool=false
+)
+  if include_halo_region
+    metric_domain = mesh.iterators.cell.full
+  else
+    metric_domain = mesh.iterators.cell.domain
+  end
+
   if !mesh.is_static || force
+    backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
     _centroid_coordinates_kernel!(backend)(
       mesh.centroid_coordinates,
       mesh.node_coordinates,
-      mesh.iterators.cell.domain;
-      ndrange=size(mesh.iterators.cell.domain),
+      metric_domain;
+      ndrange=size(metric_domain),
     )
-    update_metrics!(mesh)
+    update_metrics!(mesh; include_halo_region=include_halo_region)
     _check_valid_metrics(mesh)
   else
     error("Attempting to update grid metrics when grid.is_static = true!")
@@ -591,24 +616,33 @@ function update!(mesh::AbstractCurvilinearGrid2D; force=false)
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AxisymmetricGrid2D)
-  backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
-  _centroid_coordinates_kernel!(backend)(
-    mesh.centroid_coordinates,
-    mesh.node_coordinates,
-    mesh.iterators.cell.domain;
-    ndrange=size(mesh.iterators.cell.domain),
-  )
-  update_metrics!(mesh)
-
-  if mesh.snap_to_axis
-    _snap_nodes_to_axis(mesh)
-    # else
-    #   _check_nodes_along_axis(mesh)
+function update!(mesh::AxisymmetricGrid2D; force=false, include_halo_region::Bool=false)
+  if include_halo_region
+    metric_domain = mesh.iterators.cell.full
+  else
+    metric_domain = mesh.iterators.cell.domain
   end
 
-  _check_valid_metrics(mesh)
-  return nothing
+  if !mesh.is_static || force
+    backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
+    _centroid_coordinates_kernel!(backend)(
+      mesh.centroid_coordinates,
+      mesh.node_coordinates,
+      metric_domain;
+      ndrange=size(metric_domain),
+    )
+
+    if mesh.snap_to_axis
+      _snap_nodes_to_axis(mesh)
+      # else
+      #   _check_nodes_along_axis(mesh)
+    end
+
+    update_metrics!(mesh; include_halo_region=include_halo_region)
+    _check_valid_metrics(mesh)
+  else
+    error("Attempting to update grid metrics when grid.is_static = true!")
+  end
 end
 
 function jacobian_matrix(mesh::AbstractCurvilinearGrid2D, (i, j))

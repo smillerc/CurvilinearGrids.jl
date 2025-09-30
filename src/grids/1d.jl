@@ -72,6 +72,7 @@ function CurvilinearGrid1D(
   backend=KernelAbstractions.CPU(),
   is_static=false,
   empty_metrics=false,
+  halo_coords_included=false,
 ) where {T}
 
   #
@@ -79,7 +80,7 @@ function CurvilinearGrid1D(
     discretization_scheme
   )
 
-  limits, iterators = get_node_cell_iterators(x, nhalo)
+  limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
   discr_scheme = MetricDiscretizationScheme(
@@ -138,11 +139,18 @@ function UniformGrid1D(
   backend=KernelAbstractions.CPU(),
   T=Float64,
   empty_metrics=false,
+  halo_coords_included=false,
 )
   ni = ncells + 1
   x = collect(T, range(x0, x1; length=ni))
 
-  m = UniformGrid1D(x, discretization_scheme; backend=backend, empty_metrics=empty_metrics)
+  m = UniformGrid1D(
+    x,
+    discretization_scheme;
+    backend=backend,
+    empty_metrics=empty_metrics,
+    halo_coords_included=halo_coords_included,
+  )
 
   if !empty_metrics
     update!(m; force=true)
@@ -161,6 +169,7 @@ function UniformGrid1D(
   backend=KernelAbstractions.CPU(),
   is_static=true,
   empty_metrics=false,
+  halo_coords_included=false,
 ) where {T}
 
   #
@@ -174,7 +183,7 @@ function UniformGrid1D(
     discretization_scheme
   )
 
-  limits, iterators = get_node_cell_iterators(x, nhalo)
+  limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
   discr_scheme = MetricDiscretizationScheme(
@@ -242,6 +251,7 @@ function SphericalGrid1D(
   snap_to_axis::Bool;
   backend=CPU(),
   is_static=false,
+  halo_coords_included=false,
   kwargs...,
 ) where {T}
 
@@ -250,7 +260,7 @@ function SphericalGrid1D(
     discretization_scheme
   )
 
-  limits, iterators = get_node_cell_iterators(x, nhalo)
+  limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
   discr_scheme = MetricDiscretizationScheme(
@@ -299,6 +309,7 @@ function CylindricalGrid1D(
   snap_to_axis::Bool;
   backend=CPU(),
   is_static=false,
+  halo_coords_included=false,
   kwargs...,
 ) where {T}
 
@@ -307,7 +318,7 @@ function CylindricalGrid1D(
     discretization_scheme
   )
 
-  limits, iterators = get_node_cell_iterators(x, nhalo)
+  limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
   discr_scheme = MetricDiscretizationScheme(
@@ -346,16 +357,24 @@ function CylindricalGrid1D(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AbstractCurvilinearGrid1D; force=false)
-  backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
+function update!(
+  mesh::AbstractCurvilinearGrid1D; force=false, include_halo_region::Bool=false
+)
+  if include_halo_region
+    metric_domain = mesh.iterators.cell.full
+  else
+    metric_domain = mesh.iterators.cell.domain
+  end
+
   if !mesh.is_static || force
+    backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
     _centroid_coordinates_kernel!(backend)(
       mesh.centroid_coordinates,
       mesh.node_coordinates,
       mesh.iterators.cell.domain;
       ndrange=size(mesh.iterators.cell.domain),
     )
-    update_metrics!(mesh)
+    update_metrics!(mesh; include_halo_region=include_halo_region)
     _check_valid_metrics(mesh)
   end
 

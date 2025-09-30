@@ -1,96 +1,60 @@
-function get_node_cell_iterators(
-  x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, nhalo
-) where {T}
+function get_iterators(
+  nodedims::NTuple{N,Int}, halo_coords_included::Bool, nhalo::Int
+) where {N}
 
   #
-  @assert size(x) == size(y) == size(z)
-  nnodes = size(x)
-  ni, nj, nk = nnodes
+  if halo_coords_included
+    cellCI = CartesianIndices(nodedims .- 1 .+ 2nhalo)
+    nodeCI = CartesianIndices(nodedims .+ 2nhalo)
+  else
+    cellCI = CartesianIndices(nodedims .- 1)
+    nodeCI = CartesianIndices(nodedims)
+  end
 
-  ncells = nnodes .- 1
-  ni_cells = ni - 1
-  nj_cells = nj - 1
-  nk_cells = nk - 1
-  lo = nhalo + 1
-
-  limits = (
-    node=(ilo=lo, ihi=ni + nhalo, jlo=lo, jhi=nj + nhalo, klo=lo, khi=nk + nhalo),
-    cell=(
-      ilo=lo,
-      ihi=ni_cells + nhalo,
-      jlo=lo,
-      jhi=nj_cells + nhalo,
-      klo=lo,
-      khi=nk_cells + nhalo,
-    ),
-  )
-
-  nodeCI = CartesianIndices(nnodes .+ 2nhalo)
-  cellCI = CartesianIndices(ncells .+ 2nhalo)
-
-  node = (
-    full=nodeCI,
-    domain=nodeCI[
-      (begin + nhalo):(end - nhalo),
-      (begin + nhalo):(end - nhalo),
-      (begin + nhalo):(end - nhalo),
-    ],
-  )
-  cell = (
-    full=cellCI,
-    domain=cellCI[
-      (begin + nhalo):(end - nhalo),
-      (begin + nhalo):(end - nhalo),
-      (begin + nhalo):(end - nhalo),
-    ],
-  )
+  node = (full=nodeCI, domain=expand(nodeCI, -nhalo))
+  cell = (full=cellCI, domain=expand(cellCI, -nhalo))
+  limits = domain_limits(cell.domain)
   return limits, (; node, cell)
 end
 
-function get_node_cell_iterators(
-  x::AbstractArray{T,2}, y::AbstractArray{T,2}, nhalo
-) where {T}
+function domain_limits(cell_domain::CartesianIndices{1})
+  ilo = first(cell_domain.indices[1])
+  ihi = last(cell_domain.indices[1])
 
-  #
-  @assert size(x) == size(y)
-
-  nnodes = size(x)
-  ni, nj = nnodes
-
-  ncells = nnodes .- 1
-  ni_cells, nj_cells = ncells
-  lo = nhalo + 1
   limits = (
-    node=(ilo=lo, ihi=ni + nhalo, jlo=lo, jhi=nj + nhalo),
-    cell=(ilo=lo, ihi=ni_cells + nhalo, jlo=lo, jhi=nj_cells + nhalo),
+    node=(; ilo=ilo, ihi=ihi + 1), #
+    cell=(; ilo=ilo, ihi=ihi),     #
   )
 
-  nodeCI = CartesianIndices(nnodes .+ 2nhalo)
-  cellCI = CartesianIndices(ncells .+ 2nhalo)
-
-  node = (
-    full=nodeCI, domain=nodeCI[(begin + nhalo):(end - nhalo), (begin + nhalo):(end - nhalo)]
-  )
-  cell = (
-    full=cellCI, domain=cellCI[(begin + nhalo):(end - nhalo), (begin + nhalo):(end - nhalo)]
-  )
-  return limits, (; node, cell)
+  return limits
 end
 
-function get_node_cell_iterators(x::AbstractVector{T}, nhalo) where {T}
-  nnodes = size(x)
-  ni, = nnodes
+function domain_limits(cell_domain::CartesianIndices{2})
+  ilo = first(cell_domain.indices[1])
+  ihi = last(cell_domain.indices[1])
+  jlo = first(cell_domain.indices[2])
+  jhi = last(cell_domain.indices[2])
 
-  ncells = nnodes .- 1
-  ni_cells, = ncells
-  lo = nhalo + 1
-  limits = (node=(ilo=lo, ihi=ni + nhalo), cell=(ilo=lo, ihi=ni_cells + nhalo))
+  limits = (
+    node=(; ilo=ilo, ihi=ihi + 1, jlo=jlo, jhi=jhi + 1), #
+    cell=(; ilo=ilo, ihi=ihi, jlo=jlo, jhi=jhi),         #
+  )
 
-  nodeCI = CartesianIndices(nnodes .+ 2nhalo)
-  cellCI = CartesianIndices(ncells .+ 2nhalo)
+  return limits
+end
 
-  node = (full=nodeCI, domain=nodeCI[(begin + nhalo):(end - nhalo)])
-  cell = (full=cellCI, domain=cellCI[(begin + nhalo):(end - nhalo)])
+function domain_limits(cell_domain::CartesianIndices{3})
+  ilo = first(cell_domain.indices[1])
+  ihi = last(cell_domain.indices[1])
+  jlo = first(cell_domain.indices[2])
+  jhi = last(cell_domain.indices[2])
+  klo = first(cell_domain.indices[3])
+  khi = last(cell_domain.indices[3])
 
-  return limits, (; node, cell)
+  limits = (
+    node=(; ilo=ilo, ihi=ihi + 1, jlo=jlo, jhi=jhi + 1, klo=klo, khi=khi + 1), #
+    cell=(; ilo=ilo, ihi=ihi, jlo=jlo, jhi=jhi, klo=klo, khi=khi),             #
+  )
+
+  return limits
 end

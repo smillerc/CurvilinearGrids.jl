@@ -60,6 +60,7 @@ function CurvilinearGrid3D(
   is_orthogonal=false,
   init_metrics=true,
   empty_metrics=false,
+  halo_coords_included=false,
   kwargs...,
 ) where {T}
 
@@ -68,7 +69,8 @@ function CurvilinearGrid3D(
     discretization_scheme
   )
 
-  limits, iterators = get_node_cell_iterators(x, y, z, nhalo)
+  # limits, iterators = get_node_cell_iterators(x, y, z, nhalo)
+  limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
   discr_scheme = MetricDiscretizationScheme(
@@ -180,6 +182,7 @@ function RectilinearGrid3D(
   is_static=true,
   init_metrics=true,
   empty_metrics=false,
+  halo_coords_included=false,
   kwargs...,
 ) where {T}
 
@@ -231,7 +234,8 @@ function RectilinearGrid3D(
     discretization_scheme
   )
 
-  limits, iterators = get_node_cell_iterators(x3d, y3d, z3d, nhalo)
+  # limits, iterators = get_node_cell_iterators(x3d, y3d, z3d, nhalo)
+  limits, iterators = get_iterators(size(x3d), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
   discr_scheme = MetricDiscretizationScheme(
@@ -301,6 +305,8 @@ function UniformGrid3D(
   is_static=true,
   init_metrics=true,
   empty_metrics=false,
+  halo_coords_included=false,
+  halo_coords_included=false,
   kwargs...,
 ) where {T<:Real}
 
@@ -355,7 +361,8 @@ function UniformGrid3D(
     discretization_scheme
   )
 
-  limits, iterators = get_node_cell_iterators(x3d, y3d, z3d, nhalo)
+  # limits, iterators = get_node_cell_iterators(x3d, y3d, z3d, nhalo)
+  limits, iterators = get_iterators(size(x3d), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
   discr_scheme = MetricDiscretizationScheme(
@@ -438,16 +445,24 @@ function _grid_constructor(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AbstractCurvilinearGrid3D; force=false)
+function update!(
+  mesh::AbstractCurvilinearGrid3D; force=false, include_halo_region::Bool=false
+)
+  if include_halo_region
+    metric_domain = mesh.iterators.cell.full
+  else
+    metric_domain = mesh.iterators.cell.domain
+  end
+
   if !mesh.is_static || force
     backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
     _centroid_coordinates_kernel!(backend)(
       mesh.centroid_coordinates,
       mesh.node_coordinates,
-      mesh.iterators.cell.domain;
-      ndrange=size(mesh.iterators.cell.domain),
+      metric_domain;
+      ndrange=size(metric_domain),
     )
-    update_metrics!(mesh)
+    update_metrics!(mesh; include_halo_region=include_halo_region)
     _check_valid_metrics(mesh)
   else
     @warn("Attempting to update grid metrics when grid.is_static = true!")

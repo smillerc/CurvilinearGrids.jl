@@ -225,7 +225,8 @@ begin
 
   nhalo = DiscretizationSchemes.nhalo_lookup[scheme_name]
 
-  limits, iterators = CurvilinearGrids.GridTypes.get_node_cell_iterators(x2d, y2d, nhalo)
+  # limits, iterators = CurvilinearGrids.GridTypes.get_node_cell_iterators(x2d, y2d, nhalo)
+  limits, iterators = get_iterators(size(x2d), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
   backend = CPU()
