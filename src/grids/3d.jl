@@ -306,7 +306,6 @@ function UniformGrid3D(
   init_metrics=true,
   empty_metrics=false,
   halo_coords_included=false,
-  halo_coords_included=false,
   kwargs...,
 ) where {T<:Real}
 
