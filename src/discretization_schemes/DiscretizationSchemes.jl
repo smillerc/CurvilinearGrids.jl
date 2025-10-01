@@ -67,8 +67,15 @@ is `true`, one-sided derivatives will be used along the edges. If `false`, centr
 within the halo region is non-sensical, it will produce bad data.
 """
 function compute_first_derivatives!(
-  scheme::DiscretizationScheme, ∂ϕ, ϕ, axis, domain, backend; use_one_sided_on_edges=true
-)
+  scheme::DiscretizationScheme,
+  ∂ϕ,
+  ϕ::AbstractArray{T,N},
+  axis,
+  domain,
+  backend;
+  use_one_sided_on_edges=true,
+  floor=eps(T),
+) where {T,N}
   if use_one_sided_on_edges
     # shrink the derivative domain so the central deriv form can be used
     inner_domain = inner_domain_with_one_sided_edges(scheme, domain, axis)
@@ -78,15 +85,15 @@ function compute_first_derivatives!(
   end
 
   central_first_derivative_inner_domain_kernel!(
-    scheme.derivative_scheme, ∂ϕ, ϕ, axis, inner_domain, backend
+    scheme.derivative_scheme, ∂ϕ, ϕ, axis, inner_domain, backend, floor
   )
 
   if use_one_sided_on_edges
     mixed_first_derivative_lo_edge_kernel!(
-      scheme.derivative_scheme, ∂ϕ, ϕ, axis, domain, backend
+      scheme.derivative_scheme, ∂ϕ, ϕ, axis, domain, backend, floor
     )
     mixed_first_derivative_hi_edge_kernel!(
-      scheme.derivative_scheme, ∂ϕ, ϕ, axis, domain, backend
+      scheme.derivative_scheme, ∂ϕ, ϕ, axis, domain, backend, floor
     )
   end
 end
@@ -102,12 +109,13 @@ function compute_second_derivatives!(
   scheme::DiscretizationScheme,
   ∂²ϕ,
   ∂ϕ,
-  ϕ,
+  ϕ::AbstractArray{T,N},
   axis,
   derivative_domain,
   backend;
   use_one_sided_on_edges=true,
-)
+  floor=eps(T),
+) where {T,N}
   if use_one_sided_on_edges
     # shrink the domain so the central deriv form can be used
     # both ϕ and ∂ϕ in this form are _not_ populated in the halo regions
@@ -117,14 +125,14 @@ function compute_second_derivatives!(
     central_domain = derivative_domain
   end
 
-  central_second_derivative_inner_domain_kernel!(∂²ϕ, ∂ϕ, ϕ, axis, central_domain, backend)
+  central_second_derivative_inner_domain_kernel!(∂²ϕ, ∂ϕ, ϕ, axis, central_domain, backend, floor)
 
   if use_one_sided_on_edges
     mixed_first_derivative_lo_edge_kernel!(
-      scheme.derivative_scheme, ∂²ϕ, ∂ϕ, axis, derivative_domain, backend
+      scheme.derivative_scheme, ∂²ϕ, ∂ϕ, axis, derivative_domain, backend, floor
     )
     mixed_first_derivative_hi_edge_kernel!(
-      scheme.derivative_scheme, ∂²ϕ, ∂ϕ, axis, derivative_domain, backend
+      scheme.derivative_scheme, ∂²ϕ, ∂ϕ, axis, derivative_domain, backend, floor
     )
   end
 end
