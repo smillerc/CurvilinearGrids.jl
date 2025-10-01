@@ -23,6 +23,7 @@ function Adapt.adapt_structure(to, grid::SphericalGrid1D)
     grid.snap_to_axis,
     grid.is_static,
     grid.discretization_scheme_name,
+    grid.halo_coords_included,
   )
 end
 
@@ -49,6 +50,7 @@ function Adapt.adapt_structure(to, grid::CylindricalGrid1D)
     grid.snap_to_axis,
     grid.is_static,
     grid.discretization_scheme_name,
+    grid.halo_coords_included,
   )
 end
 
@@ -74,6 +76,7 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid1D)
     discretization_scheme,
     grid.is_static,
     grid.discretization_scheme_name,
+    grid.halo_coords_included,
   )
 end
 
@@ -100,6 +103,7 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid2D)
     grid.is_static,
     grid.is_orthogonal,
     grid.discretization_scheme_name,
+    grid.halo_coords_included,
   )
 end
 
@@ -128,6 +132,7 @@ function Adapt.adapt_structure(to, grid::AxisymmetricGrid2D)
     grid.is_static,
     grid.is_orthogonal,
     grid.discretization_scheme_name,
+    grid.halo_coords_included,
   )
 end
 
@@ -154,5 +159,6 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid3D)
     grid.is_static,
     grid.is_orthogonal,
     grid.discretization_scheme_name,
+    grid.halo_coords_included,
   )
 end
