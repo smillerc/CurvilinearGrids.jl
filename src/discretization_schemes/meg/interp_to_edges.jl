@@ -49,7 +49,7 @@ function interpolate_to_edge!(
 end
 
 @kernel inbounds = true function inner_kernel!(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, domain, axis)
-  idx = @index(Global)
+  idx = @index(Global, Linear)
   i = domain[idx]
 
   ᵢ₊₁ = shift(i, axis, +1)
@@ -62,7 +62,7 @@ end
 end
 
 @kernel inbounds = true function lo_edge_kernel!(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, lo_domain, axis)
-  idx = @index(Global)
+  idx = @index(Global, Linear)
   i = lo_domain[idx]
 
   # the lo-side derivative ∂ϕ/∂ξ can only use ϕᴿᵢ₋½ instead of ϕᵢ₋½
@@ -71,7 +71,7 @@ end
 end
 
 @kernel inbounds = true function hi_edge_kernel!(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, hi_domain, axis)
-  idx = @index(Global)
+  idx = @index(Global, Linear)
   i = hi_domain[idx]
 
   # the hi-side derivative ∂ϕ/∂ξ can only use ϕᴸᵢ₊½ instead of ϕᵢ₊½
