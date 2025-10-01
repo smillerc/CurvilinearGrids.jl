@@ -218,7 +218,7 @@ end
 @kernel inbounds = true function inverse_metric_2d_kernel!(
   x_ξ, x_η, y_ξ, y_η, ξ_x, ξ_y, η_x, η_y, jacobian, domain
 )
-  I = @index(Global, Cartesian)
+  I = @index(Global, Linear)
   idx = domain[I]
 
   _jacobian_matrix = @SMatrix [
