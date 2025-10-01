@@ -529,7 +529,7 @@ end
 # Private Functions
 # ------------------------------------------------------------------
 
-@kernel inbounds = true function _centroid_coordinates_kernel!(
+@kernel inbounds = false function _centroid_coordinates_kernel!(
   centroids::StructArray{T,3}, coords::StructArray{T,3}, domain
 ) where {T}
   idx = @index(Global)

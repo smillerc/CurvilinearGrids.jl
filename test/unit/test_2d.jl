@@ -156,6 +156,85 @@ end
   surf = extract_surface_mesh(mesh, :ilo)
 end
 
+@testset "2D Rectangular Mesh -- Halo Geometry Defined" begin
+  ni, nj = (40, 80)
+  x0, x1 = (0, 2)
+  y0, y1 = (1, 3)
+  mesh = RectilinearGrid2D((x0, y0), (x1, y1), (ni, nj), :MEG6; halo_coords_included=true)
+  domain = mesh.iterators.cell.full
+
+  @test mesh.iterators.cell.full == CartesianIndices((40, 80))
+  @test mesh.iterators.cell.domain == CartesianIndices((6:35, 6:75))
+
+  @test mesh.iterators.node.full == CartesianIndices((41, 81))
+  @test mesh.iterators.node.domain == CartesianIndices((6:36, 6:76))
+
+  @test mesh.domain_limits.node == (ilo=6, ihi=36, jlo=6, jhi=76)
+  @test mesh.domain_limits.cell == (ilo=6, ihi=35, jlo=6, jhi=75)
+
+  @test all(mesh.cell_center_metrics.J[domain] .≈ 0.00125)
+  @test all(mesh.cell_center_metrics.x₁.ξ[domain] .≈ 0.05)
+  @test all(mesh.cell_center_metrics.x₂.ξ[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₁.η[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₂.η[domain] .≈ 0.025)
+
+  @test all(mesh.cell_center_metrics.ξ.x₁[domain] .≈ 20.0)
+  @test all(mesh.cell_center_metrics.ξ.x₂[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.x₁[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.x₂[domain] .≈ 40.0)
+  @test all(mesh.cell_center_metrics.ξ.t[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.t[domain] .≈ 0.0)
+
+  @test all(mesh.cell_center_metrics.ξ̂.x₁[domain] .≈ 0.025)
+  @test all(mesh.cell_center_metrics.ξ̂.x₂[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.x₁[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.x₂[domain] .≈ 0.05)
+  @test all(mesh.cell_center_metrics.ξ̂.t[domain] .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.t[domain] .≈ 0.0)
+
+  iaxis, jaxis = (1, 2)
+  i₊½_domain = expand(domain, iaxis, -1)
+  j₊½_domain = expand(domain, jaxis, -1)
+
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain] .≈ 0.025)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain] .≈ 0.05)
+
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain] .≈ 0.025)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain] .≈ 0.05)
+
+  @test all(mesh.edge_metrics.i₊½.J[i₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.i₊½.ξ.x₁[i₊½_domain] .≈ 20.0)
+  @test all(mesh.edge_metrics.i₊½.ξ.x₂[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η.x₁[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η.x₂[i₊½_domain] .≈ 40.0)
+
+  @test all(mesh.edge_metrics.j₊½.J[j₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.j₊½.ξ.x₁[j₊½_domain] .≈ 20.0)
+  @test all(mesh.edge_metrics.j₊½.ξ.x₂[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η.x₁[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η.x₂[j₊½_domain] .≈ 40.0)
+
+  ilo_c = mesh.nhalo + 1
+  jlo_c = mesh.nhalo + 1
+
+  @test coord(mesh, (ilo_c + 1, jlo_c + 1)) == [0.3, 1.15]
+  @test centroid(mesh, (ilo_c, jlo_c)) == [0.275, 1.1375]
+
+  xn, yn = coords(mesh)
+  @test size(xn) == (31, 71)
+  @test size(yn) == (31, 71)
+
+  xc, yc = centroids(mesh)
+  @test size(xc) == (30, 70)
+  @test size(yc) == (30, 70)
+
+  surf = extract_surface_mesh(mesh, :ilo)
+end
+
 @testset "2D Wavy Mesh GCL" begin
   function wavy_grid(nx, ny)
     x0, x1 = (0, 1)
@@ -220,4 +299,43 @@ end
 
   save_vtk(mesh, "wavy")
   nothing
+end
+
+@testset "2D Wavy Mesh GCL -- Halo Geometry Defined" begin
+  using CurvilinearGrids
+
+  function wavy_grid(nx, ny)
+    x0, x1 = (0, 1)
+    y0, y1 = (0, 1)
+    a0 = 0.1
+
+    function x(i, j)
+      x1d = x0 + (x1 - x0) * ((i - 1) / (nx - 1))
+      y1d = y0 + (y1 - y0) * ((j - 1) / (ny - 1))
+      return x1d + a0 * sin(2 * pi * x1d) * sin(2 * pi * y1d)
+    end
+
+    function y(i, j)
+      x1d = x0 + (x1 - x0) * ((i - 1) / (nx - 1))
+      y1d = y0 + (y1 - y0) * ((j - 1) / (ny - 1))
+      return y1d + a0 * sin(2 * pi * x1d) * sin(2 * pi * y1d)
+    end
+
+    X = zeros(nx, ny)
+    Y = zeros(nx, ny)
+    for j in 1:ny
+      for i in 1:nx
+        X[i, j] = x(i, j)
+        Y[i, j] = y(i, j)
+      end
+    end
+
+    return X, Y
+  end
+
+  ni, nj = (41, 41)
+  x, y = wavy_grid(ni, nj)
+  mesh = CurvilinearGrid2D(x, y, :MEG6; halo_coords_included=true)
+
+  # gcl(mesh)
 end

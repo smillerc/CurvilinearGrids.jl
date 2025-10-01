@@ -93,7 +93,7 @@ function CurvilinearGrid1D(
   )
 
   coords, centroids, node_velocities, nnodes = _grid_constructor(
-    x, iterators; backend=backend
+    x, iterators, halo_coords_included; backend=backend
   )
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
@@ -114,7 +114,7 @@ function CurvilinearGrid1D(
   )
 
   if !empty_metrics
-    update!(m; force=true)
+    update!(m, true, halo_coords_included)
   end
   return m
 end
@@ -153,7 +153,7 @@ function UniformGrid1D(
   )
 
   if !empty_metrics
-    update!(m; force=true)
+    update!(m, true, halo_coords_included)
   end
   return m
 end
@@ -196,7 +196,7 @@ function UniformGrid1D(
   )
 
   coords, centroids, node_velocities, nnodes = _grid_constructor(
-    x, iterators; backend=backend
+    x, iterators, halo_coords_included; backend=backend
   )
 
   cell_center_metrics, edge_metrics = get_metric_soa_uniform1d(celldims, backend, T)
@@ -216,13 +216,17 @@ function UniformGrid1D(
     scheme_name,
   )
 
-  update!(m; force=true)
+  update!(m, true, halo_coords_included)
 
   return m
 end
 
 function _grid_constructor(
-  x::AbstractVector{T}, domain_iterators; backend=KernelAbstractions.CPU(), kwargs...
+  x::AbstractVector{T},
+  domain_iterators,
+  halo_coords_included;
+  backend=KernelAbstractions.CPU(),
+  kwargs...,
 ) where {T}
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
@@ -230,9 +234,21 @@ function _grid_constructor(
   centroids = StructArray((x=KernelAbstractions.zeros(backend, T, celldims),))
   coords = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
-  @views begin
-    copy!(coords.x[domain_iterators.node.domain], x)
+  if halo_coords_included
+    copy!(coords.x, x)
+  else
+    @views begin
+      copy!(coords.x[domain_iterators.node.domain], x)
+    end
   end
+
+  if halo_coords_included
+    domain = domain_iterators.cell.full
+  else
+    domain = domain_iterators.cell.domain
+  end
+
+  _centroid_coordinates_kernel!(backend)(centroids, coords, domain; ndrange=size(domain))
 
   node_velocities = StructArray((x=KernelAbstractions.zeros(backend, T, nodedims),))
 
@@ -273,7 +289,7 @@ function SphericalGrid1D(
   )
 
   coords, centroids, node_velocities, nnodes = _grid_constructor(
-    x, iterators; backend=backend
+    x, iterators, halo_coords_included; backend=backend
   )
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
@@ -294,7 +310,7 @@ function SphericalGrid1D(
     scheme_name,
   )
 
-  update!(m; force=true)
+  update!(m, true, halo_coords_included)
   return m
 end
 
@@ -331,7 +347,7 @@ function CylindricalGrid1D(
   )
 
   coords, centroids, node_velocities, nnodes = _grid_constructor(
-    x, iterators; backend=backend
+    x, iterators, halo_coords_included; backend=backend
   )
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
@@ -352,14 +368,12 @@ function CylindricalGrid1D(
     scheme_name,
   )
 
-  update!(m; force=true)
+  update!(m, true, halo_coords_included)
   return m
 end
 
 """Update metrics after grid coordinates change"""
-function update!(
-  mesh::AbstractCurvilinearGrid1D; force=false, include_halo_region::Bool=false
-)
+function update!(mesh::AbstractCurvilinearGrid1D, force, include_halo_region)
   if include_halo_region
     metric_domain = mesh.iterators.cell.full
   else
@@ -416,7 +430,7 @@ end
 # Coordinate Functions
 # ------------------------------------------------------------------
 
-@kernel inbounds = true function _centroid_coordinates_kernel!(
+@kernel inbounds = false function _centroid_coordinates_kernel!(
   centroids::StructArray{T,1}, coords::StructArray{T,1}, domain
 ) where {T}
   idx = @index(Global)

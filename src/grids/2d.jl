@@ -159,7 +159,7 @@ function CurvilinearGrid2D(
   )
 
   coords, centroids, node_velocities, nnodes = _grid_constructor(
-    x, y, iterators; backend=backend
+    x, y, iterators, halo_coords_included; backend=backend
   )
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
@@ -181,7 +181,7 @@ function CurvilinearGrid2D(
   )
 
   if init_metrics && !empty_metrics
-    update!(m; force=true)
+    update!(m, true, halo_coords_included)
   end
 
   return m
@@ -251,7 +251,7 @@ function RectilinearGrid2D(
   )
 
   coords, centroids, node_velocities, nnodes = _grid_constructor(
-    x2d, y2d, iterators; backend=backend
+    x2d, y2d, iterators, halo_coords_included; backend=backend
   )
 
   cell_center_metrics, edge_metrics = get_metric_soa_rectilinear2d(celldims, backend, T)
@@ -272,7 +272,7 @@ function RectilinearGrid2D(
   )
 
   if init_metrics && !empty_metrics
-    update!(m; force=true)
+    update!(m, true, halo_coords_included)
   end
   return m
 end
@@ -381,7 +381,7 @@ function UniformGrid2D(
   )
 
   coords, centroids, node_velocities, nnodes = _grid_constructor(
-    x2d, y2d, iterators; backend=backend
+    x2d, y2d, iterators, halo_coords_included; backend=backend
   )
 
   cell_center_metrics, edge_metrics = get_metric_soa_uniform2d(celldims, backend, T)
@@ -402,13 +402,18 @@ function UniformGrid2D(
   )
 
   if init_metrics && !empty_metrics
-    update!(m; force=true)
+    update!(m, true, halo_coords_included)
   end
   return m
 end
 
 function _grid_constructor(
-  x::AbstractArray{T,2}, y::AbstractArray{T,2}, domain_iterators; backend=CPU(), kwargs...
+  x::AbstractArray{T,2},
+  y::AbstractArray{T,2},
+  domain_iterators,
+  halo_coords_included;
+  backend=CPU(),
+  kwargs...,
 ) where {T}
 
   #
@@ -420,9 +425,14 @@ function _grid_constructor(
     y=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  @views begin
-    copy!(coords.x[domain_iterators.node.domain], x)
-    copy!(coords.y[domain_iterators.node.domain], y)
+  if halo_coords_included
+    copy!(coords.x, x)
+    copy!(coords.y, y)
+  else
+    @views begin
+      copy!(coords.x[domain_iterators.node.domain], x)
+      copy!(coords.y[domain_iterators.node.domain], y)
+    end
   end
 
   centroids = StructArray((
@@ -430,12 +440,13 @@ function _grid_constructor(
     y=KernelAbstractions.zeros(backend, T, celldims),
   ))
 
-  _centroid_coordinates_kernel!(backend)(
-    centroids,
-    coords,
-    domain_iterators.cell.domain;
-    ndrange=size(domain_iterators.cell.domain),
-  )
+  if halo_coords_included
+    domain = domain_iterators.cell.full
+  else
+    domain = domain_iterators.cell.domain
+  end
+
+  _centroid_coordinates_kernel!(backend)(centroids, coords, domain; ndrange=size(domain))
 
   node_velocities = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
@@ -528,7 +539,7 @@ function AxisymmetricGrid2D(
   )
 
   coords, centroids, node_velocities, nnodes = _grid_constructor(
-    x, y, iterators; backend=backend
+    x, y, iterators, halo_coords_included; backend=backend
   )
   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
@@ -550,7 +561,7 @@ function AxisymmetricGrid2D(
     scheme_name,
   )
 
-  update!(m)
+  update!(m, true, halo_coords_included)
 
   if make_uniform
     first_idx = first(m.iterators.cell.domain)
@@ -590,9 +601,7 @@ function AxisymmetricGrid2D(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(
-  mesh::AbstractCurvilinearGrid2D; force=false, include_halo_region::Bool=false
-)
+function update!(mesh::AbstractCurvilinearGrid2D, force::Bool, include_halo_region::Bool)
   if include_halo_region
     metric_domain = mesh.iterators.cell.full
   else
@@ -616,7 +625,7 @@ function update!(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(mesh::AxisymmetricGrid2D; force=false, include_halo_region::Bool=false)
+function update!(mesh::AxisymmetricGrid2D, force::Bool, include_halo_region::Bool)
   if include_halo_region
     metric_domain = mesh.iterators.cell.full
   else
@@ -706,7 +715,7 @@ end
 # Private Functions
 # ------------------------------------------------------------------
 
-@kernel inbounds = true function _centroid_coordinates_kernel!(
+@kernel inbounds = false function _centroid_coordinates_kernel!(
   centroids::StructArray{T,2}, coords::StructArray{T,2}, domain
 ) where {T}
   idx = @index(Global)
