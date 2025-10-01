@@ -12,6 +12,7 @@ struct CurvilinearGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   discretization_scheme::DS
   is_static::Bool
   discretization_scheme_name::Symbol
+  halo_coords_included::Bool
 end
 
 struct UniformGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
@@ -27,6 +28,7 @@ struct UniformGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   discretization_scheme::DS
   is_static::Bool
   discretization_scheme_name::Symbol
+  halo_coords_included::Bool
 end
 
 struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
@@ -43,6 +45,7 @@ struct SphericalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   snap_to_axis::Bool
   is_static::Bool
   discretization_scheme_name::Symbol
+  halo_coords_included::Bool
 end
 
 struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
@@ -59,6 +62,7 @@ struct CylindricalGrid1D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid1D
   snap_to_axis::Bool
   is_static::Bool
   discretization_scheme_name::Symbol
+  halo_coords_included::Bool
 end
 
 """
@@ -111,6 +115,7 @@ function CurvilinearGrid1D(
     discr_scheme,
     is_static,
     scheme_name,
+    halo_coords_included,
   )
 
   if !empty_metrics
@@ -214,6 +219,7 @@ function UniformGrid1D(
     discr_scheme,
     is_static,
     scheme_name,
+    halo_coords_included,
   )
 
   update!(m, true, halo_coords_included)
@@ -308,6 +314,7 @@ function SphericalGrid1D(
     snap_to_axis,
     is_static,
     scheme_name,
+    halo_coords_included,
   )
 
   update!(m, true, halo_coords_included)
@@ -366,6 +373,7 @@ function CylindricalGrid1D(
     snap_to_axis,
     is_static,
     scheme_name,
+    halo_coords_included,
   )
 
   update!(m, true, halo_coords_included)
@@ -433,7 +441,7 @@ end
 @kernel inbounds = false function _centroid_coordinates_kernel!(
   centroids::StructArray{T,1}, coords::StructArray{T,1}, domain
 ) where {T}
-  idx = @index(Global)
+  idx = @index(Global, Linear)
   didx = domain[idx]
   i, = didx.I
 

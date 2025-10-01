@@ -17,6 +17,7 @@ struct CurvilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   is_static::Bool
   is_orthogonal::Bool
   discretization_scheme_name::Symbol
+  halo_coords_included::Bool
 end
 
 """
@@ -36,6 +37,7 @@ struct RectilinearGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme::DS
   is_static::Bool
   discretization_scheme_name::Symbol
+  halo_coords_included::Bool
 end
 
 """
@@ -55,6 +57,7 @@ struct UniformGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   discretization_scheme::DS
   is_static::Bool
   discretization_scheme_name::Symbol
+  halo_coords_included::Bool
 end
 
 """
@@ -76,6 +79,7 @@ struct AxisymmetricGrid2D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid2D
   is_static::Bool
   is_orthogonal::Bool
   discretization_scheme_name::Symbol
+  halo_coords_included::Bool
 end
 
 """
@@ -178,6 +182,7 @@ function CurvilinearGrid2D(
     is_static,
     is_orthogonal,
     scheme_name,
+    halo_coords_included,
   )
 
   if init_metrics && !empty_metrics
@@ -269,6 +274,7 @@ function RectilinearGrid2D(
     discr_scheme,
     is_static,
     scheme_name,
+    halo_coords_included,
   )
 
   if init_metrics && !empty_metrics
@@ -399,6 +405,7 @@ function UniformGrid2D(
     discr_scheme,
     is_static,
     scheme_name,
+    halo_coords_included,
   )
 
   if init_metrics && !empty_metrics
@@ -559,6 +566,7 @@ function AxisymmetricGrid2D(
     is_static,
     is_orthogonal,
     scheme_name,
+    halo_coords_included,
   )
 
   update!(m, true, halo_coords_included)
@@ -718,7 +726,7 @@ end
 @kernel inbounds = false function _centroid_coordinates_kernel!(
   centroids::StructArray{T,2}, coords::StructArray{T,2}, domain
 ) where {T}
-  idx = @index(Global)
+  idx = @index(Global, Linear)
   didx = domain[idx]
   i, j = didx.I
 

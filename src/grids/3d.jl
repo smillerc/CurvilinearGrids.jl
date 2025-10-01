@@ -13,6 +13,7 @@ struct CurvilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid3D
   is_static::Bool
   is_orthogonal::Bool
   discretization_scheme_name::Symbol
+  halo_coords_included::Bool
 end
 
 struct RectilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid3D
@@ -28,6 +29,7 @@ struct RectilinearGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid3D
   discretization_scheme::DS
   is_static::Bool
   discretization_scheme_name::Symbol
+  halo_coords_included::Bool
 end
 
 struct UniformGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid3D
@@ -43,6 +45,7 @@ struct UniformGrid3D{CO,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid3D
   discretization_scheme::DS
   is_static::Bool
   discretization_scheme_name::Symbol
+  halo_coords_included::Bool
 end
 
 """
@@ -83,7 +86,7 @@ function CurvilinearGrid3D(
   )
 
   coords, centroids, node_velocities, nnodes = _grid_constructor(
-    x, y, z, iterators; backend=backend
+    x, y, z, iterators, halo_coords_included; backend=backend
   )
   cell_center_metrics, edge_metrics = get_metric_soa(celldims, backend, T)
 
@@ -101,10 +104,11 @@ function CurvilinearGrid3D(
     is_static,
     is_orthogonal,
     scheme_name,
+    halo_coords_included,
   )
 
   if init_metrics && !empty_metrics
-    update!(m; force=true)
+    update!(m, true, halo_coords_included)
   end
 
   return m
@@ -248,7 +252,7 @@ function RectilinearGrid3D(
   )
 
   coords, centroids, node_velocities, nnodes = _grid_constructor(
-    x3d, y3d, z3d, iterators; backend=backend
+    x3d, y3d, z3d, iterators, halo_coords_included; backend=backend
   )
 
   cell_center_metrics, edge_metrics = get_metric_soa_rectilinear3d(celldims, backend, T)
@@ -266,10 +270,11 @@ function RectilinearGrid3D(
     discr_scheme,
     is_static,
     scheme_name,
+    halo_coords_included,
   )
 
   if init_metrics && !empty_metrics
-    update!(m; force=true)
+    update!(m, true, halo_coords_included)
   end
 
   return m
@@ -374,7 +379,7 @@ function UniformGrid3D(
   )
 
   coords, centroids, node_velocities, nnodes = _grid_constructor(
-    x3d, y3d, z3d, iterators; backend=backend
+    x3d, y3d, z3d, iterators, halo_coords_included; backend=backend
   )
 
   cell_center_metrics, edge_metrics = get_metric_soa_uniform3d(celldims, backend, T)
@@ -392,10 +397,11 @@ function UniformGrid3D(
     discr_scheme,
     is_static,
     scheme_name,
+    halo_coords_included,
   )
 
   if init_metrics && !empty_metrics
-    update!(m; force=true)
+    update!(m, true, halo_coords_included)
   end
 
   return m
@@ -406,7 +412,8 @@ function _grid_constructor(
   x::AbstractArray{T,3},
   y::AbstractArray{T,3},
   z::AbstractArray{T,3},
-  domain_iterators;
+  domain_iterators,
+  halo_coords_included;
   backend=KernelAbstractions.CPU(),
   kwargs...,
 ) where {T}
@@ -421,17 +428,31 @@ function _grid_constructor(
     z=KernelAbstractions.zeros(backend, T, nodedims),
   ))
 
-  @views begin
-    copy!(coords.x[domain_iterators.node.domain], x)
-    copy!(coords.y[domain_iterators.node.domain], y)
-    copy!(coords.z[domain_iterators.node.domain], z)
-  end
-
   centroids = StructArray((
     x=KernelAbstractions.zeros(backend, T, celldims),
     y=KernelAbstractions.zeros(backend, T, celldims),
     z=KernelAbstractions.zeros(backend, T, celldims),
   ))
+
+  if halo_coords_included
+    copy!(coords.x, x)
+    copy!(coords.y, y)
+    copy!(coords.z, z)
+  else
+    @views begin
+      copy!(coords.x[domain_iterators.node.domain], x)
+      copy!(coords.y[domain_iterators.node.domain], y)
+      copy!(coords.z[domain_iterators.node.domain], z)
+    end
+  end
+
+  if halo_coords_included
+    domain = domain_iterators.cell.full
+  else
+    domain = domain_iterators.cell.domain
+  end
+
+  _centroid_coordinates_kernel!(backend)(centroids, coords, domain; ndrange=size(domain))
 
   node_velocities = StructArray((
     x=KernelAbstractions.zeros(backend, T, nodedims),
@@ -444,9 +465,7 @@ function _grid_constructor(
 end
 
 """Update metrics after grid coordinates change"""
-function update!(
-  mesh::AbstractCurvilinearGrid3D; force=false, include_halo_region::Bool=false
-)
+function update!(mesh::AbstractCurvilinearGrid3D, force::Bool, include_halo_region::Bool)
   if include_halo_region
     metric_domain = mesh.iterators.cell.full
   else
@@ -529,10 +548,10 @@ end
 # Private Functions
 # ------------------------------------------------------------------
 
-@kernel inbounds = false function _centroid_coordinates_kernel!(
+@kernel inbounds = true function _centroid_coordinates_kernel!(
   centroids::StructArray{T,3}, coords::StructArray{T,3}, domain
 ) where {T}
-  idx = @index(Global)
+  idx = @index(Global, Linear)
   didx = domain[idx]
   i, j, k = didx.I
 
