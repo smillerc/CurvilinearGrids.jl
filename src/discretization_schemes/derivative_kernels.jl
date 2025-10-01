@@ -228,7 +228,7 @@ function mixed_first_derivative_lo_edge_kernel!(
   ::SixthOrder, ∂W, W, ∂axis, domain, backend::GPU
 )
   @kernel inbounds = true function _first_deriv_lo_kernel!(ϕ, ∂ϕ, axis, ∂domain)
-    idx = @index(Global)
+    idx = @index(Global, Linear)
     i = ∂domain[idx]
 
     ᵢ₊₁ = shift(i, axis, +1)
@@ -256,7 +256,7 @@ function mixed_first_derivative_hi_edge_kernel!(
   ::SixthOrder, ∂W, W, ∂axis, domain, backend::GPU
 )
   @kernel inbounds = true function _first_deriv_hi_kernel!(ϕ, ∂ϕ, axis, ∂domain)
-    idx = @index(Global)
+    idx = @index(Global, Linear)
     i = ∂domain[idx]
 
     ᵢ₋₁ = shift(i, axis, -1)
