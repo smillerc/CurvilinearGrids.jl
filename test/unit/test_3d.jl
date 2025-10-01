@@ -151,6 +151,44 @@ end
   gcl(mesh)
 end
 
+@testset "3D Wavy Mesh GCL -- Halo Defined Geometry" begin
+  using CurvilinearGrids
+  using WriteVTK
+
+  function wavy_grid(ni, nj, nk)
+    Lx = Ly = Lz = 4.0
+
+    xmin = -Lx / 2
+    ymin = -Ly / 2
+    zmin = -Lz / 2
+
+    Δx0 = Lx / ni
+    Δy0 = Ly / nj
+    Δz0 = Lz / nk
+
+    x = zeros(ni, nj, nk)
+    y = zeros(ni, nj, nk)
+    z = zeros(ni, nj, nk)
+    for k in 1:nk
+      for j in 1:nj
+        for i in 1:ni
+          x[i, j, k] = xmin + Δx0 * ((i - 1) + sinpi((j - 1) * Δy0) * sinpi((k - 1) * Δz0))
+          y[i, j, k] = ymin + Δy0 * ((j - 1) + sinpi((k - 1) * Δz0) * sinpi((i - 1) * Δx0))
+          z[i, j, k] = zmin + Δz0 * ((k - 1) + sinpi((i - 1) * Δx0) * sinpi((j - 1) * Δy0))
+        end
+      end
+    end
+
+    return (x, y, z)
+  end
+
+  ni = nj = nk = 20
+  x, y, z = wavy_grid(ni, nj, nk)
+  mesh = CurvilinearGrid3D(x, y, z, :meg6; halo_coords_included=true)
+
+  gcl(mesh)
+end
+
 @testset "3D Sphere Sector, Symmetric Conservative Metrics" begin
   r0, r1 = (1, 3)
   (θ0, θ1) = deg2rad.((35, 180 - 35))
