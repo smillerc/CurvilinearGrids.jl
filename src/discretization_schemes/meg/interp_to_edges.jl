@@ -26,24 +26,23 @@ function interpolate_to_edge!(
     error("The given ϕᵢ₊½ and ϕ arrays must have the same size and indexing scheme")
   end
 
-  # backend = KernelAbstractions.get_backend(scheme.cache.outer_deriv_1)
-  #   nhalo = scheme.nhalo_for_derivs # 3
-  nhalo = 3
   ∂ϕ = scheme.cache.∂ϕ
   ∂²ϕ = scheme.cache.∂²ϕ
   compute_first_derivatives!(scheme, ∂ϕ, ϕ, axis, domain, backend)
   compute_second_derivatives!(scheme, ∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, domain, backend)
 
-  # domain = CartesianIndices(ϕ)
-  inner_domain = domain # expand(domain, axis, 0)
+  if size(domain) == size(ϕ)
+    inner_domain = expand(domain, axis, -1)
+    lo_domain = lower_boundary_indices(domain, axis, +1) # select first index along given boundary axis
+    hi_domain = upper_boundary_indices(domain, axis, -1)  # select last index along given boundary axis
+  else
+    inner_domain = domain
+    lo_domain = lower_boundary_indices(domain, axis, 0)
+    hi_domain = upper_boundary_indices(domain, axis, 0)
+  end
+
   inner_kernel!(backend)(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, inner_domain, axis; ndrange=size(inner_domain))
-
-  # select first index along given boundary axis
-  lo_domain = lower_boundary_indices(domain, axis, 0)
   lo_edge_kernel!(backend)(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, lo_domain, axis; ndrange=size(lo_domain))
-
-  # select last index along given boundary axis
-  hi_domain = upper_boundary_indices(domain, axis, 0)
   hi_edge_kernel!(backend)(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, hi_domain, axis; ndrange=size(hi_domain))
 
   return nothing
