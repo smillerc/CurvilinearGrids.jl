@@ -8,158 +8,203 @@ export write_coordinates, read_coordinates
 ### Write h5 functions
 
 """ Write 1D Curvilinear grid information to .h5 format """
-function write_coordinates(mesh::CurvilinearGrid1D, filename::String)
-  units = Dict(:length => u"cm")
+function write_coordinates(
+  mesh::CurvilinearGrid1D, filename::String, units::Unitful.FreeUnits
+)
+  dim_type = dimension(units)
+  if dim_type != Unitful.𝐋
+    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
+  end
+
   x = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
   # Write mesh
   h5open(filename, "w") do file
     h5write(filename, "x", collect(x))
-    h5writeattr(filename, "x", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
   end
 end
 
 """ Write 2D Curvilinear grid information to .h5 format """
-function write_coordinates(mesh::CurvilinearGrid2D, filename::String)
-  units = Dict(:length => u"cm")
+function write_coordinates(
+  mesh::CurvilinearGrid2D, filename::String, units::Unitful.FreeUnits
+)
+  dim_type = dimension(units)
+  if dim_type != Unitful.𝐋
+    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
+  end
+
   x, y = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
   # Write mesh
   h5open(filename, "w") do file
     h5write(filename, "x", collect(x'))
-    h5writeattr(filename, "x", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "y", collect(y'))
-    h5writeattr(filename, "y", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
   end
 end
 
 """ Write 3D Curvilinear grid information to .h5 format """
-function write_coordinates(mesh::CurvilinearGrid3D, filename::String)
-  units = Dict(:length => u"cm")
+function write_coordinates(
+  mesh::CurvilinearGrid3D, filename::String, units::Unitful.FreeUnits
+)
+  dim_type = dimension(units)
+  if dim_type != Unitful.𝐋
+    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
+  end
+
   x, y, z = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
-  @show mesh_type
 
   # Write mesh
   h5open(filename, "w") do file
     h5write(filename, "x", collect(x))
-    h5writeattr(filename, "x", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "y", collect(y))
-    h5writeattr(filename, "y", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
 
     h5write(filename, "z", collect(z))
-    h5writeattr(filename, "z", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "z", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
   end
 end
 
 """ Write 1D Uniform grid information to .h5 format """
-function write_coordinates(mesh::UniformGrid1D, filename::String)
-  units = Dict(:length => u"cm")
+function write_coordinates(mesh::UniformGrid1D, filename::String, units::Unitful.FreeUnits)
+  dim_type = dimension(units)
+  if dim_type != Unitful.𝐋
+    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
+  end
+
   x = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
   # Write mesh
   h5open(filename, "w") do file
     h5write(filename, "x", collect(x))
-    h5writeattr(filename, "x", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
   end
 end
 
 """ Write 2D Uniform grid information to .h5 format """
-function write_coordinates(mesh::UniformGrid2D, filename::String)
-  units = Dict(:length => u"cm")
+function write_coordinates(mesh::UniformGrid2D, filename::String, units::Unitful.FreeUnits)
+  dim_type = dimension(units)
+  if dim_type != Unitful.𝐋
+    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
+  end
+
   x, y = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
   # Write mesh
   h5open(filename, "w") do file
     h5write(filename, "x", collect(x'))
-    h5writeattr(filename, "x", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "y", collect(y'))
-    h5writeattr(filename, "y", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
   end
 end
 
 """ Write 3D Uniform grid information to .h5 format """
-function write_coordinates(mesh::UniformGrid3D, filename::String)
-  units = Dict(:length => u"cm")
+function write_coordinates(mesh::UniformGrid3D, filename::String, units::Unitful.FreeUnits)
+  dim_type = dimension(units)
+  if dim_type != Unitful.𝐋
+    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
+  end
+
   x, y, z = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
-  @show mesh_type
 
   # Write mesh
   h5open(filename, "w") do file
     h5write(filename, "x", collect(x))
-    h5writeattr(filename, "x", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "y", collect(y))
-    h5writeattr(filename, "y", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
 
     h5write(filename, "z", collect(z))
-    h5writeattr(filename, "z", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "z", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
   end
 end
 
 """ Write 2D Rectilinear grid information to .h5 format """
-function write_coordinates(mesh::RectilinearGrid2D, filename::String)
-  units = Dict(:length => u"cm")
+function write_coordinates(
+  mesh::RectilinearGrid2D, filename::String, units::Unitful.FreeUnits
+)
+  dim_type = dimension(units)
+  if dim_type != Unitful.𝐋
+    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
+  end
+
   x, y = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
   # Write mesh
   h5open(filename, "w") do file
     h5write(filename, "x", collect(x'))
-    h5writeattr(filename, "x", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "y", collect(y'))
-    h5writeattr(filename, "y", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
   end
 end
 
-""" Write 3D Curvilinear grid information to .h5 format """
-function write_coordinates(mesh::RectilinearGrid3D, filename::String)
-  units = Dict(:length => u"cm")
+""" Write 3D Rectilinear grid information to .h5 format """
+function write_coordinates(
+  mesh::RectilinearGrid3D, filename::String, units::Unitful.FreeUnits
+)
+  dim_type = dimension(units)
+  if dim_type != Unitful.𝐋
+    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
+  end
+
   x, y, z = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
-  @show mesh_type
 
   # Write mesh
   h5open(filename, "w") do file
     h5write(filename, "x", collect(x))
-    h5writeattr(filename, "x", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "y", collect(y))
-    h5writeattr(filename, "y", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
 
     h5write(filename, "z", collect(z))
-    h5writeattr(filename, "z", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "z", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
   end
 end
 
 """ Write 1D Cylindrical grid information to .h5 format """
-function write_coordinates(mesh::CylindricalGrid1D, filename::String)
-  units = Dict(:length => u"cm")
+function write_coordinates(
+  mesh::CylindricalGrid1D, filename::String, units::Unitful.FreeUnits
+)
+  dim_type = dimension(units)
+  if dim_type != Unitful.𝐋
+    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
+  end
+
   x = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
   snap_to_axis = mesh.snap_to_axis
@@ -167,7 +212,7 @@ function write_coordinates(mesh::CylindricalGrid1D, filename::String)
   # Write mesh
   h5open(filename, "w") do file
     h5write(filename, "x", collect(x))
-    h5writeattr(filename, "x", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
 
@@ -176,8 +221,14 @@ function write_coordinates(mesh::CylindricalGrid1D, filename::String)
 end
 
 """ Write 2D Axisymmetric grid information to .h5 format """
-function write_coordinates(mesh::AxisymmetricGrid2D, filename::String)
-  units = Dict(:length => u"cm")
+function write_coordinates(
+  mesh::AxisymmetricGrid2D, filename::String, units::Unitful.FreeUnits
+)
+  dim_type = dimension(units)
+  if dim_type != Unitful.𝐋
+    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
+  end
+
   x, y = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
   snap_to_axis = mesh.snap_to_axis
@@ -186,10 +237,10 @@ function write_coordinates(mesh::AxisymmetricGrid2D, filename::String)
   # Write mesh
   h5open(filename, "w") do file
     h5write(filename, "x", collect(x'))
-    h5writeattr(filename, "x", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "y", collect(y'))
-    h5writeattr(filename, "y", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
 
@@ -200,8 +251,14 @@ function write_coordinates(mesh::AxisymmetricGrid2D, filename::String)
 end
 
 """ Write 1D Spherical grid information to .h5 format """
-function write_coordinates(mesh::SphericalGrid1D, filename::String)
-  units = Dict(:length => u"cm")
+function write_coordinates(
+  mesh::SphericalGrid1D, filename::String, units::Unitful.FreeUnits
+)
+  dim_type = dimension(units)
+  if dim_type != Unitful.𝐋
+    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
+  end
+
   x = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
   snap_to_axis = mesh.snap_to_axis
@@ -209,7 +266,7 @@ function write_coordinates(mesh::SphericalGrid1D, filename::String)
   # Write mesh
   h5open(filename, "w") do file
     h5write(filename, "x", collect(x))
-    h5writeattr(filename, "x", Dict("Units" => string(units[:length])))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
 
