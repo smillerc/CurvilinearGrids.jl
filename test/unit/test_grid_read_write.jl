@@ -1,6 +1,4 @@
-using CurvilinearGrids
-
-using Unitful, Test
+using Unitful
 
 function initialize_mesh_Curvilinear1D()
   x0 = 0.0u"m"
@@ -184,8 +182,9 @@ end
 
 function test_write(mesh)
   grid_fn = "$(@__DIR__)/grid.h5"
+  units = u"cm"
 
-  write_coordinates(mesh, grid_fn)
+  write_coordinates(mesh, grid_fn, units)
 end
 
 function test_read()
@@ -198,7 +197,7 @@ function test_read()
   return mesh
 end
 
-@testset "Write/Read CurvilinearGrid" begin
+@testset "Read/Write CurvilinearGrid to .h5" begin
   mesh1D_0 = initialize_mesh_Curvilinear1D()
   mesh2D_0 = initialize_mesh_Curvilinear2D()
   mesh3D_0 = initialize_mesh_Curvilinear3D()
@@ -231,7 +230,7 @@ end
   @test z3_0 == z3
 end
 
-@testset "Write/Read UniformGrid" begin
+@testset "Read/Write UniformGrid to .h5" begin
   mesh1D_0 = initialize_mesh_Uniform1D()
   mesh2D_0 = initialize_mesh_Uniform2D()
   mesh3D_0 = initialize_mesh_Uniform3D()
@@ -264,7 +263,7 @@ end
   @test z3_0 == z3
 end
 
-@testset "Write/Read RectilinearGrid" begin
+@testset "Read/Write RectilinearGrid to .h5" begin
   mesh2D_0 = initialize_mesh_Rectilinear2D()
   mesh3D_0 = initialize_mesh_Rectilinear3D()
 
@@ -288,7 +287,7 @@ end
   @test z3_0 == z3
 end
 
-@testset "Write/Read CylindricalGrid" begin
+@testset "Read/Write CylindricalGrid to .h5" begin
   mesh1D_0 = initialize_mesh_Cylindrical1D()
 
   test_write(mesh1D_0)
@@ -300,7 +299,7 @@ end
   @test x1_0 == x1
 end
 
-@testset "Write/Read AxisymmetricGrid" begin
+@testset "Read/Write AxisymmetricGrid to .h5" begin
   mesh2D_0 = initialize_mesh_Axisymmetric2D()
 
   test_write(mesh2D_0)
@@ -313,7 +312,7 @@ end
   @test y2_0 == y2
 end
 
-@testset "Write/Read SphericalGrid" begin
+@testset "Read/Write SphericalGrid to .h5" begin
   mesh1D_0 = initialize_mesh_Spherical1D()
 
   test_write(mesh1D_0)
