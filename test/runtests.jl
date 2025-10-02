@@ -35,4 +35,7 @@ include("unit/common.jl")
   @info "Wall"
   include("unit/test_wall.jl")
   # include("unit/test_meg6.jl")
+
+  @info "Read/Write .h5"
+  include("unit/test_grid_read_write.jl")
 end
