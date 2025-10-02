@@ -28,7 +28,9 @@ function perturb_coords!(mesh, x_interface, λ, k)
     mesh.node_coordinates.x[i, j] += x_pert
   end
 
-  CurvilinearGrids.update!(mesh; force=true)
+  force = true
+  halo_coords_included = false
+  CurvilinearGrids.update!(mesh, force, halo_coords_included)
   return nothing
 end
 

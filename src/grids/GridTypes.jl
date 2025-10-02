@@ -9,6 +9,7 @@ using Polyester
 using KernelAbstractions
 using CartesianDomains
 
+using ..DiscretizationSchemes
 using ..MetricDiscretizationSchemes
 using ..RectilinearArrays
 
@@ -84,7 +85,15 @@ include("2d.jl")
 include("3d.jl")
 include("simple_constructors/simple_constructors.jl")
 
-function update_metrics!(mesh::AbstractCurvilinearGrid, t::Real=0)
+function update_metrics!(
+  mesh::AbstractCurvilinearGrid, t::Real=0; include_halo_region=false
+)
+  if include_halo_region
+    metric_domain = mesh.iterators.cell.full
+  else
+    metric_domain = mesh.iterators.cell.domain
+  end
+
   # Update the metrics within the non-halo region, e.g., the domain
   backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
   MetricDiscretizationSchemes.update_metrics!(
@@ -92,7 +101,7 @@ function update_metrics!(mesh::AbstractCurvilinearGrid, t::Real=0)
     mesh.centroid_coordinates,
     mesh.cell_center_metrics,
     mesh.edge_metrics,
-    mesh.iterators.cell.domain,
+    metric_domain,
     backend,
   )
 
@@ -381,6 +390,33 @@ metrics this way will not be conservative, e.g. observe the geometric
 conservation law.
 """
 jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
+
+function get_metric_disc_scheme(discretization_scheme_name)
+  scheme_name = Symbol(uppercase("$discretization_scheme_name"))
+  use_symmetric_conservative_metric_scheme = false
+  # if scheme_name === :MEG4 || scheme_name === :MEG4_SYMMETRIC
+  #   order = 4
+  #   MetricDiscretizationScheme = MonotoneExplicitGradientScheme
+  #   if scheme_name === :MEG6_SYMMETRIC
+  #     use_symmetric_conservative_metric_scheme = true
+  #   end
+  if scheme_name === :MEG6 || scheme_name === :MEG6_SYMMETRIC
+    order = 6
+    MetricDiscretizationScheme = MonotoneExplicitGradientScheme
+    if scheme_name === :MEG6_SYMMETRIC
+      use_symmetric_conservative_metric_scheme = true
+    end
+  else
+    error("Only $((:MEG6)) is supported for now")
+    # error("Only $((:MEG4, :MEG6)) is supported for now")
+  end
+
+  nhalo = DiscretizationSchemes.nhalo_lookup[scheme_name]
+
+  return MetricDiscretizationScheme,
+  order, use_symmetric_conservative_metric_scheme, nhalo,
+  scheme_name
+end
 
 # """
 # Get the Jacobian of the forward transformation (ξ,η,ζ) → (x,y,z).

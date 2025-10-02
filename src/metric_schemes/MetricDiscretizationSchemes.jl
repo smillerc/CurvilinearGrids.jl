@@ -5,20 +5,11 @@ using StaticArrays
 using StructArrays
 using LinearAlgebra
 
-include("DiscretizationSchemes.jl")
-using .DiscretizationSchemes
+using ..DiscretizationSchemes
 
-include("meg/MonotoneExplicitGradients.jl")
-using .MontoneExplicitGradientSchemes
-export MontoneExplicitGradientScheme6thOrder
+include("forward_metrics.jl")
+include("conservative_metrics.jl")
 
-# include("central/CentralSchemes.jl")
-# using .CentralSchemes
-# export CentralScheme
-
-include("metrics.jl") # forward_metrics!, conservative_metrics!
-
-export DiscretizationScheme
 export update_metrics!, update_cell_center_metrics!, update_edge_metrics!
 
 function update_metrics!(
