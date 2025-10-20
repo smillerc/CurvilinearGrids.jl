@@ -7,7 +7,7 @@ using ..GridTypes
 export save_vtk
 
 """Write the mesh to .VTK format"""
-function save_vtk(mesh::CurvilinearGrid3D, fn="mesh")
+function save_vtk(mesh::AbstractCurvilinearGrid3D, fn="mesh")
   @info "Writing to $fn.vti"
 
   xyz_n = coords(mesh)

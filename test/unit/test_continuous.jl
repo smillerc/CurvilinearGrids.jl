@@ -17,12 +17,12 @@ function spherical_sector_mapping(
 
   # Coordinate functions
   r(i) = rmin + (i - 1) * Δr
-  θ(j) = θmin + (j - 1) * Δθ
-  ϕ(k) = ϕmin + (k - 1) * Δϕ
+  θ(j) = (θmin + (j - 1) * Δθ) / pi
+  ϕ(k) = (ϕmin + (k - 1) * Δϕ) / pi
 
-  x(i, j, k) = r(i) * sin(θ(j)) * cos(ϕ(k))
-  y(i, j, k) = r(i) * sin(θ(j)) * sin(ϕ(k))
-  z(i, j, k) = r(i) * cos(θ(j))
+  x(i, j, k) = r(i) * sinpi(θ(j)) * cospi(ϕ(k))
+  y(i, j, k) = r(i) * sinpi(θ(j)) * sinpi(ϕ(k))
+  z(i, j, k) = r(i) * cospi(θ(j))
 
   return (x, y, z)
 end
@@ -108,25 +108,21 @@ end
 
 begin
   nhalo = 5
-  nr, nθ, nϕ = 20, 20, 20
+  nr, nθ, nϕ = 21, 21, 21
   celldims = (nr, nθ, nϕ)
   rmin, rmax = 1.0, 4.0
   θmin, θmax = π / 2 - deg2rad(5), π / 2 + deg2rad(5)   # narrow polar band around equator
   ϕmin, ϕmax = -deg2rad(10), deg2rad(10)
 
-  (x, y, z) = spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, celldims, nhalo)
-  #   (x, y, z) = wavy_mapping(celldims)
+  # (x, y, z) = spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, celldims, nhalo)
+  (x, y, z) = wavy_mapping(celldims)
 
   backend = AutoForwardDiff()
   @info "ContinuousCurvilinearGrid3D"
-  continuous_mesh = ContinuousCurvilinearGrid3D(
-    x, y, z, celldims, nhalo, CPU(), AutoForwardDiff()
-  )
+  cm = ContinuousCurvilinearGrid3D(x, y, z, celldims, nhalo, CPU(), AutoForwardDiff())
 
   @info "CurvilinearGrid3D"
-  discrete_mesh = CurvilinearGrid3D(
-    continuous_mesh.node_coordinates..., :meg6; halo_coords_included=true
-  )
+  dm = CurvilinearGrid3D(cm.node_coordinates..., :meg6; halo_coords_included=true)
 
   #   prep = prepare_derivative(x, backend, 0, Constant(1), Constant(1))
   #   y_grad_prep = prepare_gradient(y, backend, [1, 2, 3])
@@ -166,6 +162,9 @@ begin
   #   @show yζ_3(i1, j1, k1)
   #   @show yζ_4(i1, j1, k1)
   #   @show yζ_5(i1, j1, k1)
+
+  save_vtk(dm, "sector_meg")
+  save_vtk(cm, "sector_ad")
   nothing
 end
 
@@ -181,16 +180,130 @@ end
 
 # @code_warntype yζ_4(i1, j1, k1)
 
-gcl(continuous_mesh.metrics.edge, continuous_mesh.iterators.cell.domain)
-gcl(discrete_mesh.edge_metrics, discrete_mesh.iterators.cell.domain)
+gcl(cm.edge_metrics, cm.iterators.cell.domain)
+gcl(dm.edge_metrics, dm.iterators.cell.domain)
 
-dom = continuous_mesh.iterators.cell.domain
-extrema(
-  continuous_mesh.metrics.cell.ξ̂.x₂[dom] .- discrete_mesh.cell_center_metrics.ξ̂.x₂[dom]
-)
-extrema(
-  continuous_mesh.metrics.cell.ξ̂.x₃[dom] .- discrete_mesh.cell_center_metrics.ξ̂.x₃[dom]
-)
-extrema(
-  continuous_mesh.metrics.cell.ζ̂.x₃[dom] .- discrete_mesh.cell_center_metrics.ζ̂.x₃[dom]
-)
+dom = cm.iterators.cell.domain
+extrema(cm.cell_center_metrics.ξ̂.x₂[dom] .- dm.cell_center_metrics.ξ̂.x₂[dom])
+extrema(cm.cell_center_metrics.ξ̂.x₃[dom] .- dm.cell_center_metrics.ξ̂.x₃[dom])
+extrema(cm.cell_center_metrics.ζ̂.x₃[dom] .- dm.cell_center_metrics.ζ̂.x₃[dom])
+
+cm.metrics.cell.ξ̂.x₂[16, 16, 16]
+
+begin
+  i, j, k = (8, 16, 16)
+  cm.metrics.edge.j₊½.ξ̂.x₂[i, j, k]
+
+  (
+    cm.centroid_coordinates.x[i, j, k],
+    cm.centroid_coordinates.y[i, j, k],
+    cm.centroid_coordinates.z[i, j, k],
+  )
+end
+
+cm.metrics.edge.j₊½.ζ̂.x₁[i, j, k] - cm.metrics.edge.j₊½.ζ̂.x₁[i, j - 1, k]
+cm.metrics.edge.j₊½.ζ̂.x₂[i, j, k] - cm.metrics.edge.j₊½.ζ̂.x₂[i, j - 1, k]
+cm.metrics.edge.j₊½.ζ̂.x₃[i, j, k] - cm.metrics.edge.j₊½.ζ̂.x₃[i, j - 1, k]
+cm.metrics.edge.k₊½.ζ̂.x₁[i, j, k] - cm.metrics.edge.k₊½.ζ̂.x₁[i, j, k - 1]
+cm.metrics.edge.k₊½.ζ̂.x₂[i, j, k] - cm.metrics.edge.k₊½.ζ̂.x₂[i, j, k - 1]
+cm.metrics.edge.k₊½.ζ̂.x₃[i, j, k] - cm.metrics.edge.k₊½.ζ̂.x₃[i, j, k - 1]
+
+dm.edge_metrics.j₊½.ζ̂.x₁[i, j, k] - dm.edge_metrics.j₊½.ζ̂.x₁[i, j - 1, k]
+dm.edge_metrics.j₊½.ζ̂.x₂[i, j, k] - dm.edge_metrics.j₊½.ζ̂.x₂[i, j - 1, k]
+dm.edge_metrics.j₊½.ζ̂.x₃[i, j, k] - dm.edge_metrics.j₊½.ζ̂.x₃[i, j - 1, k]
+
+dm.edge_metrics.k₊½.ζ̂.x₁[i, j, k] - dm.edge_metrics.k₊½.ζ̂.x₁[i, j, k - 1]
+dm.edge_metrics.k₊½.ζ̂.x₂[i, j, k] - dm.edge_metrics.k₊½.ζ̂.x₂[i, j, k - 1]
+dm.edge_metrics.k₊½.ζ̂.x₃[i, j, k] - dm.edge_metrics.k₊½.ζ̂.x₃[i, j, k - 1]
+
+# using SpecialFunctions  # for erf
+
+# begin
+#   function gaussian(x, x0, fwhm, p)
+#     σ = fwhm / (2sqrt(2log(2)))
+#     σ² = σ * σ
+#     xc = (x - x0)^2
+#     return exp(-(((xc / (2σ²)))^p))
+#   end
+
+#   # function stretched_r(i, N, rmin, rmax, r0; A=0.2, w=0.1, n=4)
+#   #   ξ = (i - 1) / (N - 1)
+#   #   ξ₀ = (r0 - rmin) / (rmax - rmin)
+
+#   #   # smooth, continuous warping function
+#   #   # warp(ξ) = ξ - A * 0.5 * (erf(((ξ - ξ₀) / w)) + 1)
+#   #   # warp(ξ) = ξ - A * (1 / (1 + exp(((ξ - ξ₀) / w)^(2n))))
+#   #   warp(ξ) = gaussian(ξ, ξ₀, w, n)
+
+#   #   fξ = warp(ξ)
+#   #   return rmin + (rmax - rmin) * fξ
+#   # end
+
+#   function stretched_r(i, N, rmin, rmax, r0; A=0.3, fwhm=0.1, p=4)
+#     ξ = (i - 1) / (N - 1)
+#     ξ0 = (r0 - rmin) / (rmax - rmin)
+
+#     function f(ξ)
+#       ξ - A * gaussian(ξ, ξ0, fwhm, p)
+#     end
+#     f0, f1 = f(0), f(1)
+#     Fξ = (f(ξ) - f0) / (f1 - f0)
+
+#     return rmin + (rmax - rmin) * Fξ
+#   end
+
+#   # function stretched_r(i, N, rmin, rmax, r0; A=0.3, w=0.1, n=4)
+#   #   ξ = (i - 1) / (N - 1)
+#   #   ξ₀ = (r0 - rmin) / (rmax - rmin)
+
+#   #   f(ξ) = ξ - A * exp(-((ξ - ξ₀) / w)^(2n))
+#   #   f0, f1 = f(0), f(1)
+#   #   Fξ = (f(ξ) - f0) / (f1 - f0)
+
+#   #   return rmin + (rmax - rmin) * Fξ
+#   # end
+
+#   # function stretched_r_gaussian(
+#   #   i::Int, N::Int, rmin::Real, rmax::Real, r0::Real; A::Real=0.4, w::Real=0.06
+#   # )
+#   #   ξ = (i - 1) / (N - 1)
+#   #   ξ0 = (r0 - rmin) / (rmax - rmin)
+
+#   #   # analytic antiderivative terms
+#   #   constC = (w * sqrt(pi) / 2)  # convenience
+#   #   erf_from0 = erf(-ξ0 / w)     # erf((0-ξ0)/w)
+
+#   #   fξ = ξ - A * constC * (erf((ξ - ξ0) / w) - erf_from0)
+#   #   f0 = 0.0 - A * constC * (erf_from0 - erf_from0)   # simplifies to 0.0
+#   #   # but compute f1 exactly
+#   #   f1 = 1 - A * constC * (erf((1 - ξ0) / w) - erf_from0)
+
+#   #   Fξ = (fξ - f0) / (f1 - f0)
+#   #   return rmin + (rmax - rmin) * Fξ
+#   # end
+
+#   # function stretched_r_sech2(i, N, rmin, rmax, r0; A::Real=0.5, w::Real=0.05)
+#   #   # @assert 1 <= i <= N
+#   #   # @assert 0 <= A < 1 "A must be in [0,1) for monotonicity"
+#   #   # @assert w > 0
+#   #   ξ = (i - 1) / (N - 1)
+#   #   ξ0 = (r0 - rmin) / (rmax - rmin)
+
+#   #   t0 = tanh(-ξ0 / w)
+#   #   gξ = ξ - A * w * (tanh((ξ - ξ0) / w) - t0)   # analytic antiderivative with C chosen so g(0)=0
+#   #   g1 = 1 - A * w * (tanh((1 - ξ0) / w) - t0)
+#   #   Gξ = gξ / g1
+
+#   #   return rmin + (rmax - rmin) * Gξ
+#   # end
+
+#   rmin, rmax = 0.0, 10.0
+#   r0 = 3.5
+#   N = 100
+
+#   r = [stretched_r(i, N, rmin, rmax, r0; A=0.2, fwhm=0.5, p=4) for i in 1:N]
+#   # r = [stretched_r_sech2(i, N, rmin, rmax, r0; A=0.2, w=0.095) for i in 1:N]
+#   # r = [stretched_r_gaussian(i, N, rmin, rmax, r0; A=0.2, w=0.1) for i in 1:N]
+#   plot(diff(r); marker=:square)
+#   # plot(r, zeros(size(r)); marker=:square)
+# end
