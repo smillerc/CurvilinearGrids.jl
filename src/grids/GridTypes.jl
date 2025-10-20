@@ -23,6 +23,8 @@ export UniformGrid1D, UniformGrid2D, UniformGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 
+export ContinuousCurvilinearGrid3D
+
 export rectilinear_grid,
   rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid
 export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
@@ -84,6 +86,7 @@ include("1d.jl")
 include("2d.jl")
 include("3d.jl")
 include("simple_constructors/simple_constructors.jl")
+include("3d_continuous.jl")
 
 function update_metrics!(
   mesh::AbstractCurvilinearGrid, t::Real=0; include_halo_region=false

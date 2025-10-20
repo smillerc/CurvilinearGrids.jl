@@ -21,6 +21,9 @@ export RectilinearGrid2D, RectilinearGrid3D
 export UniformGrid1D, UniformGrid2D, UniformGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
+
+export ContinuousCurvilinearGrid3D
+
 export rectilinear_grid,
   rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid
 export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
