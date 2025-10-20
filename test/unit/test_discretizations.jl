@@ -76,11 +76,6 @@ end
     ∂halo = (meg.nhalo + 1) ÷ 2
     ∂domain = expand(full_domain, -∂halo)
     ∂²domain = expand(full_domain, -∂halo - 1)
-    # ∂domain = expand(full_domain, -3)
-    # ∂²domain = expand(full_domain, -4)
-
-    # @test DiscretizationSchemes.first_derivative_domain(meg, full_domain) == ∂domain
-    # @test DiscretizationSchemes.second_derivative_domain(meg, ∂domain) == ∂²domain
 
     backend = get_backend(x)
 
@@ -191,76 +186,6 @@ end
   end
 end
 
-# begin
-#   ni, nj = (40, 80)
-#   x0, x1 = (0, 2)
-#   y0, y1 = (1, 3)
-
-#   T = Float64
-
-#   x = collect(range(x0, x1; length=ni + 1))
-#   y = collect(range(y0, y1; length=nj + 1))
-#   x2d = zeros(T, length(x), length(y))
-#   y2d = zeros(T, length(x), length(y))
-
-#   @inbounds for j in eachindex(y)
-#     for i in eachindex(x)
-#       x2d[i, j] = x[i]
-#       y2d[i, j] = y[j]
-#     end
-#   end
-
-#   scheme_name = :MEG6
-#   use_symmetric_conservative_metric_scheme = false
-#   if scheme_name === :MEG6
-#     order = 6
-#     MetricDiscretizationScheme = MonotoneExplicitGradientScheme
-#   elseif scheme_name === :MEG6_SYMMETRIC
-#     order = 6
-#     MetricDiscretizationScheme = MonotoneExplicitGradientScheme
-#     use_symmetric_conservative_metric_scheme = true
-#   else
-#     error("Only $(:MEG6) is supported for now")
-#   end
-
-#   nhalo = DiscretizationSchemes.nhalo_lookup[scheme_name]
-
-#   limits, iterators = get_iterators(size(x2d), halo_coords_included, nhalo)
-#   celldims = size(iterators.cell.full)
-
-#   backend = CPU()
-#   meg = MetricDiscretizationScheme(
-#     order;
-#     use_cache=true,
-#     celldims=celldims,
-#     backend=backend,
-#     T=T,
-#     use_symmetric_conservative_metric_scheme=use_symmetric_conservative_metric_scheme,
-#   )
-
-#   node_coordinates, centroid_coordinates, node_velocities, nnodes = CurvilinearGrids.GridTypes._grid_constructor(
-#     x2d, y2d, iterators; backend=backend
-#   )
-
-#   cell_center_metrics, edge_metrics = CurvilinearGrids.GridTypes.get_metric_soa(
-#     celldims, backend, T
-#   )
-#   # cell_center_metrics, edge_metrics = CurvilinearGrids.GridTypes.get_metric_soa_rectilinear2d(
-#   #   celldims, backend, T
-#   # )
-
-#   inner_domain = iterators.cell.domain
-
-#   CurvilinearGrids.MetricDiscretizationSchemes.forward_metrics!(
-#     meg, cell_center_metrics, StructArrays.components(centroid_coordinates)..., inner_domain
-#   )
-
-#   CurvilinearGrids.MetricDiscretizationSchemes.conservative_metrics!(
-#     meg, cell_center_metrics, StructArrays.components(centroid_coordinates)..., inner_domain
-#   )
-#   cell_center_metrics.x₁.ξ[inner_domain]
-# end
-
 @testset "Stencil Floating Point Error" begin
   function central_derivative_naive(fm3, fm2, fm1, fp1, fp2, fp3)
     return (
@@ -271,7 +196,6 @@ end
   vals = 1e4ones(8)
   for i in eachindex(vals)
     pert = 100eps() * rand() # add perturbations > than epsilon (~2e-16)
-    # @show pert
     vals[i] += pert
   end
 

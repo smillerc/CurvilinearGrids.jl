@@ -6,6 +6,7 @@ using Polyester
 using MappedArrays
 using CartesianDomains
 using Adapt
+using LinearAlgebra
 
 export MonotoneExplicitGradientScheme
 
@@ -85,15 +86,15 @@ function compute_first_derivatives!(
   end
 
   central_first_derivative_inner_domain_kernel!(
-    scheme.derivative_scheme, ∂ϕ, ϕ, axis, inner_domain, backend, floor
+    scheme.derivative_scheme, ∂ϕ, ϕ, axis, inner_domain, backend
   )
 
   if use_one_sided_on_edges
     mixed_first_derivative_lo_edge_kernel!(
-      scheme.derivative_scheme, ∂ϕ, ϕ, axis, domain, backend, floor
+      scheme.derivative_scheme, ∂ϕ, ϕ, axis, domain, backend
     )
     mixed_first_derivative_hi_edge_kernel!(
-      scheme.derivative_scheme, ∂ϕ, ϕ, axis, domain, backend, floor
+      scheme.derivative_scheme, ∂ϕ, ϕ, axis, domain, backend
     )
   end
 end
@@ -125,14 +126,14 @@ function compute_second_derivatives!(
     central_domain = derivative_domain
   end
 
-  central_second_derivative_inner_domain_kernel!(∂²ϕ, ∂ϕ, ϕ, axis, central_domain, backend, floor)
+  central_second_derivative_inner_domain_kernel!(∂²ϕ, ∂ϕ, ϕ, axis, central_domain, backend)
 
   if use_one_sided_on_edges
     mixed_first_derivative_lo_edge_kernel!(
-      scheme.derivative_scheme, ∂²ϕ, ∂ϕ, axis, derivative_domain, backend, floor
+      scheme.derivative_scheme, ∂²ϕ, ∂ϕ, axis, derivative_domain, backend
     )
     mixed_first_derivative_hi_edge_kernel!(
-      scheme.derivative_scheme, ∂²ϕ, ∂ϕ, axis, derivative_domain, backend, floor
+      scheme.derivative_scheme, ∂²ϕ, ∂ϕ, axis, derivative_domain, backend
     )
   end
 end
