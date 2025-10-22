@@ -42,7 +42,7 @@ function central_first_derivative_inner_domain_kernel!(
 end
 
 function central_first_derivative_inner_domain_kernel!(
-  ::SixthOrder, ∂W, W, axis, domain, ::CPU
+  ::SixthOrder, ∂W, W, axis, domain, ::CPU, ϵ=eps()
 )
 
   #
@@ -54,7 +54,8 @@ function central_first_derivative_inner_domain_kernel!(
     ᵢ₋₂ = shift(I, axis, -2)
     ᵢ₋₃ = shift(I, axis, -3)
 
-    ∂W[I] = central_derivative(W[ᵢ₋₃], W[ᵢ₋₂], W[ᵢ₋₁], W[ᵢ₊₁], W[ᵢ₊₂], W[ᵢ₊₃])
+    _∂W = central_derivative(W[ᵢ₋₃], W[ᵢ₋₂], W[ᵢ₋₁], W[ᵢ₊₁], W[ᵢ₊₂], W[ᵢ₊₃])
+    ∂W[I] = _∂W * abs(_∂W) >= ϵ
   end
 end
 

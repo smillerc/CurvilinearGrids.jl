@@ -181,5 +181,9 @@ function second_derivative(ϕᵢ₋₁::T, ϕᵢ::T, ϕᵢ₊₁::T, ∂ϕᵢ₋
 
   ∂²ϕ = kahan_sum((2(ϕᵢ₊₁ + ϕᵢ₋₁), -4ϕᵢ, d_∂ϕ))
   # ∂²ϕ = kahan_sum((2ϕᵢ₊₁, 2ϕᵢ₋₁, -4ϕᵢ, -∂ϕᵢ₊₁ / 2, ∂ϕᵢ₋₁ / 2))
+  # if 0 < abs(∂²ϕ) < eps()
+  #   @show ϕᵢ₋₁ ϕᵢ ϕᵢ₊₁ ∂ϕᵢ₋₁ ∂ϕᵢ₊₁ d_∂ϕ ∂²ϕ
+  #   error("what the bork")
+  # end
   return ∂²ϕ #* (abs(∂²ϕ) >= ϵ)
 end
