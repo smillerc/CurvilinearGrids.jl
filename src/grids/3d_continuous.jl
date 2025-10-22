@@ -9,7 +9,7 @@ abstract type AbstractContinuousCurvilinearGrid1D <: AbstractCurvilinearGrid2D e
 abstract type AbstractContinuousCurvilinearGrid2D <: AbstractCurvilinearGrid2D end
 abstract type AbstractContinuousCurvilinearGrid3D <: AbstractCurvilinearGrid3D end
 
-struct ContinuousCurvilinearGrid3D{A,B,C,EM,CM,E,BE,DBE} <:
+struct ContinuousCurvilinearGrid3D{A,B,C,EM,CM,E,BE,DBE,DS} <:
        AbstractContinuousCurvilinearGrid3D
   node_coordinates::A
   centroid_coordinates::A
@@ -20,6 +20,9 @@ struct ContinuousCurvilinearGrid3D{A,B,C,EM,CM,E,BE,DBE} <:
   iterators::E
   backend::BE
   diff_backend::DBE
+  nhalo::Int
+  discretization_scheme::DS
+  discretization_scheme_name::Symbol
 end
 
 struct MetricCache{F1,F2}
@@ -32,19 +35,29 @@ function ContinuousCurvilinearGrid3D(
   y::Function,
   z::Function,
   celldims::NTuple,
-  nhalo::Int,
+  _nhalo::Int,
   backend=CPU(),
   diff_backend=AutoForwardDiff(),
   T=Float64;
+  compute_metrics=true,
 )
+  discretization_scheme = :meg6
+  MetricDiscretizationScheme, order, _, nhalo, scheme_name = get_metric_disc_scheme(
+    discretization_scheme
+  )
   iterators = get_iterators(celldims, nhalo)
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims .+ 2nhalo, backend, T)
-  xn, yn, zn = node_coordinates(x, y, z, iterators)
-  xc, yc, zc = centroid_coordinates(x, y, z, iterators)
+  xyz_n = node_coordinates(x, y, z, iterators, backend, T)
+  xyz_c = centroid_coordinates(x, y, z, iterators, backend, T)
+
+  discr_scheme = MetricDiscretizationScheme(
+    order; use_cache=false, celldims=size(iterators.cell.full), backend=backend, T=T
+  )
+
   mesh = ContinuousCurvilinearGrid3D(
-    (; x=xn, y=yn, z=zn),
-    (; x=xc, y=yc, z=zc),
+    xyz_n,
+    xyz_c,
     (; x, y, z),
     MetricCache(x, y, z, diff_backend),
     edge_metrics,
@@ -52,10 +65,15 @@ function ContinuousCurvilinearGrid3D(
     iterators,
     backend,
     diff_backend,
+    nhalo,
+    discr_scheme,
+    scheme_name,
   )
 
-  compute_cell_metrics!(mesh)
-  compute_edge_metrics!(mesh)
+  if compute_metrics
+    compute_cell_metrics!(mesh)
+    compute_edge_metrics!(mesh)
+  end
 
   return mesh
 end
@@ -122,46 +140,59 @@ function MetricCache(x::Function, y::Function, z::Function, backend)
   return MetricCache(forward_metrics, inverse_metrics)
 end
 
-function node_coordinates(x, y, z, iterators)
+function node_coordinates(x, y, z, iterators, backend, T)
   ni, nj, nk = size(iterators.node.full)
   nhalo = iterators.nhalo
-  xnodes = zeros(ni, nj, nk)
-  ynodes = zeros(ni, nj, nk)
-  znodes = zeros(ni, nj, nk)
+
+  coords = StructArray((
+    x=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
+    y=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
+    z=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
+  ))
 
   @batch for I in iterators.node.full
     i, j, k = I.I
-    xnodes[I] = x(i - nhalo, j - nhalo, k - nhalo)
-    ynodes[I] = y(i - nhalo, j - nhalo, k - nhalo)
-    znodes[I] = z(i - nhalo, j - nhalo, k - nhalo)
+    coords.x[I] = x(i - nhalo, j - nhalo, k - nhalo)
+    coords.y[I] = y(i - nhalo, j - nhalo, k - nhalo)
+    coords.z[I] = z(i - nhalo, j - nhalo, k - nhalo)
   end
 
-  return xnodes, ynodes, znodes
+  return coords
 end
 
-function centroid_coordinates(x, y, z, iterators)
+function centroid_coordinates(x, y, z, iterators, backend, T)
   ni, nj, nk = size(iterators.node.full)
   nhalo = iterators.nhalo
-  xnodes = zeros(ni, nj, nk)
-  ynodes = zeros(ni, nj, nk)
-  znodes = zeros(ni, nj, nk)
+  coords = StructArray((
+    x=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
+    y=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
+    z=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
+  ))
 
   @batch for I in iterators.node.full
     i, j, k = I.I
-    xnodes[I] = x(i - nhalo + 0.5, j - nhalo + 0.5, k - nhalo + 0.5)
-    ynodes[I] = y(i - nhalo + 0.5, j - nhalo + 0.5, k - nhalo + 0.5)
-    znodes[I] = z(i - nhalo + 0.5, j - nhalo + 0.5, k - nhalo + 0.5)
+    coords.x[I] = x(i - nhalo + 0.5, j - nhalo + 0.5, k - nhalo + 0.5)
+    coords.y[I] = y(i - nhalo + 0.5, j - nhalo + 0.5, k - nhalo + 0.5)
+    coords.z[I] = z(i - nhalo + 0.5, j - nhalo + 0.5, k - nhalo + 0.5)
   end
 
-  return xnodes, ynodes, znodes
+  return coords
+end
+
+@inline function tol_diff(a::T, b::T) where {T}
+  a_m_b = a - b
+  return a_m_b * !isapprox(a, b) #; rtol=1e-7)
 end
 
 function cell_center_derivative(ϕ, backend)
   ϕᵢ₊½, ϕⱼ₊½, ϕₖ₊½ = edge_functions(ϕ, backend)
 
-  ∂ϕ_∂ξ(i, j, k) = ϕᵢ₊½(i, j, k) - ϕᵢ₊½(i - 1, j, k)
-  ∂ϕ_∂η(i, j, k) = ϕⱼ₊½(i, j, k) - ϕⱼ₊½(i, j - 1, k)
-  ∂ϕ_∂ζ(i, j, k) = ϕₖ₊½(i, j, k) - ϕₖ₊½(i, j, k - 1)
+  ∂ϕ_∂ξ(i, j, k) = tol_diff(ϕᵢ₊½(i, j, k), ϕᵢ₊½(i - 1, j, k))
+  ∂ϕ_∂η(i, j, k) = tol_diff(ϕⱼ₊½(i, j, k), ϕⱼ₊½(i, j - 1, k))
+  ∂ϕ_∂ζ(i, j, k) = tol_diff(ϕₖ₊½(i, j, k), ϕₖ₊½(i, j, k - 1))
+  # ∂ϕ_∂ξ(i, j, k) = ϕᵢ₊½(i, j, k) - ϕᵢ₊½(i - 1, j, k)
+  # ∂ϕ_∂η(i, j, k) = ϕⱼ₊½(i, j, k) - ϕⱼ₊½(i, j - 1, k)
+  # ∂ϕ_∂ζ(i, j, k) = ϕₖ₊½(i, j, k) - ϕₖ₊½(i, j, k - 1)
 
   return (; ∂ϕ_∂ξ, ∂ϕ_∂η, ∂ϕ_∂ζ)
 end
