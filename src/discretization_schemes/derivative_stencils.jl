@@ -10,44 +10,47 @@
   return s + c
 end
 
+@inline function tol_diff(a::T, b::T) where {T}
+  a_m_b = a - b
+  return a_m_b * !isapprox(a, b) #; rtol=1e-7)
+end
+
 # ------------------------
 # Central derivatives
 # ------------------------
 # 2nd order
-function central_derivative(ϕᵢ₋₁::T, ϕᵢ₊₁::T; ϵ::T=eps(T)) where {T}
-  ∂ϕ = (ϕᵢ₊₁ - ϕᵢ₋₁) / 2
-  return ∂ϕ * (abs(∂ϕ) >= ϵ)
+function central_derivative(ϕᵢ₋₁::T, ϕᵢ₊₁::T) where {T}
+  ∂ϕ = tol_diff(ϕᵢ₊₁, ϕᵢ₋₁) / 2
+  return ∂ϕ
 end
 
 # 4th order
-function central_derivative(ϕᵢ₋₂::T, ϕᵢ₋₁::T, ϕᵢ₊₁::T, ϕᵢ₊₂::T; ϵ::T=eps(T)) where {T}
-  ∂ϕ = kahan_sum(((2 / 3) * (ϕᵢ₊₁ - ϕᵢ₋₁), (-1 / 12) * (ϕᵢ₊₂ - ϕᵢ₋₂)))
-  return ∂ϕ * (abs(∂ϕ) >= ϵ)
+function central_derivative(ϕᵢ₋₂::T, ϕᵢ₋₁::T, ϕᵢ₊₁::T, ϕᵢ₊₂::T) where {T}
+  ∂ϕ = kahan_sum(((2 / 3) * tol_diff(ϕᵢ₊₁, ϕᵢ₋₁), (-1 / 12) * tol_diff(ϕᵢ₊₂, ϕᵢ₋₂)))
+  return ∂ϕ
 end
 
 # 6th order
-function central_derivative(
-  ϕᵢ₋₃::T, ϕᵢ₋₂::T, ϕᵢ₋₁::T, ϕᵢ₊₁::T, ϕᵢ₊₂::T, ϕᵢ₊₃::T; ϵ::T=eps(T)
-) where {T}
+function central_derivative(ϕᵢ₋₃::T, ϕᵢ₋₂::T, ϕᵢ₋₁::T, ϕᵢ₊₁::T, ϕᵢ₊₂::T, ϕᵢ₊₃::T) where {T}
   ∂ϕ = kahan_sum((
-    (3 / 4) * (ϕᵢ₊₁ - ϕᵢ₋₁),   #
-    (-3 / 20) * (ϕᵢ₊₂ - ϕᵢ₋₂), #
-    (1 / 60) * (ϕᵢ₊₃ - ϕᵢ₋₃),  #
+    (3 / 4) * tol_diff(ϕᵢ₊₁, ϕᵢ₋₁),   #
+    (-3 / 20) * tol_diff(ϕᵢ₊₂, ϕᵢ₋₂), #
+    (1 / 60) * tol_diff(ϕᵢ₊₃, ϕᵢ₋₃),  #
   ))
-  return ∂ϕ * (abs(∂ϕ) >= ϵ)
+  return ∂ϕ
 end
 
 # 8th order
 function central_derivative(
-  ϕᵢ₋₄::T, ϕᵢ₋₃::T, ϕᵢ₋₂::T, ϕᵢ₋₁::T, ϕᵢ₊₁::T, ϕᵢ₊₂::T, ϕᵢ₊₃::T, ϕᵢ₊₄::T; ϵ::T=eps(T)
+  ϕᵢ₋₄::T, ϕᵢ₋₃::T, ϕᵢ₋₂::T, ϕᵢ₋₁::T, ϕᵢ₊₁::T, ϕᵢ₊₂::T, ϕᵢ₊₃::T, ϕᵢ₊₄::T
 ) where {T}
   ∂ϕ = kahan_sum((
-    (4 / 5) * (ϕᵢ₊₁ - ϕᵢ₋₁),     #
-    (-1 / 5) * (ϕᵢ₊₂ - ϕᵢ₋₂),    #
-    (4 / 105) * (ϕᵢ₊₃ - ϕᵢ₋₃),   #
-    (-1 / 280) * (ϕᵢ₊₄ - ϕᵢ₋₄),  #
+    (4 / 5) * tol_diff(ϕᵢ₊₁, ϕᵢ₋₁),     #
+    (-1 / 5) * tol_diff(ϕᵢ₊₂, ϕᵢ₋₂),    #
+    (4 / 105) * tol_diff(ϕᵢ₊₃, ϕᵢ₋₃),   #
+    (-1 / 280) * tol_diff(ϕᵢ₊₄, ϕᵢ₋₄),  #
   ))
-  return ∂ϕ * (abs(∂ϕ) >= ϵ)
+  return ∂ϕ
 end
 
 # ------------------------
@@ -171,11 +174,12 @@ end
 # Second derivative
 # ------------------------
 function second_derivative(ϕᵢ₋₁::T, ϕᵢ::T, ϕᵢ₊₁::T, ∂ϕᵢ₋₁, ∂ϕᵢ₊₁; ϵ::T=50eps(T)) where {T}
-  # dϕ = ∂ϕᵢ₊₁ - ∂ϕᵢ₋₁
-  # dϕ = dϕ * (abs(dϕ) >= ϵ)
+  # ∂²ϕ = 2((ϕᵢ₊₁ + ϕᵢ₋₁) - 2ϕᵢ) - (∂ϕᵢ₊₁ - ∂ϕᵢ₋₁) / 2
+
+  d_∂ϕ = -tol_diff(∂ϕᵢ₊₁, ∂ϕᵢ₋₁) / 2
   # ∂²ϕ = 2((ϕᵢ₊₁ + ϕᵢ₋₁) - 2ϕᵢ) - dϕ / 2
 
-  # ∂²ϕ = 2((ϕᵢ₊₁ + ϕᵢ₋₁) - 2ϕᵢ) - (∂ϕᵢ₊₁ - ∂ϕᵢ₋₁) / 2
-  ∂²ϕ = kahan_sum((2ϕᵢ₊₁, 2ϕᵢ₋₁, -4ϕᵢ, -∂ϕᵢ₊₁ / 2, ∂ϕᵢ₋₁ / 2))
-  return ∂²ϕ * (abs(∂²ϕ) >= ϵ)
+  ∂²ϕ = kahan_sum((2(ϕᵢ₊₁ + ϕᵢ₋₁), -4ϕᵢ, d_∂ϕ))
+  # ∂²ϕ = kahan_sum((2ϕᵢ₊₁, 2ϕᵢ₋₁, -4ϕᵢ, -∂ϕᵢ₊₁ / 2, ∂ϕᵢ₋₁ / 2))
+  return ∂²ϕ #* (abs(∂²ϕ) >= ϵ)
 end
