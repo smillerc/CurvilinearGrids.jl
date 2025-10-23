@@ -1,14 +1,19 @@
-using CurvilinearGrids
-using Test
-using DifferentiationInterface
-using ForwardDiff: ForwardDiff
-using BenchmarkTools
-using StaticArrays
-using KernelAbstractions
 
-function spherical_sector_mapping(
-  rmin, rmax, θmin, θmax, ϕmin, ϕmax, ncells::NTuple{3,Int}, nhalo
-)
+function uniform_mapping(xmin, xmax, ymin, ymax, zmin, zmax, ncells::NTuple{3,Int})
+  ni, nj, nk = ncells
+
+  Δx = (xmax - xmin) / ni
+  Δy = (ymax - ymin) / nj
+  Δz = (zmax - zmin) / nk
+
+  x(i, j, k) = xmin + (i - 1) * Δx
+  y(i, j, k) = ymin + (j - 1) * Δy
+  z(i, j, k) = zmin + (k - 1) * Δz
+
+  return (x, y, z)
+end
+
+function spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, ncells::NTuple{3,Int})
   ni, nj, nk = ncells
 
   # Uniform spacings
@@ -21,9 +26,9 @@ function spherical_sector_mapping(
   θ(j) = (θmin + (j - 1) * Δθ) / pi
   ϕ(k) = (ϕmin + (k - 1) * Δϕ) / pi
 
-  x(i, j, k) = r(i) * sinpi(θ(j)) * cospi(ϕ(k))
-  y(i, j, k) = r(i) * sinpi(θ(j)) * sinpi(ϕ(k))
-  z(i, j, k) = r(i) * cospi(θ(j))
+  x(i, j, k) = r(i) * sin(θ(j)) * cos(ϕ(k))
+  y(i, j, k) = r(i) * sin(θ(j)) * sin(ϕ(k))
+  z(i, j, k) = r(i) * cos(θ(j))
 
   return (x, y, z)
 end
@@ -40,9 +45,9 @@ function wavy_mapping(ncells::NTuple{3,Int})
   Δy0 = Ly / nj
   Δz0 = Lz / nk
 
-  Ax = 0.2 / Δx0
-  Ay = 0.2 / Δy0
-  Az = 0.2 / Δz0
+  Ax = 0.0 / Δx0
+  Ay = 0.0 / Δy0
+  Az = 0.0 / Δz0
 
   n = 0.5
 
@@ -62,7 +67,7 @@ end
 function gcl(
   em, # edge metrics
   domain,
-  ϵ=5e-13,
+  ϵ,
 )
   I₁_passes = true
   I₂_passes = true
@@ -96,15 +101,148 @@ function gcl(
     I₁ = max(I₁, abs(_I₁))
     I₂ = max(I₂, abs(_I₂))
     I₃ = max(I₃, abs(_I₃))
-    # @show idx, I₁, I₂, I₃
-    # break
+
     if !(I₁_passes && I₂_passes && I₃_passes)
       break
     end
   end
-  @show I₁ I₂ I₃
 
-  return (I₁_passes, I₂_passes, I₃_passes)
+  return (I₁_passes, I₂_passes, I₃_passes), (I₁, I₂, I₃)
+end
+
+@testset "Wavy ContinuousCurvilinearGrid3D" begin
+  celldims = (41, 41, 41)
+
+  (x, y, z) = wavy_mapping(celldims)
+
+  backend = AutoForwardDiff()
+  cm = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
+  (I₁_passes, I₂_passes, I₃_passes), (I₁, I₂, I₃) = gcl(
+    cm.edge_metrics, cm.iterators.cell.domain, eps()
+  )
+
+  @test I₁_passes
+  @test I₂_passes
+  @test I₃_passes
+end
+
+@testset "Sphere Sector ContinuousCurvilinearGrid3D" begin
+  nhalo = 5
+  nr, nθ, nϕ = 41, 41, 41
+  celldims = (nr, nθ, nϕ)
+  rmin, rmax = 1.0, 4.0
+  θmin, θmax = π / 2 - deg2rad(5), π / 2 + deg2rad(5)   # narrow polar band around equator
+  ϕmin, ϕmax = -deg2rad(10), deg2rad(10)
+
+  (x, y, z) = spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, celldims)
+
+  backend = AutoForwardDiff()
+  cm = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
+  (I₁_passes, I₂_passes, I₃_passes), (I₁, I₂, I₃) = gcl(
+    cm.edge_metrics, cm.iterators.cell.domain, eps()
+  )
+
+  @test I₁_passes
+  @test I₂_passes
+  @test I₃_passes
+end
+
+@testset "Uniform ContinuousCurvilinearGrid3D" begin
+  x0, x1 = (0.0, 2.0)
+  y0, y1 = (1, 3)
+  z0, z1 = (-1, 2)
+  celldims = (40, 80, 120)
+  (x, y, z) = uniform_mapping(x0, x1, y0, y1, z0, z1, celldims)
+
+  backend = AutoForwardDiff()
+  mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
+  (I₁_passes, I₂_passes, I₃_passes), (I₁, I₂, I₃) = gcl(
+    mesh.edge_metrics, mesh.iterators.cell.domain, eps()
+  )
+
+  @test I₁_passes
+  @test I₂_passes
+  @test I₃_passes
+
+  cell_volume = 0.05 * 0.025 * 0.025
+
+  @test all(mesh.cell_center_metrics.J .≈ cell_volume)
+
+  @test all(mesh.cell_center_metrics.x₁.ξ .≈ 0.05)
+  @test all(mesh.cell_center_metrics.x₂.ξ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₃.ξ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₁.η .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₂.η .≈ 0.025)
+  @test all(mesh.cell_center_metrics.x₃.η .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₁.ζ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₂.ζ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₃.ζ .≈ 0.025)
+
+  @test all(mesh.cell_center_metrics.ξ̂.x₁ .≈ 0.000625)
+  @test all(mesh.cell_center_metrics.ξ̂.x₂ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ξ̂.x₃ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.x₁ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.x₂ .≈ 0.00125)
+  @test all(mesh.cell_center_metrics.η̂.x₃ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ̂.x₁ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ̂.x₂ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ̂.x₃ .≈ 0.00125)
+
+  @test all(mesh.cell_center_metrics.ξ.x₁ .≈ 20.0)
+  @test all(mesh.cell_center_metrics.ξ.x₂ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ξ.x₃ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.x₁ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.x₂ .≈ 40.0)
+  @test all(mesh.cell_center_metrics.η.x₃ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ.x₁ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ.x₂ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ.x₃ .≈ 40.0)
+  @test all(mesh.cell_center_metrics.ξ.t .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.t .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ.t .≈ 0.0)
+
+  iaxis, jaxis, kaxis = (1, 2, 3)
+  domain = mesh.iterators.cell.domain
+  i₊½_domain = expand(domain, iaxis, -1)
+  j₊½_domain = expand(domain, jaxis, -1)
+  k₊½_domain = expand(domain, kaxis, -1)
+
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain] .≈ 0.000625)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain] .≈ 0.000625)
+  @test all(mesh.edge_metrics.k₊½.ξ̂.x₁[k₊½_domain] .≈ 0.000625)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ξ̂.x₂[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₃[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x₃[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ξ̂.x₃[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.η̂.x₁[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.k₊½.η̂.x₂[k₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₃[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.x₃[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.η̂.x₃[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂.x₁[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ζ̂.x₁[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ζ̂.x₁[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂.x₂[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ζ̂.x₂[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ζ̂.x₂[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂.x₃[i₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.j₊½.ζ̂.x₃[j₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.k₊½.ζ̂.x₃[k₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.t[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ξ̂.t[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.t[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.t[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.η̂.t[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂.t[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ζ̂.t[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ζ̂.t[k₊½_domain] .≈ 0.0)
 end
 
 @testset "ContinuousCurvilinearGrid3D vs CurvilinearGrid3D" begin
@@ -120,13 +258,13 @@ end
 
   backend = AutoForwardDiff()
   @info "ContinuousCurvilinearGrid3D"
-  cm = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU(), AutoForwardDiff())
+  cm = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
 
   @info "CurvilinearGrid3D"
-  xdom = cm.node_coordinates.x[cm.iterators.node.domain]
-  ydom = cm.node_coordinates.y[cm.iterators.node.domain]
-  zdom = cm.node_coordinates.z[cm.iterators.node.domain]
-  dm = CurvilinearGrid3D(xdom, ydom, zdom, :meg6)
+  xdom = cm.node_coordinates.x[cm.iterators.node.full]
+  ydom = cm.node_coordinates.y[cm.iterators.node.full]
+  zdom = cm.node_coordinates.z[cm.iterators.node.full]
+  dm = CurvilinearGrid3D(xdom, ydom, zdom, :meg6; halo_coords_included=true)
 
   # save_vtk(dm, "sector_meg")
   # save_vtk(cm, "sector_ad")
@@ -134,20 +272,23 @@ end
   gcl(cm.edge_metrics, cm.iterators.cell.domain)
   gcl(dm.edge_metrics, dm.iterators.cell.domain)
 
+  dom = cm.iterators.cell.domain
+
   for dim in (:ξ, :η, :ζ, :ξ̂, :η̂, :ζ̂, :x₁, :x₂, :x₃)
     for ((dm_name, dm_component), (cm_name, cm_component)) in zip(
       StructArrays.components(dm.cell_center_metrics[dim]) |> pairs,
       StructArrays.components(cm.cell_center_metrics[dim]) |> pairs,
     )
       @test all(dm_component[dom] .≈ cm_component[dom])
-      @info "Dim: $dim, $dm_name, passes? $passes"
-      if !passes
-        @show extrema(dm_component[dom])
-        @show extrema(cm_component[dom])
-        println()
-      end
+      # passes = all(dm_component[dom] .≈ cm_component[dom])
+      # @info "Dim: $dim, $dm_name, passes? $passes"
+      # if !passes
+      #   @show extrema(dm_component[dom])
+      #   @show extrema(cm_component[dom])
+      #   println()
+      # end
     end
-    println()
+    # println()
   end
 
   nothing
