@@ -1,13 +1,16 @@
+using BenchmarkTools
+using CartesianDomains
 using CurvilinearGrids
 using CurvilinearGrids.RectilinearArrays
-using Test
-using StaticArrays
-using BenchmarkTools
-using LinearAlgebra
-using StructArrays
-using WriteVTK
-using UnPack
+using DifferentiationInterface
+using ForwardDiff: ForwardDiff
 using KernelAbstractions
+using LinearAlgebra
+using StaticArrays
+using StructArrays
+using Test
+using UnPack
+using WriteVTK
 
 const test_gpu = false
 
@@ -31,6 +34,7 @@ include("unit/common.jl")
 
   @info "3D"
   include("unit/test_3d.jl")
+  include("unit/test_continuous.jl")
 
   @info "Wall"
   include("unit/test_wall.jl")

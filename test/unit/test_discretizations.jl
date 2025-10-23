@@ -7,10 +7,10 @@ using CurvilinearGrids.DiscretizationSchemes: central_derivative
 using CurvilinearGrids.MetricDiscretizationSchemes
 
 @testset "MonotoneExplicitGradientScheme basic constructors" begin
-  second_order = SecondOrder()
-  fourth_order = FourthOrder()
-  sixth_order = SixthOrder()
-  eighth_order = EighthOrder()
+  second_order = CurvilinearGrids.DiscretizationSchemes.SecondOrder()
+  fourth_order = CurvilinearGrids.DiscretizationSchemes.FourthOrder()
+  sixth_order = CurvilinearGrids.DiscretizationSchemes.SixthOrder()
+  eighth_order = CurvilinearGrids.DiscretizationSchemes.EighthOrder()
 
   celldims = (30, 40, 50)
   @test_nowarn begin
