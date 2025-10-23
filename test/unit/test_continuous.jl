@@ -64,51 +64,51 @@ function wavy_mapping(ncells::NTuple{3,Int})
   return (x, y, z)
 end
 
-function gcl(
-  em, # edge metrics
-  domain,
-  ϵ,
-)
-  I₁_passes = true
-  I₂_passes = true
-  I₃_passes = true
+# function gcl(
+#   em, # edge metrics
+#   domain,
+#   ϵ,
+# )
+#   I₁_passes = true
+#   I₂_passes = true
+#   I₃_passes = true
 
-  I₁ = -Inf
-  I₂ = -Inf
-  I₃ = -Inf
-  for idx in domain
-    i, j, k = idx.I
-    _I₁ = (
-      (em.i₊½.ξ̂.x₁[i, j, k] - em.i₊½.ξ̂.x₁[i - 1, j, k]) +
-      (em.j₊½.η̂.x₁[i, j, k] - em.j₊½.η̂.x₁[i, j - 1, k]) +
-      (em.k₊½.ζ̂.x₁[i, j, k] - em.k₊½.ζ̂.x₁[i, j, k - 1])
-    )
-    _I₂ = (
-      (em.i₊½.ξ̂.x₂[i, j, k] - em.i₊½.ξ̂.x₂[i - 1, j, k]) +
-      (em.j₊½.η̂.x₂[i, j, k] - em.j₊½.η̂.x₂[i, j - 1, k]) +
-      (em.k₊½.ζ̂.x₂[i, j, k] - em.k₊½.ζ̂.x₂[i, j, k - 1])
-    )
-    _I₃ = (
-      (em.i₊½.ξ̂.x₃[i, j, k] - em.i₊½.ξ̂.x₃[i - 1, j, k]) +
-      (em.j₊½.η̂.x₃[i, j, k] - em.j₊½.η̂.x₃[i, j - 1, k]) +
-      (em.k₊½.ζ̂.x₃[i, j, k] - em.k₊½.ζ̂.x₃[i, j, k - 1])
-    )
+#   I₁ = -Inf
+#   I₂ = -Inf
+#   I₃ = -Inf
+#   for idx in domain
+#     i, j, k = idx.I
+#     _I₁ = (
+#       (em.i₊½.ξ̂.x₁[i, j, k] - em.i₊½.ξ̂.x₁[i - 1, j, k]) +
+#       (em.j₊½.η̂.x₁[i, j, k] - em.j₊½.η̂.x₁[i, j - 1, k]) +
+#       (em.k₊½.ζ̂.x₁[i, j, k] - em.k₊½.ζ̂.x₁[i, j, k - 1])
+#     )
+#     _I₂ = (
+#       (em.i₊½.ξ̂.x₂[i, j, k] - em.i₊½.ξ̂.x₂[i - 1, j, k]) +
+#       (em.j₊½.η̂.x₂[i, j, k] - em.j₊½.η̂.x₂[i, j - 1, k]) +
+#       (em.k₊½.ζ̂.x₂[i, j, k] - em.k₊½.ζ̂.x₂[i, j, k - 1])
+#     )
+#     _I₃ = (
+#       (em.i₊½.ξ̂.x₃[i, j, k] - em.i₊½.ξ̂.x₃[i - 1, j, k]) +
+#       (em.j₊½.η̂.x₃[i, j, k] - em.j₊½.η̂.x₃[i, j - 1, k]) +
+#       (em.k₊½.ζ̂.x₃[i, j, k] - em.k₊½.ζ̂.x₃[i, j, k - 1])
+#     )
 
-    I₁_passes = abs(_I₁) < ϵ
-    I₂_passes = abs(_I₂) < ϵ
-    I₃_passes = abs(_I₃) < ϵ
+#     I₁_passes = abs(_I₁) < ϵ
+#     I₂_passes = abs(_I₂) < ϵ
+#     I₃_passes = abs(_I₃) < ϵ
 
-    I₁ = max(I₁, abs(_I₁))
-    I₂ = max(I₂, abs(_I₂))
-    I₃ = max(I₃, abs(_I₃))
+#     I₁ = max(I₁, abs(_I₁))
+#     I₂ = max(I₂, abs(_I₂))
+#     I₃ = max(I₃, abs(_I₃))
 
-    if !(I₁_passes && I₂_passes && I₃_passes)
-      break
-    end
-  end
+#     if !(I₁_passes && I₂_passes && I₃_passes)
+#       break
+#     end
+#   end
 
-  return (I₁_passes, I₂_passes, I₃_passes), (I₁, I₂, I₃)
-end
+#   return (I₁_passes, I₂_passes, I₃_passes), (I₁, I₂, I₃)
+# end
 
 @testset "Wavy ContinuousCurvilinearGrid3D" begin
   celldims = (41, 41, 41)
@@ -116,14 +116,10 @@ end
   (x, y, z) = wavy_mapping(celldims)
 
   backend = AutoForwardDiff()
-  cm = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
-  (I₁_passes, I₂_passes, I₃_passes), (I₁, I₂, I₃) = gcl(
-    cm.edge_metrics, cm.iterators.cell.domain, eps()
-  )
-
-  @test I₁_passes
-  @test I₂_passes
-  @test I₃_passes
+  mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
+  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
+  # @show gcl_identities, max_vals
+  @test all(gcl_identities)
 end
 
 @testset "Sphere Sector ContinuousCurvilinearGrid3D" begin
@@ -137,14 +133,10 @@ end
   (x, y, z) = spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, celldims)
 
   backend = AutoForwardDiff()
-  cm = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
-  (I₁_passes, I₂_passes, I₃_passes), (I₁, I₂, I₃) = gcl(
-    cm.edge_metrics, cm.iterators.cell.domain, eps()
-  )
-
-  @test I₁_passes
-  @test I₂_passes
-  @test I₃_passes
+  mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
+  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
+  # @show gcl_identities, max_vals
+  @test all(gcl_identities)
 end
 
 @testset "Uniform ContinuousCurvilinearGrid3D" begin
@@ -156,13 +148,9 @@ end
 
   backend = AutoForwardDiff()
   mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
-  (I₁_passes, I₂_passes, I₃_passes), (I₁, I₂, I₃) = gcl(
-    mesh.edge_metrics, mesh.iterators.cell.domain, eps()
-  )
-
-  @test I₁_passes
-  @test I₂_passes
-  @test I₃_passes
+  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
+  # @show gcl_identities, max_vals
+  @test all(gcl_identities)
 
   cell_volume = 0.05 * 0.025 * 0.025
 
@@ -269,8 +257,10 @@ end
   # save_vtk(dm, "sector_meg")
   # save_vtk(cm, "sector_ad")
 
-  gcl(cm.edge_metrics, cm.iterators.cell.domain)
-  gcl(dm.edge_metrics, dm.iterators.cell.domain)
+  cm_gcl_identities, cm_max_vals = gcl(cm.edge_metrics, cm.iterators.cell.domain, eps())
+  dm_gcl_identities, dm_max_vals = gcl(dm.edge_metrics, dm.iterators.cell.domain, eps())
+  @test all(cm_gcl_identities)
+  @test all(dm_gcl_identities)
 
   dom = cm.iterators.cell.domain
 

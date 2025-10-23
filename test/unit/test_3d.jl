@@ -102,7 +102,8 @@
   @test all(mesh.edge_metrics.j₊½.ζ̂.t[j₊½_domain] .≈ 0.0)
   @test all(mesh.edge_metrics.k₊½.ζ̂.t[k₊½_domain] .≈ 0.0)
 
-  gcl(mesh)
+  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
+  @test all(gcl_identities)
 end
 
 @testset "3D Wavy Mesh GCL" begin
@@ -148,7 +149,8 @@ end
   save_vtk(mesh, "wavy3d")
   save_vtk(surf, "khi_surf")
 
-  gcl(mesh)
+  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, 5e-13)
+  @test all(gcl_identities)
 end
 
 @testset "3D Wavy Mesh GCL -- Halo Defined Geometry" begin
@@ -186,7 +188,8 @@ end
   x, y, z = wavy_grid(ni, nj, nk)
   mesh = CurvilinearGrid3D(x, y, z, :meg6; halo_coords_included=true)
 
-  gcl(mesh)
+  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
+  @test all(gcl_identities)
 end
 
 @testset "3D Sphere Sector, Symmetric Conservative Metrics" begin
@@ -203,13 +206,9 @@ end
   I₂_passes = true
   I₃_passes = true
 
-  gcl(mesh)
-
-  @test all(abs.(mesh.cell_center_metrics.ζ.x₃[mesh.iterators.cell.domain]) .< 5e-12)
-
-  # @show I₁_max
-  # @show I₂_max
-  # @show I₃_max
+  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, 5e-13)
+  # @show gcl_identities, max_vals
+  @test all(gcl_identities)
 
   nothing
 end

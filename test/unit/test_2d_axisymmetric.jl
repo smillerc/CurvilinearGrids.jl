@@ -11,7 +11,9 @@
 
   domain = mesh.iterators.cell.domain
 
-  gcl(mesh)
+  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
+  @test all(gcl_identities)
+
   @test centroid_radius(mesh, domain[1, 1]) == 0.2
 
   dx = 0.25
