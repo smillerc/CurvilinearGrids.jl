@@ -48,5 +48,6 @@ end
 
   # save_vtk(mesh)
 
-  gcl(mesh)
+  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
+  @test_broken all(gcl_identities)
 end
