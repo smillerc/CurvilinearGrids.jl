@@ -3,6 +3,9 @@ module CurvilinearGrids
 include("discretization_schemes/DiscretizationSchemes.jl")
 using .DiscretizationSchemes
 export MonotoneExplicitGradientScheme
+export SecondOrder, FourthOrder, SixthOrder, EighthOrder
+export compute_first_derivatives!, compute_second_derivatives!
+export cell_center_derivatives!, interpolate_to_edge!
 
 include("metric_schemes/MetricDiscretizationSchemes.jl")
 using .MetricDiscretizationSchemes
