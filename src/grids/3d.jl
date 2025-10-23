@@ -68,7 +68,7 @@ function CurvilinearGrid3D(
 ) where {T}
 
   #
-  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
 
@@ -76,7 +76,7 @@ function CurvilinearGrid3D(
   limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
-  discr_scheme = MetricDiscretizationScheme(
+  discr_scheme = GradientDiscretizationScheme(
     order;
     use_cache=true,
     celldims=celldims,
@@ -234,7 +234,7 @@ function RectilinearGrid3D(
   end
 
   #
-  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
 
@@ -242,7 +242,7 @@ function RectilinearGrid3D(
   limits, iterators = get_iterators(size(x3d), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
-  discr_scheme = MetricDiscretizationScheme(
+  discr_scheme = GradientDiscretizationScheme(
     order;
     use_cache=true,
     celldims=celldims,
@@ -361,7 +361,7 @@ function UniformGrid3D(
     end
   end
   #
-  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
 
@@ -369,7 +369,7 @@ function UniformGrid3D(
   limits, iterators = get_iterators(size(x3d), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
-  discr_scheme = MetricDiscretizationScheme(
+  discr_scheme = GradientDiscretizationScheme(
     order;
     use_cache=true,
     celldims=celldims,

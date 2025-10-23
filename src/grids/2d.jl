@@ -145,7 +145,7 @@ function CurvilinearGrid2D(
 
   #
 
-  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
 
@@ -153,7 +153,7 @@ function CurvilinearGrid2D(
   limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
-  discr_scheme = MetricDiscretizationScheme(
+  discr_scheme = GradientDiscretizationScheme(
     order;
     use_cache=true,
     celldims=celldims,
@@ -238,7 +238,7 @@ function RectilinearGrid2D(
     end
   end
 
-  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
 
@@ -246,7 +246,7 @@ function RectilinearGrid2D(
   limits, iterators = get_iterators(size(x2d), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
-  discr_scheme = MetricDiscretizationScheme(
+  discr_scheme = GradientDiscretizationScheme(
     order;
     use_cache=true,
     celldims=celldims,
@@ -369,7 +369,7 @@ function UniformGrid2D(
     end
   end
 
-  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
 
@@ -377,7 +377,7 @@ function UniformGrid2D(
   limits, iterators = get_iterators(size(x2d), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
-  discr_scheme = MetricDiscretizationScheme(
+  discr_scheme = GradientDiscretizationScheme(
     order;
     use_cache=true,
     celldims=celldims,
@@ -528,7 +528,7 @@ function AxisymmetricGrid2D(
 ) where {T}
 
   #
-  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
 
@@ -536,7 +536,7 @@ function AxisymmetricGrid2D(
   limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
-  discr_scheme = MetricDiscretizationScheme(
+  discr_scheme = GradientDiscretizationScheme(
     order;
     use_cache=true,
     celldims=celldims,
@@ -674,18 +674,18 @@ function jacobian_matrix(mesh::AbstractCurvilinearGrid2D, (i, j))
   ]
 end
 
-"""
-    jacobian(mesh::CurvilinearGrid2D, idx)
-    jacobian(mesh::RectilinearGrid2D, idx)
-    jacobian(mesh::UniformGrid2D, idx)
+# """
+#     jacobian(mesh::CurvilinearGrid2D, idx)
+#     jacobian(mesh::RectilinearGrid2D, idx)
+#     jacobian(mesh::UniformGrid2D, idx)
 
-The cell-centroid Jacobian (determinant of the Jacobian matrix)
-"""
-jacobian(mesh::CurvilinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
+# The cell-centroid Jacobian (determinant of the Jacobian matrix)
+# """
+# jacobian(mesh::CurvilinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
 
-jacobian(mesh::RectilinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
+# jacobian(mesh::RectilinearGrid2D, idx) = det(jacobian_matrix(mesh, idx))
 
-jacobian(mesh::UniformGrid2D, idx) = det(jacobian_matrix(mesh, idx))
+# jacobian(mesh::UniformGrid2D, idx) = det(jacobian_matrix(mesh, idx))
 
 """
     forward_cell_metrics(mesh::AbstractCurvilinearGrid2D, idx)

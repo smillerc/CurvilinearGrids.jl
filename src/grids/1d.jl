@@ -80,14 +80,14 @@ function CurvilinearGrid1D(
 ) where {T}
 
   #
-  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
 
   limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
-  discr_scheme = MetricDiscretizationScheme(
+  discr_scheme = GradientDiscretizationScheme(
     order;
     use_cache=true,
     celldims=celldims,
@@ -184,14 +184,14 @@ function UniformGrid1D(
     error("The x vector must have more than 2 points")
   end
 
-  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
 
   limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
-  discr_scheme = MetricDiscretizationScheme(
+  discr_scheme = GradientDiscretizationScheme(
     order;
     use_cache=true,
     celldims=celldims,
@@ -278,14 +278,14 @@ function SphericalGrid1D(
 ) where {T}
 
   #
-  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
 
   limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
-  discr_scheme = MetricDiscretizationScheme(
+  discr_scheme = GradientDiscretizationScheme(
     order;
     use_cache=true,
     celldims=celldims,
@@ -337,14 +337,14 @@ function CylindricalGrid1D(
 ) where {T}
 
   #
-  MetricDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_metric_disc_scheme(
+  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
 
   limits, iterators = get_iterators(size(x), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
 
-  discr_scheme = MetricDiscretizationScheme(
+  discr_scheme = GradientDiscretizationScheme(
     order;
     use_cache=true,
     celldims=celldims,

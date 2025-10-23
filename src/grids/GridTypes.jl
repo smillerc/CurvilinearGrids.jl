@@ -394,18 +394,18 @@ conservation law.
 """
 jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
 
-function get_metric_disc_scheme(discretization_scheme_name)
+function get_gradient_discretization_scheme(discretization_scheme_name)
   scheme_name = Symbol(uppercase("$discretization_scheme_name"))
   use_symmetric_conservative_metric_scheme = false
   # if scheme_name === :MEG4 || scheme_name === :MEG4_SYMMETRIC
   #   order = 4
-  #   MetricDiscretizationScheme = MonotoneExplicitGradientScheme
+  #   GradientDiscretizationScheme = MonotoneExplicitGradientScheme
   #   if scheme_name === :MEG6_SYMMETRIC
   #     use_symmetric_conservative_metric_scheme = true
   #   end
   if scheme_name === :MEG6 || scheme_name === :MEG6_SYMMETRIC
     order = 6
-    MetricDiscretizationScheme = MonotoneExplicitGradientScheme
+    GradientDiscretizationScheme = MonotoneExplicitGradientScheme
     if scheme_name === :MEG6_SYMMETRIC
       use_symmetric_conservative_metric_scheme = true
     end
@@ -416,7 +416,7 @@ function get_metric_disc_scheme(discretization_scheme_name)
 
   nhalo = DiscretizationSchemes.nhalo_lookup[scheme_name]
 
-  return MetricDiscretizationScheme,
+  return GradientDiscretizationScheme,
   order, use_symmetric_conservative_metric_scheme, nhalo,
   scheme_name
 end
