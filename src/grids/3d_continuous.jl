@@ -35,14 +35,13 @@ function ContinuousCurvilinearGrid3D(
   y::Function,
   z::Function,
   celldims::NTuple,
-  _nhalo::Int,
+  discretization_scheme::Symbol,
   backend=CPU(),
   diff_backend=AutoForwardDiff(),
   T=Float64;
   compute_metrics=true,
 )
-  discretization_scheme = :meg6
-  MetricDiscretizationScheme, order, _, nhalo, scheme_name = get_metric_disc_scheme(
+  GradientDiscretizationScheme, order, _, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
   iterators = get_iterators(celldims, nhalo)
@@ -51,9 +50,7 @@ function ContinuousCurvilinearGrid3D(
   xyz_n = node_coordinates(x, y, z, iterators, backend, T)
   xyz_c = centroid_coordinates(x, y, z, iterators, backend, T)
 
-  discr_scheme = MetricDiscretizationScheme(
-    order; use_cache=false, celldims=size(iterators.cell.full), backend=backend, T=T
-  )
+  discr_scheme = GradientDiscretizationScheme(order; use_cache=false)
 
   mesh = ContinuousCurvilinearGrid3D(
     xyz_n,
@@ -291,15 +288,15 @@ function compute_cell_metrics!(mesh)
     mesh.cell_center_metrics.ζ̂.x₂[i, j, k] = ζ̂_y
     mesh.cell_center_metrics.ζ̂.x₃[i, j, k] = ζ̂_z
 
-    mesh.cell_center_metrics.ξ.x₁[i, j, k] = ξ̂_x * J
-    mesh.cell_center_metrics.ξ.x₂[i, j, k] = ξ̂_y * J
-    mesh.cell_center_metrics.ξ.x₃[i, j, k] = ξ̂_z * J
-    mesh.cell_center_metrics.η.x₁[i, j, k] = η̂_x * J
-    mesh.cell_center_metrics.η.x₂[i, j, k] = η̂_y * J
-    mesh.cell_center_metrics.η.x₃[i, j, k] = η̂_z * J
-    mesh.cell_center_metrics.ζ.x₁[i, j, k] = ζ̂_x * J
-    mesh.cell_center_metrics.ζ.x₂[i, j, k] = ζ̂_y * J
-    mesh.cell_center_metrics.ζ.x₃[i, j, k] = ζ̂_z * J
+    mesh.cell_center_metrics.ξ.x₁[i, j, k] = ξ̂_x / J
+    mesh.cell_center_metrics.ξ.x₂[i, j, k] = ξ̂_y / J
+    mesh.cell_center_metrics.ξ.x₃[i, j, k] = ξ̂_z / J
+    mesh.cell_center_metrics.η.x₁[i, j, k] = η̂_x / J
+    mesh.cell_center_metrics.η.x₂[i, j, k] = η̂_y / J
+    mesh.cell_center_metrics.η.x₃[i, j, k] = η̂_z / J
+    mesh.cell_center_metrics.ζ.x₁[i, j, k] = ζ̂_x / J
+    mesh.cell_center_metrics.ζ.x₂[i, j, k] = ζ̂_y / J
+    mesh.cell_center_metrics.ζ.x₃[i, j, k] = ζ̂_z / J
   end
 end
 
