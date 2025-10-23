@@ -54,8 +54,7 @@ function central_first_derivative_inner_domain_kernel!(
     ᵢ₋₂ = shift(I, axis, -2)
     ᵢ₋₃ = shift(I, axis, -3)
 
-    _∂W = central_derivative(W[ᵢ₋₃], W[ᵢ₋₂], W[ᵢ₋₁], W[ᵢ₊₁], W[ᵢ₊₂], W[ᵢ₊₃])
-    ∂W[I] = _∂W * abs(_∂W) >= ϵ
+    ∂W[I] = central_derivative(W[ᵢ₋₃], W[ᵢ₋₂], W[ᵢ₋₁], W[ᵢ₊₁], W[ᵢ₊₂], W[ᵢ₊₃])
   end
 end
 
