@@ -10,6 +10,21 @@ Signed-power
 """
 spow(x, p) = sign(x) * abs(x)^p
 
+# function piecewise_mapping(i, N, p, fine_spacing_coef, width, origin, offset)
+#   x = -1 + 2 * (i - 1 + offset) / (N - 1)
+#   s = width / (1 + fine_spacing_coef)
+#   slope = s * (p + fine_spacing_coef)
+#   if x < -1
+#     y = -width + slope * (x + 1) + origin
+#   elseif x > 1
+#     y = width + slope * (x - 1) + origin
+#   else
+#     y = s * (spow(x, p) + fine_spacing_coef * x) + origin
+#   end
+
+#   y
+# end
+
 """
     piecewise_mapping(i, N, p, fine_spacing_coef, width, origin, offset)
 
@@ -22,43 +37,31 @@ spow(x, p) = sign(x) * abs(x)^p
  - `origin`: origin of the inner region
  - `offset`: offset of the wings: >0 biases to the right, <0 biases to the left
 """
-function piecewise_mapping(i, N, p, fine_spacing_coef, width, origin, offset)
-  x = -1 + 2 * (i - 1 + offset) / (N - 1)
-  s = width / (1 + fine_spacing_coef)
-  slope = s * (p + fine_spacing_coef)
-  if x < -1
-    y = -width + slope * (x + 1) + origin
-  elseif x > 1
-    y = width + slope * (x - 1) + origin
-  else
-    y = s * (spow(x, p) + fine_spacing_coef * x) + origin
-  end
-
-  y
-end
-
-function y_piecewise_smooth(i, N::Int, p, a, width, origin, offset, ε)
+function piecewise_smooth(i, N::Int, p, fine_spacing_coef, width, origin, offset, ε)
   # map i ∈ [1, N] → x ∈ [-1, 1]
   x = -1 + 2 * (i - 1 + offset) / (N - 1)
 
   # normalization
-  s = width / (1 + a)
-  y_c(x) = s * (spow(x, p) + a * x)
-  dy_c(x) = s * (p * abs(x)^(p - 1) + a)
+  s = width / (1 + fine_spacing_coef)
+  y_c(x) = s * (spow(x, p) + fine_spacing_coef * x)
+  dy_c(x) = s * (p * abs(x)^(p - 1) + fine_spacing_coef)
 
   # values and slopes at boundaries
-  y1, m1 = y_c(1.0), dy_c(1.0)
-  ym1, mm1 = y_c(-1.0), dy_c(-1.0)
+  y_r, slope_r = y_c(1.0), dy_c(1.0)
+  y_l, slope_l = y_c(-1.0), dy_c(-1.0)
 
   # smooth transition functions
   S_right = 0.5 * (1 + tanh((x - 1) / ε))
   S_left = 0.5 * (1 + tanh((-x - 1) / ε))
 
+  y_right = y_r + slope_r * (x - 1)
+  y_left = y_l + slope_l * (x + 1)
+
   # smooth blending of inner and outer regions
   y =
     (1 - S_right - S_left) * y_c(x) +
-    S_right * (y1 + m1 * (x - 1)) +
-    S_left * (ym1 + mm1 * (x + 1)) +
+    S_right * y_right + #
+    S_left * y_left + #
     origin
 
   return y
@@ -95,7 +98,7 @@ function sector_mapping(θmin, θmax, ϕmin, ϕmax, ncells::NTuple{3,Int})
   Δϕ = (ϕmax - ϕmin) / nk
 
   # Coordinate functions
-  r(i) = y_piecewise_smooth(
+  r(i) = piecewise_smooth(
     i,
     ni, # N
     11, # p
