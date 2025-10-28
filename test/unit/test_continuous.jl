@@ -26,9 +26,11 @@ function spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, ncells
   θ(j) = (θmin + (j - 1) * Δθ) / pi
   ϕ(k) = (ϕmin + (k - 1) * Δϕ) / pi
 
-  x(i, j, k) = r(i) * sin(θ(j)) * cos(ϕ(k))
-  y(i, j, k) = r(i) * sin(θ(j)) * sin(ϕ(k))
-  z(i, j, k) = r(i) * cos(θ(j))
+  # use sinpi, cospi for better numerical noise control. pi is already
+  # factored out in the θ and ϕ functions
+  x(i, j, k) = r(i) * sinpi(θ(j)) * cospi(ϕ(k))
+  y(i, j, k) = r(i) * sinpi(θ(j)) * sinpi(ϕ(k))
+  z(i, j, k) = r(i) * cospi(θ(j))
 
   return (x, y, z)
 end
