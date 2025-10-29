@@ -116,16 +116,14 @@ end
 
 The total number of cells in the mesh (_excluding_ halo regions)
 """
-cellsize(mesh::AbstractCurvilinearGrid) = @. mesh.nnodes - 1
-cellsize(mesh::AbstractCurvilinearGrid1D) = (mesh.nnodes - 1,)
+cellsize(mesh::AbstractCurvilinearGrid) = size(mesh.iterators.cell.domain)
 
 """
     cellsize_withhalo(mesh::AbstractCurvilinearGrid)
 
 The total number of cells in the mesh (_including_ halo regions)
 """
-cellsize_withhalo(mesh::AbstractCurvilinearGrid) = @. mesh.nnodes - 1 + 2 * mesh.nhalo
-cellsize_withhalo(mesh::AbstractCurvilinearGrid1D) = (mesh.nnodes - 1 + 2 * mesh.nhalo,)
+cellsize_withhalo(mesh::AbstractCurvilinearGrid) = size(mesh.iterators.cell.full)
 
 """
     coords(mesh)
