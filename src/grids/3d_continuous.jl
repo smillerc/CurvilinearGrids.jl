@@ -158,7 +158,7 @@ function node_coordinates(x, y, z, iterators, backend, T)
 end
 
 function centroid_coordinates(x, y, z, iterators, backend, T)
-  ni, nj, nk = size(iterators.node.full)
+  ni, nj, nk = size(iterators.cell.full)
   nhalo = iterators.nhalo
   coords = StructArray((
     x=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
@@ -166,7 +166,7 @@ function centroid_coordinates(x, y, z, iterators, backend, T)
     z=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
   ))
 
-  @batch for I in iterators.node.full
+  @batch for I in iterators.cell.full
     i, j, k = I.I
     coords.x[I] = x(i - nhalo + 0.5, j - nhalo + 0.5, k - nhalo + 0.5)
     coords.y[I] = y(i - nhalo + 0.5, j - nhalo + 0.5, k - nhalo + 0.5)
