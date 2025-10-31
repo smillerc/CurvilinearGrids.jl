@@ -37,6 +37,7 @@ export cellvolume, cellvolumes
 export radius, centroid_radius, centroid_radii
 export jacobian_matrix
 export forward_cell_metrics, inverse_cell_metrics
+export gcl
 
 abstract type AbstractCurvilinearGrid end
 abstract type AbstractCurvilinearGrid1D <: AbstractCurvilinearGrid end
@@ -87,6 +88,7 @@ include("2d.jl")
 include("3d.jl")
 include("simple_constructors/simple_constructors.jl")
 include("3d_continuous.jl")
+include("gcl.jl")
 
 function update_metrics!(
   mesh::AbstractCurvilinearGrid, t::Real=0; include_halo_region=false
@@ -106,6 +108,7 @@ function update_metrics!(
     mesh.edge_metrics,
     metric_domain,
     backend,
+    include_halo_region
   )
 
   return nothing
@@ -407,6 +410,12 @@ function get_gradient_discretization_scheme(discretization_scheme_name)
     if scheme_name === :MEG6_SYMMETRIC
       use_symmetric_conservative_metric_scheme = true
     end
+  elseif scheme_name === :MEG4
+    order = 4
+    GradientDiscretizationScheme = MonotoneExplicitGradientScheme
+  elseif scheme_name === :MEG2
+    order = 2
+    GradientDiscretizationScheme = MonotoneExplicitGradientScheme
   else
     error("Only $((:MEG6)) is supported for now")
     # error("Only $((:MEG4, :MEG6)) is supported for now")

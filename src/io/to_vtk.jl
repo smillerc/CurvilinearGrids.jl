@@ -18,6 +18,14 @@ function save_vtk(mesh::AbstractCurvilinearGrid3D, fn="mesh")
 
     # vtk["volume", VTKCellData()] = cellvolume.(Ref(mesh), domain)
 
+    I1, I2, I3 = GridTypes.gcl(mesh.edge_metrics, domain)
+
+    vtk["GCL", VTKCellData(), component_names=["I1", "I2", "I3"]] = (
+      I1[domain],
+      I2[domain],
+      I3[domain],
+    )
+
     for (name, edge) in pairs(mesh.edge_metrics)
       for dim in (:ξ̂, :η̂, :ζ̂)
         var = edge[dim]
