@@ -12,7 +12,7 @@ end
 
 @inline function tol_diff(a::T, b::T) where {T}
   a_m_b = a - b
-  return a_m_b * !isapprox(a, b) #; rtol=1e-7)
+  return a_m_b * !isapprox(a, b; rtol=sqrt(eps(T)), atol=10eps(T)) #; rtol=1e-7)
 end
 
 # ------------------------
