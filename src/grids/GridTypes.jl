@@ -108,7 +108,6 @@ function update_metrics!(
     mesh.edge_metrics,
     metric_domain,
     backend,
-    include_halo_region
   )
 
   return nothing
