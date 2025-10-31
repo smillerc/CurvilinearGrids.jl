@@ -92,8 +92,21 @@ function MetricCache(x::Function, y::Function, z::Function, backend)
     )
   end
 
+  jacobian(i, j, k) = det(jacobian_matrix(i, j, k))
+  jinv(i, j, k) = inv(jacobian_matrix(i, j, k))
+
   forward_metrics = (;
-    jacobian=jacobian_matrix, xξ=xξ, xη=xη, xζ=xζ, yξ=yξ, yη=yη, yζ=yζ, zξ=zξ, zη=zη, zζ=zζ
+    jacobian=jacobian_matrix,
+    J=jacobian,
+    xξ=xξ,
+    xη=xη,
+    xζ=xζ,
+    yξ=yξ,
+    yη=yη,
+    yζ=yζ,
+    zξ=zξ,
+    zη=zη,
+    zζ=zζ,
   )
 
   x_ξ_y(i, j, k) = xξ(i, j, k) * y(i, j, k)
@@ -131,7 +144,16 @@ function MetricCache(x::Function, y::Function, z::Function, backend)
   ζ̂z(i, j, k) = x_ξ_y_η(i, j, k) − x_η_y_ξ(i, j, k)
 
   inverse_metrics = (;
-    ξ̂x=ξ̂x, ξ̂y=ξ̂y, ξ̂z=ξ̂z, η̂x=η̂x, η̂y=η̂y, η̂z=η̂z, ζ̂x=ζ̂x, ζ̂y=ζ̂y, ζ̂z=ζ̂z
+    ξ̂x=ξ̂x,
+    ξ̂y=ξ̂y,
+    ξ̂z=ξ̂z,
+    η̂x=η̂x,
+    η̂y=η̂y,
+    η̂z=η̂z,
+    ζ̂x=ζ̂x,
+    ζ̂y=ζ̂y,
+    ζ̂z=ζ̂z,
+    Jinv=jinv,
   )
 
   return MetricCache(forward_metrics, inverse_metrics)
@@ -246,7 +268,7 @@ end
 function compute_cell_metrics!(mesh)
   nhalo = mesh.iterators.nhalo
 
-  for I in mesh.iterators.cell.full
+  @threads for I in mesh.iterators.cell.full
     i, j, k = I.I
 
     # account for halo cells and centroid offset
@@ -331,6 +353,10 @@ function compute_edge_metrics!(mesh)
     mesh.metric_functions_cache.inverse.ζ̂z, mesh.diff_backend
   )
 
+  Jinv_ᵢ₊½, Jinv_ⱼ₊½, Jinv_ₖ₊½ = edge_functions(
+    mesh.metric_functions_cache.inverse.Jinv, mesh.diff_backend
+  )
+
   # for (iedge, edge) in enumerate(mesh.metrics.edge_metrics)
   i₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 1, +1)
   j₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 2, +1)
@@ -338,47 +364,152 @@ function compute_edge_metrics!(mesh)
 
   @threads for I in i₊½_edge_domain
     i, j, k = I.I
-    ξηζ = I.I .- nhalo .+ (1 / 2)
+    ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
-    mesh.edge_metrics.i₊½.ξ̂.x₁[i, j, k] = ξ̂xᵢ₊½(ξηζ...)
-    mesh.edge_metrics.i₊½.ξ̂.x₂[i, j, k] = ξ̂yᵢ₊½(ξηζ...)
-    mesh.edge_metrics.i₊½.ξ̂.x₃[i, j, k] = ξ̂zᵢ₊½(ξηζ...)
-    mesh.edge_metrics.i₊½.η̂.x₁[i, j, k] = η̂xᵢ₊½(ξηζ...)
-    mesh.edge_metrics.i₊½.η̂.x₂[i, j, k] = η̂yᵢ₊½(ξηζ...)
-    mesh.edge_metrics.i₊½.η̂.x₃[i, j, k] = η̂zᵢ₊½(ξηζ...)
-    mesh.edge_metrics.i₊½.ζ̂.x₁[i, j, k] = ζ̂xᵢ₊½(ξηζ...)
-    mesh.edge_metrics.i₊½.ζ̂.x₂[i, j, k] = ζ̂yᵢ₊½(ξηζ...)
-    mesh.edge_metrics.i₊½.ζ̂.x₃[i, j, k] = ζ̂zᵢ₊½(ξηζ...)
+    # J = Jᵢ₊½(ξηζ...)
+    ξ̂_xᵢ₊½ = ξ̂xᵢ₊½(ξηζ...)
+    ξ̂_yᵢ₊½ = ξ̂yᵢ₊½(ξηζ...)
+    ξ̂_zᵢ₊½ = ξ̂zᵢ₊½(ξηζ...)
+    η̂_xᵢ₊½ = η̂xᵢ₊½(ξηζ...)
+    η̂_yᵢ₊½ = η̂yᵢ₊½(ξηζ...)
+    η̂_zᵢ₊½ = η̂zᵢ₊½(ξηζ...)
+    ζ̂_xᵢ₊½ = ζ̂xᵢ₊½(ξηζ...)
+    ζ̂_yᵢ₊½ = ζ̂yᵢ₊½(ξηζ...)
+    ζ̂_zᵢ₊½ = ζ̂zᵢ₊½(ξηζ...)
+
+    mesh.edge_metrics.i₊½.ξ̂.x₁[i, j, k] = ξ̂_xᵢ₊½
+    mesh.edge_metrics.i₊½.ξ̂.x₂[i, j, k] = ξ̂_yᵢ₊½
+    mesh.edge_metrics.i₊½.ξ̂.x₃[i, j, k] = ξ̂_zᵢ₊½
+    mesh.edge_metrics.i₊½.η̂.x₁[i, j, k] = η̂_xᵢ₊½
+    mesh.edge_metrics.i₊½.η̂.x₂[i, j, k] = η̂_yᵢ₊½
+    mesh.edge_metrics.i₊½.η̂.x₃[i, j, k] = η̂_zᵢ₊½
+    mesh.edge_metrics.i₊½.ζ̂.x₁[i, j, k] = ζ̂_xᵢ₊½
+    mesh.edge_metrics.i₊½.ζ̂.x₂[i, j, k] = ζ̂_yᵢ₊½
+    mesh.edge_metrics.i₊½.ζ̂.x₃[i, j, k] = ζ̂_zᵢ₊½
+
+    ξ_xᵢ₊½, η_xᵢ₊½, ζ_xᵢ₊½, ξ_yᵢ₊½, η_yᵢ₊½, ζ_yᵢ₊½, ξ_zᵢ₊½, η_zᵢ₊½, ζ_zᵢ₊½ = Jinv_ᵢ₊½(
+      ξηζ...
+    )
+
+    mesh.edge_metrics.i₊½.ξ.x₁[i, j, k] = ξ_xᵢ₊½
+    mesh.edge_metrics.i₊½.ξ.x₂[i, j, k] = ξ_yᵢ₊½
+    mesh.edge_metrics.i₊½.ξ.x₃[i, j, k] = ξ_zᵢ₊½
+    mesh.edge_metrics.i₊½.η.x₁[i, j, k] = η_xᵢ₊½
+    mesh.edge_metrics.i₊½.η.x₂[i, j, k] = η_yᵢ₊½
+    mesh.edge_metrics.i₊½.η.x₃[i, j, k] = η_zᵢ₊½
+    mesh.edge_metrics.i₊½.ζ.x₁[i, j, k] = ζ_xᵢ₊½
+    mesh.edge_metrics.i₊½.ζ.x₂[i, j, k] = ζ_yᵢ₊½
+    mesh.edge_metrics.i₊½.ζ.x₃[i, j, k] = ζ_zᵢ₊½
+
+    # mesh.edge_metrics.i₊½.ξ.x₁[i, j, k] = ξ̂_xᵢ₊½ / J
+    # mesh.edge_metrics.i₊½.ξ.x₂[i, j, k] = ξ̂_yᵢ₊½ / J
+    # mesh.edge_metrics.i₊½.ξ.x₃[i, j, k] = ξ̂_zᵢ₊½ / J
+    # mesh.edge_metrics.i₊½.η.x₁[i, j, k] = η̂_xᵢ₊½ / J
+    # mesh.edge_metrics.i₊½.η.x₂[i, j, k] = η̂_yᵢ₊½ / J
+    # mesh.edge_metrics.i₊½.η.x₃[i, j, k] = η̂_zᵢ₊½ / J
+    # mesh.edge_metrics.i₊½.ζ.x₁[i, j, k] = ζ̂_xᵢ₊½ / J
+    # mesh.edge_metrics.i₊½.ζ.x₂[i, j, k] = ζ̂_yᵢ₊½ / J
+    # mesh.edge_metrics.i₊½.ζ.x₃[i, j, k] = ζ̂_zᵢ₊½ / J
   end
 
   @threads for I in j₊½_edge_domain
     i, j, k = I.I
-    ξηζ = I.I .- nhalo .+ (1 / 2)
+    ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
-    mesh.edge_metrics.j₊½.ξ̂.x₁[i, j, k] = ξ̂xⱼ₊½(ξηζ...)
-    mesh.edge_metrics.j₊½.ξ̂.x₂[i, j, k] = ξ̂yⱼ₊½(ξηζ...)
-    mesh.edge_metrics.j₊½.ξ̂.x₃[i, j, k] = ξ̂zⱼ₊½(ξηζ...)
-    mesh.edge_metrics.j₊½.η̂.x₁[i, j, k] = η̂xⱼ₊½(ξηζ...)
-    mesh.edge_metrics.j₊½.η̂.x₂[i, j, k] = η̂yⱼ₊½(ξηζ...)
-    mesh.edge_metrics.j₊½.η̂.x₃[i, j, k] = η̂zⱼ₊½(ξηζ...)
-    mesh.edge_metrics.j₊½.ζ̂.x₁[i, j, k] = ζ̂xⱼ₊½(ξηζ...)
-    mesh.edge_metrics.j₊½.ζ̂.x₂[i, j, k] = ζ̂yⱼ₊½(ξηζ...)
-    mesh.edge_metrics.j₊½.ζ̂.x₃[i, j, k] = ζ̂zⱼ₊½(ξηζ...)
+    # J = Jⱼ₊½(ξηζ...)
+    ξ̂_xⱼ₊½ = ξ̂xⱼ₊½(ξηζ...)
+    ξ̂_yⱼ₊½ = ξ̂yⱼ₊½(ξηζ...)
+    ξ̂_zⱼ₊½ = ξ̂zⱼ₊½(ξηζ...)
+    η̂_xⱼ₊½ = η̂xⱼ₊½(ξηζ...)
+    η̂_yⱼ₊½ = η̂yⱼ₊½(ξηζ...)
+    η̂_zⱼ₊½ = η̂zⱼ₊½(ξηζ...)
+    ζ̂_xⱼ₊½ = ζ̂xⱼ₊½(ξηζ...)
+    ζ̂_yⱼ₊½ = ζ̂yⱼ₊½(ξηζ...)
+    ζ̂_zⱼ₊½ = ζ̂zⱼ₊½(ξηζ...)
+
+    mesh.edge_metrics.j₊½.ξ̂.x₁[i, j, k] = ξ̂_xⱼ₊½
+    mesh.edge_metrics.j₊½.ξ̂.x₂[i, j, k] = ξ̂_yⱼ₊½
+    mesh.edge_metrics.j₊½.ξ̂.x₃[i, j, k] = ξ̂_zⱼ₊½
+    mesh.edge_metrics.j₊½.η̂.x₁[i, j, k] = η̂_xⱼ₊½
+    mesh.edge_metrics.j₊½.η̂.x₂[i, j, k] = η̂_yⱼ₊½
+    mesh.edge_metrics.j₊½.η̂.x₃[i, j, k] = η̂_zⱼ₊½
+    mesh.edge_metrics.j₊½.ζ̂.x₁[i, j, k] = ζ̂_xⱼ₊½
+    mesh.edge_metrics.j₊½.ζ̂.x₂[i, j, k] = ζ̂_yⱼ₊½
+    mesh.edge_metrics.j₊½.ζ̂.x₃[i, j, k] = ζ̂_zⱼ₊½
+
+    ξ_xⱼ₊½, η_xⱼ₊½, ζ_xⱼ₊½, ξ_yⱼ₊½, η_yⱼ₊½, ζ_yⱼ₊½, ξ_zⱼ₊½, η_zⱼ₊½, ζ_zⱼ₊½ = Jinv_ⱼ₊½(
+      ξηζ...
+    )
+
+    mesh.edge_metrics.j₊½.ξ.x₁[i, j, k] = ξ_xⱼ₊½
+    mesh.edge_metrics.j₊½.ξ.x₂[i, j, k] = ξ_yⱼ₊½
+    mesh.edge_metrics.j₊½.ξ.x₃[i, j, k] = ξ_zⱼ₊½
+    mesh.edge_metrics.j₊½.η.x₁[i, j, k] = η_xⱼ₊½
+    mesh.edge_metrics.j₊½.η.x₂[i, j, k] = η_yⱼ₊½
+    mesh.edge_metrics.j₊½.η.x₃[i, j, k] = η_zⱼ₊½
+    mesh.edge_metrics.j₊½.ζ.x₁[i, j, k] = ζ_xⱼ₊½
+    mesh.edge_metrics.j₊½.ζ.x₂[i, j, k] = ζ_yⱼ₊½
+    mesh.edge_metrics.j₊½.ζ.x₃[i, j, k] = ζ_zⱼ₊½
+
+    # mesh.edge_metrics.j₊½.ξ.x₁[i, j, k] = ξ̂_xⱼ₊½ / J
+    # mesh.edge_metrics.j₊½.ξ.x₂[i, j, k] = ξ̂_yⱼ₊½ / J
+    # mesh.edge_metrics.j₊½.ξ.x₃[i, j, k] = ξ̂_zⱼ₊½ / J
+    # mesh.edge_metrics.j₊½.η.x₁[i, j, k] = η̂_xⱼ₊½ / J
+    # mesh.edge_metrics.j₊½.η.x₂[i, j, k] = η̂_yⱼ₊½ / J
+    # mesh.edge_metrics.j₊½.η.x₃[i, j, k] = η̂_zⱼ₊½ / J
+    # mesh.edge_metrics.j₊½.ζ.x₁[i, j, k] = ζ̂_xⱼ₊½ / J
+    # mesh.edge_metrics.j₊½.ζ.x₂[i, j, k] = ζ̂_yⱼ₊½ / J
+    # mesh.edge_metrics.j₊½.ζ.x₃[i, j, k] = ζ̂_zⱼ₊½ / J
   end
 
   @threads for I in k₊½_edge_domain
     i, j, k = I.I
-    ξηζ = I.I .- nhalo .+ (1 / 2)
+    ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
-    mesh.edge_metrics.k₊½.ξ̂.x₁[i, j, k] = ξ̂xₖ₊½(ξηζ...)
-    mesh.edge_metrics.k₊½.ξ̂.x₂[i, j, k] = ξ̂yₖ₊½(ξηζ...)
-    mesh.edge_metrics.k₊½.ξ̂.x₃[i, j, k] = ξ̂zₖ₊½(ξηζ...)
-    mesh.edge_metrics.k₊½.η̂.x₁[i, j, k] = η̂xₖ₊½(ξηζ...)
-    mesh.edge_metrics.k₊½.η̂.x₂[i, j, k] = η̂yₖ₊½(ξηζ...)
-    mesh.edge_metrics.k₊½.η̂.x₃[i, j, k] = η̂zₖ₊½(ξηζ...)
-    mesh.edge_metrics.k₊½.ζ̂.x₁[i, j, k] = ζ̂xₖ₊½(ξηζ...)
-    mesh.edge_metrics.k₊½.ζ̂.x₂[i, j, k] = ζ̂yₖ₊½(ξηζ...)
-    mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k] = ζ̂zₖ₊½(ξηζ...)
+    # J = Jₖ₊½(ξηζ...)
+    ξ̂_xₖ₊½ = ξ̂xₖ₊½(ξηζ...)
+    ξ̂_yₖ₊½ = ξ̂yₖ₊½(ξηζ...)
+    ξ̂_zₖ₊½ = ξ̂zₖ₊½(ξηζ...)
+    η̂_xₖ₊½ = η̂xₖ₊½(ξηζ...)
+    η̂_yₖ₊½ = η̂yₖ₊½(ξηζ...)
+    η̂_zₖ₊½ = η̂zₖ₊½(ξηζ...)
+    ζ̂_xₖ₊½ = ζ̂xₖ₊½(ξηζ...)
+    ζ̂_yₖ₊½ = ζ̂yₖ₊½(ξηζ...)
+    ζ̂_zₖ₊½ = ζ̂zₖ₊½(ξηζ...)
+
+    mesh.edge_metrics.k₊½.ξ̂.x₁[i, j, k] = ξ̂_xₖ₊½
+    mesh.edge_metrics.k₊½.ξ̂.x₂[i, j, k] = ξ̂_yₖ₊½
+    mesh.edge_metrics.k₊½.ξ̂.x₃[i, j, k] = ξ̂_zₖ₊½
+    mesh.edge_metrics.k₊½.η̂.x₁[i, j, k] = η̂_xₖ₊½
+    mesh.edge_metrics.k₊½.η̂.x₂[i, j, k] = η̂_yₖ₊½
+    mesh.edge_metrics.k₊½.η̂.x₃[i, j, k] = η̂_zₖ₊½
+    mesh.edge_metrics.k₊½.ζ̂.x₁[i, j, k] = ζ̂_xₖ₊½
+    mesh.edge_metrics.k₊½.ζ̂.x₂[i, j, k] = ζ̂_yₖ₊½
+    mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k] = ζ̂_zₖ₊½
+
+    ξ_xₖ₊½, η_xₖ₊½, ζ_xₖ₊½, ξ_yₖ₊½, η_yₖ₊½, ζ_yₖ₊½, ξ_zₖ₊½, η_zₖ₊½, ζ_zₖ₊½ = Jinv_ₖ₊½(
+      ξηζ...
+    )
+
+    mesh.edge_metrics.k₊½.ξ.x₁[i, j, k] = ξ_xₖ₊½
+    mesh.edge_metrics.k₊½.ξ.x₂[i, j, k] = ξ_yₖ₊½
+    mesh.edge_metrics.k₊½.ξ.x₃[i, j, k] = ξ_zₖ₊½
+    mesh.edge_metrics.k₊½.η.x₁[i, j, k] = η_xₖ₊½
+    mesh.edge_metrics.k₊½.η.x₂[i, j, k] = η_yₖ₊½
+    mesh.edge_metrics.k₊½.η.x₃[i, j, k] = η_zₖ₊½
+    mesh.edge_metrics.k₊½.ζ.x₁[i, j, k] = ζ_xₖ₊½
+    mesh.edge_metrics.k₊½.ζ.x₂[i, j, k] = ζ_yₖ₊½
+    mesh.edge_metrics.k₊½.ζ.x₃[i, j, k] = ζ_zₖ₊½
+
+    # mesh.edge_metrics.k₊½.ξ.x₁[i, j, k] = ξ̂_xₖ₊½ / J
+    # mesh.edge_metrics.k₊½.ξ.x₂[i, j, k] = ξ̂_yₖ₊½ / J
+    # mesh.edge_metrics.k₊½.ξ.x₃[i, j, k] = ξ̂_zₖ₊½ / J
+    # mesh.edge_metrics.k₊½.η.x₁[i, j, k] = η̂_xₖ₊½ / J
+    # mesh.edge_metrics.k₊½.η.x₂[i, j, k] = η̂_yₖ₊½ / J
+    # mesh.edge_metrics.k₊½.η.x₃[i, j, k] = η̂_zₖ₊½ / J
+    # mesh.edge_metrics.k₊½.ζ.x₁[i, j, k] = ζ̂_xₖ₊½ / J
+    # mesh.edge_metrics.k₊½.ζ.x₂[i, j, k] = ζ̂_yₖ₊½ / J
+    # mesh.edge_metrics.k₊½.ζ.x₃[i, j, k] = ζ̂_zₖ₊½ / J
   end
 
   return nothing

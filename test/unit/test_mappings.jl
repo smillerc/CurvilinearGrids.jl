@@ -102,7 +102,7 @@ function sector_mapping(θmin, θmax, ϕmin, ϕmax, ncells::NTuple{3,Int})
     i,
     ni, # N
     11, # p
-    0.45, # fine_spacing_coef
+    0.75, # fine_spacing_coef
     70.0, # width
     400.0, # origin
     2.0, # offset
@@ -125,10 +125,17 @@ celldims = (100, 50, 50)
 
 x, y, z = sector_mapping(θmin, θmax, ϕmin, ϕmax, celldims);
 # backend = AutoForwardDiff()
-@profview begin
-  mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
-end
+mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
+
 # gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps());
 save_vtk(mesh, "sector_ad_mesh")
 
 gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, 5e-13)
+
+# cm = mesh
+# xdom = cm.node_coordinates.x[cm.iterators.node.full]
+# ydom = cm.node_coordinates.y[cm.iterators.node.full]
+# zdom = cm.node_coordinates.z[cm.iterators.node.full]
+# dm = CurvilinearGrid3D(xdom, ydom, zdom, :meg6; halo_coords_included=true);
+
+# dm_gcl_identities, dm_max_vals = gcl(dm.edge_metrics, dm.iterators.cell.domain, 5e-13)
