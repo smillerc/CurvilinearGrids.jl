@@ -21,9 +21,15 @@ function save_vtk(mesh::AbstractCurvilinearGrid3D, fn="mesh")
     I1, I2, I3 = GridTypes.gcl(mesh.edge_metrics, domain)
 
     vtk["GCL", VTKCellData(), component_names=["I1", "I2", "I3"]] = (
-      I1[domain],
-      I2[domain],
-      I3[domain],
+      I1[domain], I2[domain], I3[domain]
+    )
+
+    indices = collect(domain)
+
+    vtk["index", VTKCellData(), component_names=["i", "j", "k"]] = (
+      [idx.I[1] for idx in indices],
+      [idx.I[2] for idx in indices],
+      [idx.I[3] for idx in indices],
     )
 
     for (name, edge) in pairs(mesh.edge_metrics)
