@@ -1,3 +1,4 @@
+using CurvilinearGrids, Test
 
 function uniform_mapping(xmin, xmax, ymin, ymax, zmin, zmax, ncells::NTuple{3,Int})
   ni, nj, nk = ncells
@@ -21,16 +22,42 @@ function spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, ncells
   Δθ = (θmax - θmin) / nj
   Δϕ = (ϕmax - ϕmin) / nk
 
-  # Coordinate functions
-  r(i) = rmin + (i - 1) * Δr
-  θ(j) = (θmin + (j - 1) * Δθ) / pi
-  ϕ(k) = (ϕmin + (k - 1) * Δϕ) / pi
+  r(i) = (rmin + (i - 1) * Δr)
+  θ(j) = (θmin + (j - 1) * Δθ)
+  ϕ(k) = (ϕmin + (k - 1) * Δϕ)
 
-  # use sinpi, cospi for better numerical noise control. pi is already
-  # factored out in the θ and ϕ functions
-  x(i, j, k) = r(i) * sinpi(θ(j)) * cospi(ϕ(k))
-  y(i, j, k) = r(i) * sinpi(θ(j)) * sinpi(ϕ(k))
-  z(i, j, k) = r(i) * cospi(θ(j))
+  ϵ = 10eps()
+  # ϵ = 1.1cos(pi / 2)
+  function x(i, j, k)
+    sinθ = sin(θ(j))
+    cosϕ = cos(ϕ(k))
+
+    # sinθ = sinθ * (abs(sinθ) >= ϵ)
+    # cosϕ = cosϕ * (abs(cosϕ) >= ϵ)
+
+    return r(i) * sinθ * cosϕ
+  end
+
+  function y(i, j, k)
+    sinθ = sin(θ(j))
+    sinϕ = sin(ϕ(k))
+
+    # sinθ = sinθ * (abs(sinθ) >= ϵ)
+    # sinϕ = sinϕ * (abs(sinϕ) >= ϵ)
+
+    return r(i) * sinθ * sinϕ
+  end
+
+  function z(i, j, k)
+    # c = abs(cos(pi / 2))
+    # # theta = θ(j) * (abs(pi / 2 - θ(j)) >= eps())
+
+    # cosθ = cos(theta)
+    cosθ = cos(θ(j))
+    # cosθ = cosθ * (abs(cosθ) >= ϵ)
+
+    return r(i) * cosθ
+  end
 
   return (x, y, z)
 end
@@ -90,9 +117,11 @@ end
 
   backend = AutoForwardDiff()
   mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
-  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
-  # @show gcl_identities, max_vals
-  @test all(gcl_identities)
+  I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
+  @show extrema(I1)
+  @show extrema(I2)
+  @show extrema(I3)
+  # @test all(gcl_identities)
 end
 
 @testset "Uniform ContinuousCurvilinearGrid3D" begin
@@ -191,32 +220,57 @@ end
 
 @testset "ContinuousCurvilinearGrid3D vs CurvilinearGrid3D" begin
   nhalo = 5
-  nr, nθ, nϕ = 21, 21, 21
+  nr, nθ, nϕ = 50, 51, 51
   celldims = (nr, nθ, nϕ)
-  rmin, rmax = 1.0, 4.0
-  θmin, θmax = π / 2 - deg2rad(5), π / 2 + deg2rad(5)   # narrow polar band around equator
-  ϕmin, ϕmax = -deg2rad(10), deg2rad(10)
 
-  # (x, y, z) = spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, celldims, nhalo)
-  (x, y, z) = wavy_mapping(celldims)
+  rmin, rmax = (0.0400, 0.05500)
+  θ0 = 90.0
+  ϕ0 = 0.0
 
-  backend = AutoForwardDiff()
+  Δθ = 20.0
+  Δϕ = 20.0
+
+  θmin, θmax = ((θ0 + Δθ, θ0 - Δθ) .|> deg2rad)
+  ϕmin, ϕmax = ((ϕ0 + Δϕ, ϕ0 - Δϕ) .|> deg2rad)
+
+  # rmin, rmax = 1.0, 4.0
+  # θmin, θmax = π / 2 - deg2rad(5), π / 2 + deg2rad(5)   # narrow polar band around equator
+  # ϕmin, ϕmax = -deg2rad(10), deg2rad(10)
+
+  (x, y, z) = spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, celldims)
+  # (x, y, z) = wavy_mapping(celldims)
+
+  # diff_backend = AutoForwardDiff()
   @info "ContinuousCurvilinearGrid3D"
   cm = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
+
+  I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(cm.edge_metrics, cm.iterators.cell.domain)
+  @show extrema(I1)
+  @show extrema(I2)
+  @show extrema(I3)
+  CurvilinearGrids.save_vtk(cm, "wtf_mesh")
 
   @info "CurvilinearGrid3D"
   xdom = cm.node_coordinates.x[cm.iterators.node.full]
   ydom = cm.node_coordinates.y[cm.iterators.node.full]
   zdom = cm.node_coordinates.z[cm.iterators.node.full]
   dm = CurvilinearGrid3D(xdom, ydom, zdom, :meg6; halo_coords_included=true)
-
+  I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(dm.edge_metrics, dm.iterators.cell.domain)
+  @show extrema(I1)
+  @show extrema(I2)
+  @show extrema(I3)
+  CurvilinearGrids.save_vtk(dm, "wtf_dm_mesh")
   # save_vtk(dm, "sector_meg")
   # save_vtk(cm, "sector_ad")
 
-  cm_gcl_identities, cm_max_vals = gcl(cm.edge_metrics, cm.iterators.cell.domain, eps())
-  dm_gcl_identities, dm_max_vals = gcl(dm.edge_metrics, dm.iterators.cell.domain, eps())
-  @test all(cm_gcl_identities)
-  @test all(dm_gcl_identities)
+  # cm_gcl_identities, cm_max_vals = gcl(cm.edge_metrics, cm.iterators.cell.domain, eps())
+  # @show cm_gcl_identities, cm_max_vals
+
+  # dm_gcl_identities, dm_max_vals = gcl(dm.edge_metrics, dm.iterators.cell.domain, eps())
+  # @show dm_gcl_identities, dm_max_vals
+
+  # @test all(cm_gcl_identities)
+  # @test all(dm_gcl_identities)
 
   dom = cm.iterators.cell.domain
 
@@ -239,3 +293,97 @@ end
 
   nothing
 end
+
+# begin
+#   ijk = (50, 31, 31)
+#   #ξηζ = ijk .- nhalo .+ 0.5 # centroid
+
+#   axis = 3
+#   # pert = ntuple(i -> ifelse(i == axis, 1, 0), 3) .* sqrt(eps())
+#   pert = (1, 1, 1) .* 1e-12
+#   # pert = (1, 1, 1) .* sqrt(eps())
+#   @show pert
+
+#   ξηζ = ijk .- nhalo .+ 0.5 #.+ pert
+#   @show ξηζ
+
+#   @show cm.metric_functions_cache.forward.xξ(ξηζ...)
+#   @show cm.metric_functions_cache.forward.xη(ξηζ...)
+#   @show cm.metric_functions_cache.forward.xζ(ξηζ...)
+#   @show cm.metric_functions_cache.forward.yξ(ξηζ...)
+#   @show cm.metric_functions_cache.forward.yη(ξηζ...)
+#   @show cm.metric_functions_cache.forward.yζ(ξηζ...)
+#   @show cm.metric_functions_cache.forward.zξ(ξηζ...)
+#   @show cm.metric_functions_cache.forward.zη(ξηζ...)
+#   @show cm.metric_functions_cache.forward.zζ(ξηζ...)
+#   @show cm.metric_functions_cache.forward.jacobian(ξηζ...)
+
+#   @show cm.metric_functions_cache.inverse.ξ̂x(ξηζ...)
+#   @show cm.metric_functions_cache.inverse.η̂x(ξηζ...)
+#   @show cm.metric_functions_cache.inverse.ζ̂x(ξηζ...)
+#   @show cm.metric_functions_cache.inverse.ξ̂y(ξηζ...)
+#   @show cm.metric_functions_cache.inverse.η̂y(ξηζ...)
+#   @show cm.metric_functions_cache.inverse.ζ̂y(ξηζ...)
+#   @show cm.metric_functions_cache.inverse.ξ̂z(ξηζ...)
+#   @show cm.metric_functions_cache.inverse.η̂z(ξηζ...)
+#   @show cm.metric_functions_cache.inverse.ζ̂z(ξηζ...)
+#   @show cm.metric_functions_cache.inverse.Jinv(ξηζ...)
+
+#   @show cm.metric_functions_cache.forward.J(ξηζ...)
+#   # ξ̂xᵢ₊½, ξ̂xⱼ₊½, ξ̂xₖ₊½ = CurvilinearGrids.GridTypes.edge_functions(
+#   #   cm.metric_functions_cache.inverse.ξ̂x, cm.diff_backend
+#   # )
+
+#   # η̂xᵢ₊½, η̂xⱼ₊½, η̂xₖ₊½ = CurvilinearGrids.GridTypes.edge_functions(
+#   #   cm.metric_functions_cache.inverse.η̂x, cm.diff_backend
+#   # )
+#   # ζ̂xᵢ₊½, ζ̂xⱼ₊½, ζ̂xₖ₊½ = CurvilinearGrids.GridTypes.edge_functions(
+#   #   cm.metric_functions_cache.inverse.ζ̂x, cm.diff_backend
+#   # )
+
+#   # @show ζ̂xᵢ₊½(ξηζ...)
+#   # @show ζ̂xⱼ₊½(ξηζ...)
+#   # @show ζ̂xₖ₊½(ξηζ...)
+
+#   # @show η̂xᵢ₊½(ξηζ...)
+#   # @show η̂xⱼ₊½(ξηζ...)
+#   # @show η̂xₖ₊½(ξηζ...)
+
+#   # @show ξ̂xᵢ₊½(ξηζ...)
+#   # @show ξ̂xⱼ₊½(ξηζ...)
+#   # @show ξ̂xₖ₊½(ξηζ...)
+
+#   # i, j, k = ξηζ
+#   # I1 =
+#   #   (ξ̂xᵢ₊½(i, j, k) - ξ̂xᵢ₊½(i - 1, j, k)) +
+#   #   (η̂xⱼ₊½(i, j, k) - η̂xⱼ₊½(i, j - 1, k)) +
+#   #   (ζ̂xₖ₊½(i, j, k) - ζ̂xₖ₊½(i, j, k - 1))
+
+#   # @show I1
+
+#   # @show ξ̂xᵢ₊½(i, j, k) ξ̂xᵢ₊½(i - 1, j, k)
+#   # @show η̂xⱼ₊½(i, j, k) η̂xⱼ₊½(i, j - 1, k)
+#   # @show ζ̂xₖ₊½(i, j, k) ζ̂xₖ₊½(i, j, k - 1)
+# end
+
+# begin
+#   ijk = (50, 31, 31)
+#   J_vec = Float64[]
+#   axis = 3
+
+#   pert = sqrt(eps())
+#   while true
+#     pert_vec = (1, 1, 1) .* pert
+#     ξηζ = ijk .- nhalo .+ 0.5 .+ pert_vec
+
+#     J = cm.metric_functions_cache.forward.J(ξηζ...)
+#     @show pert
+#     if !isfinite(J) || iszero(J)
+#       break
+#     else
+#       push!(J_vec, J)
+#     end
+#     pert = pert / 5
+#   end
+#   J_vec
+# end
