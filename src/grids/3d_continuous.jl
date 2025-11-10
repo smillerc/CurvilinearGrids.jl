@@ -40,6 +40,7 @@ function ContinuousCurvilinearGrid3D(
   diff_backend=AutoForwardDiff(),
   T=Float64;
   compute_metrics=true,
+  global_node_indices::Union{Nothing,CartesianIndices{3}}=nothing,
 )
   GradientDiscretizationScheme, order, _, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
@@ -87,13 +88,75 @@ function MetricCache(x::Function, y::Function, z::Function, backend)
   zζ(i, j, k) = derivative(ζ -> z(i, j, ζ), backend, k)
 
   function jacobian_matrix(i, j, k)
-    DifferentiationInterface.jacobian(
-      u -> SVector(x(u...), y(u...), z(u...)), backend, @SVector [i, j, k]
-    )
+
+    # compute the jacobian matrix w/o any extra logic
+    function compute_jacobian_matrix(i, j, k)
+      jac = DifferentiationInterface.jacobian(
+        u -> SVector(x(u...), y(u...), z(u...)), backend, @SVector [i, j, k]
+      )
+
+      # jac = @. jac * (abs(jac) >= eps())
+      return jac
+    end
+
+    jac_matrix = compute_jacobian_matrix(i, j, k)
+    J = det(jac_matrix)
+
+    # sometimes the Jacobian can be zero for various reasons 
+    # (derivs are zero)
+
+    if !iszero(J) && isfinite(J)
+      return jac_matrix
+    else
+
+      # perturb the coordinates if we're at a singularity
+
+      pert = sqrt(eps())
+      iter = 1
+      itermax = 25
+
+      last_valid_jacobian_matrix = jac_matrix
+
+      # perturb until we get zero again, and then use the last nonzero value
+      while true
+        if iter > itermax
+          error(
+            "Maximum iteration count reached ($itermax) when trying to iteratively calculate the Jacobian near a singularity",
+          )
+        end
+
+        # perturb the coordinates
+        ξηζ = (i, j, k) .+ pert
+
+        # compute the jacobian
+        _jac = compute_jacobian_matrix(ξηζ...)
+        _J = det(_jac)
+
+        if !isfinite(_J) || iszero(_J)
+          # we've made the perturbation too small
+          break
+        else
+          last_valid_jacobian_matrix = _jac
+        end
+
+        # make the perturbation smaller
+        pert = pert / 10
+        iter += 1
+      end
+
+      last_valid_jacobian_matrix = @. last_valid_jacobian_matrix *
+        (abs(last_valid_jacobian_matrix) >= eps())
+      return last_valid_jacobian_matrix
+    end
   end
 
   jacobian(i, j, k) = det(jacobian_matrix(i, j, k))
-  jinv(i, j, k) = inv(jacobian_matrix(i, j, k))
+  function jinv(i, j, k)
+    J_inv = inv(jacobian_matrix(i, j, k))
+
+    # J_inv = @. J_inv * (abs(J_inv) >= eps())
+    return J_inv
+  end
 
   forward_metrics = (;
     jacobian=jacobian_matrix,
@@ -133,6 +196,7 @@ function MetricCache(x::Function, y::Function, z::Function, backend)
   z_η_x_ξ, _, z_η_x_ζ = cell_center_derivative(z_η_x, backend)
   z_ζ_x_ξ, z_ζ_x_η, _ = cell_center_derivative(z_ζ_x, backend)
 
+  # Do NOT put eps() tolerance checks on these! It will create GCL-related errors
   ξ̂x(i, j, k) = y_η_z_ζ(i, j, k) − y_ζ_z_η(i, j, k)
   η̂x(i, j, k) = y_ζ_z_ξ(i, j, k) − y_ξ_z_ζ(i, j, k)
   ζ̂x(i, j, k) = y_ξ_z_η(i, j, k) − y_η_z_ξ(i, j, k)
@@ -200,18 +264,15 @@ end
 
 @inline function tol_diff(a::T, b::T) where {T}
   a_m_b = a - b
-  return a_m_b * !isapprox(a, b) #; rtol=1e-7)
+  return a_m_b * !isapprox(a, b; rtol=sqrt(eps(T)), atol=eps(T))
 end
 
 function cell_center_derivative(ϕ, backend)
   ϕᵢ₊½, ϕⱼ₊½, ϕₖ₊½ = edge_functions(ϕ, backend)
 
-  ∂ϕ_∂ξ(i, j, k) = tol_diff(ϕᵢ₊½(i, j, k), ϕᵢ₊½(i - 1, j, k))
-  ∂ϕ_∂η(i, j, k) = tol_diff(ϕⱼ₊½(i, j, k), ϕⱼ₊½(i, j - 1, k))
-  ∂ϕ_∂ζ(i, j, k) = tol_diff(ϕₖ₊½(i, j, k), ϕₖ₊½(i, j, k - 1))
-  # ∂ϕ_∂ξ(i, j, k) = ϕᵢ₊½(i, j, k) - ϕᵢ₊½(i - 1, j, k)
-  # ∂ϕ_∂η(i, j, k) = ϕⱼ₊½(i, j, k) - ϕⱼ₊½(i, j - 1, k)
-  # ∂ϕ_∂ζ(i, j, k) = ϕₖ₊½(i, j, k) - ϕₖ₊½(i, j, k - 1)
+  ∂ϕ_∂ξ(i, j, k) = ϕᵢ₊½(i, j, k) - ϕᵢ₊½(i - 1, j, k)
+  ∂ϕ_∂η(i, j, k) = ϕⱼ₊½(i, j, k) - ϕⱼ₊½(i, j - 1, k)
+  ∂ϕ_∂ζ(i, j, k) = ϕₖ₊½(i, j, k) - ϕₖ₊½(i, j, k - 1)
 
   return (; ∂ϕ_∂ξ, ∂ϕ_∂η, ∂ϕ_∂ζ)
 end
@@ -279,15 +340,26 @@ function compute_cell_metrics!(mesh)
     # Jacobian
     J = det(mesh.metric_functions_cache.forward.jacobian(ξηζ...))
     mesh.cell_center_metrics.J[i, j, k] = J
-    mesh.cell_center_metrics.x₁.ξ[i, j, k] = mesh.metric_functions_cache.forward.xξ(ξηζ...)
-    mesh.cell_center_metrics.x₁.η[i, j, k] = mesh.metric_functions_cache.forward.xη(ξηζ...)
-    mesh.cell_center_metrics.x₁.ζ[i, j, k] = mesh.metric_functions_cache.forward.xζ(ξηζ...)
-    mesh.cell_center_metrics.x₂.ξ[i, j, k] = mesh.metric_functions_cache.forward.yξ(ξηζ...)
-    mesh.cell_center_metrics.x₂.η[i, j, k] = mesh.metric_functions_cache.forward.yη(ξηζ...)
-    mesh.cell_center_metrics.x₂.ζ[i, j, k] = mesh.metric_functions_cache.forward.yζ(ξηζ...)
-    mesh.cell_center_metrics.x₃.ξ[i, j, k] = mesh.metric_functions_cache.forward.zξ(ξηζ...)
-    mesh.cell_center_metrics.x₃.η[i, j, k] = mesh.metric_functions_cache.forward.zη(ξηζ...)
-    mesh.cell_center_metrics.x₃.ζ[i, j, k] = mesh.metric_functions_cache.forward.zζ(ξηζ...)
+
+    xξ = mesh.metric_functions_cache.forward.xξ(ξηζ...)
+    xη = mesh.metric_functions_cache.forward.xη(ξηζ...)
+    xζ = mesh.metric_functions_cache.forward.xζ(ξηζ...)
+    yξ = mesh.metric_functions_cache.forward.yξ(ξηζ...)
+    yη = mesh.metric_functions_cache.forward.yη(ξηζ...)
+    yζ = mesh.metric_functions_cache.forward.yζ(ξηζ...)
+    zξ = mesh.metric_functions_cache.forward.zξ(ξηζ...)
+    zη = mesh.metric_functions_cache.forward.zη(ξηζ...)
+    zζ = mesh.metric_functions_cache.forward.zζ(ξηζ...)
+
+    mesh.cell_center_metrics.x₁.ξ[i, j, k] = xξ * (abs(xξ) >= eps())
+    mesh.cell_center_metrics.x₁.η[i, j, k] = xη * (abs(xη) >= eps())
+    mesh.cell_center_metrics.x₁.ζ[i, j, k] = xζ * (abs(xζ) >= eps())
+    mesh.cell_center_metrics.x₂.ξ[i, j, k] = yξ * (abs(yξ) >= eps())
+    mesh.cell_center_metrics.x₂.η[i, j, k] = yη * (abs(yη) >= eps())
+    mesh.cell_center_metrics.x₂.ζ[i, j, k] = yζ * (abs(yζ) >= eps())
+    mesh.cell_center_metrics.x₃.ξ[i, j, k] = zξ * (abs(zξ) >= eps())
+    mesh.cell_center_metrics.x₃.η[i, j, k] = zη * (abs(zη) >= eps())
+    mesh.cell_center_metrics.x₃.ζ[i, j, k] = zζ * (abs(zζ) >= eps())
 
     # hatted inverse metrics
     ξ̂_x = mesh.metric_functions_cache.inverse.ξ̂x(ξηζ...)
@@ -300,6 +372,16 @@ function compute_cell_metrics!(mesh)
     ζ̂_y = mesh.metric_functions_cache.inverse.ζ̂y(ξηζ...)
     ζ̂_z = mesh.metric_functions_cache.inverse.ζ̂z(ξηζ...)
 
+    ξ̂_x = ξ̂_x # * (abs(ξ̂_x) >= eps())
+    ξ̂_y = ξ̂_y # * (abs(ξ̂_y) >= eps())
+    ξ̂_z = ξ̂_z # * (abs(ξ̂_z) >= eps())
+    η̂_x = η̂_x # * (abs(η̂_x) >= eps())
+    η̂_y = η̂_y # * (abs(η̂_y) >= eps())
+    η̂_z = η̂_z # * (abs(η̂_z) >= eps())
+    ζ̂_x = ζ̂_x # * (abs(ζ̂_x) >= eps())
+    ζ̂_y = ζ̂_y # * (abs(ζ̂_y) >= eps())
+    ζ̂_z = ζ̂_z # * (abs(ζ̂_z) >= eps())
+
     mesh.cell_center_metrics.ξ̂.x₁[i, j, k] = ξ̂_x
     mesh.cell_center_metrics.ξ̂.x₂[i, j, k] = ξ̂_y
     mesh.cell_center_metrics.ξ̂.x₃[i, j, k] = ξ̂_z
@@ -310,15 +392,20 @@ function compute_cell_metrics!(mesh)
     mesh.cell_center_metrics.ζ̂.x₂[i, j, k] = ζ̂_y
     mesh.cell_center_metrics.ζ̂.x₃[i, j, k] = ζ̂_z
 
-    mesh.cell_center_metrics.ξ.x₁[i, j, k] = ξ̂_x / J
-    mesh.cell_center_metrics.ξ.x₂[i, j, k] = ξ̂_y / J
-    mesh.cell_center_metrics.ξ.x₃[i, j, k] = ξ̂_z / J
-    mesh.cell_center_metrics.η.x₁[i, j, k] = η̂_x / J
-    mesh.cell_center_metrics.η.x₂[i, j, k] = η̂_y / J
-    mesh.cell_center_metrics.η.x₃[i, j, k] = η̂_z / J
-    mesh.cell_center_metrics.ζ.x₁[i, j, k] = ζ̂_x / J
-    mesh.cell_center_metrics.ζ.x₂[i, j, k] = ζ̂_y / J
-    mesh.cell_center_metrics.ζ.x₃[i, j, k] = ζ̂_z / J
+    ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz = mesh.metric_functions_cache.inverse.Jinv(ξηζ...)
+    mesh.cell_center_metrics.ξ.x₁[i, j, k] = ξx
+    mesh.cell_center_metrics.ξ.x₂[i, j, k] = ξy
+    mesh.cell_center_metrics.ξ.x₃[i, j, k] = ξz
+    mesh.cell_center_metrics.η.x₁[i, j, k] = ηx
+    mesh.cell_center_metrics.η.x₂[i, j, k] = ηy
+    mesh.cell_center_metrics.η.x₃[i, j, k] = ηz
+    mesh.cell_center_metrics.ζ.x₁[i, j, k] = ζx
+    mesh.cell_center_metrics.ζ.x₂[i, j, k] = ζy
+    mesh.cell_center_metrics.ζ.x₃[i, j, k] = ζz
+  end
+
+  if any(mesh.cell_center_metrics.J .<= 0)
+    @error "Invalid Jacobians detected (i.e. negative or zero volumes)"
   end
 end
 
@@ -357,6 +444,10 @@ function compute_edge_metrics!(mesh)
     mesh.metric_functions_cache.inverse.Jinv, mesh.diff_backend
   )
 
+  Jᵢ₊½, Jⱼ₊½, Jₖ₊½ = edge_functions(
+    mesh.metric_functions_cache.forward.J, mesh.diff_backend
+  )
+
   # for (iedge, edge) in enumerate(mesh.metrics.edge_metrics)
   i₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 1, +1)
   j₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 2, +1)
@@ -366,7 +457,7 @@ function compute_edge_metrics!(mesh)
     i, j, k = I.I
     ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
-    # J = Jᵢ₊½(ξηζ...)
+    J = Jᵢ₊½(ξηζ...)
     ξ̂_xᵢ₊½ = ξ̂xᵢ₊½(ξηζ...)
     ξ̂_yᵢ₊½ = ξ̂yᵢ₊½(ξηζ...)
     ξ̂_zᵢ₊½ = ξ̂zᵢ₊½(ξηζ...)
@@ -377,46 +468,55 @@ function compute_edge_metrics!(mesh)
     ζ̂_yᵢ₊½ = ζ̂yᵢ₊½(ξηζ...)
     ζ̂_zᵢ₊½ = ζ̂zᵢ₊½(ξηζ...)
 
-    mesh.edge_metrics.i₊½.ξ̂.x₁[i, j, k] = ξ̂_xᵢ₊½
-    mesh.edge_metrics.i₊½.ξ̂.x₂[i, j, k] = ξ̂_yᵢ₊½
-    mesh.edge_metrics.i₊½.ξ̂.x₃[i, j, k] = ξ̂_zᵢ₊½
-    mesh.edge_metrics.i₊½.η̂.x₁[i, j, k] = η̂_xᵢ₊½
-    mesh.edge_metrics.i₊½.η̂.x₂[i, j, k] = η̂_yᵢ₊½
-    mesh.edge_metrics.i₊½.η̂.x₃[i, j, k] = η̂_zᵢ₊½
-    mesh.edge_metrics.i₊½.ζ̂.x₁[i, j, k] = ζ̂_xᵢ₊½
-    mesh.edge_metrics.i₊½.ζ̂.x₂[i, j, k] = ζ̂_yᵢ₊½
-    mesh.edge_metrics.i₊½.ζ̂.x₃[i, j, k] = ζ̂_zᵢ₊½
+    mesh.edge_metrics.i₊½.J[i, j, k] = J
+    mesh.edge_metrics.i₊½.ξ̂.x₁[i, j, k] = ξ̂_xᵢ₊½ * (abs(ξ̂_xᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.ξ̂.x₂[i, j, k] = ξ̂_yᵢ₊½ * (abs(ξ̂_yᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.ξ̂.x₃[i, j, k] = ξ̂_zᵢ₊½ * (abs(ξ̂_zᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.η̂.x₁[i, j, k] = η̂_xᵢ₊½ * (abs(η̂_xᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.η̂.x₂[i, j, k] = η̂_yᵢ₊½ * (abs(η̂_yᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.η̂.x₃[i, j, k] = η̂_zᵢ₊½ * (abs(η̂_zᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.ζ̂.x₁[i, j, k] = ζ̂_xᵢ₊½ * (abs(ζ̂_xᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.ζ̂.x₂[i, j, k] = ζ̂_yᵢ₊½ * (abs(ζ̂_yᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.ζ̂.x₃[i, j, k] = ζ̂_zᵢ₊½ * (abs(ζ̂_zᵢ₊½) >= eps())
 
     ξ_xᵢ₊½, η_xᵢ₊½, ζ_xᵢ₊½, ξ_yᵢ₊½, η_yᵢ₊½, ζ_yᵢ₊½, ξ_zᵢ₊½, η_zᵢ₊½, ζ_zᵢ₊½ = Jinv_ᵢ₊½(
       ξηζ...
     )
 
-    mesh.edge_metrics.i₊½.ξ.x₁[i, j, k] = ξ_xᵢ₊½
-    mesh.edge_metrics.i₊½.ξ.x₂[i, j, k] = ξ_yᵢ₊½
-    mesh.edge_metrics.i₊½.ξ.x₃[i, j, k] = ξ_zᵢ₊½
-    mesh.edge_metrics.i₊½.η.x₁[i, j, k] = η_xᵢ₊½
-    mesh.edge_metrics.i₊½.η.x₂[i, j, k] = η_yᵢ₊½
-    mesh.edge_metrics.i₊½.η.x₃[i, j, k] = η_zᵢ₊½
-    mesh.edge_metrics.i₊½.ζ.x₁[i, j, k] = ζ_xᵢ₊½
-    mesh.edge_metrics.i₊½.ζ.x₂[i, j, k] = ζ_yᵢ₊½
-    mesh.edge_metrics.i₊½.ζ.x₃[i, j, k] = ζ_zᵢ₊½
-
-    # mesh.edge_metrics.i₊½.ξ.x₁[i, j, k] = ξ̂_xᵢ₊½ / J
-    # mesh.edge_metrics.i₊½.ξ.x₂[i, j, k] = ξ̂_yᵢ₊½ / J
-    # mesh.edge_metrics.i₊½.ξ.x₃[i, j, k] = ξ̂_zᵢ₊½ / J
-    # mesh.edge_metrics.i₊½.η.x₁[i, j, k] = η̂_xᵢ₊½ / J
-    # mesh.edge_metrics.i₊½.η.x₂[i, j, k] = η̂_yᵢ₊½ / J
-    # mesh.edge_metrics.i₊½.η.x₃[i, j, k] = η̂_zᵢ₊½ / J
-    # mesh.edge_metrics.i₊½.ζ.x₁[i, j, k] = ζ̂_xᵢ₊½ / J
-    # mesh.edge_metrics.i₊½.ζ.x₂[i, j, k] = ζ̂_yᵢ₊½ / J
-    # mesh.edge_metrics.i₊½.ζ.x₃[i, j, k] = ζ̂_zᵢ₊½ / J
+    mesh.edge_metrics.i₊½.ξ.x₁[i, j, k] = ifelse(
+      isfinite(ξ_xᵢ₊½), ξ_xᵢ₊½ * (abs(ξ_xᵢ₊½) >= eps()), zero(ξ_xᵢ₊½)
+    )
+    mesh.edge_metrics.i₊½.ξ.x₂[i, j, k] = ifelse(
+      isfinite(ξ_yᵢ₊½), ξ_yᵢ₊½ * (abs(ξ_yᵢ₊½) >= eps()), zero(ξ_yᵢ₊½)
+    )
+    mesh.edge_metrics.i₊½.ξ.x₃[i, j, k] = ifelse(
+      isfinite(ξ_zᵢ₊½), ξ_zᵢ₊½ * (abs(ξ_zᵢ₊½) >= eps()), zero(ξ_zᵢ₊½)
+    )
+    mesh.edge_metrics.i₊½.η.x₁[i, j, k] = ifelse(
+      isfinite(η_xᵢ₊½), η_xᵢ₊½ * (abs(η_xᵢ₊½) >= eps()), zero(η_xᵢ₊½)
+    )
+    mesh.edge_metrics.i₊½.η.x₂[i, j, k] = ifelse(
+      isfinite(η_yᵢ₊½), η_yᵢ₊½ * (abs(η_yᵢ₊½) >= eps()), zero(η_yᵢ₊½)
+    )
+    mesh.edge_metrics.i₊½.η.x₃[i, j, k] = ifelse(
+      isfinite(η_zᵢ₊½), η_zᵢ₊½ * (abs(η_zᵢ₊½) >= eps()), zero(η_zᵢ₊½)
+    )
+    mesh.edge_metrics.i₊½.ζ.x₁[i, j, k] = ifelse(
+      isfinite(ζ_xᵢ₊½), ζ_xᵢ₊½ * (abs(ζ_xᵢ₊½) >= eps()), zero(ζ_xᵢ₊½)
+    )
+    mesh.edge_metrics.i₊½.ζ.x₂[i, j, k] = ifelse(
+      isfinite(ζ_yᵢ₊½), ζ_yᵢ₊½ * (abs(ζ_yᵢ₊½) >= eps()), zero(ζ_yᵢ₊½)
+    )
+    mesh.edge_metrics.i₊½.ζ.x₃[i, j, k] = ifelse(
+      isfinite(ζ_zᵢ₊½), ζ_zᵢ₊½ * (abs(ζ_zᵢ₊½) >= eps()), zero(ζ_zᵢ₊½)
+    )
   end
 
   @threads for I in j₊½_edge_domain
     i, j, k = I.I
     ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
-    # J = Jⱼ₊½(ξηζ...)
+    J = Jⱼ₊½(ξηζ...)
     ξ̂_xⱼ₊½ = ξ̂xⱼ₊½(ξηζ...)
     ξ̂_yⱼ₊½ = ξ̂yⱼ₊½(ξηζ...)
     ξ̂_zⱼ₊½ = ξ̂zⱼ₊½(ξηζ...)
@@ -427,46 +527,55 @@ function compute_edge_metrics!(mesh)
     ζ̂_yⱼ₊½ = ζ̂yⱼ₊½(ξηζ...)
     ζ̂_zⱼ₊½ = ζ̂zⱼ₊½(ξηζ...)
 
-    mesh.edge_metrics.j₊½.ξ̂.x₁[i, j, k] = ξ̂_xⱼ₊½
-    mesh.edge_metrics.j₊½.ξ̂.x₂[i, j, k] = ξ̂_yⱼ₊½
-    mesh.edge_metrics.j₊½.ξ̂.x₃[i, j, k] = ξ̂_zⱼ₊½
-    mesh.edge_metrics.j₊½.η̂.x₁[i, j, k] = η̂_xⱼ₊½
-    mesh.edge_metrics.j₊½.η̂.x₂[i, j, k] = η̂_yⱼ₊½
-    mesh.edge_metrics.j₊½.η̂.x₃[i, j, k] = η̂_zⱼ₊½
-    mesh.edge_metrics.j₊½.ζ̂.x₁[i, j, k] = ζ̂_xⱼ₊½
-    mesh.edge_metrics.j₊½.ζ̂.x₂[i, j, k] = ζ̂_yⱼ₊½
-    mesh.edge_metrics.j₊½.ζ̂.x₃[i, j, k] = ζ̂_zⱼ₊½
+    mesh.edge_metrics.j₊½.J[i, j, k] = J
+    mesh.edge_metrics.j₊½.ξ̂.x₁[i, j, k] = ξ̂_xⱼ₊½ * (abs(ξ̂_xⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.ξ̂.x₂[i, j, k] = ξ̂_yⱼ₊½ * (abs(ξ̂_yⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.ξ̂.x₃[i, j, k] = ξ̂_zⱼ₊½ * (abs(ξ̂_zⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.η̂.x₁[i, j, k] = η̂_xⱼ₊½ * (abs(η̂_xⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.η̂.x₂[i, j, k] = η̂_yⱼ₊½ * (abs(η̂_yⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.η̂.x₃[i, j, k] = η̂_zⱼ₊½ * (abs(η̂_zⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.ζ̂.x₁[i, j, k] = ζ̂_xⱼ₊½ * (abs(ζ̂_xⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.ζ̂.x₂[i, j, k] = ζ̂_yⱼ₊½ * (abs(ζ̂_yⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.ζ̂.x₃[i, j, k] = ζ̂_zⱼ₊½ * (abs(ζ̂_zⱼ₊½) >= eps())
 
     ξ_xⱼ₊½, η_xⱼ₊½, ζ_xⱼ₊½, ξ_yⱼ₊½, η_yⱼ₊½, ζ_yⱼ₊½, ξ_zⱼ₊½, η_zⱼ₊½, ζ_zⱼ₊½ = Jinv_ⱼ₊½(
       ξηζ...
     )
 
-    mesh.edge_metrics.j₊½.ξ.x₁[i, j, k] = ξ_xⱼ₊½
-    mesh.edge_metrics.j₊½.ξ.x₂[i, j, k] = ξ_yⱼ₊½
-    mesh.edge_metrics.j₊½.ξ.x₃[i, j, k] = ξ_zⱼ₊½
-    mesh.edge_metrics.j₊½.η.x₁[i, j, k] = η_xⱼ₊½
-    mesh.edge_metrics.j₊½.η.x₂[i, j, k] = η_yⱼ₊½
-    mesh.edge_metrics.j₊½.η.x₃[i, j, k] = η_zⱼ₊½
-    mesh.edge_metrics.j₊½.ζ.x₁[i, j, k] = ζ_xⱼ₊½
-    mesh.edge_metrics.j₊½.ζ.x₂[i, j, k] = ζ_yⱼ₊½
-    mesh.edge_metrics.j₊½.ζ.x₃[i, j, k] = ζ_zⱼ₊½
-
-    # mesh.edge_metrics.j₊½.ξ.x₁[i, j, k] = ξ̂_xⱼ₊½ / J
-    # mesh.edge_metrics.j₊½.ξ.x₂[i, j, k] = ξ̂_yⱼ₊½ / J
-    # mesh.edge_metrics.j₊½.ξ.x₃[i, j, k] = ξ̂_zⱼ₊½ / J
-    # mesh.edge_metrics.j₊½.η.x₁[i, j, k] = η̂_xⱼ₊½ / J
-    # mesh.edge_metrics.j₊½.η.x₂[i, j, k] = η̂_yⱼ₊½ / J
-    # mesh.edge_metrics.j₊½.η.x₃[i, j, k] = η̂_zⱼ₊½ / J
-    # mesh.edge_metrics.j₊½.ζ.x₁[i, j, k] = ζ̂_xⱼ₊½ / J
-    # mesh.edge_metrics.j₊½.ζ.x₂[i, j, k] = ζ̂_yⱼ₊½ / J
-    # mesh.edge_metrics.j₊½.ζ.x₃[i, j, k] = ζ̂_zⱼ₊½ / J
+    mesh.edge_metrics.j₊½.ξ.x₁[i, j, k] = ifelse(
+      isfinite(ξ_xⱼ₊½), ξ_xⱼ₊½ * (abs(ξ_xⱼ₊½) >= eps()), zero(ξ_xⱼ₊½)
+    )
+    mesh.edge_metrics.j₊½.ξ.x₂[i, j, k] = ifelse(
+      isfinite(ξ_yⱼ₊½), ξ_yⱼ₊½ * (abs(ξ_yⱼ₊½) >= eps()), zero(ξ_yⱼ₊½)
+    )
+    mesh.edge_metrics.j₊½.ξ.x₃[i, j, k] = ifelse(
+      isfinite(ξ_zⱼ₊½), ξ_zⱼ₊½ * (abs(ξ_zⱼ₊½) >= eps()), zero(ξ_zⱼ₊½)
+    )
+    mesh.edge_metrics.j₊½.η.x₁[i, j, k] = ifelse(
+      isfinite(η_xⱼ₊½), η_xⱼ₊½ * (abs(η_xⱼ₊½) >= eps()), zero(η_xⱼ₊½)
+    )
+    mesh.edge_metrics.j₊½.η.x₂[i, j, k] = ifelse(
+      isfinite(η_yⱼ₊½), η_yⱼ₊½ * (abs(η_yⱼ₊½) >= eps()), zero(η_yⱼ₊½)
+    )
+    mesh.edge_metrics.j₊½.η.x₃[i, j, k] = ifelse(
+      isfinite(η_zⱼ₊½), η_zⱼ₊½ * (abs(η_zⱼ₊½) >= eps()), zero(η_zⱼ₊½)
+    )
+    mesh.edge_metrics.j₊½.ζ.x₁[i, j, k] = ifelse(
+      isfinite(ζ_xⱼ₊½), ζ_xⱼ₊½ * (abs(ζ_xⱼ₊½) >= eps()), zero(ζ_xⱼ₊½)
+    )
+    mesh.edge_metrics.j₊½.ζ.x₂[i, j, k] = ifelse(
+      isfinite(ζ_yⱼ₊½), ζ_yⱼ₊½ * (abs(ζ_yⱼ₊½) >= eps()), zero(ζ_yⱼ₊½)
+    )
+    mesh.edge_metrics.j₊½.ζ.x₃[i, j, k] = ifelse(
+      isfinite(ζ_zⱼ₊½), ζ_zⱼ₊½ * (abs(ζ_zⱼ₊½) >= eps()), zero(ζ_zⱼ₊½)
+    )
   end
 
   @threads for I in k₊½_edge_domain
     i, j, k = I.I
     ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
-    # J = Jₖ₊½(ξηζ...)
+    J = Jₖ₊½(ξηζ...)
     ξ̂_xₖ₊½ = ξ̂xₖ₊½(ξηζ...)
     ξ̂_yₖ₊½ = ξ̂yₖ₊½(ξηζ...)
     ξ̂_zₖ₊½ = ξ̂zₖ₊½(ξηζ...)
@@ -477,39 +586,48 @@ function compute_edge_metrics!(mesh)
     ζ̂_yₖ₊½ = ζ̂yₖ₊½(ξηζ...)
     ζ̂_zₖ₊½ = ζ̂zₖ₊½(ξηζ...)
 
-    mesh.edge_metrics.k₊½.ξ̂.x₁[i, j, k] = ξ̂_xₖ₊½
-    mesh.edge_metrics.k₊½.ξ̂.x₂[i, j, k] = ξ̂_yₖ₊½
-    mesh.edge_metrics.k₊½.ξ̂.x₃[i, j, k] = ξ̂_zₖ₊½
-    mesh.edge_metrics.k₊½.η̂.x₁[i, j, k] = η̂_xₖ₊½
-    mesh.edge_metrics.k₊½.η̂.x₂[i, j, k] = η̂_yₖ₊½
-    mesh.edge_metrics.k₊½.η̂.x₃[i, j, k] = η̂_zₖ₊½
-    mesh.edge_metrics.k₊½.ζ̂.x₁[i, j, k] = ζ̂_xₖ₊½
-    mesh.edge_metrics.k₊½.ζ̂.x₂[i, j, k] = ζ̂_yₖ₊½
-    mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k] = ζ̂_zₖ₊½
+    mesh.edge_metrics.k₊½.J[i, j, k] = J
+    mesh.edge_metrics.k₊½.ξ̂.x₁[i, j, k] = ξ̂_xₖ₊½ * (abs(ξ̂_xₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.ξ̂.x₂[i, j, k] = ξ̂_yₖ₊½ * (abs(ξ̂_yₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.ξ̂.x₃[i, j, k] = ξ̂_zₖ₊½ * (abs(ξ̂_zₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.η̂.x₁[i, j, k] = η̂_xₖ₊½ * (abs(η̂_xₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.η̂.x₂[i, j, k] = η̂_yₖ₊½ * (abs(η̂_yₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.η̂.x₃[i, j, k] = η̂_zₖ₊½ * (abs(η̂_zₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.ζ̂.x₁[i, j, k] = ζ̂_xₖ₊½ * (abs(ζ̂_xₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.ζ̂.x₂[i, j, k] = ζ̂_yₖ₊½ * (abs(ζ̂_yₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k] = ζ̂_zₖ₊½ * (abs(ζ̂_zₖ₊½) >= eps())
 
     ξ_xₖ₊½, η_xₖ₊½, ζ_xₖ₊½, ξ_yₖ₊½, η_yₖ₊½, ζ_yₖ₊½, ξ_zₖ₊½, η_zₖ₊½, ζ_zₖ₊½ = Jinv_ₖ₊½(
       ξηζ...
     )
 
-    mesh.edge_metrics.k₊½.ξ.x₁[i, j, k] = ξ_xₖ₊½
-    mesh.edge_metrics.k₊½.ξ.x₂[i, j, k] = ξ_yₖ₊½
-    mesh.edge_metrics.k₊½.ξ.x₃[i, j, k] = ξ_zₖ₊½
-    mesh.edge_metrics.k₊½.η.x₁[i, j, k] = η_xₖ₊½
-    mesh.edge_metrics.k₊½.η.x₂[i, j, k] = η_yₖ₊½
-    mesh.edge_metrics.k₊½.η.x₃[i, j, k] = η_zₖ₊½
-    mesh.edge_metrics.k₊½.ζ.x₁[i, j, k] = ζ_xₖ₊½
-    mesh.edge_metrics.k₊½.ζ.x₂[i, j, k] = ζ_yₖ₊½
-    mesh.edge_metrics.k₊½.ζ.x₃[i, j, k] = ζ_zₖ₊½
-
-    # mesh.edge_metrics.k₊½.ξ.x₁[i, j, k] = ξ̂_xₖ₊½ / J
-    # mesh.edge_metrics.k₊½.ξ.x₂[i, j, k] = ξ̂_yₖ₊½ / J
-    # mesh.edge_metrics.k₊½.ξ.x₃[i, j, k] = ξ̂_zₖ₊½ / J
-    # mesh.edge_metrics.k₊½.η.x₁[i, j, k] = η̂_xₖ₊½ / J
-    # mesh.edge_metrics.k₊½.η.x₂[i, j, k] = η̂_yₖ₊½ / J
-    # mesh.edge_metrics.k₊½.η.x₃[i, j, k] = η̂_zₖ₊½ / J
-    # mesh.edge_metrics.k₊½.ζ.x₁[i, j, k] = ζ̂_xₖ₊½ / J
-    # mesh.edge_metrics.k₊½.ζ.x₂[i, j, k] = ζ̂_yₖ₊½ / J
-    # mesh.edge_metrics.k₊½.ζ.x₃[i, j, k] = ζ̂_zₖ₊½ / J
+    mesh.edge_metrics.k₊½.ξ.x₁[i, j, k] = ifelse(
+      isfinite(ξ_xₖ₊½), ξ_xₖ₊½ * (abs(ξ_xₖ₊½) >= eps()), zero(ξ_xₖ₊½)
+    )
+    mesh.edge_metrics.k₊½.ξ.x₂[i, j, k] = ifelse(
+      isfinite(ξ_yₖ₊½), ξ_yₖ₊½ * (abs(ξ_yₖ₊½) >= eps()), zero(ξ_yₖ₊½)
+    )
+    mesh.edge_metrics.k₊½.ξ.x₃[i, j, k] = ifelse(
+      isfinite(ξ_zₖ₊½), ξ_zₖ₊½ * (abs(ξ_zₖ₊½) >= eps()), zero(ξ_zₖ₊½)
+    )
+    mesh.edge_metrics.k₊½.η.x₁[i, j, k] = ifelse(
+      isfinite(η_xₖ₊½), η_xₖ₊½ * (abs(η_xₖ₊½) >= eps()), zero(η_xₖ₊½)
+    )
+    mesh.edge_metrics.k₊½.η.x₂[i, j, k] = ifelse(
+      isfinite(η_yₖ₊½), η_yₖ₊½ * (abs(η_yₖ₊½) >= eps()), zero(η_yₖ₊½)
+    )
+    mesh.edge_metrics.k₊½.η.x₃[i, j, k] = ifelse(
+      isfinite(η_zₖ₊½), η_zₖ₊½ * (abs(η_zₖ₊½) >= eps()), zero(η_zₖ₊½)
+    )
+    mesh.edge_metrics.k₊½.ζ.x₁[i, j, k] = ifelse(
+      isfinite(ζ_xₖ₊½), ζ_xₖ₊½ * (abs(ζ_xₖ₊½) >= eps()), zero(ζ_xₖ₊½)
+    )
+    mesh.edge_metrics.k₊½.ζ.x₂[i, j, k] = ifelse(
+      isfinite(ζ_yₖ₊½), ζ_yₖ₊½ * (abs(ζ_yₖ₊½) >= eps()), zero(ζ_yₖ₊½)
+    )
+    mesh.edge_metrics.k₊½.ζ.x₃[i, j, k] = ifelse(
+      isfinite(ζ_zₖ₊½), ζ_zₖ₊½ * (abs(ζ_zₖ₊½) >= eps()), zero(ζ_zₖ₊½)
+    )
   end
 
   return nothing
@@ -557,4 +675,45 @@ function cell_center_conservative_metrics(mesh, (i, j, k))
     ζ̂y=mesh.metric_functions_cache.inverse.ζ̂y(ξηζ...),
     ζ̂z=mesh.metric_functions_cache.inverse.ζ̂z(ξηζ...),
   )
+end
+
+function metric_derivative_functions(mesh)
+
+  #! format: off
+  ∂Jinv_∂ξ(i,j,k) = derivative(ξ -> mesh.metric_functions_cache.inverse.Jinv(ξ, j, k), mesh.diff_backend, i)
+  ∂Jinv_∂η(i,j,k) = derivative(η -> mesh.metric_functions_cache.inverse.Jinv(i, η, k), mesh.diff_backend, j)
+  ∂Jinv_∂ζ(i,j,k) = derivative(ζ -> mesh.metric_functions_cache.inverse.Jinv(i, j, ζ), mesh.diff_backend, k)
+  #! format: on
+
+  #! format: off
+  # ∂ξx_∂ξ(i,j,k) = derivative(ξ -> mesh.metric_functions_cache.forward.ξx(ξ, j, k), mesh.diff_backend, i)
+  # ∂ξy_∂ξ(i,j,k) = derivative(ξ -> mesh.metric_functions_cache.forward.ξy(ξ, j, k), mesh.diff_backend, i)
+  # ∂ξz_∂ξ(i,j,k) = derivative(ξ -> mesh.metric_functions_cache.forward.ξz(ξ, j, k), mesh.diff_backend, i)
+  # ∂ξx_∂η(i,j,k) = derivative(η -> mesh.metric_functions_cache.forward.ξx(i, η, k), mesh.diff_backend, j)
+  # ∂ξy_∂η(i,j,k) = derivative(η -> mesh.metric_functions_cache.forward.ξy(i, η, k), mesh.diff_backend, j)
+  # ∂ξz_∂η(i,j,k) = derivative(η -> mesh.metric_functions_cache.forward.ξz(i, η, k), mesh.diff_backend, j)
+  # ∂ξx_∂ζ(i,j,k) = derivative(ζ -> mesh.metric_functions_cache.forward.ξx(i, j, ζ), mesh.diff_backend, i)
+  # ∂ξy_∂ζ(i,j,k) = derivative(ζ -> mesh.metric_functions_cache.forward.ξy(i, j, ζ), mesh.diff_backend, k)
+  # ∂ξz_∂ζ(i,j,k) = derivative(ζ -> mesh.metric_functions_cache.forward.ξz(i, j, ζ), mesh.diff_backend, k)
+  # ∂ηx_∂ξ(i,j,k) = derivative(ξ -> mesh.metric_functions_cache.forward.ηx(ξ, j, k), mesh.diff_backend, k)
+  # ∂ηy_∂ξ(i,j,k) = derivative(ξ -> mesh.metric_functions_cache.forward.ηy(ξ, j, k), mesh.diff_backend, i)
+  # ∂ηz_∂ξ(i,j,k) = derivative(ξ -> mesh.metric_functions_cache.forward.ηz(ξ, j, k), mesh.diff_backend, i)
+  # ∂ηx_∂η(i,j,k) = derivative(η -> mesh.metric_functions_cache.forward.ηx(i, η, k), mesh.diff_backend, j)
+  # ∂ηy_∂η(i,j,k) = derivative(η -> mesh.metric_functions_cache.forward.ηy(i, η, k), mesh.diff_backend, j)
+  # ∂ηz_∂η(i,j,k) = derivative(η -> mesh.metric_functions_cache.forward.ηz(i, η, k), mesh.diff_backend, j)
+  # ∂ηx_∂ζ(i,j,k) = derivative(ζ -> mesh.metric_functions_cache.forward.ηx(i, j, ζ), mesh.diff_backend, k)
+  # ∂ηy_∂ζ(i,j,k) = derivative(ζ -> mesh.metric_functions_cache.forward.ηy(i, j, ζ), mesh.diff_backend, k)
+  # ∂ηz_∂ζ(i,j,k) = derivative(ζ -> mesh.metric_functions_cache.forward.ηz(i, j, ζ), mesh.diff_backend, k)
+  # ∂ζx_∂ξ(i,j,k) = derivative(ξ -> mesh.metric_functions_cache.forward.ζx(ξ, j, k), mesh.diff_backend, i)
+  # ∂ζy_∂ξ(i,j,k) = derivative(ξ -> mesh.metric_functions_cache.forward.ζy(ξ, j, k), mesh.diff_backend, i)
+  # ∂ζz_∂ξ(i,j,k) = derivative(ξ -> mesh.metric_functions_cache.forward.ζz(ξ, j, k), mesh.diff_backend, i)
+  # ∂ζx_∂η(i,j,k) = derivative(η -> mesh.metric_functions_cache.forward.ζx(i, η, k), mesh.diff_backend, j)
+  # ∂ζy_∂η(i,j,k) = derivative(η -> mesh.metric_functions_cache.forward.ζy(i, η, k), mesh.diff_backend, j)
+  # ∂ζz_∂η(i,j,k) = derivative(η -> mesh.metric_functions_cache.forward.ζz(i, η, k), mesh.diff_backend, j)
+  # ∂ζx_∂ζ(i,j,k) = derivative(ζ -> mesh.metric_functions_cache.forward.ζx(i, j, ζ), mesh.diff_backend, k)
+  # ∂ζy_∂ζ(i,j,k) = derivative(ζ -> mesh.metric_functions_cache.forward.ζy(i, j, ζ), mesh.diff_backend, k)
+  # ∂ζz_∂ζ(i,j,k) = derivative(ζ -> mesh.metric_functions_cache.forward.ζz(i, j, ζ), mesh.diff_backend, k)
+  #! format: on
+
+  return (; ∂Jinv_∂ξ, ∂Jinv_∂η, ∂Jinv_∂ζ)
 end
