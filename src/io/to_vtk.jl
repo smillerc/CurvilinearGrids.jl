@@ -109,6 +109,25 @@ function save_vtk(mesh::AbstractCurvilinearGrid2D, fn="mesh")
 
     # vtk["volume", VTKCellData()] = cellvolume.(Ref(mesh), domain)
 
+    I1, I2 = GridTypes.gcl(mesh.edge_metrics, domain)
+
+    vtk["GCL", VTKCellData(), component_names=["I1", "I2"]] = (I1[domain], I2[domain])
+
+    indices = collect(domain)
+
+    vtk["index", VTKCellData(), component_names=["i", "j"]] = (
+      [idx.I[1] for idx in indices], [idx.I[2] for idx in indices]
+    )
+
+    for (name, edge) in pairs(mesh.edge_metrics)
+      for dim in (:ξ̂, :η̂)
+        var = edge[dim]
+        vtk["$(name)_$(dim)", VTKCellData(), component_names=["x1", "x2"]] = (
+          var.x₁[domain], var.x₂[domain]
+        )
+      end
+    end
+
     vtk["xi", VTKCellData(), component_names=["x1", "x2", "t"]] = (
       mesh.cell_center_metrics.ξ.x₁[domain],
       mesh.cell_center_metrics.ξ.x₂[domain],
