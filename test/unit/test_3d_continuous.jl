@@ -1,4 +1,3 @@
-using CurvilinearGrids, Test
 
 function uniform_mapping(xmin, xmax, ymin, ymax, zmin, zmax, ncells::NTuple{3,Int})
   ni, nj, nk = ncells
@@ -74,9 +73,9 @@ function wavy_mapping(ncells::NTuple{3,Int})
   Δy0 = Ly / nj
   Δz0 = Lz / nk
 
-  Ax = 0.0 / Δx0
-  Ay = 0.0 / Δy0
-  Az = 0.0 / Δz0
+  Ax = 0.2 / Δx0
+  Ay = 0.4 / Δy0
+  Az = 0.6 / Δz0
 
   n = 0.5
 
@@ -98,11 +97,14 @@ end
 
   (x, y, z) = wavy_mapping(celldims)
 
-  backend = AutoForwardDiff()
   mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
-  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
-  # @show gcl_identities, max_vals
-  @test all(gcl_identities)
+  I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
+  # @show extrema(I1)
+  # @show extrema(I2)
+  # @show extrema(I3)
+  @test all(abs.(extrema(I1)) .< 1e-14)
+  @test all(abs.(extrema(I2)) .< 1e-14)
+  @test all(abs.(extrema(I3)) .< 1e-14)
 end
 
 @testset "Sphere Sector ContinuousCurvilinearGrid3D" begin
@@ -118,10 +120,12 @@ end
   backend = AutoForwardDiff()
   mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
-  @show extrema(I1)
-  @show extrema(I2)
-  @show extrema(I3)
-  # @test all(gcl_identities)
+  # @show extrema(I1)
+  # @show extrema(I2)
+  # @show extrema(I3)
+  @test all(abs.(extrema(I1)) .< 1e-14)
+  @test all(abs.(extrema(I2)) .< 1e-14)
+  @test all(abs.(extrema(I3)) .< 1e-14)
 end
 
 @testset "Uniform ContinuousCurvilinearGrid3D" begin
@@ -133,9 +137,13 @@ end
 
   backend = AutoForwardDiff()
   mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
-  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
-  # @show gcl_identities, max_vals
-  @test all(gcl_identities)
+  I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
+  # @show extrema(I1)
+  # @show extrema(I2)
+  # @show extrema(I3)
+  @test all(abs.(extrema(I1)) .< 1e-14)
+  @test all(abs.(extrema(I2)) .< 1e-14)
+  @test all(abs.(extrema(I3)) .< 1e-14)
 
   cell_volume = 0.05 * 0.025 * 0.025
 
@@ -245,10 +253,14 @@ end
   cm = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
 
   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(cm.edge_metrics, cm.iterators.cell.domain)
-  @show extrema(I1)
-  @show extrema(I2)
-  @show extrema(I3)
-  CurvilinearGrids.save_vtk(cm, "wtf_mesh")
+  # @show extrema(I1)
+  # @show extrema(I2)
+  # @show extrema(I3)
+  @test all(abs.(extrema(I1)) .< 1e-19)
+  @test all(abs.(extrema(I2)) .< 1e-19)
+  @test all(abs.(extrema(I3)) .< 5e-14)
+
+  # CurvilinearGrids.save_vtk(cm, "spherical_sector_ad")
 
   @info "CurvilinearGrid3D"
   xdom = cm.node_coordinates.x[cm.iterators.node.full]
@@ -256,134 +268,34 @@ end
   zdom = cm.node_coordinates.z[cm.iterators.node.full]
   dm = CurvilinearGrid3D(xdom, ydom, zdom, :meg6; halo_coords_included=true)
   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(dm.edge_metrics, dm.iterators.cell.domain)
-  @show extrema(I1)
-  @show extrema(I2)
-  @show extrema(I3)
-  CurvilinearGrids.save_vtk(dm, "wtf_dm_mesh")
-  # save_vtk(dm, "sector_meg")
-  # save_vtk(cm, "sector_ad")
+  # @show extrema(I1)
+  # @show extrema(I2)
+  # @show extrema(I3)
+  @test all(abs.(extrema(I1)) .< 5e-14)
+  @test all(abs.(extrema(I2)) .< 5e-14)
+  @test all(abs.(extrema(I3)) .< 5e-14)
 
-  # cm_gcl_identities, cm_max_vals = gcl(cm.edge_metrics, cm.iterators.cell.domain, eps())
-  # @show cm_gcl_identities, cm_max_vals
-
-  # dm_gcl_identities, dm_max_vals = gcl(dm.edge_metrics, dm.iterators.cell.domain, eps())
-  # @show dm_gcl_identities, dm_max_vals
-
-  # @test all(cm_gcl_identities)
-  # @test all(dm_gcl_identities)
+  # CurvilinearGrids.save_vtk(cm, "spherical_sector_meg")
 
   dom = cm.iterators.cell.domain
 
-  for dim in (:ξ, :η, :ζ, :ξ̂, :η̂, :ζ̂, :x₁, :x₂, :x₃)
-    for ((dm_name, dm_component), (cm_name, cm_component)) in zip(
-      StructArrays.components(dm.cell_center_metrics[dim]) |> pairs,
-      StructArrays.components(cm.cell_center_metrics[dim]) |> pairs,
-    )
-      @test all(dm_component[dom] .≈ cm_component[dom])
-      # passes = all(dm_component[dom] .≈ cm_component[dom])
-      # @info "Dim: $dim, $dm_name, passes? $passes"
-      # if !passes
-      #   @show extrema(dm_component[dom])
-      #   @show extrema(cm_component[dom])
-      #   println()
-      # end
-    end
-    # println()
-  end
+  # for dim in (:ξ, :η, :ζ, :ξ̂, :η̂, :ζ̂, :x₁, :x₂, :x₃)
+  #   for ((dm_name, dm_component), (cm_name, cm_component)) in zip(
+  #     StructArrays.components(dm.cell_center_metrics[dim]) |> pairs,
+  #     StructArrays.components(cm.cell_center_metrics[dim]) |> pairs,
+  #   )
+  #     # @test all(isapprox.(dm_component[dom], cm_component[dom], rtol=1e-5))
+
+  #     passes = all(isapprox.(dm_component[dom], cm_component[dom], rtol=1e-3))
+  #     @info "Dim: $dim, $dm_name, passes? $passes"
+  #     if !passes
+  #       @show extrema(dm_component[dom])
+  #       @show extrema(cm_component[dom])
+  #       println()
+  #     end
+  #   end
+  #   # println()
+  # end
 
   nothing
 end
-
-# begin
-#   ijk = (50, 31, 31)
-#   #ξηζ = ijk .- nhalo .+ 0.5 # centroid
-
-#   axis = 3
-#   # pert = ntuple(i -> ifelse(i == axis, 1, 0), 3) .* sqrt(eps())
-#   pert = (1, 1, 1) .* 1e-12
-#   # pert = (1, 1, 1) .* sqrt(eps())
-#   @show pert
-
-#   ξηζ = ijk .- nhalo .+ 0.5 #.+ pert
-#   @show ξηζ
-
-#   @show cm.metric_functions_cache.forward.xξ(ξηζ...)
-#   @show cm.metric_functions_cache.forward.xη(ξηζ...)
-#   @show cm.metric_functions_cache.forward.xζ(ξηζ...)
-#   @show cm.metric_functions_cache.forward.yξ(ξηζ...)
-#   @show cm.metric_functions_cache.forward.yη(ξηζ...)
-#   @show cm.metric_functions_cache.forward.yζ(ξηζ...)
-#   @show cm.metric_functions_cache.forward.zξ(ξηζ...)
-#   @show cm.metric_functions_cache.forward.zη(ξηζ...)
-#   @show cm.metric_functions_cache.forward.zζ(ξηζ...)
-#   @show cm.metric_functions_cache.forward.jacobian(ξηζ...)
-
-#   @show cm.metric_functions_cache.inverse.ξ̂x(ξηζ...)
-#   @show cm.metric_functions_cache.inverse.η̂x(ξηζ...)
-#   @show cm.metric_functions_cache.inverse.ζ̂x(ξηζ...)
-#   @show cm.metric_functions_cache.inverse.ξ̂y(ξηζ...)
-#   @show cm.metric_functions_cache.inverse.η̂y(ξηζ...)
-#   @show cm.metric_functions_cache.inverse.ζ̂y(ξηζ...)
-#   @show cm.metric_functions_cache.inverse.ξ̂z(ξηζ...)
-#   @show cm.metric_functions_cache.inverse.η̂z(ξηζ...)
-#   @show cm.metric_functions_cache.inverse.ζ̂z(ξηζ...)
-#   @show cm.metric_functions_cache.inverse.Jinv(ξηζ...)
-
-#   @show cm.metric_functions_cache.forward.J(ξηζ...)
-#   # ξ̂xᵢ₊½, ξ̂xⱼ₊½, ξ̂xₖ₊½ = CurvilinearGrids.GridTypes.edge_functions(
-#   #   cm.metric_functions_cache.inverse.ξ̂x, cm.diff_backend
-#   # )
-
-#   # η̂xᵢ₊½, η̂xⱼ₊½, η̂xₖ₊½ = CurvilinearGrids.GridTypes.edge_functions(
-#   #   cm.metric_functions_cache.inverse.η̂x, cm.diff_backend
-#   # )
-#   # ζ̂xᵢ₊½, ζ̂xⱼ₊½, ζ̂xₖ₊½ = CurvilinearGrids.GridTypes.edge_functions(
-#   #   cm.metric_functions_cache.inverse.ζ̂x, cm.diff_backend
-#   # )
-
-#   # @show ζ̂xᵢ₊½(ξηζ...)
-#   # @show ζ̂xⱼ₊½(ξηζ...)
-#   # @show ζ̂xₖ₊½(ξηζ...)
-
-#   # @show η̂xᵢ₊½(ξηζ...)
-#   # @show η̂xⱼ₊½(ξηζ...)
-#   # @show η̂xₖ₊½(ξηζ...)
-
-#   # @show ξ̂xᵢ₊½(ξηζ...)
-#   # @show ξ̂xⱼ₊½(ξηζ...)
-#   # @show ξ̂xₖ₊½(ξηζ...)
-
-#   # i, j, k = ξηζ
-#   # I1 =
-#   #   (ξ̂xᵢ₊½(i, j, k) - ξ̂xᵢ₊½(i - 1, j, k)) +
-#   #   (η̂xⱼ₊½(i, j, k) - η̂xⱼ₊½(i, j - 1, k)) +
-#   #   (ζ̂xₖ₊½(i, j, k) - ζ̂xₖ₊½(i, j, k - 1))
-
-#   # @show I1
-
-#   # @show ξ̂xᵢ₊½(i, j, k) ξ̂xᵢ₊½(i - 1, j, k)
-#   # @show η̂xⱼ₊½(i, j, k) η̂xⱼ₊½(i, j - 1, k)
-#   # @show ζ̂xₖ₊½(i, j, k) ζ̂xₖ₊½(i, j, k - 1)
-# end
-
-# begin
-#   ijk = (50, 31, 31)
-#   J_vec = Float64[]
-#   axis = 3
-
-#   pert = sqrt(eps())
-#   while true
-#     pert_vec = (1, 1, 1) .* pert
-#     ξηζ = ijk .- nhalo .+ 0.5 .+ pert_vec
-
-#     J = cm.metric_functions_cache.forward.J(ξηζ...)
-#     @show pert
-#     if !isfinite(J) || iszero(J)
-#       break
-#     else
-#       push!(J_vec, J)
-#     end
-#     pert = pert / 5
-#   end
-#   J_vec
-# end

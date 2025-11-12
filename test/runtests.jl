@@ -19,9 +19,11 @@ include("unit/common.jl")
 @testset verbose = true "UnitTests" begin
   @info "1D"
   include("unit/test_1d.jl")
+  include("unit/test_1d_continuous.jl")
 
   @info "2D"
   include("unit/test_2d.jl")
+  include("unit/test_2d_continuous.jl")
 
   @info "RectilinearArrays"
   include("unit/test_rectilinear_arrays.jl")
@@ -34,7 +36,7 @@ include("unit/common.jl")
 
   @info "3D"
   include("unit/test_3d.jl")
-  include("unit/test_continuous.jl")
+  include("unit/test_3d_continuous.jl")
 
   @info "Wall"
   include("unit/test_wall.jl")
