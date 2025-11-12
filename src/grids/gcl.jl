@@ -1,32 +1,42 @@
 function gcl(
   em, # edge metrics
-  domain::CartesianIndices{2},
-  ϵ,
+  domain::CartesianIndices{1},
 )
-  I₁_passes = true
-  I₂_passes = true
+  I₁ = similar(em.i₊½.ξ̂.x₁)
 
-  I₁ = -Inf
-  I₂ = -Inf
+  fill!(I₁, 0)
+
+  for idx in domain
+    i, = idx.I
+    I₁[idx] = ((em.i₊½.ξ̂.x₁[i] - em.i₊½.ξ̂.x₁[i - 1]))
+  end
+
+  return I₁
+end
+
+function gcl(
+  em, # edge metrics
+  domain::CartesianIndices{2},
+)
+  I₁ = similar(em.i₊½.ξ̂.x₁)
+  I₂ = similar(em.i₊½.ξ̂.x₁)
+
+  fill!(I₁, 0)
+  fill!(I₂, 0)
+
   for idx in domain
     i, j = idx.I
-    _I₁ = (
+    I₁[idx] = (
       (em.i₊½.ξ̂.x₁[i, j] - em.i₊½.ξ̂.x₁[i - 1, j]) +
       (em.j₊½.η̂.x₁[i, j] - em.j₊½.η̂.x₁[i, j - 1])
     )
-    _I₂ = (
+    I₂[idx] = (
       (em.i₊½.ξ̂.x₂[i, j] - em.i₊½.ξ̂.x₂[i - 1, j]) +
       (em.j₊½.η̂.x₂[i, j] - em.j₊½.η̂.x₂[i, j - 1])
     )
-
-    I₁ = max(I₁, abs(_I₁))
-    I₂ = max(I₂, abs(_I₂))
   end
 
-  I₁_passes = abs(I₁) < ϵ
-  I₂_passes = abs(I₂) < ϵ
-
-  return (I₁_passes, I₂_passes), (I₁, I₂)
+  return I₁, I₂
 end
 
 function gcl(

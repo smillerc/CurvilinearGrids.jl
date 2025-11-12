@@ -1,13 +1,16 @@
 module GridTypes
 
-using LinearAlgebra
-using StaticArrays
-using ForwardDiff
-using UnPack
-using StructArrays
-using Polyester
-using KernelAbstractions
 using CartesianDomains
+using DifferentiationInterface
+using ForwardDiff
+using KernelAbstractions
+using LinearAlgebra
+using Polyester
+using StaticArrays
+using StructArrays
+using UnPack
+using WriteVTK
+using .Threads
 
 using ..DiscretizationSchemes
 using ..MetricDiscretizationSchemes
@@ -23,7 +26,7 @@ export UniformGrid1D, UniformGrid2D, UniformGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 
-export ContinuousCurvilinearGrid3D
+export ContinuousCurvilinearGrid1D, ContinuousCurvilinearGrid2D, ContinuousCurvilinearGrid3D
 
 export rectilinear_grid,
   rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid
@@ -87,6 +90,9 @@ include("1d.jl")
 include("2d.jl")
 include("3d.jl")
 include("simple_constructors/simple_constructors.jl")
+include("metric_cache.jl")
+include("1d_continuous.jl")
+include("2d_continuous.jl")
 include("3d_continuous.jl")
 include("gcl.jl")
 
