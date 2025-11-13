@@ -28,7 +28,9 @@ function perturb_coords!(mesh, x_interface, λ, k)
     mesh.node_coordinates.x[i, j] += x_pert
   end
 
-  CurvilinearGrids.update!(mesh; force=true)
+  force = true
+  halo_coords_included = false
+  CurvilinearGrids.update!(mesh, force, halo_coords_included)
   return nothing
 end
 
@@ -46,5 +48,6 @@ end
 
   # save_vtk(mesh)
 
-  gcl(mesh)
+  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
+  @test_broken all(gcl_identities)
 end
