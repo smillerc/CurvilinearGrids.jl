@@ -1,4 +1,6 @@
 
+using Setfield
+
 abstract type AbstractContinuousCurvilinearGrid2D <: AbstractCurvilinearGrid2D end
 
 struct ContinuousCurvilinearGrid2D{A,B,C,EM,CM,E,BE,DBE,DS} <:
@@ -55,6 +57,26 @@ function ContinuousCurvilinearGrid2D(
   )
 
   if compute_metrics
+    compute_cell_metrics!(mesh)
+    compute_edge_metrics!(mesh)
+  end
+
+  return mesh
+end
+
+function update_mapping_functions!(
+  mesh::ContinuousCurvilinearGrid2D, x, y, update_metrics=false
+)
+  # @show typeof(mesh.mapping_functions.x)
+  # @show typeof(x)
+  # @show typeof(mesh.mapping_functions.y)
+  # @show typeof(y)
+  @set mesh.mapping_functions.x = x
+  @set mesh.mapping_functions.y = y
+  @set mesh.metric_functions_cache = MetricCache(x, y, mesh.diff_backend)
+
+  if update_metrics
+    @info "Updating metrics after a new mapping function is defined"
     compute_cell_metrics!(mesh)
     compute_edge_metrics!(mesh)
   end
