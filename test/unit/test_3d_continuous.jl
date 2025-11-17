@@ -92,16 +92,17 @@ function wavy_mapping(ncells::NTuple{3,Int})
   return (x, y, z)
 end
 
-@testset "Wavy ContinuousCurvilinearGrid3D" begin
+@testset "Wavy ContinuousCurvilinearGrid3D"
+begin
   celldims = (41, 41, 41)
 
   (x, y, z) = wavy_mapping(celldims)
 
   mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
-  # @show extrema(I1)
-  # @show extrema(I2)
-  # @show extrema(I3)
+  @show extrema(I1)
+  @show extrema(I2)
+  @show extrema(I3)
   @test all(abs.(extrema(I1)) .< 1e-14)
   @test all(abs.(extrema(I2)) .< 1e-14)
   @test all(abs.(extrema(I3)) .< 1e-14)
