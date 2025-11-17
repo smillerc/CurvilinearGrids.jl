@@ -113,9 +113,9 @@ begin
   @show extrema(I1)
   @show extrema(I2)
   @show extrema(I3)
-  # @test all(abs.(extrema(I1)) .< 1e-14)
-  # @test all(abs.(extrema(I2)) .< 1e-14)
-  # @test all(abs.(extrema(I3)) .< 1e-14)
+  @test all(abs.(extrema(I1)) .< 1e-14)
+  @test all(abs.(extrema(I2)) .< 1e-14)
+  @test all(abs.(extrema(I3)) .< 1e-14)
 end
 
 @testset "Sphere Sector ContinuousCurvilinearGrid3D" begin

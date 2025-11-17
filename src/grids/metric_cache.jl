@@ -10,17 +10,12 @@ function MetricCache(x::Function, y::Function, z::Function, backend)
   xξ(t, i, j, k, p) = derivative(ξ -> x(t, ξ, j, k, p), backend, i)
   xη(t, i, j, k, p) = derivative(η -> x(t, i, η, k, p), backend, j)
   xζ(t, i, j, k, p) = derivative(ζ -> x(t, i, j, ζ, p), backend, k)
-  xτ(t, i, j, k, p) = derivative(τ -> x(τ, i, j, k, p), backend, t)
-
   yξ(t, i, j, k, p) = derivative(ξ -> y(t, ξ, j, k, p), backend, i)
   yη(t, i, j, k, p) = derivative(η -> y(t, i, η, k, p), backend, j)
   yζ(t, i, j, k, p) = derivative(ζ -> y(t, i, j, ζ, p), backend, k)
-  yτ(t, i, j, k, p) = derivative(τ -> y(τ, i, j, k, p), backend, t)
-
   zξ(t, i, j, k, p) = derivative(ξ -> z(t, ξ, j, k, p), backend, i)
   zη(t, i, j, k, p) = derivative(η -> z(t, i, η, k, p), backend, j)
   zζ(t, i, j, k, p) = derivative(ζ -> z(t, i, j, ζ, p), backend, k)
-  zτ(t, i, j, k, p) = derivative(τ -> z(τ, i, j, k, p), backend, t)
 
   function jacobian_matrix(t, i, j, k, p)
 
