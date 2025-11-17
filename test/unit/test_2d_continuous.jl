@@ -49,12 +49,55 @@ function wavy_mapping(ncells::NTuple{2,Int})
 end
 
 @testset "Wavy ContinuousCurvilinearGrid2D" begin
-  celldims = (41, 41)
+  ni, nj = (401, 401)
+  Lx = Ly = 12
 
-  (x, y) = wavy_mapping(celldims)
+  xmin = -Lx / 2
+  ymin = -Ly / 2
 
-  mesh = ContinuousCurvilinearGrid2D(x, y, celldims, :meg6, CPU())
-  # save_vtk(mesh, "wavy_2d_ad")
+  Δx0 = Lx / ni
+  Δy0 = Ly / nj
+
+  Ax = 0.25 / Δx0
+  Ay = 0.5 / Δy0
+
+  n = 0.5
+
+  params = (; Lx, Ly, xmin, ymin, Δx0, Δy0, Ax, Ay, n)
+  params_2 = (; Lx, Ly, xmin, ymin, Δx0, Δy0, Ax=2Ax, Ay=0.5Ay, n)
+
+  function x_mapping(t, i, j, p)
+    @unpack xmin, Ax, Δy0, Δx0 = p
+
+    return xmin + Δx0 * ((i - 1) + Ax * sinpi(n * (j - 1) * Δy0))
+  end
+
+  function y_mapping(t, i, j, p)
+    @unpack ymin, Ay, Δy0, Δx0 = p
+
+    return ymin + Δy0 * ((j - 1) + Ay * sinpi(n * (i - 1) * Δx0))
+  end
+
+  mesh = ContinuousCurvilinearGrid2D(x_mapping, y_mapping, params, (ni, nj), :meg6, CPU())
+
+  t, i, j = (0, 10, 20)
+  c1 = coord(mesh, t, i, j)
+  # @show c1
+  # save_vtk(mesh, "wavy_2d_ad_t1")
+  I1, I2 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
+
+  # @show extrema(I1)
+  # @show extrema(I2)
+  @test all(abs.(extrema(I1)) .< 1e-14)
+  @test all(abs.(extrema(I2)) .< 1e-14)
+
+  CurvilinearGrids.GridTypes.update_mapping_functions!(mesh, t, params_2)
+
+  c2 = coord(mesh, t, i, j)
+
+  @test !isapprox(c1, c2)
+  # @show c2
+  # save_vtk(mesh, "wavy_2d_ad_t2")
 
   I1, I2 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
 
@@ -62,6 +105,8 @@ end
   # @show extrema(I2)
   @test all(abs.(extrema(I1)) .< 1e-14)
   @test all(abs.(extrema(I2)) .< 1e-14)
+
+  nothing
 end
 
 @testset "Sphere Sector ContinuousCurvilinearGrid2D" begin
