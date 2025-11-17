@@ -79,29 +79,38 @@ function wavy_mapping(ncells::NTuple{3,Int})
 
   n = 0.5
 
-  function x(i, j, k)
+  params = (; Lx, Ly, Lz, xmin, ymin, zmin, Δx0, Δy0, Δz0, Ax, Ay, Az, n)
+
+  function x(t, i, j, k, p)
+    @unpack xmin, Δx0, Δy0, Δz0, Ax, n = p
     xmin + Δx0 * ((i - 1) + Ax * sin(pi * n * (j - 1) * Δy0) * sin(pi * n * (k - 1) * Δz0))
   end
-  function y(i, j, k)
+
+  function y(t, i, j, k, p)
+    @unpack ymin, Δx0, Δy0, Δz0, Ay, n = p
     ymin + Δy0 * ((j - 1) + Ay * sin(pi * n * (k - 1) * Δz0) * sin(pi * n * (i - 1) * Δx0))
   end
-  function z(i, j, k)
+
+  function z(t, i, j, k, p)
+    @unpack zmin, Δx0, Δy0, Δz0, Az, n = p
     zmin + Δz0 * ((k - 1) + Az * sin(pi * n * (i - 1) * Δx0) * sin(pi * n * (j - 1) * Δy0))
   end
 
-  return (x, y, z)
+  return (x, y, z, params)
 end
 
-@testset "Wavy ContinuousCurvilinearGrid3D" begin
+@testset "Wavy ContinuousCurvilinearGrid3D"
+
+begin
   celldims = (41, 41, 41)
 
-  (x, y, z) = wavy_mapping(celldims)
+  (x, y, z, params) = wavy_mapping(celldims)
 
-  mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
+  mesh = ContinuousCurvilinearGrid3D(x, y, z, params, celldims, :meg6, CPU())
   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
-  # @show extrema(I1)
-  # @show extrema(I2)
-  # @show extrema(I3)
+  @show extrema(I1)
+  @show extrema(I2)
+  @show extrema(I3)
   @test all(abs.(extrema(I1)) .< 1e-14)
   @test all(abs.(extrema(I2)) .< 1e-14)
   @test all(abs.(extrema(I3)) .< 1e-14)
