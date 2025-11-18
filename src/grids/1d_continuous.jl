@@ -1,57 +1,69 @@
 
-abstract type AbstractContinuousCurvilinearGrid1D <: AbstractCurvilinearGrid1D end
-
-struct ContinuousCurvilinearGrid1D{A,B,C,EM,CM,E,BE,DBE,DS} <:
-       AbstractContinuousCurvilinearGrid1D
-  node_coordinates::A
-  centroid_coordinates::A
-  mapping_functions::B
-  metric_functions_cache::C
-  edge_metrics::EM
-  cell_center_metrics::CM
-  iterators::E
-  backend::BE
-  diff_backend::DBE
-  nhalo::Int
-  discretization_scheme::DS
-  discretization_scheme_name::Symbol
-end
-
 function ContinuousCurvilinearGrid1D(
   x::Function,
+  mapping_function_parameters::NamedTuple,
   celldims::NTuple,
   discretization_scheme::Symbol,
   backend=CPU(),
   diff_backend=AutoForwardDiff(),
+  t=zero(Float64),
   T=Float64;
   compute_metrics=true,
-  global_node_indices::Union{Nothing,CartesianIndices{3}}=nothing,
+  global_cell_indices::Union{Nothing,CartesianIndices{3}}=nothing,
 )
   GradientDiscretizationScheme, order, _, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
-  iterators = get_iterators(celldims, nhalo)
+  iterators = get_iterators(celldims, nhalo, global_cell_indices)
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims .+ 2nhalo, backend, T)
-  xyz_n = node_coordinates(x, iterators, backend, T)
-  xyz_c = centroid_coordinates(x, iterators, backend, T)
+
+  ni_nodes, = size(iterators.node.full)
+  node_coords = StructArray((
+    x=KernelAbstractions.zeros(backend, T, (ni_nodes,)),
+    y=KernelAbstractions.zeros(backend, T, (ni_nodes,)),
+  ))
+
+  ni_cells, = size(iterators.cell.full)
+  centroid_coords = StructArray((
+    x=KernelAbstractions.zeros(backend, T, (ni_cells,)),
+    y=KernelAbstractions.zeros(backend, T, (ni_cells,)),
+  ))
+
+  discr_scheme = GradientDiscretizationScheme(order; use_cache=false)
+  metric_cache = MetricCache(x, diff_backend)
+  mapping_funcs = (; x)
 
   discr_scheme = GradientDiscretizationScheme(order; use_cache=false)
 
-  mesh = ContinuousCurvilinearGrid1D(
-    xyz_n,
-    xyz_c,
-    (; x),
-    MetricCache(x, diff_backend),
+  mesh = ContinuousCurvilinearGrid1D{
+    T,
+    typeof(node_coords),
+    typeof(mapping_funcs),
+    typeof(metric_cache),
+    typeof(edge_metrics),
+    typeof(cell_center_metrics),
+    typeof(iterators),
+    typeof(backend),
+    typeof(diff_backend),
+    typeof(discr_scheme),
+  }(
+    node_coords,
+    centroid_coords,
+    mapping_funcs,
+    metric_cache,
     edge_metrics,
     cell_center_metrics,
-    iterators,
     backend,
     diff_backend,
     nhalo,
     discr_scheme,
     scheme_name,
+    iterators,
   )
+
+  compute_node_coordinates!(mesh, t, mapping_function_parameters)
+  compute_centroid_coordinates!(mesh, t, mapping_function_parameters)
 
   if compute_metrics
     compute_cell_metrics!(mesh)
@@ -61,41 +73,42 @@ function ContinuousCurvilinearGrid1D(
   return mesh
 end
 
-function node_coordinates(x, iterators, backend, T)
-  ni, = size(iterators.node.full)
-  nhalo = iterators.nhalo
+function compute_node_coordinates!(mesh::ContinuousCurvilinearGrid1D, t, params)
+  nhalo = mesh.nhalo
 
-  coords = StructArray((x=KernelAbstractions.zeros(backend, T, (ni,)),))
-
-  @batch for I in iterators.node.full
-    i, = I.I
-    coords.x[I] = x(i - nhalo)
+  x = mesh.mapping_functions.x
+  @threads for I in mesh.iterators.cell.full
+    Iglobal = mesh.iterators.global_domain.cell.full[I]
+    # account for halo cells 
+    ξη = Iglobal.I .- nhalo
+    mesh.node_coordinates.x[I] = x(t, ξη..., params)
   end
 
-  return coords
+  return nothing
 end
 
-function centroid_coordinates(x, iterators, backend, T)
-  ni, = size(iterators.cell.full)
-  nhalo = iterators.nhalo
-  coords = StructArray((x=KernelAbstractions.zeros(backend, T, (ni,)),))
+function compute_centroid_coordinates!(mesh::ContinuousCurvilinearGrid1D, t, params)
+  nhalo = mesh.nhalo
 
-  @batch for I in iterators.cell.full
-    i, = I.I
-    coords.x[I] = x(i - nhalo + 0.5)
+  x = mesh.mapping_functions.x
+
+  @threads for I in mesh.iterators.cell.full
+    Iglobal = mesh.iterators.global_domain.cell.full[I]
+    # account for halo cells and centroid offset
+    ξη = Iglobal.I .- nhalo .+ 0.5 # centroid
+    mesh.centroid_coordinates.x[I] = x(t, ξη..., params)
   end
 
-  return coords
+  return nothing
 end
 
 function compute_cell_metrics!(mesh::ContinuousCurvilinearGrid1D)
   nhalo = mesh.iterators.nhalo
 
   @threads for I in mesh.iterators.cell.full
-    i, = I.I
-
+    Iglobal = mesh.iterators.global_domain.cell.full[I]
     # account for halo cells and centroid offset
-    ξη = I.I .- nhalo .+ 0.5 # centroid
+    ξη = Iglobal.I .- nhalo .+ 0.5 # centroid
 
     jac_matrix = mesh.metric_functions_cache.forward.jacobian(ξη...)
     J = det(jac_matrix)
@@ -124,8 +137,9 @@ function compute_edge_metrics!(mesh::ContinuousCurvilinearGrid1D)
   )
 
   @threads for I in mesh.iterators.cell.full
-    i, = I.I
-    ξη = I.I .- nhalo .+ (1 / 2) # centroid index
+    Iglobal = mesh.iterators.global_domain.cell.full[I]
+    # account for halo cells and centroid offset
+    ξη = Iglobal.I .- nhalo .+ 0.5 # centroid
 
     # J = Jᵢ₊½(ξη...)
     ξ_xᵢ₊½, = Jinv_ᵢ₊½(ξη...)

@@ -1,22 +1,4 @@
 
-abstract type AbstractContinuousCurvilinearGrid3D <: AbstractCurvilinearGrid3D end
-
-struct ContinuousCurvilinearGrid3D{A,B,C,EM,CM,E,BE,DBE,DS} <:
-       AbstractContinuousCurvilinearGrid3D
-  node_coordinates::A
-  centroid_coordinates::A
-  mapping_functions::B
-  metric_functions_cache::C
-  edge_metrics::EM
-  cell_center_metrics::CM
-  iterators::E
-  backend::BE
-  diff_backend::DBE
-  nhalo::Int
-  discretization_scheme::DS
-  discretization_scheme_name::Symbol
-end
-
 function ContinuousCurvilinearGrid3D(
   x::Function,
   y::Function,
@@ -29,12 +11,12 @@ function ContinuousCurvilinearGrid3D(
   t=zero(Float64),
   T=Float64;
   compute_metrics=true,
-  global_node_indices::Union{Nothing,CartesianIndices{3}}=nothing,
+  global_cell_indices::Union{Nothing,CartesianIndices{3}}=nothing,
 )
   GradientDiscretizationScheme, order, _, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
-  iterators = get_iterators(celldims, nhalo)
+  iterators = get_iterators(celldims, nhalo, global_cell_indices)
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims .+ 2nhalo, backend, T)
   ni_nodes, nj_nodes, nk_nodes = size(iterators.node.full)
@@ -52,19 +34,31 @@ function ContinuousCurvilinearGrid3D(
   ))
   discr_scheme = GradientDiscretizationScheme(order; use_cache=false)
   metric_cache = MetricCache(x, y, z, diff_backend)
-  mesh = ContinuousCurvilinearGrid3D(
+  mapping_funcs = (; x, y, z)
+  mesh = ContinuousCurvilinearGrid3D{
+    T,
+    typeof(node_coords),
+    typeof(mapping_funcs),
+    typeof(metric_cache),
+    typeof(edge_metrics),
+    typeof(cell_center_metrics),
+    typeof(iterators),
+    typeof(backend),
+    typeof(diff_backend),
+    typeof(discr_scheme),
+  }(
     node_coords,
     centroid_coords,
-    (; x, y, z),
+    mapping_funcs,
     metric_cache,
     edge_metrics,
     cell_center_metrics,
-    iterators,
     backend,
     diff_backend,
     nhalo,
     discr_scheme,
     scheme_name,
+    iterators,
   )
 
   compute_node_coordinates!(mesh, t, mapping_function_parameters)
@@ -76,21 +70,6 @@ function ContinuousCurvilinearGrid3D(
   end
 
   return mesh
-end
-
-function update_mapping_functions!(
-  mesh::ContinuousCurvilinearGrid3D, t, new_params, compute_metrics=true
-)
-  mesh.mapping_function_params = new_params
-  compute_node_coordinates!(mesh, t, new_params)
-  compute_centroid_coordinates!(mesh, t, new_params)
-
-  if compute_metrics
-    compute_cell_metrics!(mesh, t, new_params)
-    compute_edge_metrics!(mesh, t, new_params)
-  end
-
-  return nothing
 end
 
 function compute_node_coordinates!(mesh::ContinuousCurvilinearGrid3D, t, params)
@@ -127,27 +106,13 @@ function compute_centroid_coordinates!(mesh::ContinuousCurvilinearGrid3D, t, par
   return nothing
 end
 
-@inline function tol_diff(a::T, b::T) where {T}
-  a_m_b = a - b
-  return a_m_b * !isapprox(a, b; rtol=sqrt(eps(T)), atol=eps(T))
-end
-
-function get_iterators(celldims::NTuple{N,Int}, nhalo::Int) where {N}
-  cellCI = CartesianIndices(celldims .+ 2nhalo)
-  nodeCI = CartesianIndices(celldims .+ 1 .+ 2nhalo)
-
-  node = (full=nodeCI, domain=expand(nodeCI, -nhalo))
-  cell = (full=cellCI, domain=expand(cellCI, -nhalo))
-  return (; node, cell, nhalo)
-end
-
 function compute_cell_metrics!(mesh, t, params)
   nhalo = mesh.iterators.nhalo
 
   @threads for I in mesh.iterators.cell.full
-
+    Iglobal = mesh.iterators.global_domain.cell.full[I]
     # account for halo cells and centroid offset
-    ξηζ = I.I .- nhalo .+ 0.5 # centroid
+    ξηζ = Iglobal.I .- nhalo .+ 0.5 # centroid
 
     # @unpack xξ, yξ, zξ, xη, yη, zη, xζ, yζ, zζ, J = forward(metric_functions_cache, ξηζ)
 
@@ -228,13 +193,14 @@ end
 function compute_edge_metrics!(mesh, t, params)
   nhalo = mesh.iterators.nhalo
 
-  # for (iedge, edge) in enumerate(mesh.metrics.edge_metrics)
-  i₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 1, +1)
-  j₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 2, +1)
-  k₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 3, +1)
+  # # for (iedge, edge) in enumerate(mesh.metrics.edge_metrics)
+  # i₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 1, +1)
+  # j₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 2, +1)
+  # k₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 3, +1)
 
-  @threads for I in i₊½_edge_domain
-    ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
+  @threads for I in mesh.iterators.cell.full
+    Iglobal = mesh.iterators.global_domain.cell.full[I]
+    ξηζ = Iglobal.I .- nhalo .+ (1 / 2) # centroid index
 
     J = mesh.metric_functions_cache.edge.Jᵢ₊½(t, ξηζ..., params)
     ξ̂_xᵢ₊½ = mesh.metric_functions_cache.edge.ξ̂xᵢ₊½(t, ξηζ..., params)
@@ -289,10 +255,10 @@ function compute_edge_metrics!(mesh, t, params)
     mesh.edge_metrics.i₊½.ζ.x₃[I] = ifelse(
       isfinite(ζ_zᵢ₊½), ζ_zᵢ₊½ * (abs(ζ_zᵢ₊½) >= eps()), zero(ζ_zᵢ₊½)
     )
-  end
+    # end
 
-  @threads for I in j₊½_edge_domain
-    ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
+    # @threads for I in j₊½_edge_domain
+    #   ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
     J = mesh.metric_functions_cache.edge.Jⱼ₊½(t, ξηζ..., params)
     ξ̂_xⱼ₊½ = mesh.metric_functions_cache.edge.ξ̂xⱼ₊½(t, ξηζ..., params)
@@ -347,10 +313,10 @@ function compute_edge_metrics!(mesh, t, params)
     mesh.edge_metrics.j₊½.ζ.x₃[I] = ifelse(
       isfinite(ζ_zⱼ₊½), ζ_zⱼ₊½ * (abs(ζ_zⱼ₊½) >= eps()), zero(ζ_zⱼ₊½)
     )
-  end
+    # end
 
-  @threads for I in k₊½_edge_domain
-    ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
+    # @threads for I in k₊½_edge_domain
+    #   ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
     J = mesh.metric_functions_cache.edge.Jₖ₊½(t, ξηζ..., params)
     ξ̂_xₖ₊½ = mesh.metric_functions_cache.edge.ξ̂xₖ₊½(t, ξηζ..., params)

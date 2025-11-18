@@ -4,18 +4,22 @@ function uniform_mapping(xmin, xmax, ncells::NTuple{1,Int})
 
   Δx = (xmax - xmin) / ni
 
-  x(i) = xmin + (i - 1) * Δx
+  params = (; Δx, xmin)
+  function x(t, i, p)
+    @unpack xmin, Δx = p
+    return xmin + (i - 1) * Δx
+  end
 
-  return x
+  return (x, params)
 end
 
 @testset "Uniform ContinuousCurvilinearGrid1D" begin
   x0, x1 = (0.0, 2.0)
 
   celldims = (40,)
-  x = uniform_mapping(x0, x1, celldims)
+  x, params = uniform_mapping(x0, x1, celldims)
 
-  mesh = ContinuousCurvilinearGrid1D(x, celldims, :meg6, CPU())
+  mesh = ContinuousCurvilinearGrid1D(x, params, celldims, :meg6, CPU())
   I1 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
   @test all(abs.(extrema(I1)) .< eps())
 

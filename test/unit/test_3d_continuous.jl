@@ -8,11 +8,24 @@ function uniform_mapping(xmin, xmax, ymin, ymax, zmin, zmax, ncells::NTuple{3,In
   Δy = (ymax - ymin) / nj
   Δz = (zmax - zmin) / nk
 
-  x(i, j, k) = xmin + (i - 1) * Δx
-  y(i, j, k) = ymin + (j - 1) * Δy
-  z(i, j, k) = zmin + (k - 1) * Δz
+  params = (; xmin, ymin, zmin, Δx, Δy, Δz)
 
-  return (x, y, z)
+  function x(t, i, j, k, p)
+    @unpack xmin, Δx = p
+    return xmin + (i - 1) * Δx
+  end
+
+  function y(t, i, j, k, p)
+    @unpack ymin, Δy = p
+    return ymin + (j - 1) * Δy
+  end
+
+  function z(t, i, j, k, p)
+    @unpack zmin, Δz = p
+    return zmin + (k - 1) * Δz
+  end
+
+  return (x, y, z, params)
 end
 
 function spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, ncells::NTuple{3,Int})
@@ -23,44 +36,33 @@ function spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, ncells
   Δθ = (θmax - θmin) / nj
   Δϕ = (ϕmax - ϕmin) / nk
 
-  r(i) = (rmin + (i - 1) * Δr)
-  θ(j) = (θmin + (j - 1) * Δθ)
-  ϕ(k) = (ϕmin + (k - 1) * Δϕ)
+  params = (; Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin)
 
-  ϵ = 10eps()
-  # ϵ = 1.1cos(pi / 2)
-  function x(i, j, k)
-    sinθ = sin(θ(j))
-    cosϕ = cos(ϕ(k))
-
-    # sinθ = sinθ * (abs(sinθ) >= ϵ)
-    # cosϕ = cosϕ * (abs(cosϕ) >= ϵ)
-
-    return r(i) * sinθ * cosϕ
+  function x(t, i, j, k, p)
+    @unpack Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin = p
+    r(i) = (rmin + (i - 1) * Δr)
+    θ(j) = (θmin + (j - 1) * Δθ)
+    ϕ(k) = (ϕmin + (k - 1) * Δϕ)
+    return r(i) * sin(θ(j)) * cos(ϕ(k))
   end
 
-  function y(i, j, k)
-    sinθ = sin(θ(j))
-    sinϕ = sin(ϕ(k))
-
-    # sinθ = sinθ * (abs(sinθ) >= ϵ)
-    # sinϕ = sinϕ * (abs(sinϕ) >= ϵ)
-
-    return r(i) * sinθ * sinϕ
+  function y(t, i, j, k, p)
+    @unpack Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin = p
+    r(i) = (rmin + (i - 1) * Δr)
+    θ(j) = (θmin + (j - 1) * Δθ)
+    ϕ(k) = (ϕmin + (k - 1) * Δϕ)
+    return r(i) * sin(θ(j)) * sin(ϕ(k))
   end
 
-  function z(i, j, k)
-    # c = abs(cos(pi / 2))
-    # # theta = θ(j) * (abs(pi / 2 - θ(j)) >= eps())
-
-    # cosθ = cos(theta)
-    cosθ = cos(θ(j))
-    # cosθ = cosθ * (abs(cosθ) >= ϵ)
-
-    return r(i) * cosθ
+  function z(t, i, j, k, p)
+    @unpack Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin = p
+    r(i) = (rmin + (i - 1) * Δr)
+    θ(j) = (θmin + (j - 1) * Δθ)
+    ϕ(k) = (ϕmin + (k - 1) * Δϕ)
+    return r(i) * cos(θ(j))
   end
 
-  return (x, y, z)
+  return (x, y, z, params)
 end
 
 function wavy_mapping(ncells::NTuple{3,Int})
@@ -99,7 +101,6 @@ function wavy_mapping(ncells::NTuple{3,Int})
 
   return (x, y, z, params)
 end
-
 @testset "Wavy ContinuousCurvilinearGrid3D" begin
   celldims = (41, 41, 41)
 
@@ -115,124 +116,124 @@ end
   @test all(abs.(extrema(I3)) .< 1e-14)
 end
 
-# @testset "Sphere Sector ContinuousCurvilinearGrid3D" begin
-#   nhalo = 5
-#   nr, nθ, nϕ = 41, 41, 41
-#   celldims = (nr, nθ, nϕ)
-#   rmin, rmax = 1.0, 4.0
-#   θmin, θmax = π / 2 - deg2rad(5), π / 2 + deg2rad(5)   # narrow polar band around equator
-#   ϕmin, ϕmax = -deg2rad(10), deg2rad(10)
+@testset "Sphere Sector ContinuousCurvilinearGrid3D" begin
+  nhalo = 5
+  nr, nθ, nϕ = 41, 41, 41
+  celldims = (nr, nθ, nϕ)
+  rmin, rmax = 1.0, 4.0
+  θmin, θmax = π / 2 - deg2rad(5), π / 2 + deg2rad(5)   # narrow polar band around equator
+  ϕmin, ϕmax = -deg2rad(10), deg2rad(10)
 
-#   (x, y, z) = spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, celldims)
+  (x, y, z, params) = spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, celldims)
 
-#   backend = AutoForwardDiff()
-#   mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
-#   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
-#   # @show extrema(I1)
-#   # @show extrema(I2)
-#   # @show extrema(I3)
-#   @test all(abs.(extrema(I1)) .< 1e-14)
-#   @test all(abs.(extrema(I2)) .< 1e-14)
-#   @test all(abs.(extrema(I3)) .< 1e-14)
-# end
+  backend = AutoForwardDiff()
+  mesh = ContinuousCurvilinearGrid3D(x, y, z, params, celldims, :meg6, CPU(), backend)
+  I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
+  # @show extrema(I1)
+  # @show extrema(I2)
+  # @show extrema(I3)
+  @test all(abs.(extrema(I1)) .< 1e-14)
+  @test all(abs.(extrema(I2)) .< 1e-14)
+  @test all(abs.(extrema(I3)) .< 1e-14)
+end
 
-# @testset "Uniform ContinuousCurvilinearGrid3D" begin
-#   x0, x1 = (0.0, 2.0)
-#   y0, y1 = (1, 3)
-#   z0, z1 = (-1, 2)
-#   celldims = (40, 80, 120)
-#   (x, y, z) = uniform_mapping(x0, x1, y0, y1, z0, z1, celldims)
+@testset "Uniform ContinuousCurvilinearGrid3D" begin
+  x0, x1 = (0.0, 2.0)
+  y0, y1 = (1, 3)
+  z0, z1 = (-1, 2)
+  celldims = (40, 80, 120)
+  (x, y, z, params) = uniform_mapping(x0, x1, y0, y1, z0, z1, celldims)
 
-#   backend = AutoForwardDiff()
-#   mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
-#   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
-#   # @show extrema(I1)
-#   # @show extrema(I2)
-#   # @show extrema(I3)
-#   @test all(abs.(extrema(I1)) .< 1e-14)
-#   @test all(abs.(extrema(I2)) .< 1e-14)
-#   @test all(abs.(extrema(I3)) .< 1e-14)
+  backend = AutoForwardDiff()
+  mesh = ContinuousCurvilinearGrid3D(x, y, z, params, celldims, :meg6, CPU(), backend)
+  I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
+  # @show extrema(I1)
+  # @show extrema(I2)
+  # @show extrema(I3)
+  @test all(abs.(extrema(I1)) .< 1e-14)
+  @test all(abs.(extrema(I2)) .< 1e-14)
+  @test all(abs.(extrema(I3)) .< 1e-14)
 
-#   cell_volume = 0.05 * 0.025 * 0.025
+  cell_volume = 0.05 * 0.025 * 0.025
 
-#   @test all(mesh.cell_center_metrics.J .≈ cell_volume)
+  @test all(mesh.cell_center_metrics.J .≈ cell_volume)
 
-#   @test all(mesh.cell_center_metrics.x₁.ξ .≈ 0.05)
-#   @test all(mesh.cell_center_metrics.x₂.ξ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.x₃.ξ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.x₁.η .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.x₂.η .≈ 0.025)
-#   @test all(mesh.cell_center_metrics.x₃.η .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.x₁.ζ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.x₂.ζ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.x₃.ζ .≈ 0.025)
+  @test all(mesh.cell_center_metrics.x₁.ξ .≈ 0.05)
+  @test all(mesh.cell_center_metrics.x₂.ξ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₃.ξ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₁.η .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₂.η .≈ 0.025)
+  @test all(mesh.cell_center_metrics.x₃.η .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₁.ζ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₂.ζ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.x₃.ζ .≈ 0.025)
 
-#   @test all(mesh.cell_center_metrics.ξ̂.x₁ .≈ 0.000625)
-#   @test all(mesh.cell_center_metrics.ξ̂.x₂ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.ξ̂.x₃ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.η̂.x₁ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.η̂.x₂ .≈ 0.00125)
-#   @test all(mesh.cell_center_metrics.η̂.x₃ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.ζ̂.x₁ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.ζ̂.x₂ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.ζ̂.x₃ .≈ 0.00125)
+  @test all(mesh.cell_center_metrics.ξ̂.x₁ .≈ 0.000625)
+  @test all(mesh.cell_center_metrics.ξ̂.x₂ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ξ̂.x₃ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.x₁ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η̂.x₂ .≈ 0.00125)
+  @test all(mesh.cell_center_metrics.η̂.x₃ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ̂.x₁ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ̂.x₂ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ̂.x₃ .≈ 0.00125)
 
-#   @test all(mesh.cell_center_metrics.ξ.x₁ .≈ 20.0)
-#   @test all(mesh.cell_center_metrics.ξ.x₂ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.ξ.x₃ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.η.x₁ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.η.x₂ .≈ 40.0)
-#   @test all(mesh.cell_center_metrics.η.x₃ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.ζ.x₁ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.ζ.x₂ .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.ζ.x₃ .≈ 40.0)
-#   @test all(mesh.cell_center_metrics.ξ.t .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.η.t .≈ 0.0)
-#   @test all(mesh.cell_center_metrics.ζ.t .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ξ.x₁ .≈ 20.0)
+  @test all(mesh.cell_center_metrics.ξ.x₂ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ξ.x₃ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.x₁ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.x₂ .≈ 40.0)
+  @test all(mesh.cell_center_metrics.η.x₃ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ.x₁ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ.x₂ .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ.x₃ .≈ 40.0)
+  @test all(mesh.cell_center_metrics.ξ.t .≈ 0.0)
+  @test all(mesh.cell_center_metrics.η.t .≈ 0.0)
+  @test all(mesh.cell_center_metrics.ζ.t .≈ 0.0)
 
-#   iaxis, jaxis, kaxis = (1, 2, 3)
-#   domain = mesh.iterators.cell.domain
-#   i₊½_domain = expand(domain, iaxis, -1)
-#   j₊½_domain = expand(domain, jaxis, -1)
-#   k₊½_domain = expand(domain, kaxis, -1)
+  iaxis, jaxis, kaxis = (1, 2, 3)
+  domain = mesh.iterators.cell.domain
+  i₊½_domain = expand(domain, iaxis, -1)
+  j₊½_domain = expand(domain, jaxis, -1)
+  k₊½_domain = expand(domain, kaxis, -1)
 
-#   @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain] .≈ 0.000625)
-#   @test all(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain] .≈ 0.000625)
-#   @test all(mesh.edge_metrics.k₊½.ξ̂.x₁[k₊½_domain] .≈ 0.000625)
-#   @test all(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.k₊½.ξ̂.x₂[k₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.i₊½.ξ̂.x₃[i₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.j₊½.ξ̂.x₃[j₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.k₊½.ξ̂.x₃[k₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.k₊½.η̂.x₁[k₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain] .≈ 0.00125)
-#   @test all(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain] .≈ 0.00125)
-#   @test all(mesh.edge_metrics.k₊½.η̂.x₂[k₊½_domain] .≈ 0.00125)
-#   @test all(mesh.edge_metrics.i₊½.η̂.x₃[i₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.j₊½.η̂.x₃[j₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.k₊½.η̂.x₃[k₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.i₊½.ζ̂.x₁[i₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.j₊½.ζ̂.x₁[j₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.k₊½.ζ̂.x₁[k₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.i₊½.ζ̂.x₂[i₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.j₊½.ζ̂.x₂[j₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.k₊½.ζ̂.x₂[k₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.i₊½.ζ̂.x₃[i₊½_domain] .≈ 0.00125)
-#   @test all(mesh.edge_metrics.j₊½.ζ̂.x₃[j₊½_domain] .≈ 0.00125)
-#   @test all(mesh.edge_metrics.k₊½.ζ̂.x₃[k₊½_domain] .≈ 0.00125)
-#   @test all(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.j₊½.ξ̂.t[j₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.k₊½.ξ̂.t[k₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.i₊½.η̂.t[i₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.j₊½.η̂.t[j₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.k₊½.η̂.t[k₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.i₊½.ζ̂.t[i₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.j₊½.ζ̂.t[j₊½_domain] .≈ 0.0)
-#   @test all(mesh.edge_metrics.k₊½.ζ̂.t[k₊½_domain] .≈ 0.0)
-# end
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain] .≈ 0.000625)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain] .≈ 0.000625)
+  @test all(mesh.edge_metrics.k₊½.ξ̂.x₁[k₊½_domain] .≈ 0.000625)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ξ̂.x₂[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.x₃[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.x₃[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ξ̂.x₃[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.η̂.x₁[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.k₊½.η̂.x₂[k₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.i₊½.η̂.x₃[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.x₃[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.η̂.x₃[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂.x₁[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ζ̂.x₁[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ζ̂.x₁[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂.x₂[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ζ̂.x₂[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ζ̂.x₂[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂.x₃[i₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.j₊½.ζ̂.x₃[j₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.k₊½.ζ̂.x₃[k₊½_domain] .≈ 0.00125)
+  @test all(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ξ̂.t[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ξ̂.t[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.η̂.t[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.η̂.t[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.η̂.t[k₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.i₊½.ζ̂.t[i₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.j₊½.ζ̂.t[j₊½_domain] .≈ 0.0)
+  @test all(mesh.edge_metrics.k₊½.ζ̂.t[k₊½_domain] .≈ 0.0)
+end
 
 # @testset "ContinuousCurvilinearGrid3D vs CurvilinearGrid3D" begin
 #   nhalo = 5

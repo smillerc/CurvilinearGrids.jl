@@ -277,7 +277,9 @@ function MetricCache(x::Function, y::Function, backend)
     Jinv_norm=normalized_jinv,
   )
 
-  return MetricCache(forward_metrics, inverse_metrics)
+  edge_metrics = get_edge_functions_2d(forward_metrics, inverse_metrics, backend)
+
+  return MetricCache(forward_metrics, inverse_metrics, edge_metrics)
 end
 
 """
@@ -306,7 +308,10 @@ function MetricCache(x::Function, backend)
     Jinv=jinv,
     Jinv_norm=normalized_jinv,
   )
-  return MetricCache(forward_metrics, inverse_metrics)
+
+  edge_metrics = get_edge_functions_1d(forward_metrics, inverse_metrics, backend)
+
+  return MetricCache(forward_metrics, inverse_metrics, edge_metrics)
 end
 
 function cell_center_derivative_3d(ϕ, backend)
@@ -459,6 +464,24 @@ function get_edge_functions_3d(forward_metrics, inverse_metrics, diff_backend)
     Jᵢ₊½, Jⱼ₊½, Jₖ₊½,            
   )
    #! format: on
+
+  return edge_funcs
+end
+
+function get_edge_functions_2d(forward_metrics, inverse_metrics, diff_backend)
+  Jinv_ᵢ₊½, Jinv_ⱼ₊½ = edge_functions_2d(inverse_metrics.Jinv, diff_backend)
+  norm_Jinv_ᵢ₊½, norm_Jinv_ⱼ₊½ = edge_functions_2d(inverse_metrics.Jinv_norm, diff_backend)
+
+  edge_funcs = (; Jinv_ᵢ₊½, Jinv_ⱼ₊½, norm_Jinv_ᵢ₊½, norm_Jinv_ⱼ₊½)
+
+  return edge_funcs
+end
+
+function get_edge_functions_1d(forward_metrics, inverse_metrics, diff_backend)
+  Jinv_ᵢ₊½ = edge_functions_1d(inverse_metrics.Jinv, diff_backend)
+  norm_Jinv_ᵢ₊½ = edge_functions_1d(inverse_metrics.Jinv_norm, diff_backend)
+
+  edge_funcs = (; Jinv_ᵢ₊½, norm_Jinv_ᵢ₊½)
 
   return edge_funcs
 end
