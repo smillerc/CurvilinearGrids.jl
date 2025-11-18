@@ -21,10 +21,12 @@ function ContinuousCurvilinearGrid3D(
   x::Function,
   y::Function,
   z::Function,
+  mapping_function_parameters,
   celldims::NTuple,
   discretization_scheme::Symbol,
   backend=CPU(),
   diff_backend=AutoForwardDiff(),
+  t=zero(Float64),
   T=Float64;
   compute_metrics=true,
   global_node_indices::Union{Nothing,CartesianIndices{3}}=nothing,
@@ -35,16 +37,26 @@ function ContinuousCurvilinearGrid3D(
   iterators = get_iterators(celldims, nhalo)
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims .+ 2nhalo, backend, T)
-  xyz_n = node_coordinates(x, y, z, iterators, backend, T)
-  xyz_c = centroid_coordinates(x, y, z, iterators, backend, T)
+  ni_nodes, nj_nodes, nk_nodes = size(iterators.node.full)
+  node_coords = StructArray((
+    x=KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes, nk_nodes)),
+    y=KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes, nk_nodes)),
+    z=KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes, nk_nodes)),
+  ))
 
+  ni_cells, nj_cells, nk_cells = size(iterators.cell.full)
+  centroid_coords = StructArray((
+    x=KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells, nk_cells)),
+    y=KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells, nk_cells)),
+    z=KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells, nk_cells)),
+  ))
   discr_scheme = GradientDiscretizationScheme(order; use_cache=false)
-
+  metric_cache = MetricCache(x, y, z, diff_backend)
   mesh = ContinuousCurvilinearGrid3D(
-    xyz_n,
-    xyz_c,
+    node_coords,
+    centroid_coords,
     (; x, y, z),
-    MetricCache(x, y, z, diff_backend),
+    metric_cache,
     edge_metrics,
     cell_center_metrics,
     iterators,
@@ -55,51 +67,64 @@ function ContinuousCurvilinearGrid3D(
     scheme_name,
   )
 
+  compute_node_coordinates!(mesh, t, mapping_function_parameters)
+  compute_centroid_coordinates!(mesh, t, mapping_function_parameters)
+
   if compute_metrics
-    compute_cell_metrics!(mesh)
-    compute_edge_metrics!(mesh)
+    compute_cell_metrics!(mesh, t, mapping_function_parameters)
+    compute_edge_metrics!(mesh, t, mapping_function_parameters)
   end
 
   return mesh
 end
 
-function node_coordinates(x, y, z, iterators, backend, T)
-  ni, nj, nk = size(iterators.node.full)
-  nhalo = iterators.nhalo
+function update_mapping_functions!(
+  mesh::ContinuousCurvilinearGrid3D, t, new_params, compute_metrics=true
+)
+  mesh.mapping_function_params = new_params
+  compute_node_coordinates!(mesh, t, new_params)
+  compute_centroid_coordinates!(mesh, t, new_params)
 
-  coords = StructArray((
-    x=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
-    y=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
-    z=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
-  ))
-
-  @batch for I in iterators.node.full
-    i, j, k = I.I
-    coords.x[I] = x(i - nhalo, j - nhalo, k - nhalo)
-    coords.y[I] = y(i - nhalo, j - nhalo, k - nhalo)
-    coords.z[I] = z(i - nhalo, j - nhalo, k - nhalo)
+  if compute_metrics
+    compute_cell_metrics!(mesh, t, new_params)
+    compute_edge_metrics!(mesh, t, new_params)
   end
 
-  return coords
+  return nothing
 end
 
-function centroid_coordinates(x, y, z, iterators, backend, T)
-  ni, nj, nk = size(iterators.cell.full)
-  nhalo = iterators.nhalo
-  coords = StructArray((
-    x=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
-    y=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
-    z=KernelAbstractions.zeros(backend, T, (ni, nj, nk)),
-  ))
+function compute_node_coordinates!(mesh::ContinuousCurvilinearGrid3D, t, params)
+  nhalo = mesh.nhalo
 
-  @batch for I in iterators.cell.full
-    i, j, k = I.I
-    coords.x[I] = x(i - nhalo + 0.5, j - nhalo + 0.5, k - nhalo + 0.5)
-    coords.y[I] = y(i - nhalo + 0.5, j - nhalo + 0.5, k - nhalo + 0.5)
-    coords.z[I] = z(i - nhalo + 0.5, j - nhalo + 0.5, k - nhalo + 0.5)
+  x = mesh.mapping_functions.x
+  y = mesh.mapping_functions.y
+  z = mesh.mapping_functions.z
+  for I in mesh.iterators.node.full
+    ξη = I.I .- nhalo
+    mesh.node_coordinates.x[I] = x(t, ξη..., params)
+    mesh.node_coordinates.y[I] = y(t, ξη..., params)
+    mesh.node_coordinates.z[I] = z(t, ξη..., params)
   end
 
-  return coords
+  return nothing
+end
+
+function compute_centroid_coordinates!(mesh::ContinuousCurvilinearGrid3D, t, params)
+  nhalo = mesh.nhalo
+
+  x = mesh.mapping_functions.x
+  y = mesh.mapping_functions.y
+  z = mesh.mapping_functions.z
+
+  for I in mesh.iterators.cell.full
+    # account for halo cells and centroid offset
+    ξη = I.I .- nhalo .+ 0.5 # centroid
+    mesh.centroid_coordinates.x[I] = x(t, ξη..., params)
+    mesh.centroid_coordinates.y[I] = y(t, ξη..., params)
+    mesh.centroid_coordinates.y[I] = z(t, ξη..., params)
+  end
+
+  return nothing
 end
 
 @inline function tol_diff(a::T, b::T) where {T}
@@ -116,11 +141,10 @@ function get_iterators(celldims::NTuple{N,Int}, nhalo::Int) where {N}
   return (; node, cell, nhalo)
 end
 
-function compute_cell_metrics!(mesh)
+function compute_cell_metrics!(mesh, t, params)
   nhalo = mesh.iterators.nhalo
 
   @threads for I in mesh.iterators.cell.full
-    i, j, k = I.I
 
     # account for halo cells and centroid offset
     ξηζ = I.I .- nhalo .+ 0.5 # centroid
@@ -128,39 +152,39 @@ function compute_cell_metrics!(mesh)
     # @unpack xξ, yξ, zξ, xη, yη, zη, xζ, yζ, zζ, J = forward(metric_functions_cache, ξηζ)
 
     # Jacobian
-    J = det(mesh.metric_functions_cache.forward.jacobian(ξηζ...))
-    mesh.cell_center_metrics.J[i, j, k] = J
+    J = det(mesh.metric_functions_cache.forward.jacobian(t, ξηζ..., params))
+    mesh.cell_center_metrics.J[I] = J
 
-    xξ = mesh.metric_functions_cache.forward.xξ(ξηζ...)
-    xη = mesh.metric_functions_cache.forward.xη(ξηζ...)
-    xζ = mesh.metric_functions_cache.forward.xζ(ξηζ...)
-    yξ = mesh.metric_functions_cache.forward.yξ(ξηζ...)
-    yη = mesh.metric_functions_cache.forward.yη(ξηζ...)
-    yζ = mesh.metric_functions_cache.forward.yζ(ξηζ...)
-    zξ = mesh.metric_functions_cache.forward.zξ(ξηζ...)
-    zη = mesh.metric_functions_cache.forward.zη(ξηζ...)
-    zζ = mesh.metric_functions_cache.forward.zζ(ξηζ...)
+    xξ = mesh.metric_functions_cache.forward.xξ(t, ξηζ..., params)
+    xη = mesh.metric_functions_cache.forward.xη(t, ξηζ..., params)
+    xζ = mesh.metric_functions_cache.forward.xζ(t, ξηζ..., params)
+    yξ = mesh.metric_functions_cache.forward.yξ(t, ξηζ..., params)
+    yη = mesh.metric_functions_cache.forward.yη(t, ξηζ..., params)
+    yζ = mesh.metric_functions_cache.forward.yζ(t, ξηζ..., params)
+    zξ = mesh.metric_functions_cache.forward.zξ(t, ξηζ..., params)
+    zη = mesh.metric_functions_cache.forward.zη(t, ξηζ..., params)
+    zζ = mesh.metric_functions_cache.forward.zζ(t, ξηζ..., params)
 
-    mesh.cell_center_metrics.x₁.ξ[i, j, k] = xξ * (abs(xξ) >= eps())
-    mesh.cell_center_metrics.x₁.η[i, j, k] = xη * (abs(xη) >= eps())
-    mesh.cell_center_metrics.x₁.ζ[i, j, k] = xζ * (abs(xζ) >= eps())
-    mesh.cell_center_metrics.x₂.ξ[i, j, k] = yξ * (abs(yξ) >= eps())
-    mesh.cell_center_metrics.x₂.η[i, j, k] = yη * (abs(yη) >= eps())
-    mesh.cell_center_metrics.x₂.ζ[i, j, k] = yζ * (abs(yζ) >= eps())
-    mesh.cell_center_metrics.x₃.ξ[i, j, k] = zξ * (abs(zξ) >= eps())
-    mesh.cell_center_metrics.x₃.η[i, j, k] = zη * (abs(zη) >= eps())
-    mesh.cell_center_metrics.x₃.ζ[i, j, k] = zζ * (abs(zζ) >= eps())
+    mesh.cell_center_metrics.x₁.ξ[I] = xξ * (abs(xξ) >= eps())
+    mesh.cell_center_metrics.x₁.η[I] = xη * (abs(xη) >= eps())
+    mesh.cell_center_metrics.x₁.ζ[I] = xζ * (abs(xζ) >= eps())
+    mesh.cell_center_metrics.x₂.ξ[I] = yξ * (abs(yξ) >= eps())
+    mesh.cell_center_metrics.x₂.η[I] = yη * (abs(yη) >= eps())
+    mesh.cell_center_metrics.x₂.ζ[I] = yζ * (abs(yζ) >= eps())
+    mesh.cell_center_metrics.x₃.ξ[I] = zξ * (abs(zξ) >= eps())
+    mesh.cell_center_metrics.x₃.η[I] = zη * (abs(zη) >= eps())
+    mesh.cell_center_metrics.x₃.ζ[I] = zζ * (abs(zζ) >= eps())
 
     # hatted inverse metrics
-    ξ̂_x = mesh.metric_functions_cache.inverse.ξ̂x(ξηζ...)
-    ξ̂_y = mesh.metric_functions_cache.inverse.ξ̂y(ξηζ...)
-    ξ̂_z = mesh.metric_functions_cache.inverse.ξ̂z(ξηζ...)
-    η̂_x = mesh.metric_functions_cache.inverse.η̂x(ξηζ...)
-    η̂_y = mesh.metric_functions_cache.inverse.η̂y(ξηζ...)
-    η̂_z = mesh.metric_functions_cache.inverse.η̂z(ξηζ...)
-    ζ̂_x = mesh.metric_functions_cache.inverse.ζ̂x(ξηζ...)
-    ζ̂_y = mesh.metric_functions_cache.inverse.ζ̂y(ξηζ...)
-    ζ̂_z = mesh.metric_functions_cache.inverse.ζ̂z(ξηζ...)
+    ξ̂_x = mesh.metric_functions_cache.inverse.ξ̂x(t, ξηζ..., params)
+    ξ̂_y = mesh.metric_functions_cache.inverse.ξ̂y(t, ξηζ..., params)
+    ξ̂_z = mesh.metric_functions_cache.inverse.ξ̂z(t, ξηζ..., params)
+    η̂_x = mesh.metric_functions_cache.inverse.η̂x(t, ξηζ..., params)
+    η̂_y = mesh.metric_functions_cache.inverse.η̂y(t, ξηζ..., params)
+    η̂_z = mesh.metric_functions_cache.inverse.η̂z(t, ξηζ..., params)
+    ζ̂_x = mesh.metric_functions_cache.inverse.ζ̂x(t, ξηζ..., params)
+    ζ̂_y = mesh.metric_functions_cache.inverse.ζ̂y(t, ξηζ..., params)
+    ζ̂_z = mesh.metric_functions_cache.inverse.ζ̂z(t, ξηζ..., params)
 
     ξ̂_x = ξ̂_x # * (abs(ξ̂_x) >= eps())
     ξ̂_y = ξ̂_y # * (abs(ξ̂_y) >= eps())
@@ -172,26 +196,28 @@ function compute_cell_metrics!(mesh)
     ζ̂_y = ζ̂_y # * (abs(ζ̂_y) >= eps())
     ζ̂_z = ζ̂_z # * (abs(ζ̂_z) >= eps())
 
-    mesh.cell_center_metrics.ξ̂.x₁[i, j, k] = ξ̂_x
-    mesh.cell_center_metrics.ξ̂.x₂[i, j, k] = ξ̂_y
-    mesh.cell_center_metrics.ξ̂.x₃[i, j, k] = ξ̂_z
-    mesh.cell_center_metrics.η̂.x₁[i, j, k] = η̂_x
-    mesh.cell_center_metrics.η̂.x₂[i, j, k] = η̂_y
-    mesh.cell_center_metrics.η̂.x₃[i, j, k] = η̂_z
-    mesh.cell_center_metrics.ζ̂.x₁[i, j, k] = ζ̂_x
-    mesh.cell_center_metrics.ζ̂.x₂[i, j, k] = ζ̂_y
-    mesh.cell_center_metrics.ζ̂.x₃[i, j, k] = ζ̂_z
+    mesh.cell_center_metrics.ξ̂.x₁[I] = ξ̂_x
+    mesh.cell_center_metrics.ξ̂.x₂[I] = ξ̂_y
+    mesh.cell_center_metrics.ξ̂.x₃[I] = ξ̂_z
+    mesh.cell_center_metrics.η̂.x₁[I] = η̂_x
+    mesh.cell_center_metrics.η̂.x₂[I] = η̂_y
+    mesh.cell_center_metrics.η̂.x₃[I] = η̂_z
+    mesh.cell_center_metrics.ζ̂.x₁[I] = ζ̂_x
+    mesh.cell_center_metrics.ζ̂.x₂[I] = ζ̂_y
+    mesh.cell_center_metrics.ζ̂.x₃[I] = ζ̂_z
 
-    ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz = mesh.metric_functions_cache.inverse.Jinv(ξηζ...)
-    mesh.cell_center_metrics.ξ.x₁[i, j, k] = ξx
-    mesh.cell_center_metrics.ξ.x₂[i, j, k] = ξy
-    mesh.cell_center_metrics.ξ.x₃[i, j, k] = ξz
-    mesh.cell_center_metrics.η.x₁[i, j, k] = ηx
-    mesh.cell_center_metrics.η.x₂[i, j, k] = ηy
-    mesh.cell_center_metrics.η.x₃[i, j, k] = ηz
-    mesh.cell_center_metrics.ζ.x₁[i, j, k] = ζx
-    mesh.cell_center_metrics.ζ.x₂[i, j, k] = ζy
-    mesh.cell_center_metrics.ζ.x₃[i, j, k] = ζz
+    ξx, ηx, ζx, ξy, ηy, ζy, ξz, ηz, ζz = mesh.metric_functions_cache.inverse.Jinv(
+      t, ξηζ..., params
+    )
+    mesh.cell_center_metrics.ξ.x₁[I] = ξx
+    mesh.cell_center_metrics.ξ.x₂[I] = ξy
+    mesh.cell_center_metrics.ξ.x₃[I] = ξz
+    mesh.cell_center_metrics.η.x₁[I] = ηx
+    mesh.cell_center_metrics.η.x₂[I] = ηy
+    mesh.cell_center_metrics.η.x₃[I] = ηz
+    mesh.cell_center_metrics.ζ.x₁[I] = ζx
+    mesh.cell_center_metrics.ζ.x₂[I] = ζy
+    mesh.cell_center_metrics.ζ.x₃[I] = ζz
   end
 
   if any(mesh.cell_center_metrics.J .<= 0)
@@ -199,203 +225,8 @@ function compute_cell_metrics!(mesh)
   end
 end
 
-# function compute_edge_metrics!(mesh)
-#   nhalo = mesh.iterators.nhalo
-
-#   ξ̂xᵢ₊½, ξ̂xⱼ₊½, ξ̂xₖ₊½ = edge_functions_3d(
-#     mesh.metric_functions_cache.inverse.ξ̂x, mesh.diff_backend
-#   )
-#   η̂xᵢ₊½, η̂xⱼ₊½, η̂xₖ₊½ = edge_functions_3d(
-#     mesh.metric_functions_cache.inverse.η̂x, mesh.diff_backend
-#   )
-#   ζ̂xᵢ₊½, ζ̂xⱼ₊½, ζ̂xₖ₊½ = edge_functions_3d(
-#     mesh.metric_functions_cache.inverse.ζ̂x, mesh.diff_backend
-#   )
-#   ξ̂yᵢ₊½, ξ̂yⱼ₊½, ξ̂yₖ₊½ = edge_functions_3d(
-#     mesh.metric_functions_cache.inverse.ξ̂y, mesh.diff_backend
-#   )
-#   η̂yᵢ₊½, η̂yⱼ₊½, η̂yₖ₊½ = edge_functions_3d(
-#     mesh.metric_functions_cache.inverse.η̂y, mesh.diff_backend
-#   )
-#   ζ̂yᵢ₊½, ζ̂yⱼ₊½, ζ̂yₖ₊½ = edge_functions_3d(
-#     mesh.metric_functions_cache.inverse.ζ̂y, mesh.diff_backend
-#   )
-#   ξ̂zᵢ₊½, ξ̂zⱼ₊½, ξ̂zₖ₊½ = edge_functions_3d(
-#     mesh.metric_functions_cache.inverse.ξ̂z, mesh.diff_backend
-#   )
-#   η̂zᵢ₊½, η̂zⱼ₊½, η̂zₖ₊½ = edge_functions_3d(
-#     mesh.metric_functions_cache.inverse.η̂z, mesh.diff_backend
-#   )
-#   ζ̂zᵢ₊½, ζ̂zⱼ₊½, ζ̂zₖ₊½ = edge_functions_3d(
-#     mesh.metric_functions_cache.inverse.ζ̂z, mesh.diff_backend
-#   )
-
-#   Jinv_ᵢ₊½, Jinv_ⱼ₊½, Jinv_ₖ₊½ = edge_functions_3d(
-#     mesh.metric_functions_cache.inverse.Jinv, mesh.diff_backend
-#   )
-
-#   normJinv_ᵢ₊½, normJinv_ⱼ₊½, normJinv_ₖ₊½ = edge_functions_3d(
-#     mesh.metric_functions_cache.inverse.Jinv_norm, mesh.diff_backend
-#   )
-
-#   Jᵢ₊½, Jⱼ₊½, Jₖ₊½ = edge_functions_3d(
-#     mesh.metric_functions_cache.forward.J, mesh.diff_backend
-#   )
-
-#   # for (iedge, edge) in enumerate(mesh.metrics.edge_metrics)
-#   i₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 1, +1)
-#   j₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 2, +1)
-#   k₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 3, +1)
-
-#   @threads for I in mesh.iterators.cell.full
-#     i, j, k = I.I
-#     ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
-
-#     J = Jᵢ₊½(ξηζ...)
-
-#     ξ̂_xᵢ₊½, η̂_xᵢ₊½, ζ̂_xᵢ₊½, ξ̂_yᵢ₊½, η̂_yᵢ₊½, ζ̂_yᵢ₊½, ξ̂_zᵢ₊½, η̂_zᵢ₊½, ζ̂_zᵢ₊½ = normJinv_ᵢ₊½(
-#       ξηζ...
-#     )
-
-#     mesh.edge_metrics.i₊½.J[i, j, k] = J
-#     mesh.edge_metrics.i₊½.ξ̂.x₁[i, j, k] = ξ̂_xᵢ₊½
-#     mesh.edge_metrics.i₊½.ξ̂.x₂[i, j, k] = ξ̂_yᵢ₊½
-#     mesh.edge_metrics.i₊½.ξ̂.x₃[i, j, k] = ξ̂_zᵢ₊½
-#     mesh.edge_metrics.i₊½.η̂.x₁[i, j, k] = η̂_xᵢ₊½
-#     mesh.edge_metrics.i₊½.η̂.x₂[i, j, k] = η̂_yᵢ₊½
-#     mesh.edge_metrics.i₊½.η̂.x₃[i, j, k] = η̂_zᵢ₊½
-#     mesh.edge_metrics.i₊½.ζ̂.x₁[i, j, k] = ζ̂_xᵢ₊½
-#     mesh.edge_metrics.i₊½.ζ̂.x₂[i, j, k] = ζ̂_yᵢ₊½
-#     mesh.edge_metrics.i₊½.ζ̂.x₃[i, j, k] = ζ̂_zᵢ₊½
-
-#     ξ_xᵢ₊½, η_xᵢ₊½, ζ_xᵢ₊½, ξ_yᵢ₊½, η_yᵢ₊½, ζ_yᵢ₊½, ξ_zᵢ₊½, η_zᵢ₊½, ζ_zᵢ₊½ = Jinv_ᵢ₊½(
-#       ξηζ...
-#     )
-
-#     mesh.edge_metrics.i₊½.ξ.x₁[i, j, k] = ξ_xᵢ₊½
-#     mesh.edge_metrics.i₊½.ξ.x₂[i, j, k] = ξ_yᵢ₊½
-#     mesh.edge_metrics.i₊½.ξ.x₃[i, j, k] = ξ_zᵢ₊½
-#     mesh.edge_metrics.i₊½.η.x₁[i, j, k] = η_xᵢ₊½
-#     mesh.edge_metrics.i₊½.η.x₂[i, j, k] = η_yᵢ₊½
-#     mesh.edge_metrics.i₊½.η.x₃[i, j, k] = η_zᵢ₊½
-#     mesh.edge_metrics.i₊½.ζ.x₁[i, j, k] = ζ_xᵢ₊½
-#     mesh.edge_metrics.i₊½.ζ.x₂[i, j, k] = ζ_yᵢ₊½
-#     mesh.edge_metrics.i₊½.ζ.x₃[i, j, k] = ζ_zᵢ₊½
-#   end
-
-#   @threads for I in mesh.iterators.cell.full
-#     i, j, k = I.I
-#     ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
-
-#     J = Jⱼ₊½(ξηζ...)
-
-#     ξ̂_xⱼ₊½, η̂_xⱼ₊½, ζ̂_xⱼ₊½, ξ̂_yⱼ₊½, η̂_yⱼ₊½, ζ̂_yⱼ₊½, ξ̂_zⱼ₊½, η̂_zⱼ₊½, ζ̂_zⱼ₊½ = normJinv_ⱼ₊½(
-#       ξηζ...
-#     )
-
-#     mesh.edge_metrics.j₊½.J[i, j, k] = J
-#     mesh.edge_metrics.j₊½.ξ̂.x₁[i, j, k] = ξ̂_xⱼ₊½
-#     mesh.edge_metrics.j₊½.ξ̂.x₂[i, j, k] = ξ̂_yⱼ₊½
-#     mesh.edge_metrics.j₊½.ξ̂.x₃[i, j, k] = ξ̂_zⱼ₊½
-#     mesh.edge_metrics.j₊½.η̂.x₁[i, j, k] = η̂_xⱼ₊½
-#     mesh.edge_metrics.j₊½.η̂.x₂[i, j, k] = η̂_yⱼ₊½
-#     mesh.edge_metrics.j₊½.η̂.x₃[i, j, k] = η̂_zⱼ₊½
-#     mesh.edge_metrics.j₊½.ζ̂.x₁[i, j, k] = ζ̂_xⱼ₊½
-#     mesh.edge_metrics.j₊½.ζ̂.x₂[i, j, k] = ζ̂_yⱼ₊½
-#     mesh.edge_metrics.j₊½.ζ̂.x₃[i, j, k] = ζ̂_zⱼ₊½
-
-#     ξ_xⱼ₊½, η_xⱼ₊½, ζ_xⱼ₊½, ξ_yⱼ₊½, η_yⱼ₊½, ζ_yⱼ₊½, ξ_zⱼ₊½, η_zⱼ₊½, ζ_zⱼ₊½ = Jinv_ⱼ₊½(
-#       ξηζ...
-#     )
-
-#     mesh.edge_metrics.j₊½.ξ.x₁[i, j, k] = ξ_xⱼ₊½
-#     mesh.edge_metrics.j₊½.ξ.x₂[i, j, k] = ξ_yⱼ₊½
-#     mesh.edge_metrics.j₊½.ξ.x₃[i, j, k] = ξ_zⱼ₊½
-#     mesh.edge_metrics.j₊½.η.x₁[i, j, k] = η_xⱼ₊½
-#     mesh.edge_metrics.j₊½.η.x₂[i, j, k] = η_yⱼ₊½
-#     mesh.edge_metrics.j₊½.η.x₃[i, j, k] = η_zⱼ₊½
-#     mesh.edge_metrics.j₊½.ζ.x₁[i, j, k] = ζ_xⱼ₊½
-#     mesh.edge_metrics.j₊½.ζ.x₂[i, j, k] = ζ_yⱼ₊½
-#     mesh.edge_metrics.j₊½.ζ.x₃[i, j, k] = ζ_zⱼ₊½
-#   end
-
-#   @threads for I in mesh.iterators.cell.full
-#     i, j, k = I.I
-#     ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
-
-#     J = Jₖ₊½(ξηζ...)
-
-#     ξ̂_xₖ₊½, η̂_xₖ₊½, ζ̂_xₖ₊½, ξ̂_yₖ₊½, η̂_yₖ₊½, ζ̂_yₖ₊½, ξ̂_zₖ₊½, η̂_zₖ₊½, ζ̂_zₖ₊½ = normJinv_ₖ₊½(
-#       ξηζ...
-#     )
-
-#     mesh.edge_metrics.k₊½.J[i, j, k] = J
-#     mesh.edge_metrics.k₊½.ξ̂.x₁[i, j, k] = ξ̂_xₖ₊½
-#     mesh.edge_metrics.k₊½.ξ̂.x₂[i, j, k] = ξ̂_yₖ₊½
-#     mesh.edge_metrics.k₊½.ξ̂.x₃[i, j, k] = ξ̂_zₖ₊½
-#     mesh.edge_metrics.k₊½.η̂.x₁[i, j, k] = η̂_xₖ₊½
-#     mesh.edge_metrics.k₊½.η̂.x₂[i, j, k] = η̂_yₖ₊½
-#     mesh.edge_metrics.k₊½.η̂.x₃[i, j, k] = η̂_zₖ₊½
-#     mesh.edge_metrics.k₊½.ζ̂.x₁[i, j, k] = ζ̂_xₖ₊½
-#     mesh.edge_metrics.k₊½.ζ̂.x₂[i, j, k] = ζ̂_yₖ₊½
-#     mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k] = ζ̂_zₖ₊½
-
-#     ξ_xₖ₊½, η_xₖ₊½, ζ_xₖ₊½, ξ_yₖ₊½, η_yₖ₊½, ζ_yₖ₊½, ξ_zₖ₊½, η_zₖ₊½, ζ_zₖ₊½ = Jinv_ₖ₊½(
-#       ξηζ...
-#     )
-
-#     mesh.edge_metrics.k₊½.ξ.x₁[i, j, k] = ξ_xₖ₊½
-#     mesh.edge_metrics.k₊½.ξ.x₂[i, j, k] = ξ_yₖ₊½
-#     mesh.edge_metrics.k₊½.ξ.x₃[i, j, k] = ξ_zₖ₊½
-#     mesh.edge_metrics.k₊½.η.x₁[i, j, k] = η_xₖ₊½
-#     mesh.edge_metrics.k₊½.η.x₂[i, j, k] = η_yₖ₊½
-#     mesh.edge_metrics.k₊½.η.x₃[i, j, k] = η_zₖ₊½
-#     mesh.edge_metrics.k₊½.ζ.x₁[i, j, k] = ζ_xₖ₊½
-#     mesh.edge_metrics.k₊½.ζ.x₂[i, j, k] = ζ_yₖ₊½
-#     mesh.edge_metrics.k₊½.ζ.x₃[i, j, k] = ζ_zₖ₊½
-#   end
-
-#   return nothing
-# end
-
-function compute_edge_metrics!(mesh)
+function compute_edge_metrics!(mesh, t, params)
   nhalo = mesh.iterators.nhalo
-
-  ξ̂xᵢ₊½, ξ̂xⱼ₊½, ξ̂xₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.ξ̂x, mesh.diff_backend
-  )
-  η̂xᵢ₊½, η̂xⱼ₊½, η̂xₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.η̂x, mesh.diff_backend
-  )
-  ζ̂xᵢ₊½, ζ̂xⱼ₊½, ζ̂xₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.ζ̂x, mesh.diff_backend
-  )
-  ξ̂yᵢ₊½, ξ̂yⱼ₊½, ξ̂yₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.ξ̂y, mesh.diff_backend
-  )
-  η̂yᵢ₊½, η̂yⱼ₊½, η̂yₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.η̂y, mesh.diff_backend
-  )
-  ζ̂yᵢ₊½, ζ̂yⱼ₊½, ζ̂yₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.ζ̂y, mesh.diff_backend
-  )
-  ξ̂zᵢ₊½, ξ̂zⱼ₊½, ξ̂zₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.ξ̂z, mesh.diff_backend
-  )
-  η̂zᵢ₊½, η̂zⱼ₊½, η̂zₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.η̂z, mesh.diff_backend
-  )
-  ζ̂zᵢ₊½, ζ̂zⱼ₊½, ζ̂zₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.ζ̂z, mesh.diff_backend
-  )
-
-  Jinv_ᵢ₊½, Jinv_ⱼ₊½, Jinv_ₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.Jinv, mesh.diff_backend
-  )
-
-  Jᵢ₊½, Jⱼ₊½, Jₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.forward.J, mesh.diff_backend
-  )
 
   # for (iedge, edge) in enumerate(mesh.metrics.edge_metrics)
   i₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 1, +1)
@@ -403,178 +234,175 @@ function compute_edge_metrics!(mesh)
   k₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 3, +1)
 
   @threads for I in i₊½_edge_domain
-    i, j, k = I.I
     ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
-    J = Jᵢ₊½(ξηζ...)
-    ξ̂_xᵢ₊½ = ξ̂xᵢ₊½(ξηζ...)
-    ξ̂_yᵢ₊½ = ξ̂yᵢ₊½(ξηζ...)
-    ξ̂_zᵢ₊½ = ξ̂zᵢ₊½(ξηζ...)
-    η̂_xᵢ₊½ = η̂xᵢ₊½(ξηζ...)
-    η̂_yᵢ₊½ = η̂yᵢ₊½(ξηζ...)
-    η̂_zᵢ₊½ = η̂zᵢ₊½(ξηζ...)
-    ζ̂_xᵢ₊½ = ζ̂xᵢ₊½(ξηζ...)
-    ζ̂_yᵢ₊½ = ζ̂yᵢ₊½(ξηζ...)
-    ζ̂_zᵢ₊½ = ζ̂zᵢ₊½(ξηζ...)
+    J = mesh.metric_functions_cache.edge.Jᵢ₊½(t, ξηζ..., params)
+    ξ̂_xᵢ₊½ = mesh.metric_functions_cache.edge.ξ̂xᵢ₊½(t, ξηζ..., params)
+    ξ̂_yᵢ₊½ = mesh.metric_functions_cache.edge.ξ̂yᵢ₊½(t, ξηζ..., params)
+    ξ̂_zᵢ₊½ = mesh.metric_functions_cache.edge.ξ̂zᵢ₊½(t, ξηζ..., params)
+    η̂_xᵢ₊½ = mesh.metric_functions_cache.edge.η̂xᵢ₊½(t, ξηζ..., params)
+    η̂_yᵢ₊½ = mesh.metric_functions_cache.edge.η̂yᵢ₊½(t, ξηζ..., params)
+    η̂_zᵢ₊½ = mesh.metric_functions_cache.edge.η̂zᵢ₊½(t, ξηζ..., params)
+    ζ̂_xᵢ₊½ = mesh.metric_functions_cache.edge.ζ̂xᵢ₊½(t, ξηζ..., params)
+    ζ̂_yᵢ₊½ = mesh.metric_functions_cache.edge.ζ̂yᵢ₊½(t, ξηζ..., params)
+    ζ̂_zᵢ₊½ = mesh.metric_functions_cache.edge.ζ̂zᵢ₊½(t, ξηζ..., params)
 
-    mesh.edge_metrics.i₊½.J[i, j, k] = J
-    mesh.edge_metrics.i₊½.ξ̂.x₁[i, j, k] = ξ̂_xᵢ₊½ * (abs(ξ̂_xᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.ξ̂.x₂[i, j, k] = ξ̂_yᵢ₊½ * (abs(ξ̂_yᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.ξ̂.x₃[i, j, k] = ξ̂_zᵢ₊½ * (abs(ξ̂_zᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.η̂.x₁[i, j, k] = η̂_xᵢ₊½ * (abs(η̂_xᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.η̂.x₂[i, j, k] = η̂_yᵢ₊½ * (abs(η̂_yᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.η̂.x₃[i, j, k] = η̂_zᵢ₊½ * (abs(η̂_zᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.ζ̂.x₁[i, j, k] = ζ̂_xᵢ₊½ * (abs(ζ̂_xᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.ζ̂.x₂[i, j, k] = ζ̂_yᵢ₊½ * (abs(ζ̂_yᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.ζ̂.x₃[i, j, k] = ζ̂_zᵢ₊½ * (abs(ζ̂_zᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.J[I] = J
+    mesh.edge_metrics.i₊½.ξ̂.x₁[I] = ξ̂_xᵢ₊½ * (abs(ξ̂_xᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.ξ̂.x₂[I] = ξ̂_yᵢ₊½ * (abs(ξ̂_yᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.ξ̂.x₃[I] = ξ̂_zᵢ₊½ * (abs(ξ̂_zᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.η̂.x₁[I] = η̂_xᵢ₊½ * (abs(η̂_xᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.η̂.x₂[I] = η̂_yᵢ₊½ * (abs(η̂_yᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.η̂.x₃[I] = η̂_zᵢ₊½ * (abs(η̂_zᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.ζ̂.x₁[I] = ζ̂_xᵢ₊½ * (abs(ζ̂_xᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.ζ̂.x₂[I] = ζ̂_yᵢ₊½ * (abs(ζ̂_yᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.ζ̂.x₃[I] = ζ̂_zᵢ₊½ * (abs(ζ̂_zᵢ₊½) >= eps())
 
-    ξ_xᵢ₊½, η_xᵢ₊½, ζ_xᵢ₊½, ξ_yᵢ₊½, η_yᵢ₊½, ζ_yᵢ₊½, ξ_zᵢ₊½, η_zᵢ₊½, ζ_zᵢ₊½ = Jinv_ᵢ₊½(
-      ξηζ...
+    ξ_xᵢ₊½, η_xᵢ₊½, ζ_xᵢ₊½, ξ_yᵢ₊½, η_yᵢ₊½, ζ_yᵢ₊½, ξ_zᵢ₊½, η_zᵢ₊½, ζ_zᵢ₊½ = mesh.metric_functions_cache.edge.Jinv_ᵢ₊½(
+      t, ξηζ..., params
     )
 
-    mesh.edge_metrics.i₊½.ξ.x₁[i, j, k] = ifelse(
+    mesh.edge_metrics.i₊½.ξ.x₁[I] = ifelse(
       isfinite(ξ_xᵢ₊½), ξ_xᵢ₊½ * (abs(ξ_xᵢ₊½) >= eps()), zero(ξ_xᵢ₊½)
     )
-    mesh.edge_metrics.i₊½.ξ.x₂[i, j, k] = ifelse(
+    mesh.edge_metrics.i₊½.ξ.x₂[I] = ifelse(
       isfinite(ξ_yᵢ₊½), ξ_yᵢ₊½ * (abs(ξ_yᵢ₊½) >= eps()), zero(ξ_yᵢ₊½)
     )
-    mesh.edge_metrics.i₊½.ξ.x₃[i, j, k] = ifelse(
+    mesh.edge_metrics.i₊½.ξ.x₃[I] = ifelse(
       isfinite(ξ_zᵢ₊½), ξ_zᵢ₊½ * (abs(ξ_zᵢ₊½) >= eps()), zero(ξ_zᵢ₊½)
     )
-    mesh.edge_metrics.i₊½.η.x₁[i, j, k] = ifelse(
+    mesh.edge_metrics.i₊½.η.x₁[I] = ifelse(
       isfinite(η_xᵢ₊½), η_xᵢ₊½ * (abs(η_xᵢ₊½) >= eps()), zero(η_xᵢ₊½)
     )
-    mesh.edge_metrics.i₊½.η.x₂[i, j, k] = ifelse(
+    mesh.edge_metrics.i₊½.η.x₂[I] = ifelse(
       isfinite(η_yᵢ₊½), η_yᵢ₊½ * (abs(η_yᵢ₊½) >= eps()), zero(η_yᵢ₊½)
     )
-    mesh.edge_metrics.i₊½.η.x₃[i, j, k] = ifelse(
+    mesh.edge_metrics.i₊½.η.x₃[I] = ifelse(
       isfinite(η_zᵢ₊½), η_zᵢ₊½ * (abs(η_zᵢ₊½) >= eps()), zero(η_zᵢ₊½)
     )
-    mesh.edge_metrics.i₊½.ζ.x₁[i, j, k] = ifelse(
+    mesh.edge_metrics.i₊½.ζ.x₁[I] = ifelse(
       isfinite(ζ_xᵢ₊½), ζ_xᵢ₊½ * (abs(ζ_xᵢ₊½) >= eps()), zero(ζ_xᵢ₊½)
     )
-    mesh.edge_metrics.i₊½.ζ.x₂[i, j, k] = ifelse(
+    mesh.edge_metrics.i₊½.ζ.x₂[I] = ifelse(
       isfinite(ζ_yᵢ₊½), ζ_yᵢ₊½ * (abs(ζ_yᵢ₊½) >= eps()), zero(ζ_yᵢ₊½)
     )
-    mesh.edge_metrics.i₊½.ζ.x₃[i, j, k] = ifelse(
+    mesh.edge_metrics.i₊½.ζ.x₃[I] = ifelse(
       isfinite(ζ_zᵢ₊½), ζ_zᵢ₊½ * (abs(ζ_zᵢ₊½) >= eps()), zero(ζ_zᵢ₊½)
     )
   end
 
   @threads for I in j₊½_edge_domain
-    i, j, k = I.I
     ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
-    J = Jⱼ₊½(ξηζ...)
-    ξ̂_xⱼ₊½ = ξ̂xⱼ₊½(ξηζ...)
-    ξ̂_yⱼ₊½ = ξ̂yⱼ₊½(ξηζ...)
-    ξ̂_zⱼ₊½ = ξ̂zⱼ₊½(ξηζ...)
-    η̂_xⱼ₊½ = η̂xⱼ₊½(ξηζ...)
-    η̂_yⱼ₊½ = η̂yⱼ₊½(ξηζ...)
-    η̂_zⱼ₊½ = η̂zⱼ₊½(ξηζ...)
-    ζ̂_xⱼ₊½ = ζ̂xⱼ₊½(ξηζ...)
-    ζ̂_yⱼ₊½ = ζ̂yⱼ₊½(ξηζ...)
-    ζ̂_zⱼ₊½ = ζ̂zⱼ₊½(ξηζ...)
+    J = mesh.metric_functions_cache.edge.Jⱼ₊½(t, ξηζ..., params)
+    ξ̂_xⱼ₊½ = mesh.metric_functions_cache.edge.ξ̂xⱼ₊½(t, ξηζ..., params)
+    ξ̂_yⱼ₊½ = mesh.metric_functions_cache.edge.ξ̂yⱼ₊½(t, ξηζ..., params)
+    ξ̂_zⱼ₊½ = mesh.metric_functions_cache.edge.ξ̂zⱼ₊½(t, ξηζ..., params)
+    η̂_xⱼ₊½ = mesh.metric_functions_cache.edge.η̂xⱼ₊½(t, ξηζ..., params)
+    η̂_yⱼ₊½ = mesh.metric_functions_cache.edge.η̂yⱼ₊½(t, ξηζ..., params)
+    η̂_zⱼ₊½ = mesh.metric_functions_cache.edge.η̂zⱼ₊½(t, ξηζ..., params)
+    ζ̂_xⱼ₊½ = mesh.metric_functions_cache.edge.ζ̂xⱼ₊½(t, ξηζ..., params)
+    ζ̂_yⱼ₊½ = mesh.metric_functions_cache.edge.ζ̂yⱼ₊½(t, ξηζ..., params)
+    ζ̂_zⱼ₊½ = mesh.metric_functions_cache.edge.ζ̂zⱼ₊½(t, ξηζ..., params)
 
-    mesh.edge_metrics.j₊½.J[i, j, k] = J
-    mesh.edge_metrics.j₊½.ξ̂.x₁[i, j, k] = ξ̂_xⱼ₊½ * (abs(ξ̂_xⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.ξ̂.x₂[i, j, k] = ξ̂_yⱼ₊½ * (abs(ξ̂_yⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.ξ̂.x₃[i, j, k] = ξ̂_zⱼ₊½ * (abs(ξ̂_zⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.η̂.x₁[i, j, k] = η̂_xⱼ₊½ * (abs(η̂_xⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.η̂.x₂[i, j, k] = η̂_yⱼ₊½ * (abs(η̂_yⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.η̂.x₃[i, j, k] = η̂_zⱼ₊½ * (abs(η̂_zⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.ζ̂.x₁[i, j, k] = ζ̂_xⱼ₊½ * (abs(ζ̂_xⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.ζ̂.x₂[i, j, k] = ζ̂_yⱼ₊½ * (abs(ζ̂_yⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.ζ̂.x₃[i, j, k] = ζ̂_zⱼ₊½ * (abs(ζ̂_zⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.J[I] = J
+    mesh.edge_metrics.j₊½.ξ̂.x₁[I] = ξ̂_xⱼ₊½ * (abs(ξ̂_xⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.ξ̂.x₂[I] = ξ̂_yⱼ₊½ * (abs(ξ̂_yⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.ξ̂.x₃[I] = ξ̂_zⱼ₊½ * (abs(ξ̂_zⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.η̂.x₁[I] = η̂_xⱼ₊½ * (abs(η̂_xⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.η̂.x₂[I] = η̂_yⱼ₊½ * (abs(η̂_yⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.η̂.x₃[I] = η̂_zⱼ₊½ * (abs(η̂_zⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.ζ̂.x₁[I] = ζ̂_xⱼ₊½ * (abs(ζ̂_xⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.ζ̂.x₂[I] = ζ̂_yⱼ₊½ * (abs(ζ̂_yⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.ζ̂.x₃[I] = ζ̂_zⱼ₊½ * (abs(ζ̂_zⱼ₊½) >= eps())
 
-    ξ_xⱼ₊½, η_xⱼ₊½, ζ_xⱼ₊½, ξ_yⱼ₊½, η_yⱼ₊½, ζ_yⱼ₊½, ξ_zⱼ₊½, η_zⱼ₊½, ζ_zⱼ₊½ = Jinv_ⱼ₊½(
-      ξηζ...
+    ξ_xⱼ₊½, η_xⱼ₊½, ζ_xⱼ₊½, ξ_yⱼ₊½, η_yⱼ₊½, ζ_yⱼ₊½, ξ_zⱼ₊½, η_zⱼ₊½, ζ_zⱼ₊½ = mesh.metric_functions_cache.edge.Jinv_ⱼ₊½(
+      t, ξηζ..., params
     )
 
-    mesh.edge_metrics.j₊½.ξ.x₁[i, j, k] = ifelse(
+    mesh.edge_metrics.j₊½.ξ.x₁[I] = ifelse(
       isfinite(ξ_xⱼ₊½), ξ_xⱼ₊½ * (abs(ξ_xⱼ₊½) >= eps()), zero(ξ_xⱼ₊½)
     )
-    mesh.edge_metrics.j₊½.ξ.x₂[i, j, k] = ifelse(
+    mesh.edge_metrics.j₊½.ξ.x₂[I] = ifelse(
       isfinite(ξ_yⱼ₊½), ξ_yⱼ₊½ * (abs(ξ_yⱼ₊½) >= eps()), zero(ξ_yⱼ₊½)
     )
-    mesh.edge_metrics.j₊½.ξ.x₃[i, j, k] = ifelse(
+    mesh.edge_metrics.j₊½.ξ.x₃[I] = ifelse(
       isfinite(ξ_zⱼ₊½), ξ_zⱼ₊½ * (abs(ξ_zⱼ₊½) >= eps()), zero(ξ_zⱼ₊½)
     )
-    mesh.edge_metrics.j₊½.η.x₁[i, j, k] = ifelse(
+    mesh.edge_metrics.j₊½.η.x₁[I] = ifelse(
       isfinite(η_xⱼ₊½), η_xⱼ₊½ * (abs(η_xⱼ₊½) >= eps()), zero(η_xⱼ₊½)
     )
-    mesh.edge_metrics.j₊½.η.x₂[i, j, k] = ifelse(
+    mesh.edge_metrics.j₊½.η.x₂[I] = ifelse(
       isfinite(η_yⱼ₊½), η_yⱼ₊½ * (abs(η_yⱼ₊½) >= eps()), zero(η_yⱼ₊½)
     )
-    mesh.edge_metrics.j₊½.η.x₃[i, j, k] = ifelse(
+    mesh.edge_metrics.j₊½.η.x₃[I] = ifelse(
       isfinite(η_zⱼ₊½), η_zⱼ₊½ * (abs(η_zⱼ₊½) >= eps()), zero(η_zⱼ₊½)
     )
-    mesh.edge_metrics.j₊½.ζ.x₁[i, j, k] = ifelse(
+    mesh.edge_metrics.j₊½.ζ.x₁[I] = ifelse(
       isfinite(ζ_xⱼ₊½), ζ_xⱼ₊½ * (abs(ζ_xⱼ₊½) >= eps()), zero(ζ_xⱼ₊½)
     )
-    mesh.edge_metrics.j₊½.ζ.x₂[i, j, k] = ifelse(
+    mesh.edge_metrics.j₊½.ζ.x₂[I] = ifelse(
       isfinite(ζ_yⱼ₊½), ζ_yⱼ₊½ * (abs(ζ_yⱼ₊½) >= eps()), zero(ζ_yⱼ₊½)
     )
-    mesh.edge_metrics.j₊½.ζ.x₃[i, j, k] = ifelse(
+    mesh.edge_metrics.j₊½.ζ.x₃[I] = ifelse(
       isfinite(ζ_zⱼ₊½), ζ_zⱼ₊½ * (abs(ζ_zⱼ₊½) >= eps()), zero(ζ_zⱼ₊½)
     )
   end
 
   @threads for I in k₊½_edge_domain
-    i, j, k = I.I
     ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
-    J = Jₖ₊½(ξηζ...)
-    ξ̂_xₖ₊½ = ξ̂xₖ₊½(ξηζ...)
-    ξ̂_yₖ₊½ = ξ̂yₖ₊½(ξηζ...)
-    ξ̂_zₖ₊½ = ξ̂zₖ₊½(ξηζ...)
-    η̂_xₖ₊½ = η̂xₖ₊½(ξηζ...)
-    η̂_yₖ₊½ = η̂yₖ₊½(ξηζ...)
-    η̂_zₖ₊½ = η̂zₖ₊½(ξηζ...)
-    ζ̂_xₖ₊½ = ζ̂xₖ₊½(ξηζ...)
-    ζ̂_yₖ₊½ = ζ̂yₖ₊½(ξηζ...)
-    ζ̂_zₖ₊½ = ζ̂zₖ₊½(ξηζ...)
+    J = mesh.metric_functions_cache.edge.Jₖ₊½(t, ξηζ..., params)
+    ξ̂_xₖ₊½ = mesh.metric_functions_cache.edge.ξ̂xₖ₊½(t, ξηζ..., params)
+    ξ̂_yₖ₊½ = mesh.metric_functions_cache.edge.ξ̂yₖ₊½(t, ξηζ..., params)
+    ξ̂_zₖ₊½ = mesh.metric_functions_cache.edge.ξ̂zₖ₊½(t, ξηζ..., params)
+    η̂_xₖ₊½ = mesh.metric_functions_cache.edge.η̂xₖ₊½(t, ξηζ..., params)
+    η̂_yₖ₊½ = mesh.metric_functions_cache.edge.η̂yₖ₊½(t, ξηζ..., params)
+    η̂_zₖ₊½ = mesh.metric_functions_cache.edge.η̂zₖ₊½(t, ξηζ..., params)
+    ζ̂_xₖ₊½ = mesh.metric_functions_cache.edge.ζ̂xₖ₊½(t, ξηζ..., params)
+    ζ̂_yₖ₊½ = mesh.metric_functions_cache.edge.ζ̂yₖ₊½(t, ξηζ..., params)
+    ζ̂_zₖ₊½ = mesh.metric_functions_cache.edge.ζ̂zₖ₊½(t, ξηζ..., params)
 
-    mesh.edge_metrics.k₊½.J[i, j, k] = J
-    mesh.edge_metrics.k₊½.ξ̂.x₁[i, j, k] = ξ̂_xₖ₊½ * (abs(ξ̂_xₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.ξ̂.x₂[i, j, k] = ξ̂_yₖ₊½ * (abs(ξ̂_yₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.ξ̂.x₃[i, j, k] = ξ̂_zₖ₊½ * (abs(ξ̂_zₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.η̂.x₁[i, j, k] = η̂_xₖ₊½ * (abs(η̂_xₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.η̂.x₂[i, j, k] = η̂_yₖ₊½ * (abs(η̂_yₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.η̂.x₃[i, j, k] = η̂_zₖ₊½ * (abs(η̂_zₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.ζ̂.x₁[i, j, k] = ζ̂_xₖ₊½ * (abs(ζ̂_xₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.ζ̂.x₂[i, j, k] = ζ̂_yₖ₊½ * (abs(ζ̂_yₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.ζ̂.x₃[i, j, k] = ζ̂_zₖ₊½ * (abs(ζ̂_zₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.J[I] = J
+    mesh.edge_metrics.k₊½.ξ̂.x₁[I] = ξ̂_xₖ₊½ * (abs(ξ̂_xₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.ξ̂.x₂[I] = ξ̂_yₖ₊½ * (abs(ξ̂_yₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.ξ̂.x₃[I] = ξ̂_zₖ₊½ * (abs(ξ̂_zₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.η̂.x₁[I] = η̂_xₖ₊½ * (abs(η̂_xₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.η̂.x₂[I] = η̂_yₖ₊½ * (abs(η̂_yₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.η̂.x₃[I] = η̂_zₖ₊½ * (abs(η̂_zₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.ζ̂.x₁[I] = ζ̂_xₖ₊½ * (abs(ζ̂_xₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.ζ̂.x₂[I] = ζ̂_yₖ₊½ * (abs(ζ̂_yₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.ζ̂.x₃[I] = ζ̂_zₖ₊½ * (abs(ζ̂_zₖ₊½) >= eps())
 
-    ξ_xₖ₊½, η_xₖ₊½, ζ_xₖ₊½, ξ_yₖ₊½, η_yₖ₊½, ζ_yₖ₊½, ξ_zₖ₊½, η_zₖ₊½, ζ_zₖ₊½ = Jinv_ₖ₊½(
-      ξηζ...
+    ξ_xₖ₊½, η_xₖ₊½, ζ_xₖ₊½, ξ_yₖ₊½, η_yₖ₊½, ζ_yₖ₊½, ξ_zₖ₊½, η_zₖ₊½, ζ_zₖ₊½ = mesh.metric_functions_cache.edge.Jinv_ₖ₊½(
+      t, ξηζ..., params
     )
 
-    mesh.edge_metrics.k₊½.ξ.x₁[i, j, k] = ifelse(
+    mesh.edge_metrics.k₊½.ξ.x₁[I] = ifelse(
       isfinite(ξ_xₖ₊½), ξ_xₖ₊½ * (abs(ξ_xₖ₊½) >= eps()), zero(ξ_xₖ₊½)
     )
-    mesh.edge_metrics.k₊½.ξ.x₂[i, j, k] = ifelse(
+    mesh.edge_metrics.k₊½.ξ.x₂[I] = ifelse(
       isfinite(ξ_yₖ₊½), ξ_yₖ₊½ * (abs(ξ_yₖ₊½) >= eps()), zero(ξ_yₖ₊½)
     )
-    mesh.edge_metrics.k₊½.ξ.x₃[i, j, k] = ifelse(
+    mesh.edge_metrics.k₊½.ξ.x₃[I] = ifelse(
       isfinite(ξ_zₖ₊½), ξ_zₖ₊½ * (abs(ξ_zₖ₊½) >= eps()), zero(ξ_zₖ₊½)
     )
-    mesh.edge_metrics.k₊½.η.x₁[i, j, k] = ifelse(
+    mesh.edge_metrics.k₊½.η.x₁[I] = ifelse(
       isfinite(η_xₖ₊½), η_xₖ₊½ * (abs(η_xₖ₊½) >= eps()), zero(η_xₖ₊½)
     )
-    mesh.edge_metrics.k₊½.η.x₂[i, j, k] = ifelse(
+    mesh.edge_metrics.k₊½.η.x₂[I] = ifelse(
       isfinite(η_yₖ₊½), η_yₖ₊½ * (abs(η_yₖ₊½) >= eps()), zero(η_yₖ₊½)
     )
-    mesh.edge_metrics.k₊½.η.x₃[i, j, k] = ifelse(
+    mesh.edge_metrics.k₊½.η.x₃[I] = ifelse(
       isfinite(η_zₖ₊½), η_zₖ₊½ * (abs(η_zₖ₊½) >= eps()), zero(η_zₖ₊½)
     )
-    mesh.edge_metrics.k₊½.ζ.x₁[i, j, k] = ifelse(
+    mesh.edge_metrics.k₊½.ζ.x₁[I] = ifelse(
       isfinite(ζ_xₖ₊½), ζ_xₖ₊½ * (abs(ζ_xₖ₊½) >= eps()), zero(ζ_xₖ₊½)
     )
-    mesh.edge_metrics.k₊½.ζ.x₂[i, j, k] = ifelse(
+    mesh.edge_metrics.k₊½.ζ.x₂[I] = ifelse(
       isfinite(ζ_yₖ₊½), ζ_yₖ₊½ * (abs(ζ_yₖ₊½) >= eps()), zero(ζ_yₖ₊½)
     )
-    mesh.edge_metrics.k₊½.ζ.x₃[i, j, k] = ifelse(
+    mesh.edge_metrics.k₊½.ζ.x₃[I] = ifelse(
       isfinite(ζ_zₖ₊½), ζ_zₖ₊½ * (abs(ζ_zₖ₊½) >= eps()), zero(ζ_zₖ₊½)
     )
   end

@@ -1,94 +1,98 @@
-struct MetricCache{F1,F2}
-  forward::F1
-  inverse::F2
+struct MetricCache{FM,IM,EM}
+  forward::FM
+  inverse::IM
+  edge::EM
 end
 
 """
 3D metric cache
 """
 function MetricCache(x::Function, y::Function, z::Function, backend)
-  xξ(i, j, k) = derivative(ξ -> x(ξ, j, k), backend, i)
-  xη(i, j, k) = derivative(η -> x(i, η, k), backend, j)
-  xζ(i, j, k) = derivative(ζ -> x(i, j, ζ), backend, k)
-  yξ(i, j, k) = derivative(ξ -> y(ξ, j, k), backend, i)
-  yη(i, j, k) = derivative(η -> y(i, η, k), backend, j)
-  yζ(i, j, k) = derivative(ζ -> y(i, j, ζ), backend, k)
-  zξ(i, j, k) = derivative(ξ -> z(ξ, j, k), backend, i)
-  zη(i, j, k) = derivative(η -> z(i, η, k), backend, j)
-  zζ(i, j, k) = derivative(ζ -> z(i, j, ζ), backend, k)
+  xξ(t, i, j, k, p) = derivative(ξ -> x(t, ξ, j, k, p), backend, i)
+  xη(t, i, j, k, p) = derivative(η -> x(t, i, η, k, p), backend, j)
+  xζ(t, i, j, k, p) = derivative(ζ -> x(t, i, j, ζ, p), backend, k)
+  yξ(t, i, j, k, p) = derivative(ξ -> y(t, ξ, j, k, p), backend, i)
+  yη(t, i, j, k, p) = derivative(η -> y(t, i, η, k, p), backend, j)
+  yζ(t, i, j, k, p) = derivative(ζ -> y(t, i, j, ζ, p), backend, k)
+  zξ(t, i, j, k, p) = derivative(ξ -> z(t, ξ, j, k, p), backend, i)
+  zη(t, i, j, k, p) = derivative(η -> z(t, i, η, k, p), backend, j)
+  zζ(t, i, j, k, p) = derivative(ζ -> z(t, i, j, ζ, p), backend, k)
 
-  function jacobian_matrix(i, j, k)
+  function jacobian_matrix(t, i, j, k, p)
 
     # compute the jacobian matrix w/o any extra logic
-    function compute_jacobian_matrix(i, j, k)
+    function compute_jacobian_matrix(t, i, j, k, p)
       jac = DifferentiationInterface.jacobian(
-        u -> SVector(x(u...), y(u...), z(u...)), backend, @SVector [i, j, k]
+        u -> SVector(x(t, u..., p), y(t, u..., p), z(t, u..., p)),
+        backend,
+        @SVector [i, j, k]
       )
 
       return jac
     end
 
-    jac_matrix = compute_jacobian_matrix(i, j, k)
-    J = det(jac_matrix)
+    jac_matrix = compute_jacobian_matrix(t, i, j, k, p)
+    return jac_matrix
+    # J = det(jac_matrix)
 
-    # sometimes the Jacobian can be zero for various reasons 
-    # (derivs are zero)
+    # # sometimes the Jacobian can be zero for various reasons 
+    # # (derivs are zero)
 
-    if !iszero(J) && isfinite(J)
-      return jac_matrix
-    else
+    # if !iszero(J) && isfinite(J)
+    #   return jac_matrix
+    # else
 
-      # perturb the coordinates if we're at a singularity
+    #   # perturb the coordinates if we're at a singularity
 
-      pert = sqrt(eps())
-      iter = 1
-      itermax = 25
+    #   pert = sqrt(eps())
+    #   iter = 1
+    #   itermax = 25
 
-      last_valid_jacobian_matrix = jac_matrix
+    #   last_valid_jacobian_matrix = jac_matrix
 
-      # perturb until we get zero again, and then use the last nonzero value
-      while true
-        if iter > itermax
-          error(
-            "Maximum iteration count reached ($itermax) when trying to iteratively calculate the Jacobian near a singularity",
-          )
-        end
+    #   # perturb until we get zero again, and then use the last nonzero value
+    #   while true
+    #     if iter > itermax
+    #       error(
+    #         "Maximum iteration count reached ($itermax) when trying to iteratively calculate the Jacobian near a singularity",
+    #       )
+    #     end
 
-        # perturb the coordinates
-        ξηζ = (i, j, k) .+ pert
+    #     # perturb the coordinates
+    #     ξηζ = (t, i, j, k, p) .+ pert
 
-        # compute the jacobian
-        _jac = compute_jacobian_matrix(ξηζ...)
-        _J = det(_jac)
+    #     # compute the jacobian
+    #     _jac = compute_jacobian_matrix(ξηζ...)
+    #     _J = det(_jac)
 
-        if !isfinite(_J) || iszero(_J)
-          # we've made the perturbation too small
-          break
-        else
-          last_valid_jacobian_matrix = _jac
-        end
+    #     if !isfinite(_J) || iszero(_J)
+    #       # we've made the perturbation too small
+    #       break
+    #     else
+    #       last_valid_jacobian_matrix = _jac
+    #     end
 
-        # make the perturbation smaller
-        pert = pert / 10
-        iter += 1
-      end
+    #     # make the perturbation smaller
+    #     pert = pert / 10
+    #     iter += 1
+    #   end
 
-      last_valid_jacobian_matrix = @. last_valid_jacobian_matrix *
-        (abs(last_valid_jacobian_matrix) >= eps())
-      return last_valid_jacobian_matrix
-    end
+    #   last_valid_jacobian_matrix = @. last_valid_jacobian_matrix *
+    #     (abs(last_valid_jacobian_matrix) >= eps())
+    #   return last_valid_jacobian_matrix
+    # end
   end
 
-  jacobian(i, j, k) = det(jacobian_matrix(i, j, k))
-  function jinv(i, j, k)
-    J_inv = inv(jacobian_matrix(i, j, k))
+  jacobian(t, i, j, k, p) = det(jacobian_matrix(t, i, j, k, p))
+  function jinv(t, i, j, k, p)
+    J_inv = inv(jacobian_matrix(t, i, j, k, p))
 
     # J_inv = @. J_inv * (abs(J_inv) >= eps())
     return J_inv
   end
 
-  function normalized_jinv(i, j, k)
-    jac = jacobian_matrix(i, j, k)
+  function normalized_jinv(t, i, j, k, p)
+    jac = jacobian_matrix(t, i, j, k, p)
     J = det(jac)
     J_inv = inv(jac)
 
@@ -109,17 +113,17 @@ function MetricCache(x::Function, y::Function, z::Function, backend)
     zζ=zζ,
   )
 
-  x_ξ_y(i, j, k) = xξ(i, j, k) * y(i, j, k)
-  x_η_y(i, j, k) = xη(i, j, k) * y(i, j, k)
-  x_ζ_y(i, j, k) = xζ(i, j, k) * y(i, j, k)
+  x_ξ_y(t, i, j, k, p) = xξ(t, i, j, k, p) * y(t, i, j, k, p)
+  x_η_y(t, i, j, k, p) = xη(t, i, j, k, p) * y(t, i, j, k, p)
+  x_ζ_y(t, i, j, k, p) = xζ(t, i, j, k, p) * y(t, i, j, k, p)
 
-  y_ξ_z(i, j, k) = yξ(i, j, k) * z(i, j, k)
-  y_η_z(i, j, k) = yη(i, j, k) * z(i, j, k)
-  y_ζ_z(i, j, k) = yζ(i, j, k) * z(i, j, k)
+  y_ξ_z(t, i, j, k, p) = yξ(t, i, j, k, p) * z(t, i, j, k, p)
+  y_η_z(t, i, j, k, p) = yη(t, i, j, k, p) * z(t, i, j, k, p)
+  y_ζ_z(t, i, j, k, p) = yζ(t, i, j, k, p) * z(t, i, j, k, p)
 
-  z_ξ_x(i, j, k) = zξ(i, j, k) * x(i, j, k)
-  z_η_x(i, j, k) = zη(i, j, k) * x(i, j, k)
-  z_ζ_x(i, j, k) = zζ(i, j, k) * x(i, j, k)
+  z_ξ_x(t, i, j, k, p) = zξ(t, i, j, k, p) * x(t, i, j, k, p)
+  z_η_x(t, i, j, k, p) = zη(t, i, j, k, p) * x(t, i, j, k, p)
+  z_ζ_x(t, i, j, k, p) = zζ(t, i, j, k, p) * x(t, i, j, k, p)
 
   _, x_ξ_y_η, x_ξ_y_ζ = cell_center_derivative_3d(x_ξ_y, backend)
   x_η_y_ξ, _, x_η_y_ζ = cell_center_derivative_3d(x_η_y, backend)
@@ -134,15 +138,15 @@ function MetricCache(x::Function, y::Function, z::Function, backend)
   z_ζ_x_ξ, z_ζ_x_η, _ = cell_center_derivative_3d(z_ζ_x, backend)
 
   # Do NOT put eps() tolerance checks on these! It will create GCL-related errors
-  ξ̂x(i, j, k) = y_η_z_ζ(i, j, k) − y_ζ_z_η(i, j, k)
-  η̂x(i, j, k) = y_ζ_z_ξ(i, j, k) − y_ξ_z_ζ(i, j, k)
-  ζ̂x(i, j, k) = y_ξ_z_η(i, j, k) − y_η_z_ξ(i, j, k)
-  ξ̂y(i, j, k) = z_η_x_ζ(i, j, k) − z_ζ_x_η(i, j, k)
-  η̂y(i, j, k) = z_ζ_x_ξ(i, j, k) − z_ξ_x_ζ(i, j, k)
-  ζ̂y(i, j, k) = z_ξ_x_η(i, j, k) − z_η_x_ξ(i, j, k)
-  ξ̂z(i, j, k) = x_η_y_ζ(i, j, k) − x_ζ_y_η(i, j, k)
-  η̂z(i, j, k) = x_ζ_y_ξ(i, j, k) − x_ξ_y_ζ(i, j, k)
-  ζ̂z(i, j, k) = x_ξ_y_η(i, j, k) − x_η_y_ξ(i, j, k)
+  ξ̂x(t, i, j, k, p) = y_η_z_ζ(t, i, j, k, p) − y_ζ_z_η(t, i, j, k, p)
+  η̂x(t, i, j, k, p) = y_ζ_z_ξ(t, i, j, k, p) − y_ξ_z_ζ(t, i, j, k, p)
+  ζ̂x(t, i, j, k, p) = y_ξ_z_η(t, i, j, k, p) − y_η_z_ξ(t, i, j, k, p)
+  ξ̂y(t, i, j, k, p) = z_η_x_ζ(t, i, j, k, p) − z_ζ_x_η(t, i, j, k, p)
+  η̂y(t, i, j, k, p) = z_ζ_x_ξ(t, i, j, k, p) − z_ξ_x_ζ(t, i, j, k, p)
+  ζ̂y(t, i, j, k, p) = z_ξ_x_η(t, i, j, k, p) − z_η_x_ξ(t, i, j, k, p)
+  ξ̂z(t, i, j, k, p) = x_η_y_ζ(t, i, j, k, p) − x_ζ_y_η(t, i, j, k, p)
+  η̂z(t, i, j, k, p) = x_ζ_y_ξ(t, i, j, k, p) − x_ξ_y_ζ(t, i, j, k, p)
+  ζ̂z(t, i, j, k, p) = x_ξ_y_η(t, i, j, k, p) − x_η_y_ξ(t, i, j, k, p)
 
   inverse_metrics = (;
     ξ̂x=ξ̂x,
@@ -158,7 +162,9 @@ function MetricCache(x::Function, y::Function, z::Function, backend)
     Jinv_norm=normalized_jinv,
   )
 
-  return MetricCache(forward_metrics, inverse_metrics)
+  edge_metrics = get_edge_functions_3d(forward_metrics, inverse_metrics, backend)
+
+  return MetricCache(forward_metrics, inverse_metrics, edge_metrics)
 end
 
 """
@@ -278,15 +284,15 @@ end
 1D metric cache
 """
 function MetricCache(x::Function, backend)
-  xξ(i) = derivative(ξ -> x(ξ), backend, i)
+  xξ(t, i, p) = derivative(ξ -> x(ξ), backend, i)
 
-  jacobian_matrix(i) = @SMatrix [xξ(i)]
+  jacobian_matrix(t, i, p) = @SMatrix [xξ(t, i, p)]
 
-  jacobian(i) = det(jacobian_matrix(i))
-  jinv(i) = inv(jacobian_matrix(i))
+  jacobian(t, i, p) = det(jacobian_matrix(t, i, p))
+  jinv(t, i, p) = inv(jacobian_matrix(t, i, p))
 
-  function normalized_jinv(i)
-    jac = jacobian_matrix(i)
+  function normalized_jinv(t, i, p)
+    jac = jacobian_matrix(t, i, p)
     J = det(jac)
     J_inv = inv(jac)
 
@@ -306,9 +312,9 @@ end
 function cell_center_derivative_3d(ϕ, backend)
   ϕᵢ₊½, ϕⱼ₊½, ϕₖ₊½ = edge_functions_3d(ϕ, backend)
 
-  ∂ϕ_∂ξ(i, j, k) = ϕᵢ₊½(i, j, k) - ϕᵢ₊½(i - 1, j, k)
-  ∂ϕ_∂η(i, j, k) = ϕⱼ₊½(i, j, k) - ϕⱼ₊½(i, j - 1, k)
-  ∂ϕ_∂ζ(i, j, k) = ϕₖ₊½(i, j, k) - ϕₖ₊½(i, j, k - 1)
+  ∂ϕ_∂ξ(t, i, j, k, p) = ϕᵢ₊½(t, i, j, k, p) - ϕᵢ₊½(t, i - 1, j, k, p)
+  ∂ϕ_∂η(t, i, j, k, p) = ϕⱼ₊½(t, i, j, k, p) - ϕⱼ₊½(t, i, j - 1, k, p)
+  ∂ϕ_∂ζ(t, i, j, k, p) = ϕₖ₊½(t, i, j, k, p) - ϕₖ₊½(t, i, j, k - 1, p)
 
   return (; ∂ϕ_∂ξ, ∂ϕ_∂η, ∂ϕ_∂ζ)
 end
@@ -325,21 +331,25 @@ end
 function cell_center_derivative_1d(ϕ, backend)
   ϕᵢ₊½ = edge_functions_1d(ϕ, backend)
 
-  ∂ϕ_∂ξ(i) = ϕᵢ₊½(i) - ϕᵢ₊½(i - 1)
+  ∂ϕ_∂ξ(t, i, p) = ϕᵢ₊½(t, i, p) - ϕᵢ₊½(t, i - 1, p)
 
   return (; ∂ϕ_∂ξ,)
 end
 
 function edge_functions_3d(ϕ, backend)
+  function ξ_derivs(t, i, j, k, p)
+    value_derivative_and_second_derivative(ξ -> ϕ(t, ξ, j, k, p), backend, i)
+  end
+  function η_derivs(t, i, j, k, p)
+    value_derivative_and_second_derivative(η -> ϕ(t, i, η, k, p), backend, j)
+  end
+  function ζ_derivs(t, i, j, k, p)
+    value_derivative_and_second_derivative(ζ -> ϕ(t, i, j, ζ, p), backend, k)
+  end
 
-  # returns val, ∂, ∂²
-  ξ_derivs(i, j, k) = value_derivative_and_second_derivative(ξ -> ϕ(ξ, j, k), backend, i)
-  η_derivs(i, j, k) = value_derivative_and_second_derivative(η -> ϕ(i, η, k), backend, j)
-  ζ_derivs(i, j, k) = value_derivative_and_second_derivative(ζ -> ϕ(i, j, ζ), backend, k)
-
-  function ϕᵢ₊½(i, j, k)
-    ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(i, j, k)
-    ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁ = ξ_derivs(i + 1, j, k)
+  function ϕᵢ₊½(t, i, j, k, p)
+    ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(t, i, j, k, p)
+    ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁ = ξ_derivs(t, i + 1, j, k, p)
 
     ϕᴸᵢ₊½ = ϕᵢ + (1 / 2) * ∂ϕ_∂ξᵢ + (1 / 12) * ∂²ϕ_∂ξ²ᵢ
     ϕᴿᵢ₊½ = ϕᵢ₊₁ - (1 / 2) * ∂ϕ_∂ξᵢ₊₁ + (1 / 12) * ∂²ϕ_∂ξ²ᵢ₊₁
@@ -347,9 +357,9 @@ function edge_functions_3d(ϕ, backend)
     return (ϕᴸᵢ₊½ + ϕᴿᵢ₊½) / 2
   end
 
-  function ϕⱼ₊½(i, j, k)
-    ϕⱼ, ∂ϕ_∂ξⱼ, ∂²ϕ_∂ξ²ⱼ = η_derivs(i, j, k)
-    ϕⱼ₊₁, ∂ϕ_∂ξⱼ₊₁, ∂²ϕ_∂ξ²ⱼ₊₁ = η_derivs(i, j + 1, k)
+  function ϕⱼ₊½(t, i, j, k, p)
+    ϕⱼ, ∂ϕ_∂ξⱼ, ∂²ϕ_∂ξ²ⱼ = η_derivs(t, i, j, k, p)
+    ϕⱼ₊₁, ∂ϕ_∂ξⱼ₊₁, ∂²ϕ_∂ξ²ⱼ₊₁ = η_derivs(t, i, j + 1, k, p)
 
     ϕᴸⱼ₊½ = ϕⱼ + (1 / 2) * ∂ϕ_∂ξⱼ + (1 / 12) * ∂²ϕ_∂ξ²ⱼ
     ϕᴿⱼ₊½ = ϕⱼ₊₁ - (1 / 2) * ∂ϕ_∂ξⱼ₊₁ + (1 / 12) * ∂²ϕ_∂ξ²ⱼ₊₁
@@ -357,9 +367,9 @@ function edge_functions_3d(ϕ, backend)
     return (ϕᴸⱼ₊½ + ϕᴿⱼ₊½) / 2
   end
 
-  function ϕₖ₊½(i, j, k)
-    ϕₖ, ∂ϕ_∂ξₖ, ∂²ϕ_∂ξ²ₖ = ζ_derivs(i, j, k)
-    ϕₖ₊₁, ∂ϕ_∂ξₖ₊₁, ∂²ϕ_∂ξ²ₖ₊₁ = ζ_derivs(i, j, k + 1)
+  function ϕₖ₊½(t, i, j, k, p)
+    ϕₖ, ∂ϕ_∂ξₖ, ∂²ϕ_∂ξ²ₖ = ζ_derivs(t, i, j, k, p)
+    ϕₖ₊₁, ∂ϕ_∂ξₖ₊₁, ∂²ϕ_∂ξ²ₖ₊₁ = ζ_derivs(t, i, j, k + 1, p)
 
     ϕᴸₖ₊½ = ϕₖ + (1 / 2) * ∂ϕ_∂ξₖ + (1 / 12) * ∂²ϕ_∂ξ²ₖ
     ϕᴿₖ₊½ = ϕₖ₊₁ - (1 / 2) * ∂ϕ_∂ξₖ₊₁ + (1 / 12) * ∂²ϕ_∂ξ²ₖ₊₁
@@ -406,11 +416,11 @@ end
 function edge_functions_1d(ϕ, backend)
 
   # returns val, ∂, ∂²
-  ξ_derivs(i) = value_derivative_and_second_derivative(ξ -> ϕ(ξ), backend, i)
+  ξ_derivs(t, i, p) = value_derivative_and_second_derivative(ξ -> ϕ(t, ξ, p), backend, i)
 
-  function ϕᵢ₊½(i)
-    ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(i)
-    ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁ = ξ_derivs(i + 1)
+  function ϕᵢ₊½(t, i, p)
+    ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(t, i, p)
+    ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁ = ξ_derivs(t, i + 1, p)
 
     ϕᴸᵢ₊½ = ϕᵢ + (1 / 2) * ∂ϕ_∂ξᵢ + (1 / 12) * ∂²ϕ_∂ξ²ᵢ
     ϕᴿᵢ₊½ = ϕᵢ₊₁ - (1 / 2) * ∂ϕ_∂ξᵢ₊₁ + (1 / 12) * ∂²ϕ_∂ξ²ᵢ₊₁
@@ -419,4 +429,36 @@ function edge_functions_1d(ϕ, backend)
   end
 
   return (; ϕᵢ₊½)
+end
+
+function get_edge_functions_3d(forward_metrics, inverse_metrics, diff_backend)
+  ξ̂xᵢ₊½, ξ̂xⱼ₊½, ξ̂xₖ₊½ = edge_functions_3d(inverse_metrics.ξ̂x, diff_backend)
+  η̂xᵢ₊½, η̂xⱼ₊½, η̂xₖ₊½ = edge_functions_3d(inverse_metrics.η̂x, diff_backend)
+  ζ̂xᵢ₊½, ζ̂xⱼ₊½, ζ̂xₖ₊½ = edge_functions_3d(inverse_metrics.ζ̂x, diff_backend)
+  ξ̂yᵢ₊½, ξ̂yⱼ₊½, ξ̂yₖ₊½ = edge_functions_3d(inverse_metrics.ξ̂y, diff_backend)
+  η̂yᵢ₊½, η̂yⱼ₊½, η̂yₖ₊½ = edge_functions_3d(inverse_metrics.η̂y, diff_backend)
+  ζ̂yᵢ₊½, ζ̂yⱼ₊½, ζ̂yₖ₊½ = edge_functions_3d(inverse_metrics.ζ̂y, diff_backend)
+  ξ̂zᵢ₊½, ξ̂zⱼ₊½, ξ̂zₖ₊½ = edge_functions_3d(inverse_metrics.ξ̂z, diff_backend)
+  η̂zᵢ₊½, η̂zⱼ₊½, η̂zₖ₊½ = edge_functions_3d(inverse_metrics.η̂z, diff_backend)
+  ζ̂zᵢ₊½, ζ̂zⱼ₊½, ζ̂zₖ₊½ = edge_functions_3d(inverse_metrics.ζ̂z, diff_backend)
+  Jᵢ₊½, Jⱼ₊½, Jₖ₊½ = edge_functions_3d(forward_metrics.J, diff_backend)
+  Jinv_ᵢ₊½, Jinv_ⱼ₊½, Jinv_ₖ₊½ = edge_functions_3d(inverse_metrics.Jinv, diff_backend)
+
+  #! format: off
+  edge_funcs = (;
+    ξ̂xᵢ₊½, ξ̂xⱼ₊½, ξ̂xₖ₊½,         
+    η̂xᵢ₊½, η̂xⱼ₊½, η̂xₖ₊½,         
+    ζ̂xᵢ₊½, ζ̂xⱼ₊½, ζ̂xₖ₊½,         
+    ξ̂yᵢ₊½, ξ̂yⱼ₊½, ξ̂yₖ₊½,         
+    η̂yᵢ₊½, η̂yⱼ₊½, η̂yₖ₊½,         
+    ζ̂yᵢ₊½, ζ̂yⱼ₊½, ζ̂yₖ₊½,         
+    ξ̂zᵢ₊½, ξ̂zⱼ₊½, ξ̂zₖ₊½,         
+    η̂zᵢ₊½, η̂zⱼ₊½, η̂zₖ₊½,         
+    ζ̂zᵢ₊½, ζ̂zⱼ₊½, ζ̂zₖ₊½,         
+    Jinv_ᵢ₊½, Jinv_ⱼ₊½, Jinv_ₖ₊½,
+    Jᵢ₊½, Jⱼ₊½, Jₖ₊½,            
+  )
+   #! format: on
+
+  return edge_funcs
 end
