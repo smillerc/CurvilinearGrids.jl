@@ -91,9 +91,8 @@ include("2d.jl")
 include("3d.jl")
 include("simple_constructors/simple_constructors.jl")
 include("metric_cache.jl")
-include("1d_continuous.jl")
-include("2d_continuous.jl")
-include("3d_continuous.jl")
+include("continous_grids.jl")
+
 include("gcl.jl")
 
 function update_metrics!(

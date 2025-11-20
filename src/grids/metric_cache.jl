@@ -1,6 +1,7 @@
-struct MetricCache{F1,F2}
-  forward::F1
-  inverse::F2
+struct MetricCache{FM,IM,EM}
+  forward::FM
+  inverse::IM
+  edge::EM
 end
 
 """
@@ -31,54 +32,55 @@ function MetricCache(x::Function, y::Function, z::Function, backend)
     end
 
     jac_matrix = compute_jacobian_matrix(t, i, j, k, p)
-    J = det(jac_matrix)
+    return jac_matrix
+    # J = det(jac_matrix)
 
-    # sometimes the Jacobian can be zero for various reasons 
-    # (derivs are zero)
+    # # sometimes the Jacobian can be zero for various reasons 
+    # # (derivs are zero)
 
-    if !iszero(J) && isfinite(J)
-      return jac_matrix
-    else
+    # if !iszero(J) && isfinite(J)
+    #   return jac_matrix
+    # else
 
-      # perturb the coordinates if we're at a singularity
-      @warn "perturbing the coorindates to avoid a Jacobian singularity"
-      pert = sqrt(eps())
-      iter = 1
-      itermax = 25
+    #   # perturb the coordinates if we're at a singularity
 
-      last_valid_jacobian_matrix = jac_matrix
+    #   pert = sqrt(eps())
+    #   iter = 1
+    #   itermax = 25
 
-      # perturb until we get zero again, and then use the last nonzero value
-      while true
-        if iter > itermax
-          error(
-            "Maximum iteration count reached ($itermax) when trying to iteratively calculate the Jacobian near a singularity",
-          )
-        end
+    #   last_valid_jacobian_matrix = jac_matrix
 
-        # perturb the coordinates
-        ξηζ = (t, i .+ pert, j .+ pert, k .+ pert, p)
+    #   # perturb until we get zero again, and then use the last nonzero value
+    #   while true
+    #     if iter > itermax
+    #       error(
+    #         "Maximum iteration count reached ($itermax) when trying to iteratively calculate the Jacobian near a singularity",
+    #       )
+    #     end
 
-        # compute the jacobian
-        _jac = compute_jacobian_matrix(ξηζ...)
-        _J = det(_jac)
+    #     # perturb the coordinates
+    #     ξηζ = (t, i, j, k, p) .+ pert
 
-        if !isfinite(_J) || iszero(_J)
-          # we've made the perturbation too small
-          break
-        else
-          last_valid_jacobian_matrix = _jac
-        end
+    #     # compute the jacobian
+    #     _jac = compute_jacobian_matrix(ξηζ...)
+    #     _J = det(_jac)
 
-        # make the perturbation smaller
-        pert = pert / 10
-        iter += 1
-      end
+    #     if !isfinite(_J) || iszero(_J)
+    #       # we've made the perturbation too small
+    #       break
+    #     else
+    #       last_valid_jacobian_matrix = _jac
+    #     end
 
-      last_valid_jacobian_matrix = @. last_valid_jacobian_matrix *
-        (abs(last_valid_jacobian_matrix) >= eps())
-      return last_valid_jacobian_matrix
-    end
+    #     # make the perturbation smaller
+    #     pert = pert / 10
+    #     iter += 1
+    #   end
+
+    #   last_valid_jacobian_matrix = @. last_valid_jacobian_matrix *
+    #     (abs(last_valid_jacobian_matrix) >= eps())
+    #   return last_valid_jacobian_matrix
+    # end
   end
 
   jacobian(t, i, j, k, p) = det(jacobian_matrix(t, i, j, k, p))
@@ -163,7 +165,9 @@ function MetricCache(x::Function, y::Function, z::Function, backend)
     Jinv_norm=normalized_jinv,
   )
 
-  return MetricCache(forward_metrics, inverse_metrics)
+  edge_metrics = get_edge_functions_3d(forward_metrics, inverse_metrics, backend)
+
+  return MetricCache(forward_metrics, inverse_metrics, edge_metrics)
 end
 
 """
@@ -278,15 +282,16 @@ function MetricCache(x::Function, y::Function, backend)
     Jinv_norm=normalized_jinv,
   )
 
-  return MetricCache(forward_metrics, inverse_metrics)
+  edge_metrics = get_edge_functions_2d(forward_metrics, inverse_metrics, backend)
+
+  return MetricCache(forward_metrics, inverse_metrics, edge_metrics)
 end
 
 """
 1D metric cache
 """
 function MetricCache(x::Function, backend)
-  xξ(t, i, p) = derivative(ξ -> x(t, ξ, p), backend, i)
-  xτ(t, i, p) = derivative(τ -> x(τ, i, p), backend, t)
+  xξ(t, i, p) = derivative(ξ -> x(ξ), backend, i)
 
   jacobian_matrix(t, i, p) = @SMatrix [xξ(t, i, p)]
 
@@ -308,7 +313,10 @@ function MetricCache(x::Function, backend)
     Jinv=jinv,
     Jinv_norm=normalized_jinv,
   )
-  return MetricCache(forward_metrics, inverse_metrics)
+
+  edge_metrics = get_edge_functions_1d(forward_metrics, inverse_metrics, backend)
+
+  return MetricCache(forward_metrics, inverse_metrics, edge_metrics)
 end
 
 function cell_center_derivative_3d(ϕ, backend)
@@ -339,8 +347,6 @@ function cell_center_derivative_1d(ϕ, backend)
 end
 
 function edge_functions_3d(ϕ, backend)
-
-  # returns val, ∂, ∂²
   function ξ_derivs(t, i, j, k, p)
     value_derivative_and_second_derivative(ξ -> ϕ(t, ξ, j, k, p), backend, i)
   end
@@ -433,4 +439,54 @@ function edge_functions_1d(ϕ, backend)
   end
 
   return (; ϕᵢ₊½)
+end
+
+function get_edge_functions_3d(forward_metrics, inverse_metrics, diff_backend)
+  ξ̂xᵢ₊½, ξ̂xⱼ₊½, ξ̂xₖ₊½ = edge_functions_3d(inverse_metrics.ξ̂x, diff_backend)
+  η̂xᵢ₊½, η̂xⱼ₊½, η̂xₖ₊½ = edge_functions_3d(inverse_metrics.η̂x, diff_backend)
+  ζ̂xᵢ₊½, ζ̂xⱼ₊½, ζ̂xₖ₊½ = edge_functions_3d(inverse_metrics.ζ̂x, diff_backend)
+  ξ̂yᵢ₊½, ξ̂yⱼ₊½, ξ̂yₖ₊½ = edge_functions_3d(inverse_metrics.ξ̂y, diff_backend)
+  η̂yᵢ₊½, η̂yⱼ₊½, η̂yₖ₊½ = edge_functions_3d(inverse_metrics.η̂y, diff_backend)
+  ζ̂yᵢ₊½, ζ̂yⱼ₊½, ζ̂yₖ₊½ = edge_functions_3d(inverse_metrics.ζ̂y, diff_backend)
+  ξ̂zᵢ₊½, ξ̂zⱼ₊½, ξ̂zₖ₊½ = edge_functions_3d(inverse_metrics.ξ̂z, diff_backend)
+  η̂zᵢ₊½, η̂zⱼ₊½, η̂zₖ₊½ = edge_functions_3d(inverse_metrics.η̂z, diff_backend)
+  ζ̂zᵢ₊½, ζ̂zⱼ₊½, ζ̂zₖ₊½ = edge_functions_3d(inverse_metrics.ζ̂z, diff_backend)
+  Jᵢ₊½, Jⱼ₊½, Jₖ₊½ = edge_functions_3d(forward_metrics.J, diff_backend)
+  Jinv_ᵢ₊½, Jinv_ⱼ₊½, Jinv_ₖ₊½ = edge_functions_3d(inverse_metrics.Jinv, diff_backend)
+
+  #! format: off
+  edge_funcs = (;
+    ξ̂xᵢ₊½, ξ̂xⱼ₊½, ξ̂xₖ₊½,         
+    η̂xᵢ₊½, η̂xⱼ₊½, η̂xₖ₊½,         
+    ζ̂xᵢ₊½, ζ̂xⱼ₊½, ζ̂xₖ₊½,         
+    ξ̂yᵢ₊½, ξ̂yⱼ₊½, ξ̂yₖ₊½,         
+    η̂yᵢ₊½, η̂yⱼ₊½, η̂yₖ₊½,         
+    ζ̂yᵢ₊½, ζ̂yⱼ₊½, ζ̂yₖ₊½,         
+    ξ̂zᵢ₊½, ξ̂zⱼ₊½, ξ̂zₖ₊½,         
+    η̂zᵢ₊½, η̂zⱼ₊½, η̂zₖ₊½,         
+    ζ̂zᵢ₊½, ζ̂zⱼ₊½, ζ̂zₖ₊½,         
+    Jinv_ᵢ₊½, Jinv_ⱼ₊½, Jinv_ₖ₊½,
+    Jᵢ₊½, Jⱼ₊½, Jₖ₊½,            
+  )
+   #! format: on
+
+  return edge_funcs
+end
+
+function get_edge_functions_2d(forward_metrics, inverse_metrics, diff_backend)
+  Jinv_ᵢ₊½, Jinv_ⱼ₊½ = edge_functions_2d(inverse_metrics.Jinv, diff_backend)
+  norm_Jinv_ᵢ₊½, norm_Jinv_ⱼ₊½ = edge_functions_2d(inverse_metrics.Jinv_norm, diff_backend)
+
+  edge_funcs = (; Jinv_ᵢ₊½, Jinv_ⱼ₊½, norm_Jinv_ᵢ₊½, norm_Jinv_ⱼ₊½)
+
+  return edge_funcs
+end
+
+function get_edge_functions_1d(forward_metrics, inverse_metrics, diff_backend)
+  Jinv_ᵢ₊½ = edge_functions_1d(inverse_metrics.Jinv, diff_backend)
+  norm_Jinv_ᵢ₊½ = edge_functions_1d(inverse_metrics.Jinv_norm, diff_backend)
+
+  edge_funcs = (; Jinv_ᵢ₊½, norm_Jinv_ᵢ₊½)
+
+  return edge_funcs
 end

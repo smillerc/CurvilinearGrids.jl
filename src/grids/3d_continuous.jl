@@ -1,23 +1,4 @@
 
-abstract type AbstractContinuousCurvilinearGrid3D <: AbstractCurvilinearGrid3D end
-
-mutable struct ContinuousCurvilinearGrid3D{T,A,B,C,D,EM,CM,E,BE,DBE,DS} <:
-               AbstractContinuousCurvilinearGrid3D
-  const node_coordinates::A
-  const centroid_coordinates::A
-  const mapping_functions::B
-  const metric_functions_cache::D
-  const edge_metrics::EM
-  const cell_center_metrics::CM
-  const backend::BE
-  const diff_backend::DBE
-  const nhalo::Int
-  const discretization_scheme::DS
-  const discretization_scheme_name::Symbol
-  mapping_function_params::C
-  iterators::E
-end
-
 function ContinuousCurvilinearGrid3D(
   x::Function,
   y::Function,
@@ -30,15 +11,14 @@ function ContinuousCurvilinearGrid3D(
   t=zero(Float64),
   T=Float64;
   compute_metrics=true,
-  global_node_indices::Union{Nothing,CartesianIndices{3}}=nothing,
+  global_cell_indices::Union{Nothing,CartesianIndices{3}}=nothing,
 )
   GradientDiscretizationScheme, order, _, nhalo, scheme_name = get_gradient_discretization_scheme(
     discretization_scheme
   )
-  iterators = get_iterators(celldims, nhalo)
+  iterators = get_iterators(celldims, nhalo, global_cell_indices)
 
   cell_center_metrics, edge_metrics = get_metric_soa(celldims .+ 2nhalo, backend, T)
-
   ni_nodes, nj_nodes, nk_nodes = size(iterators.node.full)
   node_coords = StructArray((
     x=KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes, nk_nodes)),
@@ -59,7 +39,6 @@ function ContinuousCurvilinearGrid3D(
     T,
     typeof(node_coords),
     typeof(mapping_funcs),
-    typeof(mapping_function_parameters),
     typeof(metric_cache),
     typeof(edge_metrics),
     typeof(cell_center_metrics),
@@ -79,7 +58,6 @@ function ContinuousCurvilinearGrid3D(
     nhalo,
     discr_scheme,
     scheme_name,
-    mapping_function_parameters,
     iterators,
   )
 
@@ -100,102 +78,41 @@ function compute_node_coordinates!(mesh::ContinuousCurvilinearGrid3D, t, params)
   x = mesh.mapping_functions.x
   y = mesh.mapping_functions.y
   z = mesh.mapping_functions.z
-
-  @threads for I in mesh.iterators.node.full
-    ξηζ = I.I .- nhalo
-    mesh.node_coordinates.x[I] = x(t, ξηζ..., params)
-    mesh.node_coordinates.y[I] = y(t, ξηζ..., params)
-    mesh.node_coordinates.z[I] = z(t, ξηζ..., params)
+  for I in mesh.iterators.node.full
+    ξη = I.I .- nhalo
+    mesh.node_coordinates.x[I] = x(t, ξη..., params)
+    mesh.node_coordinates.y[I] = y(t, ξη..., params)
+    mesh.node_coordinates.z[I] = z(t, ξη..., params)
   end
 
   return nothing
 end
 
 function compute_centroid_coordinates!(mesh::ContinuousCurvilinearGrid3D, t, params)
-  nhalo = mesh.nhalo
-
-  x = mesh.mapping_functions.x
-  y = mesh.mapping_functions.y
-  z = mesh.mapping_functions.y
-
-  @threads for I in mesh.iterators.cell.full
-    # account for halo cells and centroid offset
-    ξηζ = I.I .- nhalo .+ 0.5 # centroid
-    mesh.centroid_coordinates.x[I] = x(t, ξηζ..., params)
-    mesh.centroid_coordinates.y[I] = y(t, ξηζ..., params)
-    mesh.centroid_coordinates.z[I] = z(t, ξηζ..., params)
-  end
-
-  return nothing
-end
-
-function update_mapping_functions!(
-  mesh::ContinuousCurvilinearGrid3D, t, new_params, compute_metrics=true
-)
-  mesh.mapping_function_params = new_params
-  compute_node_coordinates!(mesh, t, new_params)
-  compute_centroid_coordinates!(mesh, t, new_params)
-
-  if compute_metrics
-    compute_cell_metrics!(mesh, t, new_params)
-    compute_edge_metrics!(mesh, t, new_params)
-  end
-
-  return nothing
-end
-
-function compute_node_coordinates!(mesh::ContinuousCurvilinearGrid3D, t, params)
   nhalo = mesh.nhalo
 
   x = mesh.mapping_functions.x
   y = mesh.mapping_functions.y
   z = mesh.mapping_functions.z
 
-  @threads for I in mesh.iterators.node.full
-    ξηζ = I.I .- nhalo
-    mesh.node_coordinates.x[I] = x(t, ξηζ..., params)
-    mesh.node_coordinates.y[I] = y(t, ξηζ..., params)
-    mesh.node_coordinates.z[I] = z(t, ξηζ..., params)
-  end
-
-  return nothing
-end
-
-function compute_centroid_coordinates!(mesh::ContinuousCurvilinearGrid3D, t, params)
-  nhalo = mesh.nhalo
-
-  x = mesh.mapping_functions.x
-  y = mesh.mapping_functions.y
-  z = mesh.mapping_functions.y
-
-  @threads for I in mesh.iterators.cell.full
+  for I in mesh.iterators.cell.full
     # account for halo cells and centroid offset
-    ξηζ = I.I .- nhalo .+ 0.5 # centroid
-    mesh.centroid_coordinates.x[I] = x(t, ξηζ..., params)
-    mesh.centroid_coordinates.y[I] = y(t, ξηζ..., params)
-    mesh.centroid_coordinates.z[I] = z(t, ξηζ..., params)
+    ξη = I.I .- nhalo .+ 0.5 # centroid
+    mesh.centroid_coordinates.x[I] = x(t, ξη..., params)
+    mesh.centroid_coordinates.y[I] = y(t, ξη..., params)
+    mesh.centroid_coordinates.y[I] = z(t, ξη..., params)
   end
 
   return nothing
 end
 
-function get_iterators(celldims::NTuple{N,Int}, nhalo::Int) where {N}
-  cellCI = CartesianIndices(celldims .+ 2nhalo)
-  nodeCI = CartesianIndices(celldims .+ 1 .+ 2nhalo)
-
-  node = (full=nodeCI, domain=expand(nodeCI, -nhalo))
-  cell = (full=cellCI, domain=expand(cellCI, -nhalo))
-  return (; node, cell, nhalo)
-end
-
-function compute_cell_metrics!(mesh::ContinuousCurvilinearGrid3D, t, params)
+function compute_cell_metrics!(mesh, t, params)
   nhalo = mesh.iterators.nhalo
 
   @threads for I in mesh.iterators.cell.full
-    i, j, k = I.I
-
+    Iglobal = mesh.iterators.global_domain.cell.full[I]
     # account for halo cells and centroid offset
-    ξηζ = I.I .- nhalo .+ 0.5 # centroid
+    ξηζ = Iglobal.I .- nhalo .+ 0.5 # centroid
 
     # @unpack xξ, yξ, zξ, xη, yη, zη, xζ, yζ, zζ, J = forward(metric_functions_cache, ξηζ)
 
@@ -273,75 +190,28 @@ function compute_cell_metrics!(mesh::ContinuousCurvilinearGrid3D, t, params)
   end
 end
 
-function compute_edge_metrics!(mesh::ContinuousCurvilinearGrid3D, t, params)
+function compute_edge_metrics!(mesh, t, params)
   nhalo = mesh.iterators.nhalo
 
-  ξ̂xᵢ₊½, ξ̂xⱼ₊½, ξ̂xₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.ξ̂x, mesh.diff_backend
-  )
-  η̂xᵢ₊½, η̂xⱼ₊½, η̂xₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.η̂x, mesh.diff_backend
-  )
-  ζ̂xᵢ₊½, ζ̂xⱼ₊½, ζ̂xₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.ζ̂x, mesh.diff_backend
-  )
-  ξ̂yᵢ₊½, ξ̂yⱼ₊½, ξ̂yₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.ξ̂y, mesh.diff_backend
-  )
-  η̂yᵢ₊½, η̂yⱼ₊½, η̂yₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.η̂y, mesh.diff_backend
-  )
-  ζ̂yᵢ₊½, ζ̂yⱼ₊½, ζ̂yₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.ζ̂y, mesh.diff_backend
-  )
-  ξ̂zᵢ₊½, ξ̂zⱼ₊½, ξ̂zₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.ξ̂z, mesh.diff_backend
-  )
-  η̂zᵢ₊½, η̂zⱼ₊½, η̂zₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.η̂z, mesh.diff_backend
-  )
-  ζ̂zᵢ₊½, ζ̂zⱼ₊½, ζ̂zₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.ζ̂z, mesh.diff_backend
-  )
+  # # for (iedge, edge) in enumerate(mesh.metrics.edge_metrics)
+  # i₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 1, +1)
+  # j₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 2, +1)
+  # k₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 3, +1)
 
-  Jinv_ᵢ₊½, Jinv_ⱼ₊½, Jinv_ₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.inverse.Jinv, mesh.diff_backend
-  )
+  @threads for I in mesh.iterators.cell.full
+    Iglobal = mesh.iterators.global_domain.cell.full[I]
+    ξηζ = Iglobal.I .- nhalo .+ (1 / 2) # centroid index
 
-  Jᵢ₊½, Jⱼ₊½, Jₖ₊½ = edge_functions_3d(
-    mesh.metric_functions_cache.forward.J, mesh.diff_backend
-  )
-
-  # for (iedge, edge) in enumerate(mesh.metrics.edge_metrics)
-  i₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 1, +1)
-  j₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 2, +1)
-  k₊½_edge_domain = expand_lower(mesh.iterators.cell.domain, 3, +1)
-
-  # call once prior to the loops for precompiling
-  ξηζ = (1, 1, 1)
-  ξ_xᵢ₊½, η_xᵢ₊½, ζ_xᵢ₊½, ξ_yᵢ₊½, η_yᵢ₊½, ζ_yᵢ₊½, ξ_zᵢ₊½, η_zᵢ₊½, ζ_zᵢ₊½ = Jinv_ᵢ₊½(
-    t, ξηζ..., params
-  )
-  ξ_xⱼ₊½, η_xⱼ₊½, ζ_xⱼ₊½, ξ_yⱼ₊½, η_yⱼ₊½, ζ_yⱼ₊½, ξ_zⱼ₊½, η_zⱼ₊½, ζ_zⱼ₊½ = Jinv_ⱼ₊½(
-    t, ξηζ..., params
-  )
-  ξ_xₖ₊½, η_xₖ₊½, ζ_xₖ₊½, ξ_yₖ₊½, η_yₖ₊½, ζ_yₖ₊½, ξ_zₖ₊½, η_zₖ₊½, ζ_zₖ₊½ = Jinv_ₖ₊½(
-    t, ξηζ..., params
-  )
-
-  @threads for I in i₊½_edge_domain
-    ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
-
-    J = Jᵢ₊½(t, ξηζ..., params)
-    ξ̂_xᵢ₊½ = ξ̂xᵢ₊½(t, ξηζ..., params)
-    ξ̂_yᵢ₊½ = ξ̂yᵢ₊½(t, ξηζ..., params)
-    ξ̂_zᵢ₊½ = ξ̂zᵢ₊½(t, ξηζ..., params)
-    η̂_xᵢ₊½ = η̂xᵢ₊½(t, ξηζ..., params)
-    η̂_yᵢ₊½ = η̂yᵢ₊½(t, ξηζ..., params)
-    η̂_zᵢ₊½ = η̂zᵢ₊½(t, ξηζ..., params)
-    ζ̂_xᵢ₊½ = ζ̂xᵢ₊½(t, ξηζ..., params)
-    ζ̂_yᵢ₊½ = ζ̂yᵢ₊½(t, ξηζ..., params)
-    ζ̂_zᵢ₊½ = ζ̂zᵢ₊½(t, ξηζ..., params)
+    J = mesh.metric_functions_cache.edge.Jᵢ₊½(t, ξηζ..., params)
+    ξ̂_xᵢ₊½ = mesh.metric_functions_cache.edge.ξ̂xᵢ₊½(t, ξηζ..., params)
+    ξ̂_yᵢ₊½ = mesh.metric_functions_cache.edge.ξ̂yᵢ₊½(t, ξηζ..., params)
+    ξ̂_zᵢ₊½ = mesh.metric_functions_cache.edge.ξ̂zᵢ₊½(t, ξηζ..., params)
+    η̂_xᵢ₊½ = mesh.metric_functions_cache.edge.η̂xᵢ₊½(t, ξηζ..., params)
+    η̂_yᵢ₊½ = mesh.metric_functions_cache.edge.η̂yᵢ₊½(t, ξηζ..., params)
+    η̂_zᵢ₊½ = mesh.metric_functions_cache.edge.η̂zᵢ₊½(t, ξηζ..., params)
+    ζ̂_xᵢ₊½ = mesh.metric_functions_cache.edge.ζ̂xᵢ₊½(t, ξηζ..., params)
+    ζ̂_yᵢ₊½ = mesh.metric_functions_cache.edge.ζ̂yᵢ₊½(t, ξηζ..., params)
+    ζ̂_zᵢ₊½ = mesh.metric_functions_cache.edge.ζ̂zᵢ₊½(t, ξηζ..., params)
 
     mesh.edge_metrics.i₊½.J[I] = J
     mesh.edge_metrics.i₊½.ξ̂.x₁[I] = ξ̂_xᵢ₊½ * (abs(ξ̂_xᵢ₊½) >= eps())
@@ -354,7 +224,7 @@ function compute_edge_metrics!(mesh::ContinuousCurvilinearGrid3D, t, params)
     mesh.edge_metrics.i₊½.ζ̂.x₂[I] = ζ̂_yᵢ₊½ * (abs(ζ̂_yᵢ₊½) >= eps())
     mesh.edge_metrics.i₊½.ζ̂.x₃[I] = ζ̂_zᵢ₊½ * (abs(ζ̂_zᵢ₊½) >= eps())
 
-    ξ_xᵢ₊½, η_xᵢ₊½, ζ_xᵢ₊½, ξ_yᵢ₊½, η_yᵢ₊½, ζ_yᵢ₊½, ξ_zᵢ₊½, η_zᵢ₊½, ζ_zᵢ₊½ = Jinv_ᵢ₊½(
+    ξ_xᵢ₊½, η_xᵢ₊½, ζ_xᵢ₊½, ξ_yᵢ₊½, η_yᵢ₊½, ζ_yᵢ₊½, ξ_zᵢ₊½, η_zᵢ₊½, ζ_zᵢ₊½ = mesh.metric_functions_cache.edge.Jinv_ᵢ₊½(
       t, ξηζ..., params
     )
 
@@ -385,21 +255,21 @@ function compute_edge_metrics!(mesh::ContinuousCurvilinearGrid3D, t, params)
     mesh.edge_metrics.i₊½.ζ.x₃[I] = ifelse(
       isfinite(ζ_zᵢ₊½), ζ_zᵢ₊½ * (abs(ζ_zᵢ₊½) >= eps()), zero(ζ_zᵢ₊½)
     )
-  end
+    # end
 
-  @threads for I in j₊½_edge_domain
-    ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
+    # @threads for I in j₊½_edge_domain
+    #   ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
-    J = Jⱼ₊½(t, ξηζ..., params)
-    ξ̂_xⱼ₊½ = ξ̂xⱼ₊½(t, ξηζ..., params)
-    ξ̂_yⱼ₊½ = ξ̂yⱼ₊½(t, ξηζ..., params)
-    ξ̂_zⱼ₊½ = ξ̂zⱼ₊½(t, ξηζ..., params)
-    η̂_xⱼ₊½ = η̂xⱼ₊½(t, ξηζ..., params)
-    η̂_yⱼ₊½ = η̂yⱼ₊½(t, ξηζ..., params)
-    η̂_zⱼ₊½ = η̂zⱼ₊½(t, ξηζ..., params)
-    ζ̂_xⱼ₊½ = ζ̂xⱼ₊½(t, ξηζ..., params)
-    ζ̂_yⱼ₊½ = ζ̂yⱼ₊½(t, ξηζ..., params)
-    ζ̂_zⱼ₊½ = ζ̂zⱼ₊½(t, ξηζ..., params)
+    J = mesh.metric_functions_cache.edge.Jⱼ₊½(t, ξηζ..., params)
+    ξ̂_xⱼ₊½ = mesh.metric_functions_cache.edge.ξ̂xⱼ₊½(t, ξηζ..., params)
+    ξ̂_yⱼ₊½ = mesh.metric_functions_cache.edge.ξ̂yⱼ₊½(t, ξηζ..., params)
+    ξ̂_zⱼ₊½ = mesh.metric_functions_cache.edge.ξ̂zⱼ₊½(t, ξηζ..., params)
+    η̂_xⱼ₊½ = mesh.metric_functions_cache.edge.η̂xⱼ₊½(t, ξηζ..., params)
+    η̂_yⱼ₊½ = mesh.metric_functions_cache.edge.η̂yⱼ₊½(t, ξηζ..., params)
+    η̂_zⱼ₊½ = mesh.metric_functions_cache.edge.η̂zⱼ₊½(t, ξηζ..., params)
+    ζ̂_xⱼ₊½ = mesh.metric_functions_cache.edge.ζ̂xⱼ₊½(t, ξηζ..., params)
+    ζ̂_yⱼ₊½ = mesh.metric_functions_cache.edge.ζ̂yⱼ₊½(t, ξηζ..., params)
+    ζ̂_zⱼ₊½ = mesh.metric_functions_cache.edge.ζ̂zⱼ₊½(t, ξηζ..., params)
 
     mesh.edge_metrics.j₊½.J[I] = J
     mesh.edge_metrics.j₊½.ξ̂.x₁[I] = ξ̂_xⱼ₊½ * (abs(ξ̂_xⱼ₊½) >= eps())
@@ -412,7 +282,7 @@ function compute_edge_metrics!(mesh::ContinuousCurvilinearGrid3D, t, params)
     mesh.edge_metrics.j₊½.ζ̂.x₂[I] = ζ̂_yⱼ₊½ * (abs(ζ̂_yⱼ₊½) >= eps())
     mesh.edge_metrics.j₊½.ζ̂.x₃[I] = ζ̂_zⱼ₊½ * (abs(ζ̂_zⱼ₊½) >= eps())
 
-    ξ_xⱼ₊½, η_xⱼ₊½, ζ_xⱼ₊½, ξ_yⱼ₊½, η_yⱼ₊½, ζ_yⱼ₊½, ξ_zⱼ₊½, η_zⱼ₊½, ζ_zⱼ₊½ = Jinv_ⱼ₊½(
+    ξ_xⱼ₊½, η_xⱼ₊½, ζ_xⱼ₊½, ξ_yⱼ₊½, η_yⱼ₊½, ζ_yⱼ₊½, ξ_zⱼ₊½, η_zⱼ₊½, ζ_zⱼ₊½ = mesh.metric_functions_cache.edge.Jinv_ⱼ₊½(
       t, ξηζ..., params
     )
 
@@ -443,21 +313,21 @@ function compute_edge_metrics!(mesh::ContinuousCurvilinearGrid3D, t, params)
     mesh.edge_metrics.j₊½.ζ.x₃[I] = ifelse(
       isfinite(ζ_zⱼ₊½), ζ_zⱼ₊½ * (abs(ζ_zⱼ₊½) >= eps()), zero(ζ_zⱼ₊½)
     )
-  end
+    # end
 
-  @threads for I in k₊½_edge_domain
-    ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
+    # @threads for I in k₊½_edge_domain
+    #   ξηζ = I.I .- nhalo .+ (1 / 2) # centroid index
 
-    J = Jₖ₊½(t, ξηζ..., params)
-    ξ̂_xₖ₊½ = ξ̂xₖ₊½(t, ξηζ..., params)
-    ξ̂_yₖ₊½ = ξ̂yₖ₊½(t, ξηζ..., params)
-    ξ̂_zₖ₊½ = ξ̂zₖ₊½(t, ξηζ..., params)
-    η̂_xₖ₊½ = η̂xₖ₊½(t, ξηζ..., params)
-    η̂_yₖ₊½ = η̂yₖ₊½(t, ξηζ..., params)
-    η̂_zₖ₊½ = η̂zₖ₊½(t, ξηζ..., params)
-    ζ̂_xₖ₊½ = ζ̂xₖ₊½(t, ξηζ..., params)
-    ζ̂_yₖ₊½ = ζ̂yₖ₊½(t, ξηζ..., params)
-    ζ̂_zₖ₊½ = ζ̂zₖ₊½(t, ξηζ..., params)
+    J = mesh.metric_functions_cache.edge.Jₖ₊½(t, ξηζ..., params)
+    ξ̂_xₖ₊½ = mesh.metric_functions_cache.edge.ξ̂xₖ₊½(t, ξηζ..., params)
+    ξ̂_yₖ₊½ = mesh.metric_functions_cache.edge.ξ̂yₖ₊½(t, ξηζ..., params)
+    ξ̂_zₖ₊½ = mesh.metric_functions_cache.edge.ξ̂zₖ₊½(t, ξηζ..., params)
+    η̂_xₖ₊½ = mesh.metric_functions_cache.edge.η̂xₖ₊½(t, ξηζ..., params)
+    η̂_yₖ₊½ = mesh.metric_functions_cache.edge.η̂yₖ₊½(t, ξηζ..., params)
+    η̂_zₖ₊½ = mesh.metric_functions_cache.edge.η̂zₖ₊½(t, ξηζ..., params)
+    ζ̂_xₖ₊½ = mesh.metric_functions_cache.edge.ζ̂xₖ₊½(t, ξηζ..., params)
+    ζ̂_yₖ₊½ = mesh.metric_functions_cache.edge.ζ̂yₖ₊½(t, ξηζ..., params)
+    ζ̂_zₖ₊½ = mesh.metric_functions_cache.edge.ζ̂zₖ₊½(t, ξηζ..., params)
 
     mesh.edge_metrics.k₊½.J[I] = J
     mesh.edge_metrics.k₊½.ξ̂.x₁[I] = ξ̂_xₖ₊½ * (abs(ξ̂_xₖ₊½) >= eps())
@@ -470,7 +340,7 @@ function compute_edge_metrics!(mesh::ContinuousCurvilinearGrid3D, t, params)
     mesh.edge_metrics.k₊½.ζ̂.x₂[I] = ζ̂_yₖ₊½ * (abs(ζ̂_yₖ₊½) >= eps())
     mesh.edge_metrics.k₊½.ζ̂.x₃[I] = ζ̂_zₖ₊½ * (abs(ζ̂_zₖ₊½) >= eps())
 
-    ξ_xₖ₊½, η_xₖ₊½, ζ_xₖ₊½, ξ_yₖ₊½, η_yₖ₊½, ζ_yₖ₊½, ξ_zₖ₊½, η_zₖ₊½, ζ_zₖ₊½ = Jinv_ₖ₊½(
+    ξ_xₖ₊½, η_xₖ₊½, ζ_xₖ₊½, ξ_yₖ₊½, η_yₖ₊½, ζ_yₖ₊½, ξ_zₖ₊½, η_zₖ₊½, ζ_zₖ₊½ = mesh.metric_functions_cache.edge.Jinv_ₖ₊½(
       t, ξηζ..., params
     )
 

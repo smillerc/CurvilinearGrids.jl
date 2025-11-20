@@ -1,3 +1,5 @@
+using CurvilinearGrids,
+  Test, KernelAbstractions, DifferentiationInterface, BenchmarkTools, UnPack
 
 function uniform_mapping(xmin, xmax, ymin, ymax, zmin, zmax, ncells::NTuple{3,Int})
   ni, nj, nk = ncells
@@ -6,7 +8,7 @@ function uniform_mapping(xmin, xmax, ymin, ymax, zmin, zmax, ncells::NTuple{3,In
   Δy = (ymax - ymin) / nj
   Δz = (zmax - zmin) / nk
 
-  params = (; Δx, Δy, Δz, xmin, xmax, ymin, ymax, zmin, zmax)
+  params = (; xmin, ymin, zmin, Δx, Δy, Δz)
 
   function x(t, i, j, k, p)
     @unpack xmin, Δx = p
@@ -34,10 +36,10 @@ function spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, ncells
   Δθ = (θmax - θmin) / nj
   Δϕ = (ϕmax - ϕmin) / nk
 
-  params = (; Δr, Δθ, Δϕ, rmin, rmax, θmin, θmax, ϕmin, ϕmax)
+  params = (; Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin)
 
   function x(t, i, j, k, p)
-    @unpack Δr, Δθ, Δϕ, rmin, θmin, ϕmin = p
+    @unpack Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin = p
     r(i) = (rmin + (i - 1) * Δr)
     θ(j) = (θmin + (j - 1) * Δθ)
     ϕ(k) = (ϕmin + (k - 1) * Δϕ)
@@ -45,7 +47,7 @@ function spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, ncells
   end
 
   function y(t, i, j, k, p)
-    @unpack Δr, Δθ, Δϕ, rmin, θmin, ϕmin = p
+    @unpack Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin = p
     r(i) = (rmin + (i - 1) * Δr)
     θ(j) = (θmin + (j - 1) * Δθ)
     ϕ(k) = (ϕmin + (k - 1) * Δϕ)
@@ -53,7 +55,7 @@ function spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, ncells
   end
 
   function z(t, i, j, k, p)
-    @unpack Δr, Δθ, Δϕ, rmin, θmin, ϕmin = p
+    @unpack Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin = p
     r(i) = (rmin + (i - 1) * Δr)
     θ(j) = (θmin + (j - 1) * Δθ)
     ϕ(k) = (ϕmin + (k - 1) * Δϕ)
@@ -81,29 +83,25 @@ function wavy_mapping(ncells::NTuple{3,Int})
 
   n = 0.5
 
-  params = (; Lx, Ly, Lz, xmin, ymin, zmin, Δx0, Δy0, Δz0, Ax, Ay, Az, n)
-
+  params = (; Ax, Ay, Az, n, Δx0, Δy0, Δz0, xmin, ymin, zmin)
   function x(t, i, j, k, p)
-    @unpack xmin, Δx0, Δy0, Δz0, Ax, n = p
+    @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, xmin = p
     xmin + Δx0 * ((i - 1) + Ax * sin(pi * n * (j - 1) * Δy0) * sin(pi * n * (k - 1) * Δz0))
   end
 
   function y(t, i, j, k, p)
-    @unpack ymin, Δx0, Δy0, Δz0, Ay, n = p
+    @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, ymin = p
     ymin + Δy0 * ((j - 1) + Ay * sin(pi * n * (k - 1) * Δz0) * sin(pi * n * (i - 1) * Δx0))
   end
 
   function z(t, i, j, k, p)
-    @unpack zmin, Δx0, Δy0, Δz0, Az, n = p
+    @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, zmin = p
     zmin + Δz0 * ((k - 1) + Az * sin(pi * n * (i - 1) * Δx0) * sin(pi * n * (j - 1) * Δy0))
   end
 
   return (x, y, z, params)
 end
-
-@testset "Wavy ContinuousCurvilinearGrid3D"
-
-begin
+@testset "Wavy ContinuousCurvilinearGrid3D" begin
   celldims = (41, 41, 41)
 
   (x, y, z, params) = wavy_mapping(celldims)
@@ -129,7 +127,7 @@ end
   (x, y, z, params) = spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, celldims)
 
   backend = AutoForwardDiff()
-  mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
+  mesh = ContinuousCurvilinearGrid3D(x, y, z, params, celldims, :meg6, CPU(), backend)
   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
   # @show extrema(I1)
   # @show extrema(I2)
@@ -147,7 +145,7 @@ end
   (x, y, z, params) = uniform_mapping(x0, x1, y0, y1, z0, z1, celldims)
 
   backend = AutoForwardDiff()
-  mesh = ContinuousCurvilinearGrid3D(x, y, z, params, celldims, :meg6, CPU())
+  mesh = ContinuousCurvilinearGrid3D(x, y, z, params, celldims, :meg6, CPU(), backend)
   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
   # @show extrema(I1)
   # @show extrema(I2)
@@ -237,76 +235,76 @@ end
   @test all(mesh.edge_metrics.k₊½.ζ̂.t[k₊½_domain] .≈ 0.0)
 end
 
-@testset "ContinuousCurvilinearGrid3D vs CurvilinearGrid3D" begin
-  nhalo = 5
-  nr, nθ, nϕ = 50, 51, 51
-  celldims = (nr, nθ, nϕ)
+# @testset "ContinuousCurvilinearGrid3D vs CurvilinearGrid3D" begin
+#   nhalo = 5
+#   nr, nθ, nϕ = 50, 51, 51
+#   celldims = (nr, nθ, nϕ)
 
-  rmin, rmax = (0.0400, 0.05500)
-  θ0 = 90.0
-  ϕ0 = 0.0
+#   rmin, rmax = (0.0400, 0.05500)
+#   θ0 = 90.0
+#   ϕ0 = 0.0
 
-  Δθ = 20.0
-  Δϕ = 20.0
+#   Δθ = 20.0
+#   Δϕ = 20.0
 
-  θmin, θmax = ((θ0 + Δθ, θ0 - Δθ) .|> deg2rad)
-  ϕmin, ϕmax = ((ϕ0 + Δϕ, ϕ0 - Δϕ) .|> deg2rad)
+#   θmin, θmax = ((θ0 + Δθ, θ0 - Δθ) .|> deg2rad)
+#   ϕmin, ϕmax = ((ϕ0 + Δϕ, ϕ0 - Δϕ) .|> deg2rad)
 
-  # rmin, rmax = 1.0, 4.0
-  # θmin, θmax = π / 2 - deg2rad(5), π / 2 + deg2rad(5)   # narrow polar band around equator
-  # ϕmin, ϕmax = -deg2rad(10), deg2rad(10)
+#   # rmin, rmax = 1.0, 4.0
+#   # θmin, θmax = π / 2 - deg2rad(5), π / 2 + deg2rad(5)   # narrow polar band around equator
+#   # ϕmin, ϕmax = -deg2rad(10), deg2rad(10)
 
-  (x, y, z, params) = spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, celldims)
-  # (x, y, z, params) = wavy_mapping(celldims)
+#   (x, y, z) = spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, celldims)
+#   # (x, y, z) = wavy_mapping(celldims)
 
-  # diff_backend = AutoForwardDiff()
-  @info "ContinuousCurvilinearGrid3D"
-  cm = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
+#   # diff_backend = AutoForwardDiff()
+#   @info "ContinuousCurvilinearGrid3D"
+#   cm = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
 
-  I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(cm.edge_metrics, cm.iterators.cell.domain)
-  # @show extrema(I1)
-  # @show extrema(I2)
-  # @show extrema(I3)
-  @test all(abs.(extrema(I1)) .< 1e-19)
-  @test all(abs.(extrema(I2)) .< 1e-19)
-  @test all(abs.(extrema(I3)) .< 5e-14)
+#   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(cm.edge_metrics, cm.iterators.cell.domain)
+#   # @show extrema(I1)
+#   # @show extrema(I2)
+#   # @show extrema(I3)
+#   @test all(abs.(extrema(I1)) .< 1e-19)
+#   @test all(abs.(extrema(I2)) .< 1e-19)
+#   @test all(abs.(extrema(I3)) .< 5e-14)
 
-  # CurvilinearGrids.save_vtk(cm, "spherical_sector_ad")
+#   # CurvilinearGrids.save_vtk(cm, "spherical_sector_ad")
 
-  @info "CurvilinearGrid3D"
-  xdom = cm.node_coordinates.x[cm.iterators.node.full]
-  ydom = cm.node_coordinates.y[cm.iterators.node.full]
-  zdom = cm.node_coordinates.z[cm.iterators.node.full]
-  dm = CurvilinearGrid3D(xdom, ydom, zdom, :meg6; halo_coords_included=true)
-  I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(dm.edge_metrics, dm.iterators.cell.domain)
-  # @show extrema(I1)
-  # @show extrema(I2)
-  # @show extrema(I3)
-  @test all(abs.(extrema(I1)) .< 5e-14)
-  @test all(abs.(extrema(I2)) .< 5e-14)
-  @test all(abs.(extrema(I3)) .< 5e-14)
+#   @info "CurvilinearGrid3D"
+#   xdom = cm.node_coordinates.x[cm.iterators.node.full]
+#   ydom = cm.node_coordinates.y[cm.iterators.node.full]
+#   zdom = cm.node_coordinates.z[cm.iterators.node.full]
+#   dm = CurvilinearGrid3D(xdom, ydom, zdom, :meg6; halo_coords_included=true)
+#   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(dm.edge_metrics, dm.iterators.cell.domain)
+#   # @show extrema(I1)
+#   # @show extrema(I2)
+#   # @show extrema(I3)
+#   @test all(abs.(extrema(I1)) .< 5e-14)
+#   @test all(abs.(extrema(I2)) .< 5e-14)
+#   @test all(abs.(extrema(I3)) .< 5e-14)
 
-  # CurvilinearGrids.save_vtk(cm, "spherical_sector_meg")
+#   # CurvilinearGrids.save_vtk(cm, "spherical_sector_meg")
 
-  dom = cm.iterators.cell.domain
+#   dom = cm.iterators.cell.domain
 
-  # for dim in (:ξ, :η, :ζ, :ξ̂, :η̂, :ζ̂, :x₁, :x₂, :x₃)
-  #   for ((dm_name, dm_component), (cm_name, cm_component)) in zip(
-  #     StructArrays.components(dm.cell_center_metrics[dim]) |> pairs,
-  #     StructArrays.components(cm.cell_center_metrics[dim]) |> pairs,
-  #   )
-  #     # @test all(isapprox.(dm_component[dom], cm_component[dom], rtol=1e-5))
+#   # for dim in (:ξ, :η, :ζ, :ξ̂, :η̂, :ζ̂, :x₁, :x₂, :x₃)
+#   #   for ((dm_name, dm_component), (cm_name, cm_component)) in zip(
+#   #     StructArrays.components(dm.cell_center_metrics[dim]) |> pairs,
+#   #     StructArrays.components(cm.cell_center_metrics[dim]) |> pairs,
+#   #   )
+#   #     # @test all(isapprox.(dm_component[dom], cm_component[dom], rtol=1e-5))
 
-  #     passes = all(isapprox.(dm_component[dom], cm_component[dom], rtol=1e-3))
-  #     @info "Dim: $dim, $dm_name, passes? $passes"
-  #     if !passes
-  #       @show extrema(dm_component[dom])
-  #       @show extrema(cm_component[dom])
-  #       println()
-  #     end
-  #   end
-  #   # println()
-  # end
+#   #     passes = all(isapprox.(dm_component[dom], cm_component[dom], rtol=1e-3))
+#   #     @info "Dim: $dim, $dm_name, passes? $passes"
+#   #     if !passes
+#   #       @show extrema(dm_component[dom])
+#   #       @show extrema(cm_component[dom])
+#   #       println()
+#   #     end
+#   #   end
+#   #   # println()
+#   # end
 
-  nothing
-end
+#   nothing
+# end

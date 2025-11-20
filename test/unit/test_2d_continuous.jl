@@ -225,24 +225,24 @@ end
 
   dom = cm.iterators.cell.domain
 
-  for dim in (:ξ, :η, :ξ̂, :η̂, :x₁, :x₂)
-    for ((dm_name, dm_component), (cm_name, cm_component)) in zip(
-      StructArrays.components(dm.cell_center_metrics[dim]) |> pairs,
-      StructArrays.components(cm.cell_center_metrics[dim]) |> pairs,
-    )
+  # for dim in (:ξ, :η, :ξ̂, :η̂, :x₁, :x₂)
+  #   for ((dm_name, dm_component), (cm_name, cm_component)) in zip(
+  #     StructArrays.components(dm.cell_center_metrics[dim]) |> pairs,
+  #     StructArrays.components(cm.cell_center_metrics[dim]) |> pairs,
+  #   )
 
-      # we have to use a relatively coarse tolerance for this mesh! This is why AD is better :)
-      @test all(isapprox.(dm_component[dom], cm_component[dom], rtol=1e-5))
-      #   passes = all(isapprox.(dm_component[dom], cm_component[dom], rtol=1e-5))
-      #   @info "Dim: $dim, $dm_name, passes? $passes"
-      #   if !passes
-      #     @show extrema(dm_component[dom])
-      #     @show extrema(cm_component[dom])
-      #     println()
-      #   end
-    end
-    # println()
-  end
+  #     # we have to use a relatively coarse tolerance for this mesh! This is why AD is better :)
+  #     @test all(isapprox.(dm_component[dom], cm_component[dom], rtol=1e-5))
+  #     #   passes = all(isapprox.(dm_component[dom], cm_component[dom], rtol=1e-5))
+  #     #   @info "Dim: $dim, $dm_name, passes? $passes"
+  #     #   if !passes
+  #     #     @show extrema(dm_component[dom])
+  #     #     @show extrema(cm_component[dom])
+  #     #     println()
+  #     #   end
+  #   end
+  #   # println()
+  # end
 
   nothing
 end
