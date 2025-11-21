@@ -22,13 +22,13 @@ end
 
 function wavy_mapping()
   function x(t, i, j, p)
-    @unpack xmin, Ax, Δy0, Δx0 = p
+    @unpack xmin, Ax, Δy0, Δx0, n = p
 
     return xmin + Δx0 * ((i - 1) + Ax * sinpi(n * (j - 1) * Δy0))
   end
 
   function y(t, i, j, p)
-    @unpack ymin, Ay, Δy0, Δx0 = p
+    @unpack ymin, Ay, Δy0, Δx0, n = p
 
     return ymin + Δy0 * ((j - 1) + Ay * sinpi(n * (i - 1) * Δx0))
   end
@@ -80,7 +80,7 @@ end
   @unpack Lx, Ly, xmin, ymin, Δx0, Δy0, Ax, Ay, n = params
   params_2 = (; Lx, Ly, xmin, ymin, Δx0, Δy0, Ax=2Ax, Ay=0.5Ay, n)
 
-  mesh = ContinuousCurvilinearGrid2D(x, y, params, ncells, :meg6, CPU())
+  mesh = ContinuousCurvilinearGrid2D(x, y, params, celldims, :meg6, CPU())
 
   t, i, j = (0, 10, 20)
   c1 = coord(mesh, t, i, j, params)
