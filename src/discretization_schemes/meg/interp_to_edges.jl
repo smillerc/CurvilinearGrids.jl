@@ -1,5 +1,5 @@
 """
-    interpolate_to_edges!(scheme::MontoneExplicitGradientScheme6thOrder, ϕᵢ₊½::AbstractArray{T,N}, ϕ::AbstractArray{T,N}, axis::Int, domain, nhalo=3) where {T,N}
+    interpolate_to_edges!(scheme::MonotoneExplicitGradientScheme, ϕᵢ₊½::AbstractArray{T,N}, ϕ::AbstractArray{T,N}, axis::Int, domain, nhalo=3) where {T,N}
 
 Interpolate the cell-centered quantity `ϕ` to the i+1/2 edge `ϕᵢ₊½` using the MEG6 scheme. 
 The `axis` specifies which dimension, e.g. `1 => ϕᵢ₊½, 2 => ϕⱼ₊½, 3 => ϕₖ₊½`. The domain sizes for this
@@ -13,7 +13,7 @@ the full domain is CartesianIndices((10, 10)), and the inner domain (with 2 halo
 CartesianIndices((3:8, 3:8)), the size passed to this function must be CartesianIndices((2:9, 2:9))
 """
 function interpolate_to_edge!(
-  scheme::MontoneExplicitGradientScheme6thOrder,
+  scheme::MonotoneExplicitGradientScheme,
   ϕᵢ₊½::AbstractArray{T,N},
   ϕ::AbstractArray{T,N},
   axis::Int,
@@ -26,31 +26,30 @@ function interpolate_to_edge!(
     error("The given ϕᵢ₊½ and ϕ arrays must have the same size and indexing scheme")
   end
 
-  # backend = KernelAbstractions.get_backend(scheme.cache.outer_deriv_1)
-  #   nhalo = scheme.nhalo_for_derivs # 3
-  nhalo = 3
   ∂ϕ = scheme.cache.∂ϕ
   ∂²ϕ = scheme.cache.∂²ϕ
-  first_deriv!(∂ϕ, ϕ, axis, domain, backend, nhalo)
-  second_deriv!(∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, domain, backend, nhalo)
+  compute_first_derivatives!(scheme, ∂ϕ, ϕ, axis, domain, backend)
+  compute_second_derivatives!(scheme, ∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, domain, backend)
 
-  # domain = CartesianIndices(ϕ)
-  inner_domain = domain # expand(domain, axis, 0)
+  if size(domain) == size(ϕ)
+    inner_domain = expand(domain, axis, -1)
+    lo_domain = lower_boundary_indices(domain, axis, +1) # select first index along given boundary axis
+    hi_domain = upper_boundary_indices(domain, axis, -1)  # select last index along given boundary axis
+  else
+    inner_domain = domain
+    lo_domain = lower_boundary_indices(domain, axis, 0)
+    hi_domain = upper_boundary_indices(domain, axis, 0)
+  end
+
   inner_kernel!(backend)(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, inner_domain, axis; ndrange=size(inner_domain))
-
-  # select first index along given boundary axis
-  lo_domain = lower_boundary_indices(domain, axis, 0)
   lo_edge_kernel!(backend)(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, lo_domain, axis; ndrange=size(lo_domain))
-
-  # select last index along given boundary axis
-  hi_domain = upper_boundary_indices(domain, axis, 0)
   hi_edge_kernel!(backend)(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, hi_domain, axis; ndrange=size(hi_domain))
 
   return nothing
 end
 
 @kernel inbounds = true function inner_kernel!(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, domain, axis)
-  idx = @index(Global)
+  idx = @index(Global, Linear)
   i = domain[idx]
 
   ᵢ₊₁ = shift(i, axis, +1)
@@ -63,7 +62,7 @@ end
 end
 
 @kernel inbounds = true function lo_edge_kernel!(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, lo_domain, axis)
-  idx = @index(Global)
+  idx = @index(Global, Linear)
   i = lo_domain[idx]
 
   # the lo-side derivative ∂ϕ/∂ξ can only use ϕᴿᵢ₋½ instead of ϕᵢ₋½
@@ -72,7 +71,7 @@ end
 end
 
 @kernel inbounds = true function hi_edge_kernel!(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, hi_domain, axis)
-  idx = @index(Global)
+  idx = @index(Global, Linear)
   i = hi_domain[idx]
 
   # the hi-side derivative ∂ϕ/∂ξ can only use ϕᴸᵢ₊½ instead of ϕᵢ₊½

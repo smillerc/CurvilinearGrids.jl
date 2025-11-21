@@ -1,14 +1,18 @@
 module GridTypes
 
-using LinearAlgebra
-using StaticArrays
-using ForwardDiff
-using UnPack
-using StructArrays
-using Polyester
-using KernelAbstractions
 using CartesianDomains
+using DifferentiationInterface
+using ForwardDiff
+using KernelAbstractions
+using LinearAlgebra
+using Polyester
+using StaticArrays
+using StructArrays
+using UnPack
+using WriteVTK
+using .Threads
 
+using ..DiscretizationSchemes
 using ..MetricDiscretizationSchemes
 using ..RectilinearArrays
 
@@ -22,6 +26,8 @@ export UniformGrid1D, UniformGrid2D, UniformGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 
+export ContinuousCurvilinearGrid1D, ContinuousCurvilinearGrid2D, ContinuousCurvilinearGrid3D
+
 export rectilinear_grid,
   rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid
 export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
@@ -34,6 +40,7 @@ export cellvolume, cellvolumes
 export radius, centroid_radius, centroid_radii
 export jacobian_matrix
 export forward_cell_metrics, inverse_cell_metrics
+export gcl
 
 abstract type AbstractCurvilinearGrid end
 abstract type AbstractCurvilinearGrid1D <: AbstractCurvilinearGrid end
@@ -83,8 +90,21 @@ include("1d.jl")
 include("2d.jl")
 include("3d.jl")
 include("simple_constructors/simple_constructors.jl")
+include("continuous_grids/continous_grids.jl")
+# include("metric_cache.jl")
+# include("continous_grids.jl")
 
-function update_metrics!(mesh::AbstractCurvilinearGrid, t::Real=0)
+include("gcl.jl")
+
+function update_metrics!(
+  mesh::AbstractCurvilinearGrid, t::Real=0; include_halo_region=false
+)
+  if include_halo_region
+    metric_domain = mesh.iterators.cell.full
+  else
+    metric_domain = mesh.iterators.cell.domain
+  end
+
   # Update the metrics within the non-halo region, e.g., the domain
   backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
   MetricDiscretizationSchemes.update_metrics!(
@@ -92,7 +112,7 @@ function update_metrics!(mesh::AbstractCurvilinearGrid, t::Real=0)
     mesh.centroid_coordinates,
     mesh.cell_center_metrics,
     mesh.edge_metrics,
-    mesh.iterators.cell.domain,
+    metric_domain,
     backend,
   )
 
@@ -104,16 +124,14 @@ end
 
 The total number of cells in the mesh (_excluding_ halo regions)
 """
-cellsize(mesh::AbstractCurvilinearGrid) = @. mesh.nnodes - 1
-cellsize(mesh::AbstractCurvilinearGrid1D) = (mesh.nnodes - 1,)
+cellsize(mesh::AbstractCurvilinearGrid) = size(mesh.iterators.cell.domain)
 
 """
     cellsize_withhalo(mesh::AbstractCurvilinearGrid)
 
 The total number of cells in the mesh (_including_ halo regions)
 """
-cellsize_withhalo(mesh::AbstractCurvilinearGrid) = @. mesh.nnodes - 1 + 2 * mesh.nhalo
-cellsize_withhalo(mesh::AbstractCurvilinearGrid1D) = (mesh.nnodes - 1 + 2 * mesh.nhalo,)
+cellsize_withhalo(mesh::AbstractCurvilinearGrid) = size(mesh.iterators.cell.full)
 
 """
     coords(mesh)
@@ -381,6 +399,39 @@ metrics this way will not be conservative, e.g. observe the geometric
 conservation law.
 """
 jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
+
+function get_gradient_discretization_scheme(discretization_scheme_name)
+  scheme_name = Symbol(uppercase("$discretization_scheme_name"))
+  use_symmetric_conservative_metric_scheme = false
+  # if scheme_name === :MEG4 || scheme_name === :MEG4_SYMMETRIC
+  #   order = 4
+  #   GradientDiscretizationScheme = MonotoneExplicitGradientScheme
+  #   if scheme_name === :MEG6_SYMMETRIC
+  #     use_symmetric_conservative_metric_scheme = true
+  #   end
+  if scheme_name === :MEG6 || scheme_name === :MEG6_SYMMETRIC
+    order = 6
+    GradientDiscretizationScheme = MonotoneExplicitGradientScheme
+    if scheme_name === :MEG6_SYMMETRIC
+      use_symmetric_conservative_metric_scheme = true
+    end
+  elseif scheme_name === :MEG4
+    order = 4
+    GradientDiscretizationScheme = MonotoneExplicitGradientScheme
+  elseif scheme_name === :MEG2
+    order = 2
+    GradientDiscretizationScheme = MonotoneExplicitGradientScheme
+  else
+    error("Only $((:MEG6)) is supported for now")
+    # error("Only $((:MEG4, :MEG6)) is supported for now")
+  end
+
+  nhalo = DiscretizationSchemes.nhalo_lookup[scheme_name]
+
+  return GradientDiscretizationScheme,
+  order, use_symmetric_conservative_metric_scheme, nhalo,
+  scheme_name
+end
 
 # """
 # Get the Jacobian of the forward transformation (ξ,η,ζ) → (x,y,z).

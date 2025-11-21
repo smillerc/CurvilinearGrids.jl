@@ -1,6 +1,13 @@
 module CurvilinearGrids
 
-include("discretization_schemes/MetricDiscretizationSchemes.jl")
+include("discretization_schemes/DiscretizationSchemes.jl")
+using .DiscretizationSchemes
+export MonotoneExplicitGradientScheme
+export SecondOrder, FourthOrder, SixthOrder, EighthOrder
+export compute_first_derivatives!, compute_second_derivatives!
+export cell_center_derivatives!, interpolate_to_edge!
+
+include("metric_schemes/MetricDiscretizationSchemes.jl")
 using .MetricDiscretizationSchemes
 
 include("RectilinearArrays.jl")
@@ -17,6 +24,9 @@ export RectilinearGrid2D, RectilinearGrid3D
 export UniformGrid1D, UniformGrid2D, UniformGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
+
+export ContinuousCurvilinearGrid1D, ContinuousCurvilinearGrid2D, ContinuousCurvilinearGrid3D
+
 export rectilinear_grid,
   rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid
 export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
