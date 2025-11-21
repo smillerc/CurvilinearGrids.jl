@@ -111,7 +111,7 @@ function compute_cell_metrics!(mesh, t, params)
   ϵ = eps()
 
   # @info "Computing Cell Metrics"
-  Threads.@threads :greedy for I in mesh.iterators.cell.full
+  Threads.@threads for I in mesh.iterators.cell.full
     Iglobal = mesh.iterators.global_domain.cell.full[I]
     # account for halo cells and centroid offset
     ξηζ = Iglobal.I .- nhalo .+ 0.5 # centroid
@@ -196,7 +196,7 @@ function compute_edge_metrics!(mesh, t, params)
   nhalo = mesh.iterators.nhalo
   ϵ = eps()
   # @info "Computing Edge Metrics"
-  Threads.@threads :greedy for I in mesh.iterators.cell.full
+  Threads.@threads for I in mesh.iterators.cell.full
     Iglobal = mesh.iterators.global_domain.cell.full[I]
     ξηζ = Iglobal.I .- nhalo .+ (1 / 2) # centroid index
 
