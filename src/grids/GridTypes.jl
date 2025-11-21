@@ -90,8 +90,9 @@ include("1d.jl")
 include("2d.jl")
 include("3d.jl")
 include("simple_constructors/simple_constructors.jl")
-include("metric_cache.jl")
-include("continous_grids.jl")
+include("continuous_grids/continous_grids.jl")
+# include("metric_cache.jl")
+# include("continous_grids.jl")
 
 include("gcl.jl")
 

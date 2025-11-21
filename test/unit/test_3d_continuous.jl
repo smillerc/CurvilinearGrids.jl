@@ -1,133 +1,61 @@
 using CurvilinearGrids,
-  Test, KernelAbstractions, DifferentiationInterface, BenchmarkTools, UnPack
+  Test,
+  KernelAbstractions,
+  DifferentiationInterface,
+  BenchmarkTools,
+  UnPack,
+  CartesianDomains
 
-function uniform_mapping(xmin, xmax, ymin, ymax, zmin, zmax, ncells::NTuple{3,Int})
-  ni, nj, nk = ncells
-
-  Δx = (xmax - xmin) / ni
-  Δy = (ymax - ymin) / nj
-  Δz = (zmax - zmin) / nk
-
-  params = (; xmin, ymin, zmin, Δx, Δy, Δz)
-
-  function x(t, i, j, k, p)
-    @unpack xmin, Δx = p
-    return xmin + (i - 1) * Δx
-  end
-
-  function y(t, i, j, k, p)
-    @unpack ymin, Δy = p
-    return ymin + (j - 1) * Δy
-  end
-
-  function z(t, i, j, k, p)
-    @unpack zmin, Δz = p
-    return zmin + (k - 1) * Δz
-  end
-
-  return (x, y, z, params)
-end
-
-function spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, ncells::NTuple{3,Int})
-  ni, nj, nk = ncells
-
-  # Uniform spacings
-  Δr = (rmax - rmin) / ni
-  Δθ = (θmax - θmin) / nj
-  Δϕ = (ϕmax - ϕmin) / nk
-
-  params = (; Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin)
-
-  function x(t, i, j, k, p)
-    @unpack Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin = p
-    r(i) = (rmin + (i - 1) * Δr)
-    θ(j) = (θmin + (j - 1) * Δθ)
-    ϕ(k) = (ϕmin + (k - 1) * Δϕ)
-    return r(i) * sin(θ(j)) * cos(ϕ(k))
-  end
-
-  function y(t, i, j, k, p)
-    @unpack Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin = p
-    r(i) = (rmin + (i - 1) * Δr)
-    θ(j) = (θmin + (j - 1) * Δθ)
-    ϕ(k) = (ϕmin + (k - 1) * Δϕ)
-    return r(i) * sin(θ(j)) * sin(ϕ(k))
-  end
-
-  function z(t, i, j, k, p)
-    @unpack Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin = p
-    r(i) = (rmin + (i - 1) * Δr)
-    θ(j) = (θmin + (j - 1) * Δθ)
-    ϕ(k) = (ϕmin + (k - 1) * Δϕ)
-    return r(i) * cos(θ(j))
-  end
-
-  return (x, y, z, params)
-end
-
-function wavy_mapping(ncells::NTuple{3,Int})
-  ni, nj, nk = ncells
-  Lx = Ly = Lz = 12
-
-  xmin = -Lx / 2
-  ymin = -Ly / 2
-  zmin = -Lz / 2
-
-  Δx0 = Lx / ni
-  Δy0 = Ly / nj
-  Δz0 = Lz / nk
-
-  Ax = 0.2 / Δx0
-  Ay = 0.4 / Δy0
-  Az = 0.6 / Δz0
-
-  n = 0.5
-
-  params = (; Ax, Ay, Az, n, Δx0, Δy0, Δz0, xmin, ymin, zmin)
-  function x(t, i, j, k, p)
-    @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, xmin = p
-    xmin + Δx0 * ((i - 1) + Ax * sin(pi * n * (j - 1) * Δy0) * sin(pi * n * (k - 1) * Δz0))
-  end
-
-  function y(t, i, j, k, p)
-    @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, ymin = p
-    ymin + Δy0 * ((j - 1) + Ay * sin(pi * n * (k - 1) * Δz0) * sin(pi * n * (i - 1) * Δx0))
-  end
-
-  function z(t, i, j, k, p)
-    @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, zmin = p
-    zmin + Δz0 * ((k - 1) + Az * sin(pi * n * (i - 1) * Δx0) * sin(pi * n * (j - 1) * Δy0))
-  end
-
-  return (x, y, z, params)
-end
 @testset "Wavy ContinuousCurvilinearGrid3D" begin
-  celldims = (41, 41, 41)
+  function wavy_mapping()
+    function x(t, i, j, k, p)
+      @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, xmin = p
+      xmin +
+      Δx0 * ((i - 1) + Ax * sin(pi * n * (j - 1) * Δy0) * sin(pi * n * (k - 1) * Δz0))
+    end
 
-  (x, y, z, params) = wavy_mapping(celldims)
+    function y(t, i, j, k, p)
+      @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, ymin = p
+      ymin +
+      Δy0 * ((j - 1) + Ay * sin(pi * n * (k - 1) * Δz0) * sin(pi * n * (i - 1) * Δx0))
+    end
 
+    function z(t, i, j, k, p)
+      @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, zmin = p
+      zmin +
+      Δz0 * ((k - 1) + Az * sin(pi * n * (i - 1) * Δx0) * sin(pi * n * (j - 1) * Δy0))
+    end
+
+    return (x, y, z)
+  end
+
+  function wavy_params()
+    celldims = (41, 41, 41)
+
+    ni, nj, nk = celldims
+    Lx = Ly = Lz = 12
+
+    xmin = -Lx / 2
+    ymin = -Ly / 2
+    zmin = -Lz / 2
+
+    Δx0 = Lx / ni
+    Δy0 = Ly / nj
+    Δz0 = Lz / nk
+
+    Ax = 0.2 / Δx0
+    Ay = 0.4 / Δy0
+    Az = 0.6 / Δz0
+
+    n = 0.5
+
+    params = (; Ax, Ay, Az, n, Δx0, Δy0, Δz0, xmin, ymin, zmin)
+    return params, celldims
+  end
+
+  x, y, z = wavy_mapping()
+  params, celldims = wavy_params()
   mesh = ContinuousCurvilinearGrid3D(x, y, z, params, celldims, :meg6, CPU())
-  I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
-  @show extrema(I1)
-  @show extrema(I2)
-  @show extrema(I3)
-  @test all(abs.(extrema(I1)) .< 1e-14)
-  @test all(abs.(extrema(I2)) .< 1e-14)
-  @test all(abs.(extrema(I3)) .< 1e-14)
-end
-
-@testset "Sphere Sector ContinuousCurvilinearGrid3D" begin
-  nhalo = 5
-  nr, nθ, nϕ = 41, 41, 41
-  celldims = (nr, nθ, nϕ)
-  rmin, rmax = 1.0, 4.0
-  θmin, θmax = π / 2 - deg2rad(5), π / 2 + deg2rad(5)   # narrow polar band around equator
-  ϕmin, ϕmax = -deg2rad(10), deg2rad(10)
-
-  (x, y, z, params) = spherical_sector_mapping(rmin, rmax, θmin, θmax, ϕmin, ϕmax, celldims)
-
-  backend = AutoForwardDiff()
-  mesh = ContinuousCurvilinearGrid3D(x, y, z, params, celldims, :meg6, CPU(), backend)
   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
   # @show extrema(I1)
   # @show extrema(I2)
@@ -135,14 +63,111 @@ end
   @test all(abs.(extrema(I1)) .< 1e-14)
   @test all(abs.(extrema(I2)) .< 1e-14)
   @test all(abs.(extrema(I3)) .< 1e-14)
+  nothing
+end
+
+@testset "Sphere Sector ContinuousCurvilinearGrid3D" begin
+  function get_sector_parameters()
+    celldims = (40, 40, 40)
+    ni, nj, nk = celldims
+    rmin, rmax = 1.0, 4.0
+    θmin, θmax = π / 2 - deg2rad(5), π / 2 + deg2rad(5)   # narrow polar band around equator
+    ϕmin, ϕmax = -deg2rad(10), deg2rad(10)
+
+    # Uniform spacings
+    Δr = (rmax - rmin) / ni
+    Δθ = (θmax - θmin) / nj
+    Δϕ = (ϕmax - ϕmin) / nk
+
+    params = (; Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin)
+    return params, celldims
+  end
+
+  function get_sector_mapping()
+    function x(t, i, j, k, p)
+      @unpack Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin = p
+      r(i) = (rmin + (i - 1) * Δr)
+      θ(j) = (θmin + (j - 1) * Δθ)
+      ϕ(k) = (ϕmin + (k - 1) * Δϕ)
+      return r(i) * sin(θ(j)) * cos(ϕ(k))
+    end
+
+    function y(t, i, j, k, p)
+      @unpack Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin = p
+      r(i) = (rmin + (i - 1) * Δr)
+      θ(j) = (θmin + (j - 1) * Δθ)
+      ϕ(k) = (ϕmin + (k - 1) * Δϕ)
+      return r(i) * sin(θ(j)) * sin(ϕ(k))
+    end
+
+    function z(t, i, j, k, p)
+      @unpack Δr, rmax, rmin, Δθ, θmax, θmin, Δϕ, ϕmax, ϕmin = p
+      r(i) = (rmin + (i - 1) * Δr)
+      θ(j) = (θmin + (j - 1) * Δθ)
+      ϕ(k) = (ϕmin + (k - 1) * Δϕ)
+      return r(i) * cos(θ(j))
+    end
+
+    return (x, y, z)
+  end
+
+  sector_params, celldims = get_sector_parameters()
+  x, y, z = get_sector_mapping()
+
+  backend = AutoForwardDiff()
+  mesh = ContinuousCurvilinearGrid3D(
+    x, y, z, sector_params, celldims, :meg6, CPU(), backend
+  )
+  I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
+  # @show extrema(I1)
+  # @show extrema(I2)
+  # @show extrema(I3)
+  # # CurvilinearGrids.save_vtk(mesh, "spherical_sector_ad")
+
+  @test all(abs.(extrema(I1)) .< 1e-14)
+  @test all(abs.(extrema(I2)) .< 1e-14)
+  @test all(abs.(extrema(I3)) .< 1e-14)
+  nothing
 end
 
 @testset "Uniform ContinuousCurvilinearGrid3D" begin
-  x0, x1 = (0.0, 2.0)
-  y0, y1 = (1, 3)
-  z0, z1 = (-1, 2)
-  celldims = (40, 80, 120)
-  (x, y, z, params) = uniform_mapping(x0, x1, y0, y1, z0, z1, celldims)
+  function get_uniform_mapping()
+    function x(t, i, j, k, p)
+      @unpack xmin, Δx = p
+      return xmin + (i - 1) * Δx
+    end
+
+    function y(t, i, j, k, p)
+      @unpack ymin, Δy = p
+      return ymin + (j - 1) * Δy
+    end
+
+    function z(t, i, j, k, p)
+      @unpack zmin, Δz = p
+      return zmin + (k - 1) * Δz
+    end
+
+    return (x, y, z, params)
+  end
+
+  function get_uniform_params()
+    celldims = (40, 80, 120)
+    xmin, xmax = (0.0, 2.0)
+    ymin, ymax = (1, 3)
+    zmin, zmax = (-1, 2)
+
+    ni, nj, nk = celldims
+
+    Δx = (xmax - xmin) / ni
+    Δy = (ymax - ymin) / nj
+    Δz = (zmax - zmin) / nk
+
+    params = (; xmin, ymin, zmin, Δx, Δy, Δz)
+    return params, celldims
+  end
+
+  params, celldims = get_uniform_params()
+  x, y, z = get_uniform_mapping()
 
   backend = AutoForwardDiff()
   mesh = ContinuousCurvilinearGrid3D(x, y, z, params, celldims, :meg6, CPU(), backend)

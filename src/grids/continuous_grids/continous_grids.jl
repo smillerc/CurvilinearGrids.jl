@@ -50,9 +50,13 @@ struct ContinuousCurvilinearGrid3D{T,A,B,C,EM,CM,E,BE,DBE,DS} <:
   iterators::E
 end
 
-include("1d_continuous.jl")
-include("2d_continuous.jl")
-include("3d_continuous.jl")
+include("1d.jl")
+include("2d.jl")
+include("3d.jl")
+include("metric_cache.jl")
+include("conserved_metrics.jl")
+include("edge_interpolation.jl")
+include("cell_center_derivs.jl")
 
 function update_mapping_functions!(mesh, t, new_params, compute_metrics=true)
   mesh.mapping_function_params = new_params
