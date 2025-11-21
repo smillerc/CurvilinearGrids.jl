@@ -108,6 +108,7 @@ end
 
 function compute_cell_metrics!(mesh, t, params)
   nhalo = mesh.iterators.nhalo
+  ϵ = eps()
 
   # @info "Computing Cell Metrics"
   Threads.@threads :greedy for I in mesh.iterators.cell.full
@@ -131,15 +132,15 @@ function compute_cell_metrics!(mesh, t, params)
     zη = mesh.metric_functions_cache.forward.zη(t, ξηζ..., params)
     zζ = mesh.metric_functions_cache.forward.zζ(t, ξηζ..., params)
 
-    mesh.cell_center_metrics.x₁.ξ[I] = xξ * (abs(xξ) >= eps())
-    mesh.cell_center_metrics.x₁.η[I] = xη * (abs(xη) >= eps())
-    mesh.cell_center_metrics.x₁.ζ[I] = xζ * (abs(xζ) >= eps())
-    mesh.cell_center_metrics.x₂.ξ[I] = yξ * (abs(yξ) >= eps())
-    mesh.cell_center_metrics.x₂.η[I] = yη * (abs(yη) >= eps())
-    mesh.cell_center_metrics.x₂.ζ[I] = yζ * (abs(yζ) >= eps())
-    mesh.cell_center_metrics.x₃.ξ[I] = zξ * (abs(zξ) >= eps())
-    mesh.cell_center_metrics.x₃.η[I] = zη * (abs(zη) >= eps())
-    mesh.cell_center_metrics.x₃.ζ[I] = zζ * (abs(zζ) >= eps())
+    mesh.cell_center_metrics.x₁.ξ[I] = xξ * (abs(xξ) >= ϵ)
+    mesh.cell_center_metrics.x₁.η[I] = xη * (abs(xη) >= ϵ)
+    mesh.cell_center_metrics.x₁.ζ[I] = xζ * (abs(xζ) >= ϵ)
+    mesh.cell_center_metrics.x₂.ξ[I] = yξ * (abs(yξ) >= ϵ)
+    mesh.cell_center_metrics.x₂.η[I] = yη * (abs(yη) >= ϵ)
+    mesh.cell_center_metrics.x₂.ζ[I] = yζ * (abs(yζ) >= ϵ)
+    mesh.cell_center_metrics.x₃.ξ[I] = zξ * (abs(zξ) >= ϵ)
+    mesh.cell_center_metrics.x₃.η[I] = zη * (abs(zη) >= ϵ)
+    mesh.cell_center_metrics.x₃.ζ[I] = zζ * (abs(zζ) >= ϵ)
 
     # hatted inverse metrics
     ξ̂_x = mesh.metric_functions_cache.inverse.ξ̂x(t, ξηζ..., params)
@@ -152,15 +153,15 @@ function compute_cell_metrics!(mesh, t, params)
     ζ̂_y = mesh.metric_functions_cache.inverse.ζ̂y(t, ξηζ..., params)
     ζ̂_z = mesh.metric_functions_cache.inverse.ζ̂z(t, ξηζ..., params)
 
-    # ξ̂_x = ξ̂_x # * (abs(ξ̂_x) >= eps())
-    # ξ̂_y = ξ̂_y # * (abs(ξ̂_y) >= eps())
-    # ξ̂_z = ξ̂_z # * (abs(ξ̂_z) >= eps())
-    # η̂_x = η̂_x # * (abs(η̂_x) >= eps())
-    # η̂_y = η̂_y # * (abs(η̂_y) >= eps())
-    # η̂_z = η̂_z # * (abs(η̂_z) >= eps())
-    # ζ̂_x = ζ̂_x # * (abs(ζ̂_x) >= eps())
-    # ζ̂_y = ζ̂_y # * (abs(ζ̂_y) >= eps())
-    # ζ̂_z = ζ̂_z # * (abs(ζ̂_z) >= eps())
+    # ξ̂_x = ξ̂_x # * (abs(ξ̂_x) >= ϵ)
+    # ξ̂_y = ξ̂_y # * (abs(ξ̂_y) >= ϵ)
+    # ξ̂_z = ξ̂_z # * (abs(ξ̂_z) >= ϵ)
+    # η̂_x = η̂_x # * (abs(η̂_x) >= ϵ)
+    # η̂_y = η̂_y # * (abs(η̂_y) >= ϵ)
+    # η̂_z = η̂_z # * (abs(η̂_z) >= ϵ)
+    # ζ̂_x = ζ̂_x # * (abs(ζ̂_x) >= ϵ)
+    # ζ̂_y = ζ̂_y # * (abs(ζ̂_y) >= ϵ)
+    # ζ̂_z = ζ̂_z # * (abs(ζ̂_z) >= ϵ)
 
     mesh.cell_center_metrics.ξ̂.x₁[I] = ξ̂_x
     mesh.cell_center_metrics.ξ̂.x₂[I] = ξ̂_y
@@ -193,7 +194,7 @@ end
 
 function compute_edge_metrics!(mesh, t, params)
   nhalo = mesh.iterators.nhalo
-
+  ϵ = eps()
   # @info "Computing Edge Metrics"
   Threads.@threads :greedy for I in mesh.iterators.cell.full
     Iglobal = mesh.iterators.global_domain.cell.full[I]
@@ -234,133 +235,82 @@ function compute_edge_metrics!(mesh, t, params)
     ζ̂zₖ₊½ = mesh.metric_functions_cache.edge.ζ̂zₖ₊½(t, ξηζ..., params)
 
     # mesh.edge_metrics.i₊½.J[I] = J
-    mesh.edge_metrics.i₊½.ξ̂.x₁[I] = ξ̂xᵢ₊½ * (abs(ξ̂xᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.ξ̂.x₂[I] = ξ̂yᵢ₊½ * (abs(ξ̂yᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.η̂.x₁[I] = η̂xᵢ₊½ * (abs(η̂xᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.η̂.x₂[I] = η̂yᵢ₊½ * (abs(η̂yᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.ζ̂.x₁[I] = ζ̂xᵢ₊½ * (abs(ζ̂xᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.ζ̂.x₂[I] = ζ̂yᵢ₊½ * (abs(ζ̂yᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.ξ̂.x₃[I] = ξ̂zᵢ₊½ * (abs(ξ̂zᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.η̂.x₃[I] = η̂zᵢ₊½ * (abs(η̂zᵢ₊½) >= eps())
-    mesh.edge_metrics.i₊½.ζ̂.x₃[I] = ζ̂zᵢ₊½ * (abs(ζ̂zᵢ₊½) >= eps())
+    mesh.edge_metrics.i₊½.ξ̂.x₁[I] = ξ̂xᵢ₊½ * (abs(ξ̂xᵢ₊½) >= ϵ)
+    mesh.edge_metrics.i₊½.ξ̂.x₂[I] = ξ̂yᵢ₊½ * (abs(ξ̂yᵢ₊½) >= ϵ)
+    mesh.edge_metrics.i₊½.η̂.x₁[I] = η̂xᵢ₊½ * (abs(η̂xᵢ₊½) >= ϵ)
+    mesh.edge_metrics.i₊½.η̂.x₂[I] = η̂yᵢ₊½ * (abs(η̂yᵢ₊½) >= ϵ)
+    mesh.edge_metrics.i₊½.ζ̂.x₁[I] = ζ̂xᵢ₊½ * (abs(ζ̂xᵢ₊½) >= ϵ)
+    mesh.edge_metrics.i₊½.ζ̂.x₂[I] = ζ̂yᵢ₊½ * (abs(ζ̂yᵢ₊½) >= ϵ)
+    mesh.edge_metrics.i₊½.ξ̂.x₃[I] = ξ̂zᵢ₊½ * (abs(ξ̂zᵢ₊½) >= ϵ)
+    mesh.edge_metrics.i₊½.η̂.x₃[I] = η̂zᵢ₊½ * (abs(η̂zᵢ₊½) >= ϵ)
+    mesh.edge_metrics.i₊½.ζ̂.x₃[I] = ζ̂zᵢ₊½ * (abs(ζ̂zᵢ₊½) >= ϵ)
 
     # mesh.edge_metrics.j₊½.J[I] = J
-    mesh.edge_metrics.j₊½.ξ̂.x₁[I] = ξ̂xⱼ₊½ * (abs(ξ̂xⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.ξ̂.x₂[I] = ξ̂yⱼ₊½ * (abs(ξ̂yⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.η̂.x₁[I] = η̂xⱼ₊½ * (abs(η̂xⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.η̂.x₂[I] = η̂yⱼ₊½ * (abs(η̂yⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.ζ̂.x₁[I] = ζ̂xⱼ₊½ * (abs(ζ̂xⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.ζ̂.x₂[I] = ζ̂yⱼ₊½ * (abs(ζ̂yⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.ξ̂.x₃[I] = ξ̂zⱼ₊½ * (abs(ξ̂zⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.η̂.x₃[I] = η̂zⱼ₊½ * (abs(η̂zⱼ₊½) >= eps())
-    mesh.edge_metrics.j₊½.ζ̂.x₃[I] = ζ̂zⱼ₊½ * (abs(ζ̂zⱼ₊½) >= eps())
+    mesh.edge_metrics.j₊½.ξ̂.x₁[I] = ξ̂xⱼ₊½ * (abs(ξ̂xⱼ₊½) >= ϵ)
+    mesh.edge_metrics.j₊½.ξ̂.x₂[I] = ξ̂yⱼ₊½ * (abs(ξ̂yⱼ₊½) >= ϵ)
+    mesh.edge_metrics.j₊½.η̂.x₁[I] = η̂xⱼ₊½ * (abs(η̂xⱼ₊½) >= ϵ)
+    mesh.edge_metrics.j₊½.η̂.x₂[I] = η̂yⱼ₊½ * (abs(η̂yⱼ₊½) >= ϵ)
+    mesh.edge_metrics.j₊½.ζ̂.x₁[I] = ζ̂xⱼ₊½ * (abs(ζ̂xⱼ₊½) >= ϵ)
+    mesh.edge_metrics.j₊½.ζ̂.x₂[I] = ζ̂yⱼ₊½ * (abs(ζ̂yⱼ₊½) >= ϵ)
+    mesh.edge_metrics.j₊½.ξ̂.x₃[I] = ξ̂zⱼ₊½ * (abs(ξ̂zⱼ₊½) >= ϵ)
+    mesh.edge_metrics.j₊½.η̂.x₃[I] = η̂zⱼ₊½ * (abs(η̂zⱼ₊½) >= ϵ)
+    mesh.edge_metrics.j₊½.ζ̂.x₃[I] = ζ̂zⱼ₊½ * (abs(ζ̂zⱼ₊½) >= ϵ)
 
     # mesh.edge_metrics.k₊½.J[I] = J
-    mesh.edge_metrics.k₊½.ξ̂.x₁[I] = ξ̂xₖ₊½ * (abs(ξ̂xₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.ξ̂.x₂[I] = ξ̂yₖ₊½ * (abs(ξ̂yₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.η̂.x₁[I] = η̂xₖ₊½ * (abs(η̂xₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.η̂.x₂[I] = η̂yₖ₊½ * (abs(η̂yₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.ζ̂.x₁[I] = ζ̂xₖ₊½ * (abs(ζ̂xₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.ζ̂.x₂[I] = ζ̂yₖ₊½ * (abs(ζ̂yₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.ξ̂.x₃[I] = ξ̂zₖ₊½ * (abs(ξ̂zₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.η̂.x₃[I] = η̂zₖ₊½ * (abs(η̂zₖ₊½) >= eps())
-    mesh.edge_metrics.k₊½.ζ̂.x₃[I] = ζ̂zₖ₊½ * (abs(ζ̂zₖ₊½) >= eps())
+    mesh.edge_metrics.k₊½.ξ̂.x₁[I] = ξ̂xₖ₊½ * (abs(ξ̂xₖ₊½) >= ϵ)
+    mesh.edge_metrics.k₊½.ξ̂.x₂[I] = ξ̂yₖ₊½ * (abs(ξ̂yₖ₊½) >= ϵ)
+    mesh.edge_metrics.k₊½.η̂.x₁[I] = η̂xₖ₊½ * (abs(η̂xₖ₊½) >= ϵ)
+    mesh.edge_metrics.k₊½.η̂.x₂[I] = η̂yₖ₊½ * (abs(η̂yₖ₊½) >= ϵ)
+    mesh.edge_metrics.k₊½.ζ̂.x₁[I] = ζ̂xₖ₊½ * (abs(ζ̂xₖ₊½) >= ϵ)
+    mesh.edge_metrics.k₊½.ζ̂.x₂[I] = ζ̂yₖ₊½ * (abs(ζ̂yₖ₊½) >= ϵ)
+    mesh.edge_metrics.k₊½.ξ̂.x₃[I] = ξ̂zₖ₊½ * (abs(ξ̂zₖ₊½) >= ϵ)
+    mesh.edge_metrics.k₊½.η̂.x₃[I] = η̂zₖ₊½ * (abs(η̂zₖ₊½) >= ϵ)
+    mesh.edge_metrics.k₊½.ζ̂.x₃[I] = ζ̂zₖ₊½ * (abs(ζ̂zₖ₊½) >= ϵ)
 
-    # ξ_xᵢ₊½, η_xᵢ₊½, ζ_xᵢ₊½, ξ_yᵢ₊½, η_yᵢ₊½, ζ_yᵢ₊½, ξ_zᵢ₊½, η_zᵢ₊½, ζ_zᵢ₊½ = mesh.metric_functions_cache.edge.Jinv_ᵢ₊½(
-    #   t, ξηζ..., params
-    # )
+    ξ_xᵢ₊½, η_xᵢ₊½, ζ_xᵢ₊½, ξ_yᵢ₊½, η_yᵢ₊½, ζ_yᵢ₊½, ξ_zᵢ₊½, η_zᵢ₊½, ζ_zᵢ₊½ = mesh.metric_functions_cache.edge.Jinvᵢ₊½(
+      t, ξηζ..., params
+    )
 
-    # mesh.edge_metrics.i₊½.ξ.x₁[I] = ifelse(
-    #   isfinite(ξ_xᵢ₊½), ξ_xᵢ₊½ * (abs(ξ_xᵢ₊½) >= eps()), zero(ξ_xᵢ₊½)
-    # )
-    # mesh.edge_metrics.i₊½.ξ.x₂[I] = ifelse(
-    #   isfinite(ξ_yᵢ₊½), ξ_yᵢ₊½ * (abs(ξ_yᵢ₊½) >= eps()), zero(ξ_yᵢ₊½)
-    # )
-    # mesh.edge_metrics.i₊½.ξ.x₃[I] = ifelse(
-    #   isfinite(ξ_zᵢ₊½), ξ_zᵢ₊½ * (abs(ξ_zᵢ₊½) >= eps()), zero(ξ_zᵢ₊½)
-    # )
-    # mesh.edge_metrics.i₊½.η.x₁[I] = ifelse(
-    #   isfinite(η_xᵢ₊½), η_xᵢ₊½ * (abs(η_xᵢ₊½) >= eps()), zero(η_xᵢ₊½)
-    # )
-    # mesh.edge_metrics.i₊½.η.x₂[I] = ifelse(
-    #   isfinite(η_yᵢ₊½), η_yᵢ₊½ * (abs(η_yᵢ₊½) >= eps()), zero(η_yᵢ₊½)
-    # )
-    # mesh.edge_metrics.i₊½.η.x₃[I] = ifelse(
-    #   isfinite(η_zᵢ₊½), η_zᵢ₊½ * (abs(η_zᵢ₊½) >= eps()), zero(η_zᵢ₊½)
-    # )
-    # mesh.edge_metrics.i₊½.ζ.x₁[I] = ifelse(
-    #   isfinite(ζ_xᵢ₊½), ζ_xᵢ₊½ * (abs(ζ_xᵢ₊½) >= eps()), zero(ζ_xᵢ₊½)
-    # )
-    # mesh.edge_metrics.i₊½.ζ.x₂[I] = ifelse(
-    #   isfinite(ζ_yᵢ₊½), ζ_yᵢ₊½ * (abs(ζ_yᵢ₊½) >= eps()), zero(ζ_yᵢ₊½)
-    # )
-    # mesh.edge_metrics.i₊½.ζ.x₃[I] = ifelse(
-    #   isfinite(ζ_zᵢ₊½), ζ_zᵢ₊½ * (abs(ζ_zᵢ₊½) >= eps()), zero(ζ_zᵢ₊½)
-    # )
+    ξ_xⱼ₊½, η_xⱼ₊½, ζ_xⱼ₊½, ξ_yⱼ₊½, η_yⱼ₊½, ζ_yⱼ₊½, ξ_zⱼ₊½, η_zⱼ₊½, ζ_zⱼ₊½ = mesh.metric_functions_cache.edge.Jinvⱼ₊½(
+      t, ξηζ..., params
+    )
 
-    # ξ_xⱼ₊½, η_xⱼ₊½, ζ_xⱼ₊½, ξ_yⱼ₊½, η_yⱼ₊½, ζ_yⱼ₊½, ξ_zⱼ₊½, η_zⱼ₊½, ζ_zⱼ₊½ = mesh.metric_functions_cache.edge.Jinv_ⱼ₊½(
-    #   t, ξηζ..., params
-    # )
+    ξ_xₖ₊½, η_xₖ₊½, ζ_xₖ₊½, ξ_yₖ₊½, η_yₖ₊½, ζ_yₖ₊½, ξ_zₖ₊½, η_zₖ₊½, ζ_zₖ₊½ = mesh.metric_functions_cache.edge.Jinvₖ₊½(
+      t, ξηζ..., params
+    )
+    #! format: off
+    mesh.edge_metrics.i₊½.ξ.x₁[I] = ifelse(isfinite(ξ_xᵢ₊½), ξ_xᵢ₊½ * (abs(ξ_xᵢ₊½) >= ϵ), zero(ξ_xᵢ₊½))
+    mesh.edge_metrics.i₊½.ξ.x₂[I] = ifelse(isfinite(ξ_yᵢ₊½), ξ_yᵢ₊½ * (abs(ξ_yᵢ₊½) >= ϵ), zero(ξ_yᵢ₊½))
+    mesh.edge_metrics.i₊½.ξ.x₃[I] = ifelse(isfinite(ξ_zᵢ₊½), ξ_zᵢ₊½ * (abs(ξ_zᵢ₊½) >= ϵ), zero(ξ_zᵢ₊½))
+    mesh.edge_metrics.i₊½.η.x₁[I] = ifelse(isfinite(η_xᵢ₊½), η_xᵢ₊½ * (abs(η_xᵢ₊½) >= ϵ), zero(η_xᵢ₊½))
+    mesh.edge_metrics.i₊½.η.x₂[I] = ifelse(isfinite(η_yᵢ₊½), η_yᵢ₊½ * (abs(η_yᵢ₊½) >= ϵ), zero(η_yᵢ₊½))
+    mesh.edge_metrics.i₊½.η.x₃[I] = ifelse(isfinite(η_zᵢ₊½), η_zᵢ₊½ * (abs(η_zᵢ₊½) >= ϵ), zero(η_zᵢ₊½))
+    mesh.edge_metrics.i₊½.ζ.x₁[I] = ifelse(isfinite(ζ_xᵢ₊½), ζ_xᵢ₊½ * (abs(ζ_xᵢ₊½) >= ϵ), zero(ζ_xᵢ₊½))
+    mesh.edge_metrics.i₊½.ζ.x₂[I] = ifelse(isfinite(ζ_yᵢ₊½), ζ_yᵢ₊½ * (abs(ζ_yᵢ₊½) >= ϵ), zero(ζ_yᵢ₊½))
+    mesh.edge_metrics.i₊½.ζ.x₃[I] = ifelse(isfinite(ζ_zᵢ₊½), ζ_zᵢ₊½ * (abs(ζ_zᵢ₊½) >= ϵ), zero(ζ_zᵢ₊½))
 
-    # mesh.edge_metrics.j₊½.ξ.x₁[I] = ifelse(
-    #   isfinite(ξ_xⱼ₊½), ξ_xⱼ₊½ * (abs(ξ_xⱼ₊½) >= eps()), zero(ξ_xⱼ₊½)
-    # )
-    # mesh.edge_metrics.j₊½.ξ.x₂[I] = ifelse(
-    #   isfinite(ξ_yⱼ₊½), ξ_yⱼ₊½ * (abs(ξ_yⱼ₊½) >= eps()), zero(ξ_yⱼ₊½)
-    # )
-    # mesh.edge_metrics.j₊½.ξ.x₃[I] = ifelse(
-    #   isfinite(ξ_zⱼ₊½), ξ_zⱼ₊½ * (abs(ξ_zⱼ₊½) >= eps()), zero(ξ_zⱼ₊½)
-    # )
-    # mesh.edge_metrics.j₊½.η.x₁[I] = ifelse(
-    #   isfinite(η_xⱼ₊½), η_xⱼ₊½ * (abs(η_xⱼ₊½) >= eps()), zero(η_xⱼ₊½)
-    # )
-    # mesh.edge_metrics.j₊½.η.x₂[I] = ifelse(
-    #   isfinite(η_yⱼ₊½), η_yⱼ₊½ * (abs(η_yⱼ₊½) >= eps()), zero(η_yⱼ₊½)
-    # )
-    # mesh.edge_metrics.j₊½.η.x₃[I] = ifelse(
-    #   isfinite(η_zⱼ₊½), η_zⱼ₊½ * (abs(η_zⱼ₊½) >= eps()), zero(η_zⱼ₊½)
-    # )
-    # mesh.edge_metrics.j₊½.ζ.x₁[I] = ifelse(
-    #   isfinite(ζ_xⱼ₊½), ζ_xⱼ₊½ * (abs(ζ_xⱼ₊½) >= eps()), zero(ζ_xⱼ₊½)
-    # )
-    # mesh.edge_metrics.j₊½.ζ.x₂[I] = ifelse(
-    #   isfinite(ζ_yⱼ₊½), ζ_yⱼ₊½ * (abs(ζ_yⱼ₊½) >= eps()), zero(ζ_yⱼ₊½)
-    # )
-    # mesh.edge_metrics.j₊½.ζ.x₃[I] = ifelse(
-    #   isfinite(ζ_zⱼ₊½), ζ_zⱼ₊½ * (abs(ζ_zⱼ₊½) >= eps()), zero(ζ_zⱼ₊½)
-    # )
 
-    # ξ_xₖ₊½, η_xₖ₊½, ζ_xₖ₊½, ξ_yₖ₊½, η_yₖ₊½, ζ_yₖ₊½, ξ_zₖ₊½, η_zₖ₊½, ζ_zₖ₊½ = mesh.metric_functions_cache.edge.Jinv_ₖ₊½(
-    #   t, ξηζ..., params
-    # )
+    mesh.edge_metrics.j₊½.ξ.x₁[I] = ifelse(isfinite(ξ_xⱼ₊½), ξ_xⱼ₊½ * (abs(ξ_xⱼ₊½) >= ϵ), zero(ξ_xⱼ₊½))
+    mesh.edge_metrics.j₊½.ξ.x₂[I] = ifelse(isfinite(ξ_yⱼ₊½), ξ_yⱼ₊½ * (abs(ξ_yⱼ₊½) >= ϵ), zero(ξ_yⱼ₊½))
+    mesh.edge_metrics.j₊½.ξ.x₃[I] = ifelse(isfinite(ξ_zⱼ₊½), ξ_zⱼ₊½ * (abs(ξ_zⱼ₊½) >= ϵ), zero(ξ_zⱼ₊½))
+    mesh.edge_metrics.j₊½.η.x₁[I] = ifelse(isfinite(η_xⱼ₊½), η_xⱼ₊½ * (abs(η_xⱼ₊½) >= ϵ), zero(η_xⱼ₊½))
+    mesh.edge_metrics.j₊½.η.x₂[I] = ifelse(isfinite(η_yⱼ₊½), η_yⱼ₊½ * (abs(η_yⱼ₊½) >= ϵ), zero(η_yⱼ₊½))
+    mesh.edge_metrics.j₊½.η.x₃[I] = ifelse(isfinite(η_zⱼ₊½), η_zⱼ₊½ * (abs(η_zⱼ₊½) >= ϵ), zero(η_zⱼ₊½))
+    mesh.edge_metrics.j₊½.ζ.x₁[I] = ifelse(isfinite(ζ_xⱼ₊½), ζ_xⱼ₊½ * (abs(ζ_xⱼ₊½) >= ϵ), zero(ζ_xⱼ₊½))
+    mesh.edge_metrics.j₊½.ζ.x₂[I] = ifelse(isfinite(ζ_yⱼ₊½), ζ_yⱼ₊½ * (abs(ζ_yⱼ₊½) >= ϵ), zero(ζ_yⱼ₊½))
+    mesh.edge_metrics.j₊½.ζ.x₃[I] = ifelse(isfinite(ζ_zⱼ₊½), ζ_zⱼ₊½ * (abs(ζ_zⱼ₊½) >= ϵ), zero(ζ_zⱼ₊½))
 
-    # mesh.edge_metrics.k₊½.ξ.x₁[I] = ifelse(
-    #   isfinite(ξ_xₖ₊½), ξ_xₖ₊½ * (abs(ξ_xₖ₊½) >= eps()), zero(ξ_xₖ₊½)
-    # )
-    # mesh.edge_metrics.k₊½.ξ.x₂[I] = ifelse(
-    #   isfinite(ξ_yₖ₊½), ξ_yₖ₊½ * (abs(ξ_yₖ₊½) >= eps()), zero(ξ_yₖ₊½)
-    # )
-    # mesh.edge_metrics.k₊½.ξ.x₃[I] = ifelse(
-    #   isfinite(ξ_zₖ₊½), ξ_zₖ₊½ * (abs(ξ_zₖ₊½) >= eps()), zero(ξ_zₖ₊½)
-    # )
-    # mesh.edge_metrics.k₊½.η.x₁[I] = ifelse(
-    #   isfinite(η_xₖ₊½), η_xₖ₊½ * (abs(η_xₖ₊½) >= eps()), zero(η_xₖ₊½)
-    # )
-    # mesh.edge_metrics.k₊½.η.x₂[I] = ifelse(
-    #   isfinite(η_yₖ₊½), η_yₖ₊½ * (abs(η_yₖ₊½) >= eps()), zero(η_yₖ₊½)
-    # )
-    # mesh.edge_metrics.k₊½.η.x₃[I] = ifelse(
-    #   isfinite(η_zₖ₊½), η_zₖ₊½ * (abs(η_zₖ₊½) >= eps()), zero(η_zₖ₊½)
-    # )
-    # mesh.edge_metrics.k₊½.ζ.x₁[I] = ifelse(
-    #   isfinite(ζ_xₖ₊½), ζ_xₖ₊½ * (abs(ζ_xₖ₊½) >= eps()), zero(ζ_xₖ₊½)
-    # )
-    # mesh.edge_metrics.k₊½.ζ.x₂[I] = ifelse(
-    #   isfinite(ζ_yₖ₊½), ζ_yₖ₊½ * (abs(ζ_yₖ₊½) >= eps()), zero(ζ_yₖ₊½)
-    # )
-    # mesh.edge_metrics.k₊½.ζ.x₃[I] = ifelse(
-    #   isfinite(ζ_zₖ₊½), ζ_zₖ₊½ * (abs(ζ_zₖ₊½) >= eps()), zero(ζ_zₖ₊½)
-    # )
+
+    mesh.edge_metrics.k₊½.ξ.x₁[I] = ifelse(isfinite(ξ_xₖ₊½), ξ_xₖ₊½ * (abs(ξ_xₖ₊½) >= ϵ), zero(ξ_xₖ₊½))
+    mesh.edge_metrics.k₊½.ξ.x₂[I] = ifelse(isfinite(ξ_yₖ₊½), ξ_yₖ₊½ * (abs(ξ_yₖ₊½) >= ϵ), zero(ξ_yₖ₊½))
+    mesh.edge_metrics.k₊½.ξ.x₃[I] = ifelse(isfinite(ξ_zₖ₊½), ξ_zₖ₊½ * (abs(ξ_zₖ₊½) >= ϵ), zero(ξ_zₖ₊½))
+    mesh.edge_metrics.k₊½.η.x₁[I] = ifelse(isfinite(η_xₖ₊½), η_xₖ₊½ * (abs(η_xₖ₊½) >= ϵ), zero(η_xₖ₊½))
+    mesh.edge_metrics.k₊½.η.x₂[I] = ifelse(isfinite(η_yₖ₊½), η_yₖ₊½ * (abs(η_yₖ₊½) >= ϵ), zero(η_yₖ₊½))
+    mesh.edge_metrics.k₊½.η.x₃[I] = ifelse(isfinite(η_zₖ₊½), η_zₖ₊½ * (abs(η_zₖ₊½) >= ϵ), zero(η_zₖ₊½))
+    mesh.edge_metrics.k₊½.ζ.x₁[I] = ifelse(isfinite(ζ_xₖ₊½), ζ_xₖ₊½ * (abs(ζ_xₖ₊½) >= ϵ), zero(ζ_xₖ₊½))
+    mesh.edge_metrics.k₊½.ζ.x₂[I] = ifelse(isfinite(ζ_yₖ₊½), ζ_yₖ₊½ * (abs(ζ_yₖ₊½) >= ϵ), zero(ζ_yₖ₊½))
+    mesh.edge_metrics.k₊½.ζ.x₃[I] = ifelse(isfinite(ζ_zₖ₊½), ζ_zₖ₊½ * (abs(ζ_zₖ₊½) >= ϵ), zero(ζ_zₖ₊½))
+    #! format: on
   end
 
   return nothing

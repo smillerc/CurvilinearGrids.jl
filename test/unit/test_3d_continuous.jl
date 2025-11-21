@@ -66,6 +66,19 @@ using CurvilinearGrids,
   nothing
 end
 
+# begin
+#   ξηζ = (
+#     (
+#       0.0,
+#       (mesh.iterators.global_domain.cell.full[I].I .- mesh.iterators.nhalo .+ (1 / 2))...,
+#       params,
+#     ) for I in mesh.iterators.cell.full
+#   )
+#   ξηζ
+
+#   mesh.metric_functions_cache.edge.ξ̂xᵢ₊½(first(ξηζ))
+# end
+
 @testset "Sphere Sector ContinuousCurvilinearGrid3D" begin
   function get_sector_parameters()
     celldims = (40, 40, 40)
