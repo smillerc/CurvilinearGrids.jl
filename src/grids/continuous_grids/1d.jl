@@ -66,8 +66,8 @@ function ContinuousCurvilinearGrid1D(
   compute_centroid_coordinates!(mesh, t, mapping_function_parameters)
 
   if compute_metrics
-    compute_cell_metrics!(mesh)
-    compute_edge_metrics!(mesh)
+    compute_cell_metrics!(mesh, t, mapping_function_parameters)
+    compute_edge_metrics!(mesh, t, mapping_function_parameters)
   end
 
   return mesh
@@ -102,7 +102,7 @@ function compute_centroid_coordinates!(mesh::ContinuousCurvilinearGrid1D, t, par
   return nothing
 end
 
-function compute_cell_metrics!(mesh::ContinuousCurvilinearGrid1D)
+function compute_cell_metrics!(mesh::ContinuousCurvilinearGrid1D, t, params)
   nhalo = mesh.iterators.nhalo
 
   @threads for I in mesh.iterators.cell.full
@@ -110,16 +110,16 @@ function compute_cell_metrics!(mesh::ContinuousCurvilinearGrid1D)
     # account for halo cells and centroid offset
     ξη = Iglobal.I .- nhalo .+ 0.5 # centroid
 
-    jac_matrix = mesh.metric_functions_cache.forward.jacobian(ξη...)
+    jac_matrix = mesh.metric_functions_cache.forward.jacobian(t, ξη..., params)
     J = det(jac_matrix)
 
     xξ, = jac_matrix
-    ξx, = mesh.metric_functions_cache.inverse.Jinv(ξη...)
+    ξx, = mesh.metric_functions_cache.inverse.Jinv(t, ξη..., params)
 
-    mesh.cell_center_metrics.J[i] = J
-    mesh.cell_center_metrics.x₁.ξ[i] = xξ
-    mesh.cell_center_metrics.ξ.x₁[i] = ξx
-    mesh.cell_center_metrics.ξ̂.x₁[i] = ξx * J
+    mesh.cell_center_metrics.J[I] = J
+    mesh.cell_center_metrics.x₁.ξ[I] = xξ
+    mesh.cell_center_metrics.ξ.x₁[I] = ξx
+    mesh.cell_center_metrics.ξ̂.x₁[I] = ξx * J
   end
 
   if any(mesh.cell_center_metrics.J .<= 0)
@@ -127,7 +127,7 @@ function compute_cell_metrics!(mesh::ContinuousCurvilinearGrid1D)
   end
 end
 
-function compute_edge_metrics!(mesh::ContinuousCurvilinearGrid1D)
+function compute_edge_metrics!(mesh::ContinuousCurvilinearGrid1D, t, params)
   nhalo = mesh.iterators.nhalo
 
   # Jᵢ₊½,  = edge_functions_2d(mesh.metric_functions_cache.forward.J, mesh.diff_backend)
@@ -142,11 +142,11 @@ function compute_edge_metrics!(mesh::ContinuousCurvilinearGrid1D)
     ξη = Iglobal.I .- nhalo .+ 0.5 # centroid
 
     # J = Jᵢ₊½(ξη...)
-    ξ_xᵢ₊½, = Jinv_ᵢ₊½(ξη...)
-    ξ̂_xᵢ₊½, = norm_Jinv_ᵢ₊½(ξη...)
+    ξ_xᵢ₊½, = Jinv_ᵢ₊½(t, ξη..., params)
+    ξ̂_xᵢ₊½, = norm_Jinv_ᵢ₊½(t, ξη..., params)
 
-    mesh.edge_metrics.i₊½.ξ̂.x₁[i] = ξ̂_xᵢ₊½
-    mesh.edge_metrics.i₊½.ξ.x₁[i] = ξ_xᵢ₊½
+    mesh.edge_metrics.i₊½.ξ̂.x₁[I] = ξ̂_xᵢ₊½
+    mesh.edge_metrics.i₊½.ξ.x₁[I] = ξ_xᵢ₊½
   end
 
   return nothing

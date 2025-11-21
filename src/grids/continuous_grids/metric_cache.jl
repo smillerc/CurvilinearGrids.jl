@@ -291,7 +291,7 @@ end
 1D metric cache
 """
 function MetricCache(x::Function, backend)
-  xξ(t, i, p) = derivative(ξ -> x(ξ), backend, i)
+  xξ(t, i, p) = derivative(ξ -> x(t, ξ, p), backend, i)
 
   jacobian_matrix(t, i, p) = @SMatrix [xξ(t, i, p)]
 

@@ -1,27 +1,47 @@
 
-function uniform_mapping(xmin, xmax, ymin, ymax, ncells::NTuple{2,Int})
-  ni, nj = ncells
+function wavy_params()
+  celldims = (401, 401)
+  ni, nj = celldims
+  Lx = Ly = 12
 
-  Δx = (xmax - xmin) / ni
-  Δy = (ymax - ymin) / nj
+  xmin = -Lx / 2
+  ymin = -Ly / 2
 
-  params = (; Δx, Δy, xmin, xmax, ymin, ymax)
+  Δx0 = Lx / ni
+  Δy0 = Ly / nj
 
+  Ax = 0.25 / Δx0
+  Ay = 0.5 / Δy0
+
+  n = 0.5
+
+  params = (; Lx, Ly, xmin, ymin, Δx0, Δy0, Ax, Ay, n)
+
+  return params, celldims
+end
+
+function wavy_mapping()
   function x(t, i, j, p)
-    @unpack Δx = p
-    return xmin + (i - 1) * Δx
+    @unpack xmin, Ax, Δy0, Δx0 = p
+
+    return xmin + Δx0 * ((i - 1) + Ax * sinpi(n * (j - 1) * Δy0))
   end
 
   function y(t, i, j, p)
-    @unpack Δy = p
-    return ymin + (j - 1) * Δy
+    @unpack ymin, Ay, Δy0, Δx0 = p
+
+    return ymin + Δy0 * ((j - 1) + Ay * sinpi(n * (i - 1) * Δx0))
   end
 
-  return (x, y, params)
+  return x, y
 end
 
-function cylindrical_sector_mapping(rmin, rmax, θmin, θmax, ncells::NTuple{2,Int})
-  ni, nj = ncells
+function cylindrical_params()
+  celldims = (41, 41)
+  ni, nj = celldims
+
+  rmin, rmax = 1.0, 4.0
+  θmin, θmax = deg2rad(5), deg2rad(25)   # narrow polar band around equator
 
   # Uniform spacings
   Δr = (rmax - rmin) / ni
@@ -29,6 +49,10 @@ function cylindrical_sector_mapping(rmin, rmax, θmin, θmax, ncells::NTuple{2,I
 
   params = (; Δr, Δθ, rmax, rmin, θmax, θmin)
 
+  return params, celldims
+end
+
+function cylindrical_mapping()
   function x(t, i, j, p)
     @unpack rmin, θmin, Δr, Δθ = p
     r(i) = (rmin + (i - 1) * Δr)
@@ -46,45 +70,12 @@ function cylindrical_sector_mapping(rmin, rmax, θmin, θmax, ncells::NTuple{2,I
     return r(i) * sin(θ(j))
   end
 
-  return (x, y, params)
-end
-
-function wavy_mapping(ncells::NTuple{2,Int})
-  ni, nj = ncells
-  Lx = Ly = 12
-
-  xmin = -Lx / 2
-  ymin = -Ly / 2
-
-  Δx0 = Lx / ni
-  Δy0 = Ly / nj
-
-  Ax = 0.25 / Δx0
-  Ay = 0.5 / Δy0
-
-  n = 0.5
-
-  params = (; Lx, Ly, xmin, ymin, Δx0, Δy0, Ax, Ay, n)
-
-  function x(t, i, j, p)
-    @unpack xmin, Ax, Δy0, Δx0 = p
-
-    return xmin + Δx0 * ((i - 1) + Ax * sinpi(n * (j - 1) * Δy0))
-  end
-
-  function y(t, i, j, p)
-    @unpack ymin, Ay, Δy0, Δx0 = p
-
-    return ymin + Δy0 * ((j - 1) + Ay * sinpi(n * (i - 1) * Δx0))
-  end
-
-  return (x, y, params)
+  return x, y
 end
 
 @testset "Wavy ContinuousCurvilinearGrid2D" begin
-  ncells = (401, 401)
-
-  (x, y, params) = wavy_mapping(ncells)
+  params, celldims = wavy_params()
+  x, y = wavy_mapping()
 
   @unpack Lx, Ly, xmin, ymin, Δx0, Δy0, Ax, Ay, n = params
   params_2 = (; Lx, Ly, xmin, ymin, Δx0, Δy0, Ax=2Ax, Ay=0.5Ay, n)
@@ -92,7 +83,7 @@ end
   mesh = ContinuousCurvilinearGrid2D(x, y, params, ncells, :meg6, CPU())
 
   t, i, j = (0, 10, 20)
-  c1 = coord(mesh, t, i, j)
+  c1 = coord(mesh, t, i, j, params)
   # @show c1
   # save_vtk(mesh, "wavy_2d_ad_t1")
   I1, I2 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
@@ -102,9 +93,9 @@ end
   @test all(abs.(extrema(I1)) .< 1e-14)
   @test all(abs.(extrema(I2)) .< 1e-14)
 
-  CurvilinearGrids.GridTypes.update_mapping_functions!(mesh, t, params_2)
+  CurvilinearGrids.GridTypes.update!(mesh, t, params_2)
 
-  c2 = coord(mesh, t, i, j)
+  c2 = coord(mesh, t, i, j, params_2)
 
   @test !isapprox(c1, c2)
   # @show c2
@@ -121,13 +112,8 @@ end
 end
 
 @testset "Cylindrical Sector ContinuousCurvilinearGrid2D" begin
-  nhalo = 5
-  nr, nθ = 41, 41
-  celldims = (nr, nθ)
-  rmin, rmax = 1.0, 4.0
-  θmin, θmax = deg2rad(5), deg2rad(25)   # narrow polar band around equator
-
-  (x, y, params) = cylindrical_sector_mapping(rmin, rmax, θmin, θmax, celldims)
+  params, celldims = cylindrical_params()
+  x, y = cylindrical_mapping()
 
   mesh = ContinuousCurvilinearGrid2D(x, y, params, celldims, :meg6, CPU())
   I1, I2 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
@@ -138,12 +124,40 @@ end
 end
 
 @testset "Uniform ContinuousCurvilinearGrid2D" begin
-  x0, x1 = (0.0, 2.0)
-  y0, y1 = (1, 3)
-  celldims = (40, 80)
-  (x, y, params) = uniform_mapping(x0, x1, y0, y1, celldims)
+  function get_uniform_mapping()
+    function x(t, i, j, p)
+      @unpack xmin, Δx = p
+      return xmin + (i - 1) * Δx
+    end
 
-  mesh = ContinuousCurvilinearGrid2D(x, y, params, celldims, :meg6, CPU())
+    function y(t, i, j, p)
+      @unpack ymin, Δy = p
+      return ymin + (j - 1) * Δy
+    end
+
+    return x, y
+  end
+
+  function get_uniform_params()
+    celldims = (40, 80)
+    xmin, xmax = (0.0, 2.0)
+    ymin, ymax = (1, 3)
+
+    ni, nj = celldims
+
+    Δx = (xmax - xmin) / ni
+    Δy = (ymax - ymin) / nj
+
+    params = (; xmin, ymin, Δx, Δy)
+    return params, celldims
+  end
+
+  params, celldims = get_uniform_params()
+  x, y = get_uniform_mapping()
+
+  backend = AutoForwardDiff()
+  mesh = ContinuousCurvilinearGrid2D(x, y, params, celldims, :meg6, CPU(), backend)
+
   I1, I2 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
   @test all(abs.(extrema(I1)) .< eps())
   @test all(abs.(extrema(I2)) .< eps())
@@ -192,24 +206,16 @@ end
 end
 
 @testset "ContinuousCurvilinearGrid2D vs CurvilinearGrid2D" begin
-  nhalo = 5
-  nr, nθ = 50, 51
-  celldims = (nr, nθ)
+  params, celldims = cylindrical_params()
+  x, y = cylindrical_mapping()
 
-  rmin, rmax = (0.0400, 0.05500)
-
-  θmin, θmax = ((5, 25) .|> deg2rad)
-
-  (x, y, params) = cylindrical_sector_mapping(rmin, rmax, θmin, θmax, celldims)
-
-  @info "ContinuousCurvilinearGrid2D"
   cm = ContinuousCurvilinearGrid2D(x, y, params, celldims, :meg6, CPU())
 
   I1, I2 = CurvilinearGrids.GridTypes.gcl(cm.edge_metrics, cm.iterators.cell.domain)
   # @show extrema(I1)
   # @show extrema(I2)
-  @test all(abs.(extrema(I1)) .< eps())
-  @test all(abs.(extrema(I2)) .< eps())
+  @test all(abs.(extrema(I1)) .< 1e-14)
+  @test all(abs.(extrema(I2)) .< 1e-14)
   # CurvilinearGrids.save_vtk(cm, "cylindrical_sector_ad")
 
   @info "CurvilinearGrid2D"
@@ -219,8 +225,8 @@ end
   I1, I2 = CurvilinearGrids.GridTypes.gcl(dm.edge_metrics, dm.iterators.cell.domain)
   # @show extrema(I1)
   # @show extrema(I2)
-  @test all(abs.(extrema(I1)) .< eps())
-  @test all(abs.(extrema(I2)) .< eps())
+  @test all(abs.(extrema(I1)) .< 1e-14)
+  @test all(abs.(extrema(I2)) .< 1e-14)
   # CurvilinearGrids.save_vtk(dm, "cylindrical_sector_meg")
 
   dom = cm.iterators.cell.domain

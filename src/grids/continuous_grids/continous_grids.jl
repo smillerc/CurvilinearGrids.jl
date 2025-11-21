@@ -58,15 +58,12 @@ include("conserved_metrics.jl")
 include("edge_interpolation.jl")
 include("cell_center_derivs.jl")
 
-function update_mapping_functions!(mesh, t, new_params, compute_metrics=true)
-  mesh.mapping_function_params = new_params
+function update!(mesh, t, new_params)
   compute_node_coordinates!(mesh, t, new_params)
   compute_centroid_coordinates!(mesh, t, new_params)
 
-  if compute_metrics
-    compute_cell_metrics!(mesh, t, new_params)
-    compute_edge_metrics!(mesh, t, new_params)
-  end
+  compute_cell_metrics!(mesh, t, new_params)
+  compute_edge_metrics!(mesh, t, new_params)
 
   return nothing
 end

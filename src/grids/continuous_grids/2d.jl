@@ -71,21 +71,19 @@ function ContinuousCurvilinearGrid2D(
   return mesh
 end
 
-function coord(mesh::ContinuousCurvilinearGrid2D, t, i, j)
+function coord(mesh::ContinuousCurvilinearGrid2D, t, i, j, params)
   ξη = (i, j) .- mesh.nhalo
 
   return @SVector [
-    mesh.mapping_functions.x(t, ξη..., mesh.mapping_function_params),
-    mesh.mapping_functions.y(t, ξη..., mesh.mapping_function_params),
+    mesh.mapping_functions.x(t, ξη..., params), mesh.mapping_functions.y(t, ξη..., params)
   ]
 end
 
-function centroid(mesh::ContinuousCurvilinearGrid2D, t, i, j)
+function centroid(mesh::ContinuousCurvilinearGrid2D, t, i, j, params)
   ξη = (i, j) .- mesh.nhalo .+ 0.5
 
   return @SVector [
-    mesh.mapping_functions.x(t, ξη..., mesh.mapping_function_params),
-    mesh.mapping_functions.y(t, ξη..., mesh.mapping_function_params),
+    mesh.mapping_functions.x(t, ξη..., params), mesh.mapping_functions.y(t, ξη..., params)
   ]
 end
 

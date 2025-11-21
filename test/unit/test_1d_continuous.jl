@@ -1,25 +1,32 @@
 
-function uniform_mapping(xmin, xmax, ncells::NTuple{1,Int})
-  ni, = ncells
+@testset "Uniform ContinuousCurvilinearGrid1D" begin
+  function get_uniform_mapping()
+    function x(t, i, p)
+      @unpack xmin, Δx = p
+      return xmin + (i - 1) * Δx
+    end
 
-  Δx = (xmax - xmin) / ni
-
-  params = (; Δx, xmin)
-  function x(t, i, p)
-    @unpack xmin, Δx = p
-    return xmin + (i - 1) * Δx
+    return x
   end
 
-  return (x, params)
-end
+  function get_uniform_params()
+    celldims = (40,)
+    xmin, xmax = (0.0, 2.0)
 
-@testset "Uniform ContinuousCurvilinearGrid1D" begin
-  x0, x1 = (0.0, 2.0)
+    ni, = celldims
 
-  celldims = (40,)
-  x, params = uniform_mapping(x0, x1, celldims)
+    Δx = (xmax - xmin) / ni
 
-  mesh = ContinuousCurvilinearGrid1D(x, params, celldims, :meg6, CPU())
+    params = (; xmin, Δx)
+    return params, celldims
+  end
+
+  params, celldims = get_uniform_params()
+  x = get_uniform_mapping()
+
+  backend = AutoForwardDiff()
+  mesh = ContinuousCurvilinearGrid1D(x, params, celldims, :meg6, CPU(), backend)
+
   I1 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
   @test all(abs.(extrema(I1)) .< eps())
 

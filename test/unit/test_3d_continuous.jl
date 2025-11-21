@@ -160,7 +160,7 @@ end
       return zmin + (k - 1) * Δz
     end
 
-    return (x, y, z, params)
+    return x, y, z
   end
 
   function get_uniform_params()
