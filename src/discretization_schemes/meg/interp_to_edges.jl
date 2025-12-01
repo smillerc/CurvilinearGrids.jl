@@ -28,8 +28,8 @@ function interpolate_to_edge!(
 
   ∂ϕ = scheme.cache.∂ϕ
   ∂²ϕ = scheme.cache.∂²ϕ
-  compute_first_derivatives!(scheme, ∂ϕ, ϕ, axis, domain, backend)
-  compute_second_derivatives!(scheme, ∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, domain, backend)
+  compute_first_derivatives!(scheme, ∂ϕ, ϕ, axis, domain, backend, true)
+  compute_second_derivatives!(scheme, ∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, domain, backend, true)
 
   if size(domain) == size(ϕ)
     inner_domain = expand(domain, axis, -1)
