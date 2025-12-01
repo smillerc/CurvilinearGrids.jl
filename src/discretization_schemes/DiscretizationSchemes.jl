@@ -61,7 +61,7 @@ inner_domain_with_one_sided_edges(::MonotoneExplicitGradientScheme{6}, ∂domain
 
 #! format: on
 """
-    compute_first_derivatives!(scheme::DiscretizationScheme, ∂ϕ, ϕ, axis, derivative_domain, backend; use_one_sided_on_edges=true)
+    compute_first_derivatives!(scheme::DiscretizationScheme, ∂ϕ, ϕ, axis, derivative_domain, backend, use_one_sided_on_edges)
 
 Compute the 1st derivative `∂ϕ` of `ϕ` () along the given `axis`. The order of the scheme determines how many padded halo cells around the edges are to be used. When `use_one_sided_on_edges`
 is `true`, one-sided derivatives will be used along the edges. If `false`, central derivatives will be everywhere, so if the data
@@ -73,8 +73,8 @@ function compute_first_derivatives!(
   ϕ::AbstractArray{T,N},
   axis,
   domain,
-  backend;
-  use_one_sided_on_edges=true,
+  backend,
+  use_one_sided_on_edges::Bool,
   floor=eps(T),
 ) where {T,N}
   if use_one_sided_on_edges
@@ -100,7 +100,7 @@ function compute_first_derivatives!(
 end
 
 """
-    compute_second_derivatives!(scheme::DiscretizationScheme, ∂²ϕ, ∂ϕ, ϕ, axis, derivative_domain, backend; use_one_sided_on_edges=true)
+    compute_second_derivatives!(scheme::DiscretizationScheme, ∂²ϕ, ∂ϕ, ϕ, axis, derivative_domain, backend, use_one_sided_on_edges)
 
 Compute the 2nd derivative `∂²ϕ` of `ϕ` () along the given `axis`. The order of the scheme determines how many padded halo cells around the edges are to be used. When `use_one_sided_on_edges`
 is `true`, one-sided derivatives will be used along the edges. If `false`, central derivatives will be everywhere, so if the data
@@ -113,8 +113,8 @@ function compute_second_derivatives!(
   ϕ::AbstractArray{T,N},
   axis,
   derivative_domain,
-  backend;
-  use_one_sided_on_edges=true,
+  backend,
+  use_one_sided_on_edges::Bool,
   floor=eps(T),
 ) where {T,N}
   if use_one_sided_on_edges

@@ -27,10 +27,10 @@ function cell_center_derivatives!(
 
   if compute_gradients
     compute_first_derivatives!(
-      scheme, ∂ϕ, ϕ, axis, inner_cell_domain, backend; use_one_sided_on_edges=true
+      scheme, ∂ϕ, ϕ, axis, inner_cell_domain, backend, use_one_sided_on_edges
     )
     compute_second_derivatives!(
-      scheme, ∂²ϕ, ∂ϕ, ϕ, axis, inner_cell_domain, backend; use_one_sided_on_edges=true
+      scheme, ∂²ϕ, ∂ϕ, ϕ, axis, inner_cell_domain, backend, use_one_sided_on_edges
     )
   end
 

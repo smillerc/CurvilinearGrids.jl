@@ -79,24 +79,25 @@ end
 
     backend = get_backend(x)
 
+    use_one_sided_on_edges = false
     compute_first_derivatives!(
-      meg, ∂x_∂ξ, x, iaxis, ∂domain, backend; use_one_sided_on_edges=false
+      meg, ∂x_∂ξ, x, iaxis, ∂domain, backend, use_one_sided_on_edges
     )
     compute_first_derivatives!(
-      meg, ∂y_∂η, y, jaxis, ∂domain, backend; use_one_sided_on_edges=false
+      meg, ∂y_∂η, y, jaxis, ∂domain, backend, use_one_sided_on_edges
     )
     compute_first_derivatives!(
-      meg, ∂z_∂ζ, z, kaxis, ∂domain, backend; use_one_sided_on_edges=false
+      meg, ∂z_∂ζ, z, kaxis, ∂domain, backend, use_one_sided_on_edges
     )
 
     compute_second_derivatives!(
-      meg, ∂²x_∂ξ², ∂x_∂ξ, x, iaxis, ∂²domain, backend; use_one_sided_on_edges=false
+      meg, ∂²x_∂ξ², ∂x_∂ξ, x, iaxis, ∂²domain, backend, use_one_sided_on_edges
     )
     compute_second_derivatives!(
-      meg, ∂²y_∂η², ∂y_∂η, y, jaxis, ∂²domain, backend; use_one_sided_on_edges=false
+      meg, ∂²y_∂η², ∂y_∂η, y, jaxis, ∂²domain, backend, use_one_sided_on_edges
     )
     compute_second_derivatives!(
-      meg, ∂²z_∂ζ², ∂z_∂ζ, z, kaxis, ∂²domain, backend; use_one_sided_on_edges=false
+      meg, ∂²z_∂ζ², ∂z_∂ζ, z, kaxis, ∂²domain, backend, use_one_sided_on_edges
     )
 
     @test all(∂x_∂ξ[∂domain] .≈ 1.0)
@@ -109,15 +110,17 @@ end
     # #   Now use one-sided edge derivatives
 
     if order == 6
+      use_one_sided_on_edges = true
+
       x, y, z, ∂x_∂ξ, ∂y_∂η, ∂z_∂ζ, ∂²x_∂ξ², ∂²y_∂η², ∂²z_∂ζ² = init_xyz(celldims)
       compute_first_derivatives!(
-        meg, ∂x_∂ξ, x, iaxis, ∂domain, backend; use_one_sided_on_edges=true
+        meg, ∂x_∂ξ, x, iaxis, ∂domain, backend, use_one_sided_on_edges
       )
       compute_first_derivatives!(
-        meg, ∂y_∂η, y, jaxis, ∂domain, backend; use_one_sided_on_edges=true
+        meg, ∂y_∂η, y, jaxis, ∂domain, backend, use_one_sided_on_edges
       )
       compute_first_derivatives!(
-        meg, ∂z_∂ζ, z, kaxis, ∂domain, backend; use_one_sided_on_edges=true
+        meg, ∂z_∂ζ, z, kaxis, ∂domain, backend, use_one_sided_on_edges
       )
 
       floor = 1e-14
@@ -128,8 +131,8 @@ end
         x,
         iaxis,
         ∂²domain,
-        backend;
-        use_one_sided_on_edges=true,
+        backend,
+        use_one_sided_on_edges;
         floor=floor,
       )
       compute_second_derivatives!(
@@ -139,8 +142,8 @@ end
         y,
         jaxis,
         ∂²domain,
-        backend;
-        use_one_sided_on_edges=true,
+        backend,
+        use_one_sided_on_edges;
         floor=floor,
       )
       compute_second_derivatives!(
@@ -150,8 +153,8 @@ end
         z,
         kaxis,
         ∂²domain,
-        backend;
-        use_one_sided_on_edges=true,
+        backend,
+        use_one_sided_on_edges;
         floor=floor,
       )
 
