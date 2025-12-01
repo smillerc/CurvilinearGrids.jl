@@ -73,6 +73,7 @@ function central_first_derivative_inner_domain_kernel!(
     ᵢ₋₃ = shift(I, axis, -3)
     ᵢ₋₄ = shift(I, axis, -4)
 
+
     ∂W[I] = central_derivative(
       W[ᵢ₋₄], W[ᵢ₋₃], W[ᵢ₋₂], W[ᵢ₋₁], W[ᵢ₊₁], W[ᵢ₊₂], W[ᵢ₊₃], W[ᵢ₊₄]
     )
@@ -86,7 +87,7 @@ function central_first_derivative_inner_domain_kernel!(
 )
 
   #
-  @kernel inbounds = true function _kernel(∂ϕ, ϕ, iaxis, ∂domain, floor)
+  @kernel inbounds = true function _kernel(∂ϕ, ϕ, iaxis, ∂domain)
     idx = @index(Global, Linear)
     I = ∂domain[idx]
 
@@ -96,7 +97,7 @@ function central_first_derivative_inner_domain_kernel!(
     ∂ϕ[I] = central_derivative(ϕ[ᵢ₋₁], ϕ[ᵢ₊₁])
   end
 
-  _kernel(backend)(∂W, W, iaxis, ∂domain; ndrange=size(∂domain))
+  _kernel(backend)(∂W, W, axis, domain; ndrange=size(domain))
 
   return nothing
 end
@@ -106,7 +107,7 @@ function central_first_derivative_inner_domain_kernel!(
 )
 
   #
-  @kernel inbounds = true function _kernel(∂ϕ, ϕ, iaxis, ∂domain, floor)
+  @kernel inbounds = true function _kernel(∂ϕ, ϕ, iaxis, ∂domain)
     idx = @index(Global, Linear)
     I = ∂domain[idx]
 
@@ -118,7 +119,7 @@ function central_first_derivative_inner_domain_kernel!(
     ∂ϕ[I] = central_derivative(ϕ[ᵢ₋₂], ϕ[ᵢ₋₁], ϕ[ᵢ₊₁], ϕ[ᵢ₊₂])
   end
 
-  _kernel(backend)(∂W, W, iaxis, ∂domain; ndrange=size(∂domain))
+  _kernel(backend)(∂W, W, axis, domain; ndrange=size(domain))
 
   return nothing
 end
@@ -128,7 +129,7 @@ function central_first_derivative_inner_domain_kernel!(
 )
 
   #
-  @kernel inbounds = true function _kernel(∂ϕ, ϕ, iaxis, ∂domain, floor)
+  @kernel inbounds = true function _kernel(∂ϕ, ϕ, iaxis, ∂domain)
     idx = @index(Global, Linear)
     I = ∂domain[idx]
 
@@ -142,7 +143,7 @@ function central_first_derivative_inner_domain_kernel!(
     ∂ϕ[I] = central_derivative(ϕ[ᵢ₋₃], ϕ[ᵢ₋₂], ϕ[ᵢ₋₁], ϕ[ᵢ₊₁], ϕ[ᵢ₊₂], ϕ[ᵢ₊₃])
   end
 
-  _kernel(backend)(∂W, W, iaxis, ∂domain; ndrange=size(∂domain))
+  _kernel(backend)(∂W, W, axis, domain; ndrange=size(domain))
 
   return nothing
 end
@@ -152,7 +153,7 @@ function central_first_derivative_inner_domain_kernel!(
 )
 
   #
-  @kernel inbounds = true function _kernel(∂ϕ, ϕ, iaxis, ∂domain, floor)
+  @kernel inbounds = true function _kernel(∂ϕ, ϕ, iaxis, ∂domain)
     idx = @index(Global, Linear)
     I = ∂domain[idx]
 
@@ -170,7 +171,7 @@ function central_first_derivative_inner_domain_kernel!(
     )
   end
 
-  _kernel(backend)(∂W, W, iaxis, ∂domain; ndrange=size(∂domain))
+  _kernel(backend)(∂W, W, axis, domain; ndrange=size(domain))
 
   return nothing
 end
@@ -227,7 +228,7 @@ end
 function mixed_first_derivative_lo_edge_kernel!(
   ::SixthOrder, ∂W, W, ∂axis, domain, backend::GPU
 )
-  @kernel inbounds = true function _first_deriv_lo_kernel!(ϕ, ∂ϕ, axis, ∂domain, floor)
+  @kernel inbounds = true function _first_deriv_lo_kernel!(ϕ, ∂ϕ, axis, ∂domain)
     idx = @index(Global, Linear)
     i = ∂domain[idx]
 
@@ -237,7 +238,7 @@ function mixed_first_derivative_lo_edge_kernel!(
     ᵢ₊₄ = shift(i, axis, +4)
     ᵢ₊₅ = shift(i, axis, +5)
 
-    ∂ϕ₁, ∂ϕ₂, ∂ϕ₃ = ∂_loedge_6th_order(ϕ[i], ϕ[ᵢ₊₁], ϕ[ᵢ₊₂], ϕ[ᵢ₊₃], ϕ[ᵢ₊₄], ϕ[ᵢ₊₅])
+    ∂ϕ₁, ∂ϕ₂, ∂ϕ₃ = mixed_derivatives_loedge(ϕ[i], ϕ[ᵢ₊₁], ϕ[ᵢ₊₂], ϕ[ᵢ₊₃], ϕ[ᵢ₊₄], ϕ[ᵢ₊₅])
 
     ∂ϕ[i] = ∂ϕ₁
     ∂ϕ[ᵢ₊₁] = ∂ϕ₂
@@ -245,6 +246,7 @@ function mixed_first_derivative_lo_edge_kernel!(
   end
 
   # select first index along given boundary axis
+  index_offset = 0
   lo_domain = lower_boundary_indices(domain, ∂axis, index_offset)
 
   # and then iterate along that domain to calculate the derivatives
@@ -255,7 +257,7 @@ end
 function mixed_first_derivative_hi_edge_kernel!(
   ::SixthOrder, ∂W, W, ∂axis, domain, backend::GPU
 )
-  @kernel inbounds = true function _first_deriv_hi_kernel!(ϕ, ∂ϕ, axis, ∂domain, floor)
+  @kernel inbounds = true function _first_deriv_hi_kernel!(ϕ, ∂ϕ, axis, ∂domain)
     idx = @index(Global, Linear)
     i = ∂domain[idx]
 
@@ -265,7 +267,7 @@ function mixed_first_derivative_hi_edge_kernel!(
     ᵢ₋₄ = shift(i, axis, -4)
     ᵢ₋₅ = shift(i, axis, -5)
 
-    ∂ϕ₃, ∂ϕ₂, ∂ϕ₁ = ∂_hiedge_6th_order(ϕ[ᵢ₋₅], ϕ[ᵢ₋₄], ϕ[ᵢ₋₃], ϕ[ᵢ₋₂], ϕ[ᵢ₋₁], ϕ[i])
+    ∂ϕ₃, ∂ϕ₂, ∂ϕ₁ = mixed_derivatives_hiedge(ϕ[ᵢ₋₅], ϕ[ᵢ₋₄], ϕ[ᵢ₋₃], ϕ[ᵢ₋₂], ϕ[ᵢ₋₁], ϕ[i])
 
     ∂ϕ[i] = ∂ϕ₁
     ∂ϕ[ᵢ₋₁] = ∂ϕ₂
@@ -273,11 +275,12 @@ function mixed_first_derivative_hi_edge_kernel!(
   end
 
   # select last index along given boundary axis
+  index_offset = 0
   hi_domain = upper_boundary_indices(domain, ∂axis, index_offset)
 
   # and then iterate along that domain to calculate the derivatives
   # of the last three cells using one-sided and mixed-offset stencils
-  _first_deriv_hi_kernel!(backend)(ϕ, ∂ϕ, axis, hi_domain; ndrange=size(hi_domain))
+  _first_deriv_hi_kernel!(backend)(W, ∂W, ∂axis, hi_domain; ndrange=size(hi_domain))
 end
 
 # ------------------------
@@ -297,7 +300,7 @@ function central_second_derivative_inner_domain_kernel!(
 )
 
   #
-  @kernel inbounds = true function _kernel(∂²W, ∂ϕ, ϕ, iaxis, ∂domain, floor)
+  @kernel inbounds = true function _kernel(∂²W, ∂ϕ, ϕ, iaxis, ∂domain)
     idx = @index(Global, Linear)
     I = ∂domain[idx]
     ᵢ₊₁ = shift(I, iaxis, +1)
