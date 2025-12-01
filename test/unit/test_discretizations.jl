@@ -125,37 +125,13 @@ end
 
       floor = 1e-14
       compute_second_derivatives!(
-        meg,
-        ∂²x_∂ξ²,
-        ∂x_∂ξ,
-        x,
-        iaxis,
-        ∂²domain,
-        backend,
-        use_one_sided_on_edges;
-        floor=floor,
+        meg, ∂²x_∂ξ², ∂x_∂ξ, x, iaxis, ∂²domain, backend, use_one_sided_on_edges;
       )
       compute_second_derivatives!(
-        meg,
-        ∂²y_∂η²,
-        ∂y_∂η,
-        y,
-        jaxis,
-        ∂²domain,
-        backend,
-        use_one_sided_on_edges;
-        floor=floor,
+        meg, ∂²y_∂η², ∂y_∂η, y, jaxis, ∂²domain, backend, use_one_sided_on_edges;
       )
       compute_second_derivatives!(
-        meg,
-        ∂²z_∂ζ²,
-        ∂z_∂ζ,
-        z,
-        kaxis,
-        ∂²domain,
-        backend,
-        use_one_sided_on_edges;
-        floor=floor,
+        meg, ∂²z_∂ζ², ∂z_∂ζ, z, kaxis, ∂²domain, backend, use_one_sided_on_edges;
       )
 
       @test all(∂x_∂ξ[inner_domain] .≈ 1.0)
