@@ -82,6 +82,24 @@ function save_vtk(mesh::AbstractCurvilinearGrid3D, fn="mesh")
   end
 end
 
+function save_vtk(mesh::SphericalGrid3D, fn="mesh")
+  @info "Writing to $fn.vti"
+
+  x = @view mesh.cartesian_node_coordinates.x[mesh.iterators.node.domain]
+  y = @view mesh.cartesian_node_coordinates.y[mesh.iterators.node.domain]
+  z = @view mesh.cartesian_node_coordinates.z[mesh.iterators.node.domain]
+
+  domain = mesh.iterators.cell.domain
+
+  @views vtk_grid(fn, (x, y, z)) do vtk
+    vtk["volume", VTKCellData()] = mesh.cell_volumes[domain]
+
+    vtk["face_area_i₊½", VTKCellData()] = mesh.face_areas.i₊½[domain]
+    vtk["face_area_j₊½", VTKCellData()] = mesh.face_areas.j₊½[domain]
+    vtk["face_area_k₊½", VTKCellData()] = mesh.face_areas.k₊½[domain]
+  end
+end
+
 """Write (x,y,z) coordinates to .vtk"""
 function save_vtk((x, y, z)::NTuple{3,AbstractArray{T,3}}, fn="mesh") where {T}
   @info "Writing to $fn.vti"

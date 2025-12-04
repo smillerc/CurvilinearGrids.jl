@@ -26,6 +26,8 @@ export UniformGrid1D, UniformGrid2D, UniformGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 
+export SphericalGrid3D
+
 export ContinuousCurvilinearGrid1D, ContinuousCurvilinearGrid2D, ContinuousCurvilinearGrid3D
 
 export rectilinear_grid,
@@ -89,6 +91,7 @@ include("grid_iterators.jl")
 include("1d.jl")
 include("2d.jl")
 include("3d.jl")
+include("3d_spherical.jl")
 include("simple_constructors/simple_constructors.jl")
 include("continuous_grids/continous_grids.jl")
 # include("metric_cache.jl")
