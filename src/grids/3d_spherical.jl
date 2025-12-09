@@ -1,3 +1,7 @@
+module SphericalGrid
+
+using CartesianDomains
+
 struct SphericalGrid3D{NC,CNC,CC,CV,I,DL,FA} <: AbstractCurvilinearGrid3D
   node_coordinates::NC
   cartesian_node_coordinates::CNC
@@ -91,16 +95,39 @@ function compute_centroids!(centroids, node_coordinates, iters, backend)
 end
 
 function compute_face_areas!(face_areas, node_coordinates, iters, backend)
-  kern = _compute_face_areas!(backend)
-  kern(
+  r_kernel = _compute_radial_face_areas!(backend)
+  theta_kernel = _compute_theta_face_areas!(backend)
+  phi_kernel = _compute_phi_face_areas!(backend)
+
+  i₊½_domain = expand_lower(iters.cell.domain, 1, +1)
+  j₊½_domain = expand_lower(iters.cell.domain, 2, +1)
+  k₊½_domain = expand_lower(iters.cell.domain, 3, +1)
+
+  r_kernel(
     face_areas.i₊½,
+    node_coordinates.r,
+    node_coordinates.θ,
+    node_coordinates.ϕ,
+    i₊½_domain;
+    ndrange=size(i₊½_domain),
+  )
+
+  theta_kernel(
     face_areas.j₊½,
+    node_coordinates.r,
+    node_coordinates.θ,
+    node_coordinates.ϕ,
+    j₊½_domain;
+    ndrange=size(j₊½_domain),
+  )
+
+  phi_kernel(
     face_areas.k₊½,
     node_coordinates.r,
     node_coordinates.θ,
     node_coordinates.ϕ,
-    iters.cell.domain;
-    ndrange=size(iters.cell.domain),
+    k₊½_domain;
+    ndrange=size(k₊½_domain),
   )
   return nothing
 end
@@ -150,19 +177,43 @@ end
   ϕc[k] = (ϕ₀ + ϕ₁) / 2
 end
 
-@kernel function _compute_face_areas!(Aᵢ₊½, Aⱼ₊½, Aₖ₊½, r, θ, ϕ, cell_domain)
+@kernel function _compute_radial_face_areas!(Aᵢ₊½, r, θ, ϕ, domain)
   idx = @index(Global, Linear)
-  I = cell_domain[idx]
-  i, j, k = I.I
+  I = domain[idx]
+  i, j, k = I.I # these are CELL indices
 
+  # these are NODE indexed
   Δμ = cos(θ[j]) - cos(θ[j + 1])
+  Δϕ = ϕ[k + 1] - ϕ[k]
+
+  # this uses CELL indexing, e.g. for cell i,j,k, the i+1/2 face area is...
+  Aᵢ₊½[i, j, k] = r[i + 1]^2 * Δμ * Δϕ
+end
+
+@kernel function _compute_theta_face_areas!(Aⱼ₊½, r, θ, ϕ, domain)
+  idx = @index(Global, Linear)
+  I = domain[idx]
+  i, j, k = I.I # these are CELL indices
+
+  # these are NODE indexed
   Δϕ = ϕ[k + 1] - ϕ[k]
   Δr² = r[i + 1]^2 - r[i]^2
 
-  Aᵢ₊½[I] = r[i]^2 * Δμ * Δϕ
+  # this uses CELL indexing, e.g. for cell i,j,k, the j+1/2 face area is...
+  Aⱼ₊½[i, j, k] = (1 / 2) * Δr² * sin(θ[j + 1]) * Δϕ
+end
 
-  Aⱼ₊½[I] = (1 / 2) * Δr² * sin(θ[j]) * Δϕ
-  Aₖ₊½[I] = (1 / 2) * Δr² * Δμ
+@kernel function _compute_phi_face_areas!(Aₖ₊½, r, θ, ϕ, domain)
+  idx = @index(Global, Linear)
+  I = domain[idx] # these are CELL indices
+  i, j, k = I.I
+
+  # these are NODE indexed
+  Δμ = cos(θ[j]) - cos(θ[j + 1])
+  Δr² = r[i + 1]^2 - r[i]^2
+
+  # this uses CELL indexing, e.g. for cell i,j,k, the k+1/2 face area is...
+  Aₖ₊½[i, j, k] = (1 / 2) * Δr² * Δμ
 end
 
 @kernel function _compute_volumes!(V, r, θ, ϕ, cell_domain)
@@ -190,3 +241,99 @@ end
   y[I] = rr * sin(th) * sin(ph)
   z[I] = rr * cos(th)
 end
+
+#
+# Cell-center operators
+#
+
+function cell_center_derivative(
+  mesh::SphericalGrid3D, A::AbstractArray{T,3}, I::CartesianIndex{3}, axis::Int
+) where {T}
+
+  #
+  ᵢ₊₁ = CartesianDomains.shift(I, axis, +1)
+  @inbounds Aᵢ = A[I]
+  @inbounds Aᵢ₊₁ = A[ᵢ₊₁]
+  # ∂A = ...
+  return ∂A
+end
+
+# ∇A at the cell center
+function cell_center_gradient(
+  mesh::SphericalGrid3D, A::AbstractArray{T,3}, I::CartesianIndex{3}
+) where {T}
+  ∂A∂r = cell_center_derivative(mesh, A, I, 1)
+  ∂A∂θ = cell_center_derivative(mesh, A, I, 2)
+  ∂A∂ϕ = cell_center_derivative(mesh, A, I, 3)
+  return @SVector [∂A∂r, ∂A∂θ, ∂A∂ϕ]
+end
+
+# ∇×A at the cell center
+function cell_center_curl(
+  mesh::SphericalGrid3D,
+  (Ar::AbstractArray{T,3}, Aθ::AbstractArray{T,3}, Aϕ::AbstractArray{T,3}),
+  I::CartesianIndex{3},
+  axis::Int,
+) where {T}
+  ∇Ar = cell_center_gradient(mesh, Ar, I)
+  ∇Aθ = cell_center_gradient(mesh, Aθ, I)
+  ∇Aϕ = cell_center_gradient(mesh, Aϕ, I)
+  return curl_A
+end
+
+# ∇⋅A at the cell center
+function cell_center_divergence(
+  mesh::SphericalGrid3D, A::AbstractArray{T,3}, I::CartesianIndex{3}
+) where {T}
+  ∇A = cell_center_gradient(mesh, A, I)
+  return div_A
+end
+
+#
+# Edge operators
+#
+
+function edge_derivative(
+  mesh::SphericalGrid3D, A::AbstractArray{T,3}, I::CartesianIndex{3}, axis::Int
+) where {T}
+
+  #
+  ᵢ₊₁ = CartesianDomains.shift(I, axis, +1)
+  @inbounds Aᵢ = A[I]
+  @inbounds Aᵢ₊₁ = A[ᵢ₊₁]
+  # ∂A = ...
+  return ∂A
+end
+
+# ∇A at the edge center
+function edge_gradient(
+  mesh::SphericalGrid3D, A::AbstractArray{T,3}, I::CartesianIndex{3}
+) where {T}
+  ∂A∂r = edge_derivative(mesh, A, I, 1)
+  ∂A∂θ = edge_derivative(mesh, A, I, 2)
+  ∂A∂ϕ = edge_derivative(mesh, A, I, 3)
+  return @SVector [∂A∂r, ∂A∂θ, ∂A∂ϕ]
+end
+
+# ∇×A at the edge center
+function edge_curl(
+  mesh::SphericalGrid3D,
+  (Ar_edge::AbstractArray{T,3}, Aθ_edge::AbstractArray{T,3}, Aϕ_edge::AbstractArray{T,3}),
+  I::CartesianIndex{3},
+  edge_axis::Int,
+) where {T}
+  ∇Ar_edge = edge_gradient(mesh, Ar_edge, I)
+  ∇Aθ_edge = edge_gradient(mesh, Aθ_edge, I)
+  ∇Aϕ_edge = edge_gradient(mesh, Aϕ_edge, I)
+  return curl_A
+end
+
+# ∇⋅A at the cell center
+function edge_divergence(
+  mesh::SphericalGrid3D, A::AbstractArray{T,3}, I::CartesianIndex{3}, edge_axis::Int
+) where {T}
+  ∇A = edge_gradient(mesh, A, I)
+  return div_A
+end
+
+end # module
