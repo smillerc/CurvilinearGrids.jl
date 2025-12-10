@@ -4,73 +4,77 @@
 # --------------------------------------------------------------------
 
 # ∇×A at the cell center (physical components)
-function cell_center_curl(
-  mesh::SphericalGrid3D, (A_r, A_θ, A_ϕ)::NTuple{3,AbstractArray{T,3}}, I::CartesianIndex{3}
-) where {T}
-  V = cell_volume(mesh, I)
+function cell_center_curl(mesh::SphericalGrid3D, (A_r, A_θ, A_ϕ), I::CartesianIndex{3})
+  @inbounds begin
+    dAr_dθ = cell_center_derivative(mesh, A_r, I, 2)
+    dAr_dϕ = cell_center_derivative(mesh, A_r, I, 3)
+    dAθ_dϕ = cell_center_derivative(mesh, A_θ, I, 3)
 
-  I_i₊ = CartesianDomains.shift(I, 1, +1)
-  I_i₋ = CartesianDomains.shift(I, 1, -1)
-  I_j₊ = CartesianDomains.shift(I, 2, +1)
-  I_j₋ = CartesianDomains.shift(I, 2, -1)
-  I_k₊ = CartesianDomains.shift(I, 3, +1)
-  I_k₋ = CartesianDomains.shift(I, 3, -1)
+    # ============================================================
+    #    Composite derivatives:
+    #    ∂θ(Aϕ sinθ),  ∂r(r Aϕ),  ∂r(r Aθ)
+    # ============================================================
 
-  # ω_r: circulation in (θ,ϕ)
-  A_ϕ_face_θp = face_val(A_ϕ, I, I_j₊)
-  A_ϕ_face_θm = face_val(A_ϕ, I_j₋, I)
+    Vᵢ = cell_volume(mesh, I)
 
-  A_θ_face_ϕp = face_val(A_θ, I, I_k₊)
-  A_θ_face_ϕm = face_val(A_θ, I_k₋, I)
+    # ---------- ∂θ (Aϕ sinθ) ----------
+    Iθ₊ = CartesianDomains.shift(I, 2, +1)
+    Iθ₋ = CartesianDomains.shift(I, 2, -1)
 
-  A_θ_area_p = face_area_p(mesh, I, 2)
-  A_θ_area_m = face_area_m(mesh, I, 2)
-  A_ϕ_area_p = face_area_p(mesh, I, 3)
-  A_ϕ_area_m = face_area_m(mesh, I, 3)
+    θ₊ = mesh.centroid_coordinates.θ[Iθ₊.I[2]]
+    θ₋ = mesh.centroid_coordinates.θ[Iθ₋.I[2]]
 
-  circ_r =
-    (A_θ_area_p * A_ϕ_face_θp - A_θ_area_m * A_ϕ_face_θm) -
-    (A_ϕ_area_p * A_θ_face_ϕp - A_ϕ_area_m * A_θ_face_ϕm)
+    Aϕ_sinθ₊ = A_ϕ[Iθ₊] * sin(θ₊)
+    Aϕ_sinθ₋ = A_ϕ[Iθ₋] * sin(θ₋)
 
-  ω_r = circ_r / V
+    A_face_θ₊ = face_area_p(mesh, I, 2)
+    A_face_θ₋ = face_area_m(mesh, I, 2)
 
-  # ω_θ: circulation in (ϕ,r)
-  A_r_face_ϕp = face_val(A_r, I, I_k₊)
-  A_r_face_ϕm = face_val(A_r, I_k₋, I)
+    Δs_θ₊ = Vᵢ / A_face_θ₊
+    Δs_θ₋ = Vᵢ / A_face_θ₋
+    Δs_θ = Δs_θ₊ + Δs_θ₋
 
-  A_ϕ_face_rp = face_val(A_ϕ, I, I_i₊)
-  A_ϕ_face_rm = face_val(A_ϕ, I_i₋, I)
+    dAϕsinθ_dθ = (Aϕ_sinθ₊ - Aϕ_sinθ₋) / Δs_θ
 
-  A_ϕ_area_p2 = face_area_p(mesh, I, 3)
-  A_ϕ_area_m2 = face_area_m(mesh, I, 3)
-  A_r_area_p = face_area_p(mesh, I, 1)
-  A_r_area_m = face_area_m(mesh, I, 1)
+    # ---------- ∂r (r Aϕ) ----------
+    Ir₊ = CartesianDomains.shift(I, 1, +1)
+    Ir₋ = CartesianDomains.shift(I, 1, -1)
 
-  circ_θ =
-    (A_ϕ_area_p2 * A_r_face_ϕp - A_ϕ_area_m2 * A_r_face_ϕm) -
-    (A_r_area_p * A_ϕ_face_rp - A_r_area_m * A_ϕ_face_rm)
+    r₊ = mesh.centroid_coordinates.r[Ir₊.I[1]]
+    r₋ = mesh.centroid_coordinates.r[Ir₋.I[1]]
 
-  ω_θ = circ_θ / V
+    A_face_r₊ = face_area_p(mesh, I, 1)
+    A_face_r₋ = face_area_m(mesh, I, 1)
 
-  # ω_ϕ: circulation in (r,θ)
-  A_θ_face_rp2 = face_val(A_θ, I, I_i₊)
-  A_θ_face_rm2 = face_val(A_θ, I_i₋, I)
+    Δs_r₊ = Vᵢ / A_face_r₊
+    Δs_r₋ = Vᵢ / A_face_r₋
+    Δs_r = Δs_r₊ + Δs_r₋
 
-  A_r_face_θp2 = face_val(A_r, I, I_j₊)
-  A_r_face_θm2 = face_val(A_r, I_j₋, I)
+    rA_ϕ₊ = r₊ * A_ϕ[Ir₊]
+    rA_ϕ₋ = r₋ * A_ϕ[Ir₋]
 
-  A_r_area_p2 = face_area_p(mesh, I, 1)
-  A_r_area_m2 = face_area_m(mesh, I, 1)
-  A_θ_area_p2 = face_area_p(mesh, I, 2)
-  A_θ_area_m2 = face_area_m(mesh, I, 2)
+    drAϕ_dr = (rA_ϕ₊ - rA_ϕ₋) / Δs_r
 
-  circ_ϕ =
-    (A_r_area_p2 * A_θ_face_rp2 - A_r_area_m2 * A_θ_face_rm2) -
-    (A_θ_area_p2 * A_r_face_θp2 - A_θ_area_m2 * A_r_face_θm2)
+    # ---------- ∂r (r Aθ) ----------
+    rA_θ₊ = r₊ * A_θ[Ir₊]
+    rA_θ₋ = r₋ * A_θ[Ir₋]
 
-  ω_ϕ = circ_ϕ / V
+    drAθ_dr = (rA_θ₊ - rA_θ₋) / Δs_r
 
-  return @SVector [ω_r, ω_θ, ω_ϕ]
+    # ============================================================
+    # 3. Assemble spherical curl using physical derivatives
+    # ============================================================
+    (i, j, k) = I.I
+    r = mesh.centroid_coordinates.r[i]
+    θ = mesh.centroid_coordinates.θ[j]
+    sinθ = sin(θ)
+
+    curl_r = (1 / (r * sinθ)) * (dAϕsinθ_dθ - dAθ_dϕ)
+    curl_θ = (1 / r) * ((1 / sinθ) * dAr_dϕ - drAϕ_dr)
+    curl_ϕ = (1 / r) * (drAθ_dr - dAr_dθ)
+
+    return @SVector[curl_r, curl_θ, curl_ϕ]
+  end
 end
 
 # --------------------------------------------------------------------
@@ -83,8 +87,6 @@ function edge_curl(
   (A_r_edge, A_θ_edge, A_ϕ_edge)::NTuple{3,AbstractArray{T,3}},
   I::CartesianIndex{3},
   edge_axis::Int,
-
-  
 ) where {T}
   I₊ = CartesianDomains.shift(I, edge_axis, +1)
 

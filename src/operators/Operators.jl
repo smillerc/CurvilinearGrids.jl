@@ -5,14 +5,14 @@ using CartesianDomains
 using ..GridTypes
 
 export cell_center_derivative, edge_derivative
-export cell_center_curl, edge_curl
+# export cell_center_curl, edge_curl
 export cell_center_divergence, edge_divergence
 export cell_center_gradient, edge_gradient
 
 include("derivative.jl")
 include("divergence.jl")
 include("gradient.jl")
-include("curl.jl")
+# include("curl.jl") # not working yet
 
 # --------------------------------------------------------------------
 # Geometry helpers

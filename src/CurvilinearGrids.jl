@@ -48,7 +48,7 @@ export forward_cell_metrics, inverse_cell_metrics
 include("operators/Operators.jl")
 using .Operators
 export cell_center_derivative, edge_derivative
-export cell_center_curl, edge_curl
+# export cell_center_curl, edge_curl # not working yet
 export cell_center_divergence, edge_divergence
 export cell_center_gradient, edge_gradient
 

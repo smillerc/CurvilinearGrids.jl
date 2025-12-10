@@ -83,7 +83,12 @@ function SphericalGrid3D(
   )
 
   compute_face_areas!(
-    face_areas, spherical_node_coords, domain_iterators, backend, halo_coords_included
+    face_areas,
+    spherical_node_coords,
+    domain_iterators,
+    backend,
+    halo_coords_included,
+    nhalo,
   )
 
   return SphericalGrid3D(
@@ -122,12 +127,20 @@ function compute_centroids!(
 end
 
 function compute_face_areas!(
-  face_areas, node_coordinates, iters, backend, halo_coords_included
+  face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo
 )
   domain = iters.cell.domain
-  i₊½_domain = expand_lower(domain, 1, +1)
-  j₊½_domain = expand_lower(domain, 2, +1)
-  k₊½_domain = expand_lower(domain, 3, +1)
+  if halo_coords_included
+    offset = +nhalo
+    i₊½_domain = expand_upper(expand_lower(domain, 1, offset), 1, offset - 1)
+    j₊½_domain = expand_upper(expand_lower(domain, 2, offset), 2, offset - 1)
+    k₊½_domain = expand_upper(expand_lower(domain, 3, offset), 3, offset - 1)
+  else
+    offset = +1
+    i₊½_domain = expand_lower(domain, 1, offset)
+    j₊½_domain = expand_lower(domain, 2, offset)
+    k₊½_domain = expand_lower(domain, 3, offset)
+  end
 
   r_kernel = _compute_radial_face_areas!(backend)
   theta_kernel = _compute_theta_face_areas!(backend)
@@ -185,9 +198,9 @@ function compute_xyz_coords!(
   xyz_coordinates, node_coordinates, iters, backend, halo_coords_included
 )
   if halo_coords_included
-    domain = iters.cell.full
+    domain = iters.node.full
   else
-    domain = iters.cell.domain
+    domain = iters.node.domain
   end
 
   kern = _compute_xyz_coords!(backend)
