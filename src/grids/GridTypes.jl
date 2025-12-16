@@ -26,7 +26,7 @@ export UniformGrid1D, UniformGrid2D, UniformGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 
-export SphericalGrid3D
+export SphericalGrid3D, SphericalBasisCurvilinearGrid3D
 export CartesianOrthogonalGrid1D, CylindricalOrthogonalGrid1D, SphericalOrthogonalGrid1D
 export AxisymmetricOrthogonalGrid2D
 
@@ -93,6 +93,7 @@ include("grid_iterators.jl")
 include("1d.jl")
 include("2d.jl")
 include("3d.jl")
+include("3d_spherical_basis.jl")
 include("orthogonal_grids/orthogonal.jl")
 
 include("simple_constructors/simple_constructors.jl")
@@ -163,7 +164,6 @@ end
     mesh.node_coordinates.z[mesh.iterators.node.domain],
   )
 end
-
 @inline function coords(mesh::SphericalGrid3D)
   return @views (
     mesh.cartesian_node_coordinates.x[mesh.iterators.node.domain],

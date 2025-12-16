@@ -24,7 +24,7 @@ export RectilinearGrid2D, RectilinearGrid3D
 export UniformGrid1D, UniformGrid2D, UniformGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
-export SphericalGrid3D
+export SphericalGrid3D, SphericalBasisCurvilinearGrid3D
 export CartesianOrthogonalGrid1D,
   CylindricalOrthogonalGrid1D,
   SphericalOrthogonalGrid1D,
