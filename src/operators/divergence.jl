@@ -3,7 +3,11 @@
 # Cell-center operators
 # --------------------------------------------------------------------
 
-# ∇⋅A at the cell center (A_r,A_θ,A_ϕ are physical components)
+"""
+    cell_center_divergence(mesh::SphericalGrid3D, (A_r, A_θ, A_ϕ), I)
+
+Evaluate ∇⋅A at the cell center `I` for a vector field with physical components `(A_r, A_θ, A_ϕ)`. The divergence is formed from face-averaged fluxes scaled by the appropriate face areas and normalized by the cell volume.
+"""
 function cell_center_divergence(
   mesh::SphericalGrid3D, (A_r, A_θ, A_ϕ)::NTuple{3,AbstractArray{T,3}}, I::CartesianIndex{3}
 ) where {T}
@@ -64,7 +68,11 @@ end
 # Edge operators
 # --------------------------------------------------------------------
 
-# ∇⋅A at the edge center = average of adjacent cell-center divergences
+"""
+    edge_divergence(mesh::SphericalGrid3D, (A_r, A_θ, A_ϕ), I, edge_axis)
+
+Return the edge-centered divergence by averaging the cell-centered divergences on either side of the edge aligned with `edge_axis`.
+"""
 function edge_divergence(
   mesh::SphericalGrid3D,
   (A_r, A_θ, A_ϕ)::NTuple{3,AbstractArray{T,3}},

@@ -17,9 +17,29 @@ export cell_center_derivatives!, interpolate_to_edge!
 abstract type DiscretizationScheme end
 abstract type DerivativeScheme end
 
+"""
+    SecondOrder()
+
+Marker type indicating a second-order centered derivative stencil.
+"""
 struct SecondOrder <: DerivativeScheme end
+"""
+    FourthOrder()
+
+Marker type indicating a fourth-order centered derivative stencil.
+"""
 struct FourthOrder <: DerivativeScheme end
+"""
+    SixthOrder()
+
+Marker type indicating a sixth-order centered derivative stencil.
+"""
 struct SixthOrder <: DerivativeScheme end
+"""
+    EighthOrder()
+
+Marker type indicating an eighth-order centered derivative stencil.
+"""
 struct EighthOrder <: DerivativeScheme end
 
 include("derivative_stencils.jl")

@@ -6,7 +6,11 @@ using ..GridTypes
 
 export save_vtk
 
-"""Write the mesh to .VTK format"""
+"""
+    save_vtk(mesh::AbstractCurvilinearGrid3D, fn=\"mesh\")
+
+Write a 3D curvilinear grid and its metrics to a `.vti` VTK file named `fn`.
+"""
 function save_vtk(mesh::AbstractCurvilinearGrid3D, fn="mesh")
   @info "Writing to $fn.vti"
 
@@ -82,6 +86,11 @@ function save_vtk(mesh::AbstractCurvilinearGrid3D, fn="mesh")
   end
 end
 
+"""
+    save_vtk(mesh::SphericalGrid3D, fn=\"mesh\"; extra_cell_data=nothing)
+
+Write a spherical grid to VTK, optionally including additional `extra_cell_data` arrays.
+"""
 function save_vtk(mesh::SphericalGrid3D, fn="mesh"; extra_cell_data=nothing)
   @info "Writing to $fn.vti"
 
@@ -113,7 +122,11 @@ function save_vtk(mesh::SphericalGrid3D, fn="mesh"; extra_cell_data=nothing)
   end
 end
 
-"""Write (x,y,z) coordinates to .vtk"""
+"""
+    save_vtk((x, y, z)::NTuple{3,AbstractArray}, fn=\"mesh\")
+
+Write raw `(x, y, z)` coordinates to a `.vti` VTK file named `fn`.
+"""
 function save_vtk((x, y, z)::NTuple{3,AbstractArray{T,3}}, fn="mesh") where {T}
   @info "Writing to $fn.vti"
 
@@ -121,7 +134,11 @@ function save_vtk((x, y, z)::NTuple{3,AbstractArray{T,3}}, fn="mesh") where {T}
   end
 end
 
-"""Write (x,y) coordinates to .vtk"""
+"""
+    save_vtk((x, y)::NTuple{2,AbstractArray}, fn=\"mesh\")
+
+Write raw `(x, y)` coordinates to a `.vti` VTK file named `fn`.
+"""
 function save_vtk((x, y)::NTuple{2,AbstractMatrix{N}}, fn="mesh") where {N}
   @info "Writing to $fn.vti"
 
@@ -129,6 +146,11 @@ function save_vtk((x, y)::NTuple{2,AbstractMatrix{N}}, fn="mesh") where {N}
   end
 end
 
+"""
+    save_vtk(mesh::AbstractCurvilinearGrid2D, fn=\"mesh\")
+
+Write a 2D curvilinear grid and its metrics to a `.vti` VTK file named `fn`.
+"""
 function save_vtk(mesh::AbstractCurvilinearGrid2D, fn="mesh")
   @info "Writing to $fn.vti"
 

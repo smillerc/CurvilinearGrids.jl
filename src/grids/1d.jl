@@ -380,7 +380,11 @@ function CylindricalGrid1D(
   return m
 end
 
-"""Update metrics after grid coordinates change"""
+"""
+    update!(mesh::AbstractCurvilinearGrid1D, force, include_halo_region)
+
+Refresh centroid coordinates and metrics after nodal positions change. Set `force` to update even when `mesh.is_static` is `true`, and toggle `include_halo_region` to control whether halo cells participate in the metric update.
+"""
 function update!(mesh::AbstractCurvilinearGrid1D, force, include_halo_region)
   if include_halo_region
     metric_domain = mesh.iterators.cell.full

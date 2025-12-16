@@ -1,3 +1,11 @@
+"""
+    cell_center_derivatives!(scheme::MonotoneExplicitGradientScheme, ϕ_ξ, ϕ, axis, inner_cell_domain; compute_gradients=false, use_one_sided_on_edges=true, ϵ=50eps(eltype(ϕ)))
+    cell_center_derivatives!(scheme::MonotoneExplicitGradientScheme, ϕ_ξ, ∂²ϕ, ∂ϕ, ϕ, axis, inner_cell_domain; compute_gradients=false, use_one_sided_on_edges=true, ϵ=50eps(eltype(ϕ)))
+
+Compute the monotone explicit gradient approximation to the cell-centered derivative `ϕ_ξ` of the quantity `ϕ` along the provided `axis`. When cache arrays `∂ϕ` and `∂²ϕ` are supplied, they are reused; otherwise cached buffers on the scheme are used internally.
+
+Set `compute_gradients=true` to populate the derivative buffers before reconstructing the edge values, and use `use_one_sided_on_edges=false` to force central differences everywhere. The `ϵ` keyword zeroes derivatives with magnitude below the tolerance.
+"""
 function cell_center_derivatives!(
   scheme::MonotoneExplicitGradientScheme,
   ϕ_ξ::AbstractArray{T,N},
