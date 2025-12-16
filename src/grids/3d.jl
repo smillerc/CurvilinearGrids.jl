@@ -464,7 +464,11 @@ function _grid_constructor(
   return (coords, centroids, node_velocities, nnodes)
 end
 
-"""Update metrics after grid coordinates change"""
+"""
+    update!(mesh::AbstractCurvilinearGrid3D, force::Bool, include_halo_region::Bool)
+
+Recompute centroid coordinates and metrics for a 3D curvilinear grid after coordinates change. Use `force=true` to bypass `mesh.is_static` and `include_halo_region` to indicate whether halo cells should be updated alongside the interior domain.
+"""
 function update!(mesh::AbstractCurvilinearGrid3D, force::Bool, include_halo_region::Bool)
   if include_halo_region
     metric_domain = mesh.iterators.cell.full

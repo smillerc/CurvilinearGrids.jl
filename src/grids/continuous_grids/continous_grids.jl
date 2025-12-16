@@ -58,6 +58,11 @@ include("conserved_metrics.jl")
 include("edge_interpolation.jl")
 include("cell_center_derivs.jl")
 
+"""
+    update!(mesh::ContinuousCurvilinearGrid, t, new_params)
+
+Recompute node locations, centroid coordinates, and both cell and edge metrics for a continuous curvilinear grid at time `t` using `new_params` for the mapping functions.
+"""
 function update!(mesh, t, new_params)
   compute_node_coordinates!(mesh, t, new_params)
   compute_centroid_coordinates!(mesh, t, new_params)

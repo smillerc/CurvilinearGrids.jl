@@ -608,7 +608,11 @@ function AxisymmetricGrid2D(
   return m
 end
 
-"""Update metrics after grid coordinates change"""
+"""
+    update!(mesh::AbstractCurvilinearGrid2D, force::Bool, include_halo_region::Bool)
+
+Update centroid coordinates and metric terms for a 2D curvilinear grid. Pass `force=true` to override `mesh.is_static`, and set `include_halo_region` to extend the update into halo cells when needed.
+"""
 function update!(mesh::AbstractCurvilinearGrid2D, force::Bool, include_halo_region::Bool)
   if include_halo_region
     metric_domain = mesh.iterators.cell.full
@@ -632,7 +636,11 @@ function update!(mesh::AbstractCurvilinearGrid2D, force::Bool, include_halo_regi
   return nothing
 end
 
-"""Update metrics after grid coordinates change"""
+"""
+    update!(mesh::AxisymmetricGrid2D, force::Bool, include_halo_region::Bool)
+
+Specialized metric refresh for axisymmetric grids, optionally snapping nodes to the axis before recomputing centroid coordinates and metrics. Uses `force` and `include_halo_region` with the same meaning as the general 2D curvilinear case.
+"""
 function update!(mesh::AxisymmetricGrid2D, force::Bool, include_halo_region::Bool)
   if include_halo_region
     metric_domain = mesh.iterators.cell.full
