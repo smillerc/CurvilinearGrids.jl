@@ -11,14 +11,30 @@ struct SphericalGrid3D{NC,CNC,CC,CV,I,DL,FA} <: AbstractCurvilinearGrid3D
 end
 
 function SphericalGrid3D(
-  r::AbstractVector{T},
-  θ::AbstractVector{T},
-  ϕ::AbstractVector{T},
+  _r::AbstractVector{T},
+  _θ::AbstractVector{T},
+  _ϕ::AbstractVector{T},
   nhalo::Int,
   backend;
   halo_coords_included=false,
 ) where {T<:Real}
+
+  # This pads the coordinate arrays with halo geometry using the 
+  # spacing on either end of the coordinate vector. For this mesh type, 
+  # halo geometry MUST be defined
+  if !halo_coords_included
+    r = pad_with_halo(_r, nhalo)
+    θ = pad_with_halo(_θ, nhalo)
+    ϕ = pad_with_halo(_ϕ, nhalo)
+    halo_coords_included = true
+  else
+    r = _r
+    θ = _θ
+    ϕ = _ϕ
+  end
+
   nr, ntheta, nphi = length(r), length(θ), length(ϕ)
+
   limits, domain_iterators = get_iterators((nr, ntheta, nphi), halo_coords_included, nhalo)
 
   celldims = size(domain_iterators.cell.full)

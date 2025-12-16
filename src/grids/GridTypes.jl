@@ -37,7 +37,7 @@ export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
 export update!
 
 export coord, coords, coords!, cellsize, cellsize_withhalo
-export centroid, centroids
+export centroid, centroids, cartesian_centroid
 export cellvolume, cellvolumes
 export radius, centroid_radius, centroid_radii
 export jacobian_matrix
@@ -91,7 +91,8 @@ include("grid_iterators.jl")
 include("1d.jl")
 include("2d.jl")
 include("3d.jl")
-include("3d_spherical.jl")
+include("orthogonal_grids/spherical_3d.jl")
+include("orthogonal_grids/pad_with_halo.jl")
 include("simple_constructors/simple_constructors.jl")
 include("continuous_grids/continous_grids.jl")
 # include("metric_cache.jl")
@@ -160,6 +161,21 @@ end
     mesh.node_coordinates.z[mesh.iterators.node.domain],
   )
 end
+
+@inline function coords(mesh::SphericalGrid3D)
+  return @views (
+    mesh.cartesian_node_coordinates.x[mesh.iterators.node.domain],
+    mesh.cartesian_node_coordinates.y[mesh.iterators.node.domain],
+    mesh.cartesian_node_coordinates.z[mesh.iterators.node.domain],
+  )
+end
+# @inline function coords(mesh::SphericalGrid3D)
+#   return @views (
+#     mesh.node_coordinates.r[mesh.iterators.node.domain.indices[1]],
+#     mesh.node_coordinates.θ[mesh.iterators.node.domain.indices[2]],
+#     mesh.node_coordinates.ϕ[mesh.iterators.node.domain.indices[3]],
+#   )
+# end
 
 """
     centroids(mesh)
@@ -391,6 +407,22 @@ end
     mesh.centroid_coordinates.y[i, j, k],
     mesh.centroid_coordinates.z[i, j, k],
   ]
+end
+
+@inline function centroid(mesh::SphericalGrid3D, (i, j, k)::NTuple{3,Int})
+  @SVector [
+    mesh.centroid_coordinates.r[i],
+    mesh.centroid_coordinates.θ[j],
+    mesh.centroid_coordinates.ϕ[k],
+  ]
+end
+
+@inline function cartesian_centroid(mesh::SphericalGrid3D, (i, j, k)::NTuple{3,Int})
+  r = mesh.centroid_coordinates.r[i]
+  θ = mesh.centroid_coordinates.θ[j]
+  ϕ = mesh.centroid_coordinates.ϕ[k]
+
+  @SVector [r * sin(θ) * cos(ϕ), r * sin(θ) * sin(ϕ), r * cos(θ)]
 end
 
 """
