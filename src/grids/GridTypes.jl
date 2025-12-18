@@ -223,15 +223,27 @@ end
     mesh.centroid_coordinates.z[mesh.iterators.cell.domain],
   )
 end
+
+@inline function centroids(mesh::SphericalBasisCurvilinearGrid3D)
+  return @views (
+    mesh.centroid_coordinates.r[mesh.iterators.cell.domain],
+    mesh.centroid_coordinates.θ[mesh.iterators.cell.domain],
+    mesh.centroid_coordinates.ϕ[mesh.iterators.cell.domain],
+  )
+end
+
 @inline function centroids(mesh::CartesianOrthogonalGrid1D)
   return @views mesh.centroid_coordinates.x[mesh.iterators.cell.domain]
 end
+
 @inline function centroids(mesh::CylindricalOrthogonalGrid1D)
   return @views mesh.centroid_coordinates.r[mesh.iterators.cell.domain]
 end
+
 @inline function centroids(mesh::SphericalOrthogonalGrid1D)
   return @views mesh.centroid_coordinates.r[mesh.iterators.cell.domain]
 end
+
 @inline function centroids(mesh::AxisymmetricOrthogonalGrid2D)
   return @views (
     mesh.centroid_coordinates.r[mesh.iterators.cell.domain.indices[1]],
@@ -522,10 +534,28 @@ end
   ]
 end
 
+@inline function centroid(mesh::SphericalBasisCurvilinearGrid3D, (i, j, k)::NTuple{3,Int})
+  @SVector [
+    mesh.centroid_coordinates.r[i, j, k],
+    mesh.centroid_coordinates.θ[i, j, k],
+    mesh.centroid_coordinates.ϕ[i, j, k],
+  ]
+end
+
 @inline function cartesian_centroid(mesh::SphericalGrid3D, (i, j, k)::NTuple{3,Int})
   r = mesh.centroid_coordinates.r[i]
   θ = mesh.centroid_coordinates.θ[j]
   ϕ = mesh.centroid_coordinates.ϕ[k]
+
+  @SVector [r * sin(θ) * cos(ϕ), r * sin(θ) * sin(ϕ), r * cos(θ)]
+end
+
+@inline function cartesian_centroid(
+  mesh::SphericalBasisCurvilinearGrid3D, (i, j, k)::NTuple{3,Int}
+)
+  r = mesh.centroid_coordinates.r[i, j, k]
+  θ = mesh.centroid_coordinates.θ[i, j, k]
+  ϕ = mesh.centroid_coordinates.ϕ[i, j, k]
 
   @SVector [r * sin(θ) * cos(ϕ), r * sin(θ) * sin(ϕ), r * cos(θ)]
 end
