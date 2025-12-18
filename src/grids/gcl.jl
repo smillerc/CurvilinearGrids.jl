@@ -1,3 +1,8 @@
+"""
+    gcl(edge_metrics, domain::CartesianIndices)
+
+Compute the geometric conservation law (GCL) residuals from `edge_metrics` over the provided `domain`. The return value matches the dimensionality of the domain, yielding one array per spatial dimension containing the discrete divergence of the contravariant basis vectors.
+"""
 function gcl(
   em, # edge metrics
   domain::CartesianIndices{1},

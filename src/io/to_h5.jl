@@ -7,7 +7,11 @@ export write_coordinates, read_coordinates
 
 ### Write h5 functions
 
-""" Write 1D Curvilinear grid information to .h5 format """
+"""
+    write_coordinates(mesh::CurvilinearGrid1D, filename::String, units::Unitful.FreeUnits)
+
+Write 1D curvilinear grid information to HDF5 with coordinate units recorded in `units`.
+"""
 function write_coordinates(
   mesh::CurvilinearGrid1D, filename::String, units::Unitful.FreeUnits
 )
@@ -28,7 +32,11 @@ function write_coordinates(
   end
 end
 
-""" Write 2D Curvilinear grid information to .h5 format """
+"""
+    write_coordinates(mesh::CurvilinearGrid2D, filename::String, units::Unitful.FreeUnits)
+
+Write 2D curvilinear grid information to HDF5 with coordinate units recorded in `units`.
+"""
 function write_coordinates(
   mesh::CurvilinearGrid2D, filename::String, units::Unitful.FreeUnits
 )
@@ -52,7 +60,11 @@ function write_coordinates(
   end
 end
 
-""" Write 3D Curvilinear grid information to .h5 format """
+"""
+    write_coordinates(mesh::CurvilinearGrid3D, filename::String, units::Unitful.FreeUnits)
+
+Write 3D curvilinear grid information to HDF5 with coordinate units recorded in `units`.
+"""
 function write_coordinates(
   mesh::CurvilinearGrid3D, filename::String, units::Unitful.FreeUnits
 )
@@ -79,7 +91,11 @@ function write_coordinates(
   end
 end
 
-""" Write 1D Uniform grid information to .h5 format """
+"""
+    write_coordinates(mesh::UniformGrid1D, filename::String, units::Unitful.FreeUnits)
+
+Write 1D uniform grid information to HDF5 with coordinate units recorded in `units`.
+"""
 function write_coordinates(mesh::UniformGrid1D, filename::String, units::Unitful.FreeUnits)
   dim_type = dimension(units)
   if dim_type != Unitful.𝐋
@@ -98,7 +114,11 @@ function write_coordinates(mesh::UniformGrid1D, filename::String, units::Unitful
   end
 end
 
-""" Write 2D Uniform grid information to .h5 format """
+"""
+    write_coordinates(mesh::UniformGrid2D, filename::String, units::Unitful.FreeUnits)
+
+Write 2D uniform grid information to HDF5 with coordinate units recorded in `units`.
+"""
 function write_coordinates(mesh::UniformGrid2D, filename::String, units::Unitful.FreeUnits)
   dim_type = dimension(units)
   if dim_type != Unitful.𝐋
@@ -120,7 +140,11 @@ function write_coordinates(mesh::UniformGrid2D, filename::String, units::Unitful
   end
 end
 
-""" Write 3D Uniform grid information to .h5 format """
+"""
+    write_coordinates(mesh::UniformGrid3D, filename::String, units::Unitful.FreeUnits)
+
+Write 3D uniform grid information to HDF5 with coordinate units recorded in `units`.
+"""
 function write_coordinates(mesh::UniformGrid3D, filename::String, units::Unitful.FreeUnits)
   dim_type = dimension(units)
   if dim_type != Unitful.𝐋
@@ -145,7 +169,11 @@ function write_coordinates(mesh::UniformGrid3D, filename::String, units::Unitful
   end
 end
 
-""" Write 2D Rectilinear grid information to .h5 format """
+"""
+    write_coordinates(mesh::RectilinearGrid2D, filename::String, units::Unitful.FreeUnits)
+
+Write 2D rectilinear grid information to HDF5 with coordinate units recorded in `units`.
+"""
 function write_coordinates(
   mesh::RectilinearGrid2D, filename::String, units::Unitful.FreeUnits
 )
@@ -169,7 +197,11 @@ function write_coordinates(
   end
 end
 
-""" Write 3D Rectilinear grid information to .h5 format """
+"""
+    write_coordinates(mesh::RectilinearGrid3D, filename::String, units::Unitful.FreeUnits)
+
+Write 3D rectilinear grid information to HDF5 with coordinate units recorded in `units`.
+"""
 function write_coordinates(
   mesh::RectilinearGrid3D, filename::String, units::Unitful.FreeUnits
 )
@@ -196,7 +228,11 @@ function write_coordinates(
   end
 end
 
-""" Write 1D Cylindrical grid information to .h5 format """
+"""
+    write_coordinates(mesh::CylindricalGrid1D, filename::String, units::Unitful.FreeUnits)
+
+Write 1D cylindrical grid information to HDF5 with coordinate units recorded in `units`.
+"""
 function write_coordinates(
   mesh::CylindricalGrid1D, filename::String, units::Unitful.FreeUnits
 )
@@ -220,7 +256,11 @@ function write_coordinates(
   end
 end
 
-""" Write 2D Axisymmetric grid information to .h5 format """
+"""
+    write_coordinates(mesh::AxisymmetricGrid2D, filename::String, units::Unitful.FreeUnits)
+
+Write 2D axisymmetric grid information to HDF5 with coordinate units recorded in `units`, preserving the rotational axis information.
+"""
 function write_coordinates(
   mesh::AxisymmetricGrid2D, filename::String, units::Unitful.FreeUnits
 )
@@ -250,7 +290,11 @@ function write_coordinates(
   end
 end
 
-""" Write 1D Spherical grid information to .h5 format """
+"""
+    write_coordinates(mesh::SphericalGrid1D, filename::String, units::Unitful.FreeUnits)
+
+Write 1D spherical grid information to HDF5 with coordinate units recorded in `units`, including whether nodes are snapped to the axis.
+"""
 function write_coordinates(
   mesh::SphericalGrid1D, filename::String, units::Unitful.FreeUnits
 )
@@ -276,7 +320,11 @@ end
 
 ### Read h5 functions
 
-""" Read grid info from .h5 format and return mesh """
+"""
+    read_coordinates(filename::String; discretization_scheme=:meg6)
+
+Load grid information from an HDF5 file written by `write_coordinates` and reconstruct the corresponding mesh using the chosen `discretization_scheme`.
+"""
 function read_coordinates(filename::String; discretization_scheme=:meg6)
   grid_file = h5open(filename, "r")
   grid_type = read(grid_file, "grid_type")

@@ -34,6 +34,13 @@ end
 
 # The MEG6 scheme requires a halo of 5 cells in all dimensions
 
+"""
+    MonotoneExplicitGradientScheme(order::Int; use_cache=true, celldims=nothing, backend=CPU(), T=Float64, use_symmetric_conservative_metric_scheme=false)
+
+Create a monotone explicit gradient (MEG) discretization of the requested `order` (2, 4, or 6).
+
+When `use_cache` is `true`, temporary derivative buffers sized by `celldims` are preallocated on the chosen `backend` using element type `T`. The `use_symmetric_conservative_metric_scheme` flag enables symmetric conservative metric updates when metrics are refreshed.
+"""
 function MonotoneExplicitGradientScheme(
   order::Int;
   use_cache=true,

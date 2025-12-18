@@ -6,7 +6,11 @@ using ..GridTypes
 
 export save_vtk
 
-"""Write the mesh to .VTK format"""
+"""
+    save_vtk(mesh::AbstractCurvilinearGrid3D, fn=\"mesh\")
+
+Write a 3D curvilinear grid and its metrics to a `.vti` VTK file named `fn`.
+"""
 function save_vtk(mesh::AbstractCurvilinearGrid3D, fn="mesh")
   @info "Writing to $fn.vti"
 
@@ -82,7 +86,47 @@ function save_vtk(mesh::AbstractCurvilinearGrid3D, fn="mesh")
   end
 end
 
-"""Write (x,y,z) coordinates to .vtk"""
+"""
+    save_vtk(mesh::SphericalGrid3D, fn=\"mesh\"; extra_cell_data=nothing)
+
+Write a spherical grid to VTK, optionally including additional `extra_cell_data` arrays.
+"""
+function save_vtk(mesh::SphericalGrid3D, fn="mesh"; extra_cell_data=nothing)
+  @info "Writing to $fn.vti"
+
+  x = @view mesh.cartesian_node_coordinates.x[mesh.iterators.node.domain]
+  y = @view mesh.cartesian_node_coordinates.y[mesh.iterators.node.domain]
+  z = @view mesh.cartesian_node_coordinates.z[mesh.iterators.node.domain]
+
+  domain = mesh.iterators.cell.domain
+
+  indices = collect(domain)
+
+  @views vtk_grid(fn, (x, y, z)) do vtk
+    vtk["volume", VTKCellData()] = mesh.cell_volumes[domain]
+
+    vtk["index", VTKCellData(), component_names=["i", "j", "k"]] = (
+      [idx.I[1] for idx in indices],
+      [idx.I[2] for idx in indices],
+      [idx.I[3] for idx in indices],
+    )
+
+    vtk["face_area_i₊½", VTKCellData()] = mesh.face_areas.i₊½[domain]
+    vtk["face_area_j₊½", VTKCellData()] = mesh.face_areas.j₊½[domain]
+    vtk["face_area_k₊½", VTKCellData()] = mesh.face_areas.k₊½[domain]
+    if !isnothing(extra_cell_data)
+      for (key, value) in pairs(extra_cell_data)
+        vtk[String(key), VTKCellData()] = value[domain]
+      end
+    end
+  end
+end
+
+"""
+    save_vtk((x, y, z)::NTuple{3,AbstractArray}, fn=\"mesh\")
+
+Write raw `(x, y, z)` coordinates to a `.vti` VTK file named `fn`.
+"""
 function save_vtk((x, y, z)::NTuple{3,AbstractArray{T,3}}, fn="mesh") where {T}
   @info "Writing to $fn.vti"
 
@@ -90,7 +134,11 @@ function save_vtk((x, y, z)::NTuple{3,AbstractArray{T,3}}, fn="mesh") where {T}
   end
 end
 
-"""Write (x,y) coordinates to .vtk"""
+"""
+    save_vtk((x, y)::NTuple{2,AbstractArray}, fn=\"mesh\")
+
+Write raw `(x, y)` coordinates to a `.vti` VTK file named `fn`.
+"""
 function save_vtk((x, y)::NTuple{2,AbstractMatrix{N}}, fn="mesh") where {N}
   @info "Writing to $fn.vti"
 
@@ -98,6 +146,11 @@ function save_vtk((x, y)::NTuple{2,AbstractMatrix{N}}, fn="mesh") where {N}
   end
 end
 
+"""
+    save_vtk(mesh::AbstractCurvilinearGrid2D, fn=\"mesh\")
+
+Write a 2D curvilinear grid and its metrics to a `.vti` VTK file named `fn`.
+"""
 function save_vtk(mesh::AbstractCurvilinearGrid2D, fn="mesh")
   @info "Writing to $fn.vti"
 

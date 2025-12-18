@@ -24,6 +24,11 @@ export RectilinearGrid2D, RectilinearGrid3D
 export UniformGrid1D, UniformGrid2D, UniformGrid3D
 export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
+export SphericalGrid3D, SphericalBasisCurvilinearGrid3D
+export CartesianOrthogonalGrid1D,
+  CylindricalOrthogonalGrid1D,
+  SphericalOrthogonalGrid1D,
+  AxisymmetricOrthogonalGrid2D
 
 export ContinuousCurvilinearGrid1D, ContinuousCurvilinearGrid2D, ContinuousCurvilinearGrid3D
 
@@ -34,7 +39,7 @@ export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
 export update!
 export cellsize, cellsize_withhalo
 export coord, coords
-export centroid, centroids
+export centroid, centroids, cartesian_centroid
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
@@ -43,6 +48,13 @@ export radius, centroid_radius, centroid_radii
 export cellvolume, cellvolumes
 
 export forward_cell_metrics, inverse_cell_metrics
+
+include("operators/Operators.jl")
+using .Operators
+export cell_center_derivative, edge_derivative
+# export cell_center_curl, edge_curl # not working yet
+export cell_center_divergence, edge_divergence
+export cell_center_gradient, edge_gradient
 
 include("adapt_to_gpu.jl")
 

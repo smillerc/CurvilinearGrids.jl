@@ -19,6 +19,9 @@ struct RectilinearArray{T,N,D,A<:AbstractArray{T,D},K,M} <: AbstractArray{T,N}
   valid_indices::NTuple{M,Int}
 end
 
+function KernelAbstractions.get_backend(RA::RectilinearArray)
+  KernelAbstractions.get_backend(RA.data)
+end
 # --- Begin special constructor functions --- #
 
 # Define a way to create an uninitalized RectilinearArray
