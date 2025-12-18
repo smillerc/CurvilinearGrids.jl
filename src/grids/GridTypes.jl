@@ -90,10 +90,10 @@ end
 
 include("metric_soa.jl")
 include("grid_iterators.jl")
-include("1d.jl")
-include("2d.jl")
-include("3d.jl")
-include("3d_spherical_basis.jl")
+include("curvilinear_mapped_grids/1d.jl")
+include("curvilinear_mapped_grids/2d.jl")
+include("curvilinear_mapped_grids/3d.jl")
+include("curvilinear_mapped_grids/3d_spherical_basis.jl")
 include("orthogonal_grids/orthogonal.jl")
 
 include("simple_constructors/simple_constructors.jl")
