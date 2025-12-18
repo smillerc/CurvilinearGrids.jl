@@ -38,9 +38,7 @@
     grid = AxisymmetricOrthogonalGrid2D(r, z, 0, backend)
 
     domain = grid.iterators.cell.domain
-    @test isapprox(
-      grid.centroid_coordinates.r[domain.indices[1][1]], 14 / 9; atol=1e-12
-    )
+    @test isapprox(grid.centroid_coordinates.r[domain.indices[1][1]], 14 / 9; atol=1e-12)
     @test grid.centroid_coordinates.z[domain.indices[2]] == [0.5, 1.5]
     @test isapprox(grid.cell_volumes[domain], [3π 3π])
     @test isapprox(grid.face_areas.i₊½[domain], [4π 4π])
