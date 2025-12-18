@@ -113,7 +113,7 @@ function update_metrics!(
   end
 
   # Update the metrics within the non-halo region, e.g., the domain
-  backend = KernelAbstractions.get_backend(mesh.centroid_coordinates.x)
+  backend = KernelAbstractions.get_backend(mesh.cell_center_metrics.J)
   MetricDiscretizationSchemes.update_metrics!(
     mesh.discretization_scheme,
     mesh.centroid_coordinates,
@@ -164,22 +164,27 @@ end
     mesh.node_coordinates.z[mesh.iterators.node.domain],
   )
 end
-@inline function coords(mesh::SphericalGrid3D)
+
+@inline function coords(mesh::SphericalBasisCurvilinearGrid3D)
   return @views (
     mesh.cartesian_node_coordinates.x[mesh.iterators.node.domain],
     mesh.cartesian_node_coordinates.y[mesh.iterators.node.domain],
     mesh.cartesian_node_coordinates.z[mesh.iterators.node.domain],
   )
 end
+
 @inline function coords(mesh::CartesianOrthogonalGrid1D)
   return @views mesh.node_coordinates.x[mesh.iterators.node.domain]
 end
+
 @inline function coords(mesh::CylindricalOrthogonalGrid1D)
   return @views mesh.node_coordinates.r[mesh.iterators.node.domain]
 end
+
 @inline function coords(mesh::SphericalOrthogonalGrid1D)
   return @views mesh.node_coordinates.r[mesh.iterators.node.domain]
 end
+
 @inline function coords(mesh::AxisymmetricOrthogonalGrid2D)
   return @views (
     mesh.node_coordinates.r[mesh.iterators.node.domain.indices[1]],

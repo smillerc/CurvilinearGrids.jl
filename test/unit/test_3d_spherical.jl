@@ -26,7 +26,9 @@ using Polynomials
 
   nhalo = 1
 
-  grid = CurvilinearGrids.GridTypes.SphericalGrid3D(r, θ, ϕ, nhalo, backend)
+  grid = CurvilinearGrids.GridTypes.SphericalGrid3D(
+    r, θ, ϕ, nhalo, backend; halo_coords_included=true
+  )
 
   node = grid.iterators.node
   cell = grid.iterators.cell
@@ -35,22 +37,30 @@ using Polynomials
     sph = grid.node_coordinates
     cart = grid.cartesian_node_coordinates
 
+    nodes_are_correct = false
     for I in node.domain
       i, j, k = Tuple(I)
       rr = sph.r[i]
       th = sph.θ[j]
       ph = sph.ϕ[k]
 
-      @test isapprox(cart.x[I], rr * sin(th) * cos(ph); atol=1e-12)
-      @test isapprox(cart.y[I], rr * sin(th) * sin(ph); atol=1e-12)
-      @test isapprox(cart.z[I], rr * cos(th); atol=1e-12)
+      nodes_are_correct = (
+        isapprox(cart.x[I], rr * sin(th) * cos(ph); atol=1e-12) &&
+        isapprox(cart.y[I], rr * sin(th) * sin(ph); atol=1e-12) &&
+        isapprox(cart.z[I], rr * cos(th); atol=1e-12)
+      )
+      if !nodes_are_correct
+        break
+      end
     end
+    @test nodes_are_correct
   end
 
   @testset "Cell volumes correct" begin
     V = grid.cell_volumes
     sph = grid.node_coordinates
 
+    volumes_are_correct = false
     for I in cell.domain
       i, j, k = Tuple(I)
 
@@ -63,32 +73,49 @@ using Polynomials
 
       V_true = (1 / 3) * (r1^3 - r0^3) * (cos(th0) - cos(th1)) * (ph1 - ph0)
 
-      @test isapprox(V[I], V_true; rtol=1e-12)
+      volumes_are_correct = isapprox(V[I], V_true; rtol=1e-12)
+      if !volumes_are_correct
+        break
+      end
     end
+    @test volumes_are_correct
   end
 
   @testset "Face areas correct" begin
     A = grid.face_areas
-    sph = grid.node_coordinates
-    rnode, θnode, ϕnode = sph.r, sph.θ, sph.ϕ
+    r = grid.node_coordinates.r
+    θ = grid.node_coordinates.θ
+    ϕ = grid.node_coordinates.ϕ
 
     Ai, Aj, Ak = A.i₊½, A.j₊½, A.k₊½
+
+    face_areas_are_correct = false
 
     for I in cell.domain
       i, j, k = Tuple(I)
 
-      Δμ = cos(θnode[j]) - cos(θnode[j + 1])
-      Δϕ = ϕnode[k + 1] - ϕnode[k]
-      Δr2 = rnode[i + 1]^2 - rnode[i]^2
+      Δμ = cos(θ[j]) - cos(θ[j + 1])
+      Δϕ = ϕ[k + 1] - ϕ[k]
+      Δr2 = r[i + 1]^2 - r[i]^2
 
-      Ai_true = rnode[i]^2 * Δμ * Δϕ
-      Aj_true = 0.5 * Δr2 * sin(θnode[j]) * Δϕ
+      Ai_true = r[i + 1]^2 * Δμ * Δϕ
+      Aj_true = 0.5 * Δr2 * sin(θ[j + 1]) * Δϕ
       Ak_true = 0.5 * Δr2 * Δμ
 
-      @test isapprox(Ai[I], Ai_true; rtol=1e-12)
-      @test isapprox(Aj[I], Aj_true; rtol=1e-12)
-      @test isapprox(Ak[I], Ak_true; rtol=1e-12)
+      face_areas_are_correct = (
+        isapprox(Ai[I], Ai_true; rtol=1e-12) &&
+        isapprox(Aj[I], Aj_true; rtol=1e-12) &&
+        isapprox(Ak[I], Ak_true; rtol=1e-12)
+      )
+
+      if !face_areas_are_correct
+        @show Ai[I], Ai_true
+        @show Aj[I], Aj_true
+        @show Ak[I], Ak_true
+        break
+      end
     end
+    @test face_areas_are_correct
   end
 
   @testset "Centroids correct" begin
@@ -96,6 +123,7 @@ using Polynomials
     sph = grid.node_coordinates
     rnode, θnode, ϕnode = sph.r, sph.θ, sph.ϕ
 
+    centroids_are_correct = false
     for I in cell.domain
       i, j, k = Tuple(I)
 
@@ -110,15 +138,19 @@ using Polynomials
       θc = acos((cos(θ₀) + cos(θ₁)) / 2)
       ϕc = (ϕ₀ + ϕ₁) / 2
 
-      @test isapprox(C.r[i], rc; rtol=1e-12)
-
-      @test isapprox(C.θ[j], θc; rtol=1e-12)
-
-      @test isapprox(C.ϕ[k], ϕc; rtol=1e-12)
+      centroids_are_correct = (
+        isapprox(C.r[i], rc; rtol=1e-12) &&
+        isapprox(C.θ[j], θc; rtol=1e-12) &&
+        isapprox(C.ϕ[k], ϕc; rtol=1e-12)
+      )
+      if !centroids_are_correct
+        break
+      end
     end
+    @test centroids_are_correct
   end
 
-  save_vtk(grid, "spherical_mesh")
+  # save_vtk(grid, "spherical_mesh")
 end
 
 @testset "SphericalGrid cell-center operators" begin
@@ -313,4 +345,99 @@ end
   plot!(hs, hs .^ 2 * grad_err[end] / hs[end]^2; lw=2, ls=:dash, label="h²")
 
   savefig("spherical_operator_convergence_r_theta_phi.png")
+end
+
+@testset "SphericalBasisCurvilinearGrid3D" begin
+  r = collect(range(1.0, 2.0; length=30))       # 5 radial cells
+
+  θmin = deg2rad(45)
+  θmax = deg2rad(105)
+  ϕmin = deg2rad(-15)
+  ϕmax = deg2rad(15)
+
+  θ = collect(range(θmin, θmax; length=15))
+  ϕ = collect(range(ϕmin, ϕmax; length=25))
+  dr = r[2] - r[1]
+  dθ = θ[2] - θ[1]
+  dϕ = ϕ[2] - ϕ[1]
+
+  nhalo = 1
+
+  grid = CurvilinearGrids.GridTypes.SphericalBasisCurvilinearGrid3D(r, θ, ϕ, :meg6)
+
+  @test all(grid.cell_center_metrics.x₁.ξ[dom] .≈ dr)
+  @test all(grid.cell_center_metrics.x₂.η[dom] .≈ dθ)
+  @test all(grid.cell_center_metrics.x₃.ζ[dom] .≈ dϕ)
+
+  J = dr * dθ * dϕ # ! not the true volume
+  @test all(grid.cell_center_metrics.J[dom] .≈ J)
+
+  @test all(grid.cell_center_metrics.ξ.x₁[dom] .≈ 1 / dr)
+  @test all(grid.cell_center_metrics.η.x₂[dom] .≈ 1 / dθ)
+  @test all(grid.cell_center_metrics.ζ.x₃[dom] .≈ 1 / dϕ)
+
+  idom = expand_lower(dom, 1, 1)
+  @test all(grid.edge_metrics.i₊½.ξ̂.x₁[idom] .≈ J / dr)
+  @test all(grid.edge_metrics.i₊½.η̂.x₂[idom] .≈ J / dθ)
+  @test all(grid.edge_metrics.i₊½.ζ̂.x₃[idom] .≈ J / dϕ)
+  @test all(grid.edge_metrics.i₊½.ξ.x₁[idom] .≈ 1 / dr)
+  @test all(grid.edge_metrics.i₊½.η.x₂[idom] .≈ 1 / dθ)
+  @test all(grid.edge_metrics.i₊½.ζ.x₃[idom] .≈ 1 / dϕ)
+  @test all(grid.edge_metrics.i₊½.J[idom] .≈ J)
+
+  jdom = expand_lower(dom, 2, 1)
+  @test all(grid.edge_metrics.j₊½.ξ̂.x₁[jdom] .≈ J / dr)
+  @test all(grid.edge_metrics.j₊½.η̂.x₂[jdom] .≈ J / dθ)
+  @test all(grid.edge_metrics.j₊½.ζ̂.x₃[jdom] .≈ J / dϕ)
+  @test all(grid.edge_metrics.j₊½.ξ.x₁[jdom] .≈ 1 / dr)
+  @test all(grid.edge_metrics.j₊½.η.x₂[jdom] .≈ 1 / dθ)
+  @test all(grid.edge_metrics.j₊½.ζ.x₃[jdom] .≈ 1 / dϕ)
+  @test all(grid.edge_metrics.j₊½.J[jdom] .≈ J)
+
+  kdom = expand_lower(dom, 3, 1)
+  @test all(grid.edge_metrics.k₊½.ξ̂.x₁[kdom] .≈ J / dr)
+  @test all(grid.edge_metrics.k₊½.η̂.x₂[kdom] .≈ J / dθ)
+  @test all(grid.edge_metrics.k₊½.ζ̂.x₃[kdom] .≈ J / dϕ)
+  @test all(grid.edge_metrics.k₊½.ξ.x₁[kdom] .≈ 1 / dr)
+  @test all(grid.edge_metrics.k₊½.η.x₂[kdom] .≈ 1 / dθ)
+  @test all(grid.edge_metrics.k₊½.ζ.x₃[kdom] .≈ 1 / dϕ)
+  @test all(grid.edge_metrics.k₊½.J[kdom] .≈ J)
+
+  @test all(iszero.(grid.cell_center_metrics.x₂.ξ[dom]))
+  @test all(iszero.(grid.cell_center_metrics.x₃.ξ[dom]))
+  @test all(iszero.(grid.cell_center_metrics.x₁.η[dom]))
+  @test all(iszero.(grid.cell_center_metrics.x₃.η[dom]))
+  @test all(iszero.(grid.cell_center_metrics.x₁.ζ[dom]))
+  @test all(iszero.(grid.cell_center_metrics.x₂.ζ[dom]))
+
+  @test all(iszero.(grid.cell_center_metrics.ξ.x₂[dom]))
+  @test all(iszero.(grid.cell_center_metrics.ξ.x₃[dom]))
+  @test all(iszero.(grid.cell_center_metrics.η.x₁[dom]))
+  @test all(iszero.(grid.cell_center_metrics.η.x₃[dom]))
+  @test all(iszero.(grid.cell_center_metrics.ζ.x₁[dom]))
+  @test all(iszero.(grid.cell_center_metrics.ζ.x₂[dom]))
+
+  @test all(iszero.(grid.edge_metrics.i₊½.ξ.x₂[idom]))
+  @test all(iszero.(grid.edge_metrics.i₊½.ξ.x₃[idom]))
+  @test all(iszero.(grid.edge_metrics.i₊½.η.x₁[idom]))
+  @test all(iszero.(grid.edge_metrics.i₊½.η.x₃[idom]))
+  @test all(iszero.(grid.edge_metrics.i₊½.ζ.x₁[idom]))
+  @test all(iszero.(grid.edge_metrics.i₊½.ζ.x₂[idom]))
+
+  @test all(iszero.(grid.edge_metrics.j₊½.ξ.x₂[jdom]))
+  @test all(iszero.(grid.edge_metrics.j₊½.ξ.x₃[jdom]))
+  @test all(iszero.(grid.edge_metrics.j₊½.η.x₁[jdom]))
+  @test all(iszero.(grid.edge_metrics.j₊½.η.x₃[jdom]))
+  @test all(iszero.(grid.edge_metrics.j₊½.ζ.x₁[jdom]))
+  @test all(iszero.(grid.edge_metrics.j₊½.ζ.x₂[jdom]))
+
+  @test all(iszero.(grid.edge_metrics.k₊½.ξ.x₂[kdom]))
+  @test all(iszero.(grid.edge_metrics.k₊½.ξ.x₃[kdom]))
+  @test all(iszero.(grid.edge_metrics.k₊½.η.x₁[kdom]))
+  @test all(iszero.(grid.edge_metrics.k₊½.η.x₃[kdom]))
+  @test all(iszero.(grid.edge_metrics.k₊½.ζ.x₁[kdom]))
+  @test all(iszero.(grid.edge_metrics.k₊½.ζ.x₂[kdom]))
+
+  # save_vtk(grid, "spherical_basis_mesh")
+  nothing
 end

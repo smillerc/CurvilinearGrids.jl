@@ -1,4 +1,5 @@
-struct SphericalBasisCurvilinearGrid3D{CO,CNC,CE,NV,EM,CM,DL,CI,DS} <: AbstractCurvilinearGrid3D
+struct SphericalBasisCurvilinearGrid3D{CO,CNC,CE,NV,EM,CM,DL,CI,DS} <:
+       AbstractCurvilinearGrid3D
   node_coordinates::CO
   cartesian_node_coordinates::CNC
   centroid_coordinates::CE
@@ -29,9 +30,9 @@ function SphericalBasisCurvilinearGrid3D(
   halo_coords_included=false,
   kwargs...,
 ) where {T}
-
-  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name =
-    get_gradient_discretization_scheme(discretization_scheme)
+  GradientDiscretizationScheme, order, use_symmetric_conservative_metric_scheme, nhalo, scheme_name = get_gradient_discretization_scheme(
+    discretization_scheme
+  )
 
   limits, iterators = get_iterators(size(r), halo_coords_included, nhalo)
   celldims = size(iterators.cell.full)
@@ -130,7 +131,6 @@ function _spherical_basis_grid_constructor(
   backend=KernelAbstractions.CPU(),
   kwargs...,
 ) where {T}
-
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
@@ -181,11 +181,7 @@ function _spherical_basis_grid_constructor(
   ))
 
   compute_xyz_coords!(
-    cartesian_node_coords,
-    coords,
-    domain_iterators,
-    backend,
-    halo_coords_included,
+    cartesian_node_coords, coords, domain_iterators, backend, halo_coords_included
   )
 
   nnodes = size(r)
@@ -193,9 +189,7 @@ function _spherical_basis_grid_constructor(
 end
 
 function update!(
-  mesh::SphericalBasisCurvilinearGrid3D,
-  force::Bool,
-  include_halo_region::Bool,
+  mesh::SphericalBasisCurvilinearGrid3D, force::Bool, include_halo_region::Bool
 )
   if include_halo_region
     metric_domain = mesh.iterators.cell.full
@@ -221,17 +215,36 @@ function update!(
 end
 
 function compute_cartesian_node_coordinates!(
-  mesh::SphericalBasisCurvilinearGrid3D;
-  include_halo_region::Bool=mesh.halo_coords_included,
+  mesh::SphericalBasisCurvilinearGrid3D; include_halo_region::Bool=mesh.halo_coords_included
 )
   backend = KernelAbstractions.get_backend(mesh.node_coordinates.r)
-  compute_xyz_coords!(
-    mesh.cartesian_node_coordinates,
-    mesh.node_coordinates,
-    mesh.iterators,
-    backend,
-    include_halo_region,
+
+  @kernel function _compute_xyz_coords!(x, y, z, r, θ, ϕ, domain)
+    idx = @index(Global, Linear)
+    I = domain[idx]
+
+    rr = r[I]
+    th = θ[I]
+    ph = ϕ[I]
+
+    x[I] = rr * sin(th) * cos(ph)
+    y[I] = rr * sin(th) * sin(ph)
+    z[I] = rr * cos(th)
+  end
+
+  dom = mesh.iterators.node.full
+
+  _compute_xyz_coords!(backend)(
+    mesh.cartesian_node_coordinates.x,
+    mesh.cartesian_node_coordinates.y,
+    mesh.cartesian_node_coordinates.z,
+    mesh.node_coordinates.r,
+    mesh.node_coordinates.θ,
+    mesh.node_coordinates.ϕ,
+    dom;
+    ndrange=size(dom),
   )
+
   return nothing
 end
 
