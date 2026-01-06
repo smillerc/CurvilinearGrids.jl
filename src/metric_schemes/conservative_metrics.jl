@@ -419,3 +419,9 @@ function symmetric_conservative_metrics!(
 ) where {T}
   conservative_metrics!(scheme, metrics, x, y, domain)
 end
+
+function symmetric_conservative_metrics!(
+  scheme, metrics, x::AbstractArray{T,1}, domain
+) where {T}
+  conservative_metrics!(scheme, metrics, x, domain)
+end
