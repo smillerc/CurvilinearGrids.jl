@@ -250,7 +250,9 @@ end
   ϕc[k] = (ϕ₀ + ϕ₁) / 2
 end
 
-@kernel function _compute_radial_face_areas!(Aᵢ₊½, r, θ, ϕ, domain)
+@kernel function _compute_radial_face_areas!(
+  Aᵢ₊½::AbstractArray{T,N}, r, θ, ϕ, domain
+) where {T,N}
   idx = @index(Global, Linear)
   I = domain[idx]
   i, j, k = I.I # these are CELL indices
@@ -263,7 +265,9 @@ end
   Aᵢ₊½[i, j, k] = r[i + 1]^2 * Δμ * Δϕ
 end
 
-@kernel function _compute_theta_face_areas!(Aⱼ₊½, r, θ, ϕ, domain)
+@kernel function _compute_theta_face_areas!(
+  Aⱼ₊½::AbstractArray{T,N}, r, θ, ϕ, domain
+) where {T,N}
   idx = @index(Global, Linear)
   I = domain[idx]
   i, j, k = I.I # these are CELL indices
@@ -273,10 +277,12 @@ end
   Δr² = r[i + 1]^2 - r[i]^2
 
   # this uses CELL indexing, e.g. for cell i,j,k, the j+1/2 face area is...
-  Aⱼ₊½[i, j, k] = (1 / 2) * Δr² * sin(θ[j + 1]) * Δϕ
+  Aⱼ₊½[i, j, k] = T(1 / 2) * Δr² * sin(θ[j + 1]) * Δϕ
 end
 
-@kernel function _compute_phi_face_areas!(Aₖ₊½, r, θ, ϕ, domain)
+@kernel function _compute_phi_face_areas!(
+  Aₖ₊½::AbstractArray{T,N}, r, θ, ϕ, domain
+) where {T,N}
   idx = @index(Global, Linear)
   I = domain[idx] # these are CELL indices
   i, j, k = I.I
@@ -286,10 +292,10 @@ end
   Δr² = r[i + 1]^2 - r[i]^2
 
   # this uses CELL indexing, e.g. for cell i,j,k, the k+1/2 face area is...
-  Aₖ₊½[i, j, k] = (1 / 2) * Δr² * Δμ
+  Aₖ₊½[i, j, k] = T(1 / 2) * Δr² * Δμ
 end
 
-@kernel function _compute_volumes!(V, r, θ, ϕ, cell_domain)
+@kernel function _compute_volumes!(V::AbstractArray{T,N}, r, θ, ϕ, cell_domain) where {T,N}
   idx = @index(Global, Linear)
   I = cell_domain[idx]
   i, j, k = I.I
@@ -298,7 +304,7 @@ end
   Δμ = cos(θ[j]) - cos(θ[j + 1])
   Δϕ = ϕ[k + 1] - ϕ[k]
 
-  V[I] = (1 / 3) * Δr³ * Δμ * Δϕ
+  V[I] = T(1 / 3) * Δr³ * Δμ * Δϕ
 end
 
 @kernel function _compute_xyz_coords!(x, y, z, r, θ, ϕ, domain)
