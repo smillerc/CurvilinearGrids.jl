@@ -126,6 +126,20 @@ function update_metrics!(
   return nothing
 end
 
+Base.eltype(mesh::AbstractCurvilinearGrid1D) = eltype(mesh.node_coordinates.x)
+Base.eltype(mesh::AbstractCurvilinearGrid2D) = eltype(mesh.node_coordinates.x)
+Base.eltype(mesh::AbstractCurvilinearGrid3D) = eltype(mesh.node_coordinates.x)
+Base.eltype(mesh::SphericalGrid3D) = eltype(mesh.node_coordinates.r)
+
+Base.eltype(mesh::CartesianOrthogonalGrid1D) = eltype(mesh.node_coordinates.x)
+Base.eltype(mesh::CylindricalOrthogonalGrid1D) = eltype(mesh.node_coordinates.r)
+Base.eltype(mesh::SphericalOrthogonalGrid1D) = eltype(mesh.node_coordinates.r)
+Base.eltype(mesh::AxisymmetricOrthogonalGrid2D) = eltype(mesh.node_coordinates.r)
+
+function Base.eltype(mesh::SphericalBasisCurvilinearGrid3D)
+  eltype(mesh.cartesian_node_coordinates.x)
+end
+
 """
     cellsize(mesh::AbstractCurvilinearGrid)
 
