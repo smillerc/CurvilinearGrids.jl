@@ -205,13 +205,14 @@ end
     mesh.node_coordinates.z[mesh.iterators.node.domain.indices[2]],
   )
 end
-# @inline function coords(mesh::SphericalGrid3D)
-#   return @views (
-#     mesh.node_coordinates.r[mesh.iterators.node.domain.indices[1]],
-#     mesh.node_coordinates.θ[mesh.iterators.node.domain.indices[2]],
-#     mesh.node_coordinates.ϕ[mesh.iterators.node.domain.indices[3]],
-#   )
-# end
+
+@inline function coords(mesh::SphericalGrid3D)
+  return @views (
+    mesh.node_coordinates.r[mesh.iterators.node.domain.indices[1]],
+    mesh.node_coordinates.θ[mesh.iterators.node.domain.indices[2]],
+    mesh.node_coordinates.ϕ[mesh.iterators.node.domain.indices[3]],
+  )
+end
 
 """
     centroids(mesh)
