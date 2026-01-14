@@ -266,6 +266,14 @@ end
   )
 end
 
+@inline function centroids(mesh::SphericalGrid3D)
+  return @views (
+    mesh.centroid_coordinates.r[mesh.iterators.cell.domain.indices[1]],
+    mesh.centroid_coordinates.θ[mesh.iterators.cell.domain.indices[2]],
+    mesh.centroid_coordinates.ϕ[mesh.iterators.cell.domain.indices[3]],
+  )
+end
+
 """
     coord(mesh, index::CartesianIndex)
 
