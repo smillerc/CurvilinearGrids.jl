@@ -8,18 +8,13 @@ export write_coordinates, read_coordinates
 ### Write h5 functions
 
 """
-    write_coordinates(mesh::CurvilinearGrid1D, filename::String, units::Unitful.FreeUnits)
+    write_coordinates(mesh::CurvilinearGrid1D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
 
 Write 1D curvilinear grid information to HDF5 with coordinate units recorded in `units`.
 """
 function write_coordinates(
-  mesh::CurvilinearGrid1D, filename::String, units::Unitful.FreeUnits
-)
-  dim_type = dimension(units)
-  if dim_type != Unitful.𝐋
-    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
-  end
-
+  mesh::CurvilinearGrid1D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
   x = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
@@ -33,18 +28,13 @@ function write_coordinates(
 end
 
 """
-    write_coordinates(mesh::CurvilinearGrid2D, filename::String, units::Unitful.FreeUnits)
+    write_coordinates(mesh::CurvilinearGrid2D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
 
 Write 2D curvilinear grid information to HDF5 with coordinate units recorded in `units`.
 """
 function write_coordinates(
-  mesh::CurvilinearGrid2D, filename::String, units::Unitful.FreeUnits
-)
-  dim_type = dimension(units)
-  if dim_type != Unitful.𝐋
-    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
-  end
-
+  mesh::CurvilinearGrid2D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
   x, y = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
@@ -61,18 +51,13 @@ function write_coordinates(
 end
 
 """
-    write_coordinates(mesh::CurvilinearGrid3D, filename::String, units::Unitful.FreeUnits)
+    write_coordinates(mesh::CurvilinearGrid3D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
 
 Write 3D curvilinear grid information to HDF5 with coordinate units recorded in `units`.
 """
 function write_coordinates(
-  mesh::CurvilinearGrid3D, filename::String, units::Unitful.FreeUnits
-)
-  dim_type = dimension(units)
-  if dim_type != Unitful.𝐋
-    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
-  end
-
+  mesh::CurvilinearGrid3D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
   x, y, z = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
@@ -92,16 +77,13 @@ function write_coordinates(
 end
 
 """
-    write_coordinates(mesh::UniformGrid1D, filename::String, units::Unitful.FreeUnits)
+    write_coordinates(mesh::UniformGrid1D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
 
 Write 1D uniform grid information to HDF5 with coordinate units recorded in `units`.
 """
-function write_coordinates(mesh::UniformGrid1D, filename::String, units::Unitful.FreeUnits)
-  dim_type = dimension(units)
-  if dim_type != Unitful.𝐋
-    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
-  end
-
+function write_coordinates(
+  mesh::UniformGrid1D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
   x = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
@@ -115,16 +97,13 @@ function write_coordinates(mesh::UniformGrid1D, filename::String, units::Unitful
 end
 
 """
-    write_coordinates(mesh::UniformGrid2D, filename::String, units::Unitful.FreeUnits)
+    write_coordinates(mesh::UniformGrid2D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
 
 Write 2D uniform grid information to HDF5 with coordinate units recorded in `units`.
 """
-function write_coordinates(mesh::UniformGrid2D, filename::String, units::Unitful.FreeUnits)
-  dim_type = dimension(units)
-  if dim_type != Unitful.𝐋
-    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
-  end
-
+function write_coordinates(
+  mesh::UniformGrid2D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
   x, y = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
@@ -141,16 +120,13 @@ function write_coordinates(mesh::UniformGrid2D, filename::String, units::Unitful
 end
 
 """
-    write_coordinates(mesh::UniformGrid3D, filename::String, units::Unitful.FreeUnits)
+    write_coordinates(mesh::UniformGrid3D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
 
 Write 3D uniform grid information to HDF5 with coordinate units recorded in `units`.
 """
-function write_coordinates(mesh::UniformGrid3D, filename::String, units::Unitful.FreeUnits)
-  dim_type = dimension(units)
-  if dim_type != Unitful.𝐋
-    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
-  end
-
+function write_coordinates(
+  mesh::UniformGrid3D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
   x, y, z = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
@@ -160,7 +136,7 @@ function write_coordinates(mesh::UniformGrid3D, filename::String, units::Unitful
     h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "y", collect(y))
-    h5writeattr(filename, "y", Dict("Units" => string(units)))
+    h5writeattr(filename, "y", Dict("Units" => "string(units)"))
 
     h5write(filename, "z", collect(z))
     h5writeattr(filename, "z", Dict("Units" => string(units)))
@@ -169,19 +145,38 @@ function write_coordinates(mesh::UniformGrid3D, filename::String, units::Unitful
   end
 end
 
+function write_coordinates(
+  mesh::SphericalGrid3D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
+  r, θ, ϕ = coords(mesh)
+  mesh_type = String(nameof(typeof(mesh)))
+
+  # Write mesh
+  h5open(filename, "w") do file
+    h5write(filename, "r", collect(r))
+    h5writeattr(filename, "r", Dict("Units" => string(units)))
+
+    h5write(filename, "theta", collect(θ))
+    h5writeattr(filename, "theta", Dict("Units" => "rad"))
+
+    h5write(filename, "phi", collect(ϕ))
+    h5writeattr(filename, "phi", Dict("Units" => "rad"))
+
+    h5write(filename, "nhalo", mesh.nhalo)
+    h5writeattr(filename, "nhalo", Dict("Description" => "Number of halo cells"))
+
+    h5write(filename, "grid_type", mesh_type)
+  end
+end
+
 """
-    write_coordinates(mesh::RectilinearGrid2D, filename::String, units::Unitful.FreeUnits)
+    write_coordinates(mesh::RectilinearGrid2D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
 
 Write 2D rectilinear grid information to HDF5 with coordinate units recorded in `units`.
 """
 function write_coordinates(
-  mesh::RectilinearGrid2D, filename::String, units::Unitful.FreeUnits
-)
-  dim_type = dimension(units)
-  if dim_type != Unitful.𝐋
-    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
-  end
-
+  mesh::RectilinearGrid2D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
   x, y = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
@@ -198,18 +193,13 @@ function write_coordinates(
 end
 
 """
-    write_coordinates(mesh::RectilinearGrid3D, filename::String, units::Unitful.FreeUnits)
+    write_coordinates(mesh::RectilinearGrid3D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
 
 Write 3D rectilinear grid information to HDF5 with coordinate units recorded in `units`.
 """
 function write_coordinates(
-  mesh::RectilinearGrid3D, filename::String, units::Unitful.FreeUnits
-)
-  dim_type = dimension(units)
-  if dim_type != Unitful.𝐋
-    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
-  end
-
+  mesh::RectilinearGrid3D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
   x, y, z = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 
@@ -229,18 +219,13 @@ function write_coordinates(
 end
 
 """
-    write_coordinates(mesh::CylindricalGrid1D, filename::String, units::Unitful.FreeUnits)
+    write_coordinates(mesh::CylindricalGrid1D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
 
 Write 1D cylindrical grid information to HDF5 with coordinate units recorded in `units`.
 """
 function write_coordinates(
-  mesh::CylindricalGrid1D, filename::String, units::Unitful.FreeUnits
-)
-  dim_type = dimension(units)
-  if dim_type != Unitful.𝐋
-    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
-  end
-
+  mesh::CylindricalGrid1D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
   x = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
   snap_to_axis = mesh.snap_to_axis
@@ -257,18 +242,13 @@ function write_coordinates(
 end
 
 """
-    write_coordinates(mesh::AxisymmetricGrid2D, filename::String, units::Unitful.FreeUnits)
+    write_coordinates(mesh::AxisymmetricGrid2D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
 
 Write 2D axisymmetric grid information to HDF5 with coordinate units recorded in `units`, preserving the rotational axis information.
 """
 function write_coordinates(
-  mesh::AxisymmetricGrid2D, filename::String, units::Unitful.FreeUnits
-)
-  dim_type = dimension(units)
-  if dim_type != Unitful.𝐋
-    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
-  end
-
+  mesh::AxisymmetricGrid2D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
   x, y = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
   snap_to_axis = mesh.snap_to_axis
@@ -291,18 +271,13 @@ function write_coordinates(
 end
 
 """
-    write_coordinates(mesh::SphericalGrid1D, filename::String, units::Unitful.FreeUnits)
+    write_coordinates(mesh::SphericalGrid1D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
 
 Write 1D spherical grid information to HDF5 with coordinate units recorded in `units`, including whether nodes are snapped to the axis.
 """
 function write_coordinates(
-  mesh::SphericalGrid1D, filename::String, units::Unitful.FreeUnits
-)
-  dim_type = dimension(units)
-  if dim_type != Unitful.𝐋
-    @error("Passed in units should be a Unitful.𝐋. $units is a Unitful.$(dim_type)")
-  end
-
+  mesh::SphericalGrid1D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
   x = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
   snap_to_axis = mesh.snap_to_axis
@@ -363,6 +338,9 @@ function read_coordinates(filename::String; discretization_scheme=:meg6)
   elseif grid_type == "SphericalGrid1D"
     x, snap_to_axis = read_SphericalGrid1D(filename)
     mesh = SphericalGrid1D(x, discretization_scheme, snap_to_axis)
+  elseif grid_type == "SphericalGrid3D"
+    r, θ, ϕ, nhalo = read_SphericalGrid3D(filename)
+    mesh = SphericalGrid3D(r, θ, ϕ, nhalo)
   end
 
   return mesh
@@ -509,6 +487,19 @@ function read_SphericalGrid1D(filename::String)
   close(grid_file)
 
   return collect(x), snap_to_axis
+end
+
+function read_SphericalGrid3D(filename::String)
+  grid_file = h5open(filename, "r")
+
+  r = read(grid_file, "r")
+  θ = read(grid_file, "theta")
+  ϕ = read(grid_file, "phi")
+  nhalo = read(grid_file, "nhalo")
+
+  close(grid_file)
+
+  return collect(x), collect(θ), collect(ϕ), nhalo
 end
 
 end

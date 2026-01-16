@@ -15,7 +15,7 @@ function SphericalGrid3D(
   _θ::AbstractVector{T},
   _ϕ::AbstractVector{T},
   nhalo::Int,
-  backend;
+  backend=CPU();
   halo_coords_included=false,
 ) where {T<:Real}
 
