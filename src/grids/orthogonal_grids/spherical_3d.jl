@@ -80,34 +80,7 @@ function SphericalGrid3D(
     k₊½=KernelAbstractions.zeros(backend, T, celldims),
   )
 
-  compute_xyz_coords!(
-    cartesian_node_coords,
-    spherical_node_coords,
-    domain_iterators,
-    backend,
-    halo_coords_included,
-  )
-  compute_centroids!(
-    spherical_centroid_coords,
-    spherical_node_coords,
-    domain_iterators,
-    backend,
-    halo_coords_included,
-  )
-  compute_volumes!(
-    cell_volumes, spherical_node_coords, domain_iterators, backend, halo_coords_included
-  )
-
-  compute_face_areas!(
-    face_areas,
-    spherical_node_coords,
-    domain_iterators,
-    backend,
-    halo_coords_included,
-    nhalo,
-  )
-
-  return SphericalGrid3D(
+  mesh = SphericalGrid3D(
     spherical_node_coords,
     cartesian_node_coords,
     spherical_centroid_coords,
@@ -116,6 +89,43 @@ function SphericalGrid3D(
     limits,
     face_areas,
     nhalo,
+  )
+
+  update!(mesh)
+
+  return mesh
+end
+
+function update!(mesh::SphericalGrid3D)
+  backend = KernelAbstractions.get_backend(mesh.node_coordinates.r)
+  halo_coords_included = true
+
+  compute_xyz_coords!(
+    mesh.cartesian_node_coordinates,
+    mesh.node_coordinates,
+    mesh.iterators,
+    backend,
+    halo_coords_included,
+  )
+  compute_centroids!(
+    mesh.centroid_coordinates,
+    mesh.node_coordinates,
+    mesh.iterators,
+    backend,
+    halo_coords_included,
+  )
+
+  compute_volumes!(
+    mesh.cell_volumes, mesh.node_coordinates, mesh.iterators, backend, halo_coords_included
+  )
+
+  compute_face_areas!(
+    mesh.face_areas,
+    mesh.node_coordinates,
+    mesh.iterators,
+    backend,
+    halo_coords_included,
+    mesh.nhalo,
   )
 end
 

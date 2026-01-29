@@ -364,6 +364,7 @@ end
   nhalo = 1
 
   grid = CurvilinearGrids.GridTypes.SphericalBasisCurvilinearGrid3D(r, θ, ϕ, :meg6)
+  dom = grid.iterators.cell.domain
 
   @test all(grid.cell_center_metrics.x₁.ξ[dom] .≈ dr)
   @test all(grid.cell_center_metrics.x₂.η[dom] .≈ dθ)
