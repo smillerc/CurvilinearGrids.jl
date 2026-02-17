@@ -48,6 +48,9 @@ include("unit/common.jl")
   include("unit/test_discretizations.jl")
   # include("unit/test_meg6.jl")
 
+  @info "Unified Grid Types"
+  include("unit/test_unified_grid_types.jl")
+
   @info "Read/Write .h5"
   include("unit/test_grid_read_write.jl")
 end

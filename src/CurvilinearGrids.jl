@@ -32,6 +32,16 @@ export CartesianOrthogonalGrid1D,
 
 export ContinuousCurvilinearGrid1D, ContinuousCurvilinearGrid2D, ContinuousCurvilinearGrid3D
 
+export AbstractUnifiedGrid
+export MappedGrid, DiscreteGrid, OrthogonalGrid
+
+export CoordinateSystemTrait
+export CartesianCS, CylindricalCS, SphericalCS, AxisymmetricCS, CurvilinearCS
+
+export BasisTrait
+export CartesianBasis, ContravariantBasis, CovariantBasis, SphericalBasis
+export coordinate_system, basis_trait
+
 export rectilinear_grid,
   rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid
 export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
@@ -43,11 +53,13 @@ export centroid, centroids, cartesian_centroid
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
-export cell_metrics, cell_indices
+export cell_metrics, face_metrics, cell_indices
 export radius, centroid_radius, centroid_radii
 export cellvolume, cellvolumes
 
 export forward_cell_metrics, inverse_cell_metrics
+export invalidate_cell_metrics!, invalidate_face_metrics!
+export refresh_cell_metrics!, refresh_face_metrics!
 
 include("operators/Operators.jl")
 using .Operators

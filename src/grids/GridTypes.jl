@@ -32,6 +32,20 @@ export AxisymmetricOrthogonalGrid2D
 
 export ContinuousCurvilinearGrid1D, ContinuousCurvilinearGrid2D, ContinuousCurvilinearGrid3D
 
+export AbstractUnifiedGrid
+export MappedGrid, DiscreteGrid, OrthogonalGrid
+
+export CoordinateSystemTrait
+export CartesianCS, CylindricalCS, SphericalCS, AxisymmetricCS, CurvilinearCS
+
+export BasisTrait
+export CartesianBasis, ContravariantBasis, CovariantBasis, SphericalBasis
+
+export coordinate_system, basis_trait
+export cell_metrics, face_metrics
+export invalidate_cell_metrics!, invalidate_face_metrics!
+export refresh_cell_metrics!, refresh_face_metrics!
+
 export rectilinear_grid,
   rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid
 export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
@@ -98,6 +112,7 @@ include("orthogonal_grids/orthogonal.jl")
 
 include("simple_constructors/simple_constructors.jl")
 include("continuous_grids/continous_grids.jl")
+include("unified_grids.jl")
 # include("metric_cache.jl")
 # include("continous_grids.jl")
 
