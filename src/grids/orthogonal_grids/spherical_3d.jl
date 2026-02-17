@@ -213,14 +213,18 @@ end
   I = cell_domain[idx]
   i, j, k = I.I
 
-  r₀ = rnode[i]
-  r₁ = rnode[i + 1]
+  r1 = rnode[i]
+  r2 = rnode[i + 1]
   θ₀ = θnode[j]
   θ₁ = θnode[j + 1]
   ϕ₀ = ϕnode[k]
   ϕ₁ = ϕnode[k + 1]
 
-  rc[i] = (3 / 4) * ((r₁^4 - r₀^4) / (r₁^3 - r₀^3))
+  num = r2^3 + r2^2 * r1 + r2 * r1^2 + r1^3
+  den = r2^2 + r2 * r1 + r1^2
+  rc[i] = (3 / 4) * (num / den)
+
+  # rc[i] = (3 / 4) * ((r2^4 - r1^4) / (r2^3 - r1^3))
   θc[j] = acos((cos(θ₀) + cos(θ₁)) / 2)
   ϕc[k] = (ϕ₀ + ϕ₁) / 2
 end
@@ -275,11 +279,50 @@ end
   I = cell_domain[idx]
   i, j, k = I.I
 
-  Δr³ = r[i + 1]^3 - r[i]^3
-  Δμ = cos(θ[j]) - cos(θ[j + 1])
-  Δϕ = ϕ[k + 1] - ϕ[k]
+  # r2 = r[i + 1]
+  # r1 = r[i]
+  # Δr³ = ((r2 - r1) * (r2^2 + r2 * r1 + r1^2)) / 3
+  # # Δr³ = (r[i + 1]^3 - r[i]^3) / 3
+  # Δμ = cos(θ[j]) - cos(θ[j + 1])
+  # Δϕ = ϕ[k + 1] - ϕ[k]
+  # V[I] = Δr³ * Δμ * Δϕ
 
-  V[I] = T(1 / 3) * Δr³ * Δμ * Δϕ
+  Fr = radial_factor_stable(r[i], r[i + 1])
+  Fθ = theta_factor_stable(θ[j], θ[j + 1])
+  Fφ = ϕ[k + 1] - ϕ[k]
+
+  V[I] = Fr * Fθ * Fφ
+end
+
+@inline function sinx_over_x(x::T) where {T<:AbstractFloat}
+  ax = abs(x)
+  if ax < T(1e-6)
+    # 1 - x^2/6 + x^4/120 is plenty for Float64/Float32 stability here
+    x2 = x * x
+    return one(T) - x2 / T(6) + (x2 * x2) / T(120)
+  else
+    return sin(x) / x
+  end
+end
+
+@inline function dphi_0_2pi(φ1::T, φ2::T) where {T<:AbstractFloat}
+  Δ = φ2 - φ1
+  return (Δ >= zero(T)) ? Δ : (Δ + T(2pi))
+end
+
+@inline function radial_factor_stable(r1::T, r2::T) where {T<:AbstractFloat}
+  Δr = r2 - r1
+  # s = r2^2 + r2*r1 + r1^2 with a couple fma/muladd steps for better rounding
+  s = muladd(r2, r2, r1 * r1)   # r2^2 + r1^2
+  s = muladd(r2, r1, s)       # + r2*r1
+  return (Δr * s) / T(3)       # (r2^3 - r1^3)/3
+end
+
+@inline function theta_factor_stable(θ1::T, θ2::T) where {T<:AbstractFloat}
+  θm = (θ1 + θ2) / T(2)
+  h = (θ2 - θ1) / T(2)
+  # cosθ1 - cosθ2 = 2*sin(θm)*sin(h) = 2*sin(θm)*(h*sinc(h))
+  return (T(2) * sin(θm)) * (h * sinx_over_x(h))
 end
 
 function face_location(
