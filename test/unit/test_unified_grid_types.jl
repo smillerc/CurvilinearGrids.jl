@@ -3,10 +3,11 @@ using CurvilinearGrids
 
 @testset "UnifiedGrid traits and adapters" begin
   x = collect(range(0.0, 1.0; length=8))
-  legacy = CurvilinearGrid1D(x, :meg6)
-  dgrid = DiscreteGrid(legacy; interpolation=:linear, cache_mode=:eager)
+  dgrid = DiscreteGrid(x, :meg6; interpolation=:linear, cache_mode=:eager)
 
   @test dgrid isa DiscreteGrid
+  @test hasproperty(dgrid, :core)
+  @test !hasproperty(dgrid, :legacy)
   @test dgrid.interpolation === :linear
   @test coordinate_system(dgrid) isa CurvilinearCS
   @test basis_trait(dgrid) isa ContravariantBasis
@@ -22,7 +23,7 @@ using CurvilinearGrids
   @test dgrid.metric_caches.cell.valid
   @test dgrid.metric_caches.face.valid
 
-  @test_throws ArgumentError DiscreteGrid(legacy; interpolation=:cubic)
+  @test_throws ArgumentError DiscreteGrid(x, :meg6; interpolation=:cubic)
 end
 
 @testset "MappedGrid and independent cache refresh" begin
@@ -31,6 +32,8 @@ end
 
   mgrid = MappedGrid(xmap, params, (8,), :meg6; cache_mode=:eager)
   @test mgrid isa MappedGrid
+  @test hasproperty(mgrid, :core)
+  @test !hasproperty(mgrid, :legacy)
   @test coordinate_system(mgrid) isa CurvilinearCS
   @test basis_trait(mgrid) isa ContravariantBasis
   @test mgrid.metric_caches.cell.valid
