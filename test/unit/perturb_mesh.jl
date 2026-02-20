@@ -7,8 +7,8 @@ function gaussian(x, x0, fwhm, p)
 end
 
 function perturb_coords!(mesh, x_interface, λ, k)
-  xcoords = Array(mesh.node_coordinates.x)
-  ycoords = Array(mesh.node_coordinates.y)
+  xcoords = Array(mesh.node_coordinates[1])
+  ycoords = Array(mesh.node_coordinates[2])
 
   for idx in mesh.iterators.node.domain
     i, j = idx.I
@@ -54,6 +54,9 @@ end
 
   # save_vtk(mesh)
 
-  gcl_identities, max_vals = gcl(face_metrics(mesh), mesh.iterators.cell.domain, eps())
+  domain = mesh.iterators.cell.domain
+  I₁, I₂ = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), domain)
+  gcl_identities = (all(abs.(I₁[domain]) .< eps()), all(abs.(I₂[domain]) .< eps()))
+  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]))
   @test_broken all(gcl_identities)
 end

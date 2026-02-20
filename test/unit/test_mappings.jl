@@ -112,9 +112,9 @@ function sector_mapping(θmin, θmax, ϕmin, ϕmax, ncells::NTuple{3,Int})
   θ(j) = (θmin + (j - 1) * Δθ) / pi
   ϕ(k) = (ϕmin + (k - 1) * Δϕ) / pi
 
-  x(i, j, k) = r(i) * sinpi(θ(j)) * cospi(ϕ(k))
-  y(i, j, k) = r(i) * sinpi(θ(j)) * sinpi(ϕ(k))
-  z(i, j, k) = r(i) * cospi(θ(j))
+  x(t, i, j, k, p) = r(i) * sinpi(θ(j)) * cospi(ϕ(k))
+  y(t, i, j, k, p) = r(i) * sinpi(θ(j)) * sinpi(ϕ(k))
+  z(t, i, j, k, p) = r(i) * cospi(θ(j))
 
   return (x, y, z)
 end
@@ -125,12 +125,19 @@ celldims = (100, 50, 50)
 
 x, y, z = sector_mapping(θmin, θmax, ϕmin, ϕmax, celldims);
 # backend = AutoForwardDiff()
-mesh = ContinuousCurvilinearGrid3D(x, y, z, celldims, :meg6, CPU())
+mesh = MappedGrid(x, y, z, (;), celldims, :meg6; backend=CPU())
 
 # gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps());
 save_vtk(mesh, "sector_ad_mesh")
 
-gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, 5e-13)
+domain = mesh.iterators.cell.domain
+I₁, I₂, I₃ = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), domain)
+gcl_identities = (
+  all(abs.(I₁[domain]) .< 5e-13),
+  all(abs.(I₂[domain]) .< 5e-13),
+  all(abs.(I₃[domain]) .< 5e-13),
+)
+max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]), maximum(abs, I₃[domain]))
 
 # cm = mesh
 # xdom = cm.node_coordinates.x[cm.iterators.node.full]

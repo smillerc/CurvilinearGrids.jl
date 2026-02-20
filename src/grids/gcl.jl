@@ -6,7 +6,8 @@ Compute the geometric conservation law (GCL) residuals from `edge_metrics` over 
 @inline function _is_unified_face_metrics(em)
   em isa Tuple && !isempty(em) || return false
   first_axis = first(em)
-  return first_axis isa Tuple || (first_axis isa NamedTuple && hasproperty(first_axis, :conserved))
+  return first_axis isa Tuple ||
+         (first_axis isa NamedTuple && hasproperty(first_axis, :conserved))
 end
 
 @inline function _conserved_face_axis(face_axis)
@@ -16,82 +17,110 @@ end
   return face_axis[3]
 end
 
-@inline function _shift_index(idx::CartesianIndex{N}, axis::Int, δ::Int) where {N}
-  CartesianIndex(ntuple(d -> d == axis ? idx.I[d] + δ : idx.I[d], N))
-end
-
 function _gcl_unified_face_metrics(em, domain::CartesianIndices{1})
-  c1 = _conserved_face_axis(em[1])
-  sample = c1[first(domain)]
-  T = typeof(sample[1, 1])
-  I₁ = similar(c1, T)
+  ξ = 1
+  x = 1
+
+  cξ = _conserved_face_axis(em[ξ])
+  sample = cξ[first(domain)]
+  T = typeof(sample[ξ, x])
+  I₁ = similar(cξ, T)
   fill!(I₁, zero(T))
 
   for idx in domain
-    prev = _shift_index(idx, 1, -1)
-    I₁[idx] = c1[idx][1, 1] - c1[prev][1, 1]
+    i, = idx.I
+    idx_ξ_prev = CartesianIndex(i - 1)
+
+    metric_ξ = cξ[idx]
+    metric_ξ_prev = cξ[idx_ξ_prev]
+
+    I₁[idx] = metric_ξ[ξ, x] - metric_ξ_prev[ξ, x]
   end
 
   return I₁
 end
 
 function _gcl_unified_face_metrics(em, domain::CartesianIndices{2})
-  c1 = _conserved_face_axis(em[1])
-  c2 = _conserved_face_axis(em[2])
-  sample = c1[first(domain)]
-  T = typeof(sample[1, 1])
-  I₁ = similar(c1, T)
-  I₂ = similar(c1, T)
+  ξ = 1
+  η = 2
+  x = 1
+  y = 2
+
+  cξ = _conserved_face_axis(em[ξ])
+  cη = _conserved_face_axis(em[η])
+  sample = cξ[first(domain)]
+  T = typeof(sample[ξ, x])
+  I₁ = similar(cξ, T)
+  I₂ = similar(cξ, T)
   fill!(I₁, zero(T))
   fill!(I₂, zero(T))
 
   for idx in domain
-    iprev = _shift_index(idx, 1, -1)
-    jprev = _shift_index(idx, 2, -1)
+    i, j = idx.I
+    idx_ξ_prev = CartesianIndex(i - 1, j)
+    idx_η_prev = CartesianIndex(i, j - 1)
 
-    I₁[idx] = (
-      (c1[idx][1, 1] - c1[iprev][1, 1]) + (c2[idx][2, 1] - c2[jprev][2, 1])
-    )
-    I₂[idx] = (
-      (c1[idx][1, 2] - c1[iprev][1, 2]) + (c2[idx][2, 2] - c2[jprev][2, 2])
-    )
+    metric_ξ = cξ[idx]
+    metric_ξ_prev = cξ[idx_ξ_prev]
+    metric_η = cη[idx]
+    metric_η_prev = cη[idx_η_prev]
+
+    I₁[idx] =
+      (metric_ξ[ξ, x] - metric_ξ_prev[ξ, x]) + (metric_η[η, x] - metric_η_prev[η, x])
+    I₂[idx] =
+      (metric_ξ[ξ, y] - metric_ξ_prev[ξ, y]) + (metric_η[η, y] - metric_η_prev[η, y])
   end
 
   return I₁, I₂
 end
 
 function _gcl_unified_face_metrics(em, domain::CartesianIndices{3})
-  c1 = _conserved_face_axis(em[1])
-  c2 = _conserved_face_axis(em[2])
-  c3 = _conserved_face_axis(em[3])
-  sample = c1[first(domain)]
-  T = typeof(sample[1, 1])
-  I₁ = similar(c1, T)
-  I₂ = similar(c1, T)
-  I₃ = similar(c1, T)
+  ξ = 1
+  η = 2
+  ζ = 3
+  x = 1
+  y = 2
+  z = 3
+
+  cξ = _conserved_face_axis(em[ξ])
+  cη = _conserved_face_axis(em[η])
+  cζ = _conserved_face_axis(em[ζ])
+  sample = cξ[first(domain)]
+  T = typeof(sample[ξ, x])
+  I₁ = similar(cξ, T)
+  I₂ = similar(cξ, T)
+  I₃ = similar(cξ, T)
   fill!(I₁, zero(T))
   fill!(I₂, zero(T))
   fill!(I₃, zero(T))
 
   for idx in domain
-    iprev = _shift_index(idx, 1, -1)
-    jprev = _shift_index(idx, 2, -1)
-    kprev = _shift_index(idx, 3, -1)
+    i, j, k = idx.I
+    idx_ξ_prev = CartesianIndex(i - 1, j, k)
+    idx_η_prev = CartesianIndex(i, j - 1, k)
+    idx_ζ_prev = CartesianIndex(i, j, k - 1)
+
+    metric_ξ = cξ[idx]
+    metric_ξ_prev = cξ[idx_ξ_prev]
+    metric_η = cη[idx]
+    metric_η_prev = cη[idx_η_prev]
+    metric_ζ = cζ[idx]
+    metric_ζ_prev = cζ[idx_ζ_prev]
 
     I₁[idx] = (
-      (c1[idx][1, 1] - c1[iprev][1, 1]) +
-      (c2[idx][2, 1] - c2[jprev][2, 1]) +
-      (c3[idx][3, 1] - c3[kprev][3, 1])
+      (metric_ξ[ξ, x] - metric_ξ_prev[ξ, x]) +
+      (metric_η[η, x] - metric_η_prev[η, x]) +
+      (metric_ζ[ζ, x] - metric_ζ_prev[ζ, x])
     )
     I₂[idx] = (
-      (c1[idx][1, 2] - c1[iprev][1, 2]) +
-      (c2[idx][2, 2] - c2[jprev][2, 2]) +
-      (c3[idx][3, 2] - c3[kprev][3, 2])
+      (metric_ξ[ξ, y] - metric_ξ_prev[ξ, y]) +
+      (metric_η[η, y] - metric_η_prev[η, y]) +
+      (metric_ζ[ζ, y] - metric_ζ_prev[ζ, y])
     )
     I₃[idx] = (
-      (c1[idx][1, 3] - c1[iprev][1, 3]) +
-      (c2[idx][2, 3] - c2[jprev][2, 3]) +
-      (c3[idx][3, 3] - c3[kprev][3, 3])
+      (metric_ξ[ξ, z] - metric_ξ_prev[ξ, z]) +
+      (metric_η[η, z] - metric_η_prev[η, z]) +
+      (metric_ζ[ζ, z] - metric_ζ_prev[ζ, z])
     )
   end
 

@@ -184,7 +184,10 @@ end
   x, y = wavy_grid(ni, nj)
   mesh = DiscreteGrid(x, y, :MEG6)
 
-  gcl_identities, max_vals = gcl(face_metrics(mesh), mesh.iterators.cell.domain, 5e-15)
+  domain = mesh.iterators.cell.domain
+  I₁, I₂ = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), domain)
+  gcl_identities = (all(abs.(I₁[domain]) .< 5e-15), all(abs.(I₂[domain]) .< 5e-15))
+  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]))
   @test all(gcl_identities)
 
   save_vtk(coords(mesh), "wavy")
@@ -227,6 +230,9 @@ end
   x, y = wavy_grid(ni, nj)
   mesh = DiscreteGrid(x, y, :MEG6; halo_coords_included=true)
 
-  gcl_identities, max_vals = gcl(face_metrics(mesh), mesh.iterators.cell.domain, 5e-15)
+  domain = mesh.iterators.cell.domain
+  I₁, I₂ = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), domain)
+  gcl_identities = (all(abs.(I₁[domain]) .< 5e-15), all(abs.(I₂[domain]) .< 5e-15))
+  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]))
   @test all(gcl_identities)
 end

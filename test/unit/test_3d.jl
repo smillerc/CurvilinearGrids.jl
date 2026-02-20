@@ -14,7 +14,9 @@
 #   nothing
 # end
 
-function rectilinear_nodes_3d(x0, x1, y0, y1, z0, z1, ni, nj, nk; halo_coords_included=false)
+function rectilinear_nodes_3d(
+  x0, x1, y0, y1, z0, z1, ni, nj, nk; halo_coords_included=false
+)
   Δx = (x1 - x0) / ni
   Δy = (y1 - y0) / nj
   Δz = (z1 - z0) / nk
@@ -119,7 +121,16 @@ end
 
   assert_rectilinear_metrics_3d(mesh, domain, Δx, Δy, Δz)
 
-  gcl_identities, max_vals = gcl(face_metrics(mesh), mesh.iterators.cell.domain, eps())
+  I₁, I₂, I₃ = CurvilinearGrids.GridTypes.gcl(
+    face_metrics(mesh), mesh.iterators.cell.domain
+  )
+  domain = mesh.iterators.cell.domain
+  gcl_identities = (
+    all(abs.(I₁[domain]) .< eps()),
+    all(abs.(I₂[domain]) .< eps()),
+    all(abs.(I₃[domain]) .< eps()),
+  )
+  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]), maximum(abs, I₃[domain]))
   @test all(gcl_identities)
 end
 
@@ -160,7 +171,16 @@ end
 
   save_vtk(coords(mesh), "wavy3d")
 
-  gcl_identities, max_vals = gcl(face_metrics(mesh), mesh.iterators.cell.domain, 5e-13)
+  I₁, I₂, I₃ = CurvilinearGrids.GridTypes.gcl(
+    face_metrics(mesh), mesh.iterators.cell.domain
+  )
+  domain = mesh.iterators.cell.domain
+  gcl_identities = (
+    all(abs.(I₁[domain]) .< 5e-13),
+    all(abs.(I₂[domain]) .< 5e-13),
+    all(abs.(I₃[domain]) .< 5e-13),
+  )
+  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]), maximum(abs, I₃[domain]))
   @test all(gcl_identities)
 end
 
@@ -199,7 +219,16 @@ end
   x, y, z = wavy_grid(ni, nj, nk)
   mesh = DiscreteGrid(x, y, z, :meg6; halo_coords_included=true)
 
-  gcl_identities, max_vals = gcl(face_metrics(mesh), mesh.iterators.cell.domain, eps())
+  I₁, I₂, I₃ = CurvilinearGrids.GridTypes.gcl(
+    face_metrics(mesh), mesh.iterators.cell.domain
+  )
+  domain = mesh.iterators.cell.domain
+  gcl_identities = (
+    all(abs.(I₁[domain]) .< eps()),
+    all(abs.(I₂[domain]) .< eps()),
+    all(abs.(I₃[domain]) .< eps()),
+  )
+  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]), maximum(abs, I₃[domain]))
   @test all(gcl_identities)
 end
 
@@ -209,19 +238,12 @@ end
   (ϕ0, ϕ1) = deg2rad.((45, 360 - 45))
 
   ni, nj, nk = (20, 20, 20)
-  params = (;
-    r0,
-    θ0,
-    ϕ0,
-    Δr=(r1 - r0) / ni,
-    Δθ=(θ1 - θ0) / nj,
-    Δϕ=(ϕ1 - ϕ0) / nk,
-  )
+  params = (; r0, θ0, ϕ0, Δr=(r1 - r0) / ni, Δθ=(θ1 - θ0) / nj, Δϕ=(ϕ1 - ϕ0) / nk)
 
-  x(t, ξ, η, ζ, p) = (p.r0 + (ξ - 1) * p.Δr) * sin(p.θ0 + (η - 1) * p.Δθ) *
-                     cos(p.ϕ0 + (ζ - 1) * p.Δϕ)
-  y(t, ξ, η, ζ, p) = (p.r0 + (ξ - 1) * p.Δr) * sin(p.θ0 + (η - 1) * p.Δθ) *
-                     sin(p.ϕ0 + (ζ - 1) * p.Δϕ)
+  x(t, ξ, η, ζ, p) =
+    (p.r0 + (ξ - 1) * p.Δr) * sin(p.θ0 + (η - 1) * p.Δθ) * cos(p.ϕ0 + (ζ - 1) * p.Δϕ)
+  y(t, ξ, η, ζ, p) =
+    (p.r0 + (ξ - 1) * p.Δr) * sin(p.θ0 + (η - 1) * p.Δθ) * sin(p.ϕ0 + (ζ - 1) * p.Δϕ)
   z(t, ξ, η, ζ, p) = (p.r0 + (ξ - 1) * p.Δr) * cos(p.θ0 + (η - 1) * p.Δθ)
 
   mesh = MappedGrid(x, y, z, params, (ni, nj, nk), :meg6_symmetric)
@@ -231,7 +253,16 @@ end
   I₂_passes = true
   I₃_passes = true
 
-  gcl_identities, max_vals = gcl(face_metrics(mesh), mesh.iterators.cell.domain, 5e-13)
+  I₁, I₂, I₃ = CurvilinearGrids.GridTypes.gcl(
+    face_metrics(mesh), mesh.iterators.cell.domain
+  )
+  domain = mesh.iterators.cell.domain
+  gcl_identities = (
+    all(abs.(I₁[domain]) .< 5e-13),
+    all(abs.(I₂[domain]) .< 5e-13),
+    all(abs.(I₃[domain]) .< 5e-13),
+  )
+  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]), maximum(abs, I₃[domain]))
   # @show gcl_identities, max_vals
   @test all(gcl_identities)
 
