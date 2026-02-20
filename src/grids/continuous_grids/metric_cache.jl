@@ -905,23 +905,99 @@ end
 #-------------------------------------------------------------
 #-------------------------------------------------------------
 
+@inline _ξ_eval_3d_metriccache(ξ, ϕ, t, j, k, p) = ϕ(t, ξ, j, k, p)
+@inline _η_eval_3d_metriccache(η, ϕ, t, i, k, p) = ϕ(t, i, η, k, p)
+@inline _ζ_eval_3d_metriccache(ζ, ϕ, t, i, j, p) = ϕ(t, i, j, ζ, p)
+
 function ξ_derivs(ϕ, backend)
+  cϕ = DifferentiationInterface.Constant(ϕ)
+  prep = prepare_second_derivative(
+    _ξ_eval_3d_metriccache,
+    backend,
+    0.0,
+    cϕ,
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(nothing);
+    strict=Val(false),
+  )
+
   function ϕall(t, i, j, k, p)
-    value_derivative_and_second_derivative(ξ -> ϕ(t, ξ, j, k, p), backend, i)
+    value_derivative_and_second_derivative(
+      _ξ_eval_3d_metriccache,
+      prep,
+      backend,
+      i,
+      cϕ,
+      DifferentiationInterface.Constant(t),
+      DifferentiationInterface.Constant(j),
+      DifferentiationInterface.Constant(k),
+      DifferentiationInterface.Constant(p),
+    )
   end
+
   return ϕall
 end
 
 function η_derivs(ϕ, backend)
+  cϕ = DifferentiationInterface.Constant(ϕ)
+  prep = prepare_second_derivative(
+    _η_eval_3d_metriccache,
+    backend,
+    0.0,
+    cϕ,
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(nothing);
+    strict=Val(false),
+  )
+
   function ϕall(t, i, j, k, p)
-    value_derivative_and_second_derivative(η -> ϕ(t, i, η, k, p), backend, j)
+    value_derivative_and_second_derivative(
+      _η_eval_3d_metriccache,
+      prep,
+      backend,
+      j,
+      cϕ,
+      DifferentiationInterface.Constant(t),
+      DifferentiationInterface.Constant(i),
+      DifferentiationInterface.Constant(k),
+      DifferentiationInterface.Constant(p),
+    )
   end
+
   return ϕall
 end
 
 function ζ_derivs(ϕ, backend)
+  cϕ = DifferentiationInterface.Constant(ϕ)
+  prep = prepare_second_derivative(
+    _ζ_eval_3d_metriccache,
+    backend,
+    0.0,
+    cϕ,
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(nothing);
+    strict=Val(false),
+  )
+
   function ϕall(t, i, j, k, p)
-    value_derivative_and_second_derivative(ζ -> ϕ(t, i, j, ζ, p), backend, k)
+    value_derivative_and_second_derivative(
+      _ζ_eval_3d_metriccache,
+      prep,
+      backend,
+      k,
+      cϕ,
+      DifferentiationInterface.Constant(t),
+      DifferentiationInterface.Constant(i),
+      DifferentiationInterface.Constant(j),
+      DifferentiationInterface.Constant(p),
+    )
   end
+
   return ϕall
 end
