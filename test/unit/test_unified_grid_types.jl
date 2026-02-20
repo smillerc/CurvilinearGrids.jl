@@ -8,6 +8,7 @@ using CurvilinearGrids
   @test dgrid isa DiscreteGrid
   @test dgrid isa DiscreteGrid{1,Float64}
   @test isconcretetype(typeof(dgrid))
+  @test !ismutabletype(typeof(dgrid))
   @test !hasproperty(dgrid, :core)
   @test !hasproperty(dgrid, :legacy)
   @test dgrid.interpolation === :linear
@@ -41,6 +42,7 @@ end
   @test mgrid isa MappedGrid
   @test mgrid isa MappedGrid{1,Float64}
   @test isconcretetype(typeof(mgrid))
+  @test !ismutabletype(typeof(mgrid))
   @test !hasproperty(mgrid, :core)
   @test !hasproperty(mgrid, :legacy)
   @test coordinate_system(mgrid) isa CurvilinearCS
@@ -95,6 +97,7 @@ end
 
   @test ogrid isa OrthogonalGrid
   @test ogrid isa OrthogonalGrid{3,Float64}
+  @test !ismutabletype(typeof(ogrid))
   @test coordinate_system(ogrid) isa SphericalCS
   @test_throws ArgumentError basis_trait(ogrid)
   @test_throws ArgumentError cell_metrics(ogrid)

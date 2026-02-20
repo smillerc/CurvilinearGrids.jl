@@ -2,7 +2,7 @@
 # OrthogonalGrid
 #
 
-mutable struct OrthogonalGrid{N,T,L,CS<:CoordinateSystemTrait,GC} <: AbstractUnifiedGrid
+struct OrthogonalGrid{N,T,L,CS<:CoordinateSystemTrait,GC} <: AbstractUnifiedGrid
   legacy::L
   geometry_cache::GC
 end

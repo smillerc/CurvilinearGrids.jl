@@ -2,7 +2,7 @@
 # MappedGrid
 #
 
-mutable struct MappedGrid{
+struct MappedGrid{
   N,
   T,
   CS<:CoordinateSystemTrait,
@@ -33,7 +33,7 @@ mutable struct MappedGrid{
 end
 
 function _mapped_state(grid::MappedGrid)
-  state = grid.state
+  state = grid.state[]
   has_state = state isa NamedTuple && haskey(state, :t) && haskey(state, :params)
   has_state ? (state.t, state.params, true) : (nothing, nothing, false)
 end
@@ -171,7 +171,7 @@ function _new_mapped_grid(
   caches = _new_metric_caches(
     requested_mode, components.cell_metric_storage, components.face_metric_storage
   )
-  state = (; t, params)
+  state = Ref((; t, params))
 
   grid = MappedGrid{
     N,
@@ -355,14 +355,14 @@ function update!(grid::MappedGrid{N}, t::Real, params::NamedTuple) where {N}
     Val(N),
   )
 
-  grid.state = (; t, params)
+  grid.state[] = (; t, params)
   invalidate_cell_metrics!(grid)
   invalidate_face_metrics!(grid)
   return nothing
 end
 
 function update!(grid::MappedGrid, t::Real=zero(Float64))
-  state = grid.state
+  state = grid.state[]
   params = state isa NamedTuple && haskey(state, :params) ? state.params : (;)
   return update!(grid, t, params)
 end
