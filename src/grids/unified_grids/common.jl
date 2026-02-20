@@ -278,10 +278,10 @@ function _compute_unified_centroid_coordinates!(
 end
 
 @inline function _inverse_and_normalized_edge_metrics(
-  ::Val{1}, edge, axis::Int, t, ξηζ, params
+  ::Val{1}, edge, edge_axis::Int, t, ξηζ, params
 )
-  if axis != 1
-    throw(ArgumentError("Invalid 1D face axis: $axis"))
+  if edge_axis != 1
+    throw(ArgumentError("Invalid 1D face axis: $edge_axis"))
   end
 
   jinv_edge = edge.Jinv_ᵢ₊½
@@ -296,16 +296,16 @@ end
 end
 
 @inline function _inverse_and_normalized_edge_metrics(
-  ::Val{2}, edge, axis::Int, t, ξηζ, params
+  ::Val{2}, edge, edge_axis::Int, t, ξηζ, params
 )
-  if axis == 1
+  if edge_axis == 1
     G = _as_smatrix(Val(2), edge.Jinv_ᵢ₊½(t, ξηζ..., params))
     Ghat = _as_smatrix(Val(2), edge.norm_Jinv_ᵢ₊½(t, ξηζ..., params))
-  elseif axis == 2
+  elseif edge_axis == 2
     G = _as_smatrix(Val(2), edge.Jinv_ⱼ₊½(t, ξηζ..., params))
     Ghat = _as_smatrix(Val(2), edge.norm_Jinv_ⱼ₊½(t, ξηζ..., params))
   else
-    throw(ArgumentError("Invalid 2D face axis: $axis"))
+    throw(ArgumentError("Invalid 2D face axis: $edge_axis"))
   end
   return G, Ghat
 end
