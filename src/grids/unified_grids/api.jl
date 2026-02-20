@@ -12,15 +12,19 @@ function basis_trait(::OrthogonalGrid)
   throw(ArgumentError("`basis_trait` is undefined for `OrthogonalGrid`."))
 end
 
-coordinate_system(::Type{<:MappedGrid{L,CS}}) where {L,CS} = CS()
-coordinate_system(::Type{<:DiscreteGrid{L,CS}}) where {L,CS} = CS()
-coordinate_system(::Type{<:OrthogonalGrid{L,CS}}) where {L,CS} = CS()
+coordinate_system(::Type{<:MappedGrid{N,T,CS}}) where {N,T,CS} = CS()
+coordinate_system(::Type{<:DiscreteGrid{N,T,CS}}) where {N,T,CS} = CS()
+coordinate_system(::Type{<:OrthogonalGrid{N,T,L,CS}}) where {N,T,L,CS} = CS()
 
-basis_trait(::Type{<:MappedGrid{L,CS,BT}}) where {L,CS,BT} = BT()
-basis_trait(::Type{<:DiscreteGrid{L,CS,BT}}) where {L,CS,BT} = BT()
+basis_trait(::Type{<:MappedGrid{N,T,CS,BT}}) where {N,T,CS,BT} = BT()
+basis_trait(::Type{<:DiscreteGrid{N,T,CS,BT}}) where {N,T,CS,BT} = BT()
 function basis_trait(::Type{<:OrthogonalGrid})
   throw(ArgumentError("`basis_trait` is undefined for `OrthogonalGrid`."))
 end
+
+Base.eltype(::MappedGrid{N,T}) where {N,T} = T
+Base.eltype(::DiscreteGrid{N,T}) where {N,T} = T
+Base.eltype(::OrthogonalGrid{N,T}) where {N,T} = T
 
 function invalidate_cell_metrics!(grid::AbstractMappedOrDiscreteGrid)
   grid.metric_caches.cell.valid = false
@@ -65,52 +69,159 @@ function face_metrics(::OrthogonalGrid; refresh::Bool=false)
 end
 
 #
-# Adapter access and delegated geometry API
+# Geometry API
 #
 
 legacy_grid(grid::OrthogonalGrid) = grid.legacy
-legacy_grid(grid::MappedGrid) = grid.core
-legacy_grid(grid::DiscreteGrid) = grid.core
 
-coords(grid::MappedGrid) = coords(grid.core)
-coords(grid::DiscreteGrid) = coords(grid.core)
+coords(grid::Union{MappedGrid{1},DiscreteGrid{1}}) =
+  @views grid.node_coordinates.x[grid.iterators.node.domain]
+
+coords(grid::Union{MappedGrid{2},DiscreteGrid{2}}) = @views (
+  grid.node_coordinates.x[grid.iterators.node.domain],
+  grid.node_coordinates.y[grid.iterators.node.domain],
+)
+
+coords(grid::Union{MappedGrid{3},DiscreteGrid{3}}) = @views (
+  grid.node_coordinates.x[grid.iterators.node.domain],
+  grid.node_coordinates.y[grid.iterators.node.domain],
+  grid.node_coordinates.z[grid.iterators.node.domain],
+)
+
 coords(grid::OrthogonalGrid) = coords(grid.legacy)
 
-coord(grid::MappedGrid, idx) = coord(grid.core, idx)
-coord(grid::DiscreteGrid, idx) = coord(grid.core, idx)
+coord(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int}) =
+  @SVector [grid.node_coordinates.x[i]]
+coord(grid::Union{MappedGrid{2},DiscreteGrid{2}}, (i, j)::NTuple{2,Int}) =
+  @SVector [grid.node_coordinates.x[i, j], grid.node_coordinates.y[i, j]]
+coord(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{3,Int}) = @SVector [
+  grid.node_coordinates.x[i, j, k],
+  grid.node_coordinates.y[i, j, k],
+  grid.node_coordinates.z[i, j, k],
+]
+
 coord(grid::OrthogonalGrid, idx) = coord(grid.legacy, idx)
 
-centroids(grid::MappedGrid) = centroids(grid.core)
-centroids(grid::DiscreteGrid) = centroids(grid.core)
+centroids(grid::Union{MappedGrid{1},DiscreteGrid{1}}) =
+  @views grid.centroid_coordinates.x[grid.iterators.cell.domain]
+
+centroids(grid::Union{MappedGrid{2},DiscreteGrid{2}}) = @views (
+  grid.centroid_coordinates.x[grid.iterators.cell.domain],
+  grid.centroid_coordinates.y[grid.iterators.cell.domain],
+)
+
+centroids(grid::Union{MappedGrid{3},DiscreteGrid{3}}) = @views (
+  grid.centroid_coordinates.x[grid.iterators.cell.domain],
+  grid.centroid_coordinates.y[grid.iterators.cell.domain],
+  grid.centroid_coordinates.z[grid.iterators.cell.domain],
+)
+
 centroids(grid::OrthogonalGrid) = centroids(grid.legacy)
 
-centroid(grid::MappedGrid, idx) = centroid(grid.core, idx)
-centroid(grid::DiscreteGrid, idx) = centroid(grid.core, idx)
+centroid(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int}) =
+  @SVector [grid.centroid_coordinates.x[i]]
+centroid(grid::Union{MappedGrid{2},DiscreteGrid{2}}, (i, j)::NTuple{2,Int}) =
+  @SVector [grid.centroid_coordinates.x[i, j], grid.centroid_coordinates.y[i, j]]
+centroid(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{3,Int}) = @SVector [
+  grid.centroid_coordinates.x[i, j, k],
+  grid.centroid_coordinates.y[i, j, k],
+  grid.centroid_coordinates.z[i, j, k],
+]
+
 centroid(grid::OrthogonalGrid, idx) = centroid(grid.legacy, idx)
 
-cellvolume(grid::MappedGrid, idx) = cellvolume(grid.core, idx)
-cellvolume(grid::DiscreteGrid, idx) = cellvolume(grid.core, idx)
-cellvolume(grid::OrthogonalGrid, idx) = cellvolume(grid.legacy, idx)
-
-cellvolumes(grid::MappedGrid) = cellvolumes(grid.core)
-cellvolumes(grid::DiscreteGrid) = cellvolumes(grid.core)
-cellvolumes(grid::OrthogonalGrid) = cellvolumes(grid.legacy)
-
-cellsize(grid::MappedGrid) = cellsize(grid.core)
-cellsize(grid::DiscreteGrid) = cellsize(grid.core)
-cellsize(grid::OrthogonalGrid) = cellsize(grid.legacy)
-
-cellsize_withhalo(grid::MappedGrid) = cellsize_withhalo(grid.core)
-cellsize_withhalo(grid::DiscreteGrid) = cellsize_withhalo(grid.core)
-cellsize_withhalo(grid::OrthogonalGrid) = cellsize_withhalo(grid.legacy)
-
-function jacobian_matrix(grid::AbstractMappedOrDiscreteGrid, idx)
-  jacobian_matrix(grid.core, idx)
+@inline function _cell_forward_metric_at(grid::AbstractMappedOrDiscreteGrid, idx)
+  cm = cell_metrics(grid)
+  cm.forward[idx...]
 end
 
-forward_cell_metrics(grid::AbstractMappedOrDiscreteGrid, idx) = forward_cell_metrics(
-  grid.core, idx
+@inline function _cell_inverse_metric_at(grid::AbstractMappedOrDiscreteGrid, idx)
+  cm = cell_metrics(grid)
+  cm.inverse[idx...]
+end
+
+cellvolume(grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex) = cellvolume(grid, idx.I)
+cellvolume(grid::Union{MappedGrid,DiscreteGrid}, idx::NTuple{N,Int}) where {N} =
+  _cell_forward_metric_at(grid, idx).J
+
+cellvolume(grid::OrthogonalGrid, idx) = cellvolume(grid.legacy, idx)
+
+function cellvolumes(grid::Union{MappedGrid,DiscreteGrid})
+  volumes = zeros(eltype(grid), size(grid.iterators.cell.domain))
+
+  for (idx0, idx1) in zip(CartesianIndices(volumes), grid.iterators.cell.domain)
+    volumes[idx0] = cellvolume(grid, idx1)
+  end
+
+  return volumes
+end
+
+cellvolumes(grid::OrthogonalGrid) = cellvolumes(grid.legacy)
+
+cellsize(grid::Union{MappedGrid,DiscreteGrid}) = size(grid.iterators.cell.domain)
+cellsize(grid::OrthogonalGrid) = cellsize(grid.legacy)
+
+cellsize_withhalo(grid::Union{MappedGrid,DiscreteGrid}) = size(grid.iterators.cell.full)
+cellsize_withhalo(grid::OrthogonalGrid) = cellsize_withhalo(grid.legacy)
+
+jacobian_matrix(grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex) = jacobian_matrix(
+  grid, idx.I
 )
-inverse_cell_metrics(grid::AbstractMappedOrDiscreteGrid, idx) = inverse_cell_metrics(
-  grid.core, idx
-)
+function jacobian_matrix(grid::Union{MappedGrid,DiscreteGrid}, idx::NTuple{N,Int}) where {N}
+  _cell_forward_metric_at(grid, idx).jacobian_matrix
+end
+
+function forward_cell_metrics(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx)
+  F = _cell_forward_metric_at(grid, idx isa CartesianIndex ? idx.I : idx).jacobian_matrix
+  return (; x=(; ξ=F[1, 1]),)
+end
+
+function forward_cell_metrics(grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx)
+  F = _cell_forward_metric_at(grid, idx isa CartesianIndex ? idx.I : idx).jacobian_matrix
+  return (; x=(; ξ=F[1, 1], η=F[1, 2]), y=(; ξ=F[2, 1], η=F[2, 2]))
+end
+
+function forward_cell_metrics(grid::Union{MappedGrid{3},DiscreteGrid{3}}, idx)
+  F = _cell_forward_metric_at(grid, idx isa CartesianIndex ? idx.I : idx).jacobian_matrix
+  return (
+    ;
+    x=(; ξ=F[1, 1], η=F[1, 2], ζ=F[1, 3]),
+    y=(; ξ=F[2, 1], η=F[2, 2], ζ=F[2, 3]),
+    z=(; ξ=F[3, 1], η=F[3, 2], ζ=F[3, 3]),
+  )
+end
+
+function inverse_cell_metrics(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx)
+  m = _cell_inverse_metric_at(grid, idx isa CartesianIndex ? idx.I : idx)
+  G = m.jacobian_matrix
+  Ghat = G .* m.J
+  return (; ξ=(; x₁=G[1, 1]), ξ̂=(; x₁=Ghat[1, 1]))
+end
+
+function inverse_cell_metrics(grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx)
+  m = _cell_inverse_metric_at(grid, idx isa CartesianIndex ? idx.I : idx)
+  G = m.jacobian_matrix
+  Ghat = G .* m.J
+  return (
+    ;
+    ξ=(; x₁=G[1, 1], x₂=G[1, 2]),
+    η=(; x₁=G[2, 1], x₂=G[2, 2]),
+    ξ̂=(; x₁=Ghat[1, 1], x₂=Ghat[1, 2]),
+    η̂=(; x₁=Ghat[2, 1], x₂=Ghat[2, 2]),
+  )
+end
+
+function inverse_cell_metrics(grid::Union{MappedGrid{3},DiscreteGrid{3}}, idx)
+  m = _cell_inverse_metric_at(grid, idx isa CartesianIndex ? idx.I : idx)
+  G = m.jacobian_matrix
+  Ghat = G .* m.J
+  return (
+    ;
+    ξ=(; x₁=G[1, 1], x₂=G[1, 2], x₃=G[1, 3]),
+    η=(; x₁=G[2, 1], x₂=G[2, 2], x₃=G[2, 3]),
+    ζ=(; x₁=G[3, 1], x₂=G[3, 2], x₃=G[3, 3]),
+    ξ̂=(; x₁=Ghat[1, 1], x₂=Ghat[1, 2], x₃=Ghat[1, 3]),
+    η̂=(; x₁=Ghat[2, 1], x₂=Ghat[2, 2], x₃=Ghat[2, 3]),
+    ζ̂=(; x₁=Ghat[3, 1], x₂=Ghat[3, 2], x₃=Ghat[3, 3]),
+  )
+end

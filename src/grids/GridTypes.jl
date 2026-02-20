@@ -34,6 +34,7 @@ export ContinuousCurvilinearGrid1D, ContinuousCurvilinearGrid2D, ContinuousCurvi
 
 export AbstractUnifiedGrid
 export MappedGrid, DiscreteGrid, OrthogonalGrid
+export Metric
 
 export CoordinateSystemTrait
 export CartesianCS, CylindricalCS, SphericalCS, AxisymmetricCS, CurvilinearCS

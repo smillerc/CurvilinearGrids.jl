@@ -76,6 +76,53 @@ function write_coordinates(
   end
 end
 
+function write_coordinates(
+  mesh::DiscreteGrid{1}, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
+  x = coords(mesh)
+
+  h5open(filename, "w") do file
+    h5write(filename, "x", collect(x))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
+    h5write(filename, "grid_type", "DiscreteGrid1D")
+  end
+end
+
+function write_coordinates(
+  mesh::DiscreteGrid{2}, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
+  x, y = coords(mesh)
+
+  h5open(filename, "w") do file
+    h5write(filename, "x", collect(x'))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
+
+    h5write(filename, "y", collect(y'))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
+
+    h5write(filename, "grid_type", "DiscreteGrid2D")
+  end
+end
+
+function write_coordinates(
+  mesh::DiscreteGrid{3}, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
+  x, y, z = coords(mesh)
+
+  h5open(filename, "w") do file
+    h5write(filename, "x", collect(x))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
+
+    h5write(filename, "y", collect(y))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
+
+    h5write(filename, "z", collect(z))
+    h5writeattr(filename, "z", Dict("Units" => string(units)))
+
+    h5write(filename, "grid_type", "DiscreteGrid3D")
+  end
+end
+
 """
     write_coordinates(mesh::UniformGrid1D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
 
@@ -314,6 +361,15 @@ function read_coordinates(filename::String; discretization_scheme=:meg6)
   elseif grid_type == "CurvilinearGrid3D"
     x, y, z = read_CurvilinearGrid3D(filename)
     mesh = CurvilinearGrid3D(x, y, z, discretization_scheme)
+  elseif grid_type == "DiscreteGrid1D"
+    x = read_CurvilinearGrid1D(filename)
+    mesh = DiscreteGrid(x, discretization_scheme)
+  elseif grid_type == "DiscreteGrid2D"
+    x, y = read_CurvilinearGrid2D(filename)
+    mesh = DiscreteGrid(x, y, discretization_scheme)
+  elseif grid_type == "DiscreteGrid3D"
+    x, y, z = read_CurvilinearGrid3D(filename)
+    mesh = DiscreteGrid(x, y, z, discretization_scheme)
   elseif grid_type == "UniformGrid1D"
     x = read_UniformGrid1D(filename)
     mesh = UniformGrid1D(x, discretization_scheme)
