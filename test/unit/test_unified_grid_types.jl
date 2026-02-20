@@ -6,7 +6,8 @@ using CurvilinearGrids
   dgrid = DiscreteGrid(x, :meg6; interpolation=:linear, cache_mode=:eager)
 
   @test dgrid isa DiscreteGrid
-  @test hasproperty(dgrid, :core)
+  @test dgrid isa DiscreteGrid{1,Float64}
+  @test !hasproperty(dgrid, :core)
   @test !hasproperty(dgrid, :legacy)
   @test dgrid.interpolation === :linear
   @test coordinate_system(dgrid) isa CurvilinearCS
@@ -32,7 +33,8 @@ end
 
   mgrid = MappedGrid(xmap, params, (8,), :meg6; cache_mode=:eager)
   @test mgrid isa MappedGrid
-  @test hasproperty(mgrid, :core)
+  @test mgrid isa MappedGrid{1,Float64}
+  @test !hasproperty(mgrid, :core)
   @test !hasproperty(mgrid, :legacy)
   @test coordinate_system(mgrid) isa CurvilinearCS
   @test basis_trait(mgrid) isa ContravariantBasis
@@ -62,11 +64,15 @@ end
   dgrid2d = DiscreteGrid(x, y, :meg6; cache_mode=:eager)
   fm = face_metrics(dgrid2d)
 
-  edge_name = first(keys(fm))
-  edge_metrics = getproperty(fm, edge_name)
+  I = first(dgrid2d.iterators.cell.domain)
+  # face_metrics[edge_dim][component_dim]:
+  # component_dim = 1 => forward, 2 => inverse, 3 => inverse normalized
+  i_face_metric = fm[1].conserved[I]
 
-  @test Symbol("ξ̂") in keys(edge_metrics)
-  @test Symbol("η̂") in keys(edge_metrics)
+  @test i_face_metric isa Metric{2,Float64}
+  @test isfinite(i_face_metric.J)
+  @test isfinite(i_face_metric.jacobian_matrix[1, 1])
+  @test isfinite(i_face_metric.jacobian_matrix[2, 2])
 end
 
 @testset "OrthogonalGrid trait behavior" begin
@@ -77,6 +83,7 @@ end
   ogrid = OrthogonalGrid(legacy)
 
   @test ogrid isa OrthogonalGrid
+  @test ogrid isa OrthogonalGrid{3,Float64}
   @test coordinate_system(ogrid) isa SphericalCS
   @test_throws ArgumentError basis_trait(ogrid)
   @test_throws ArgumentError cell_metrics(ogrid)

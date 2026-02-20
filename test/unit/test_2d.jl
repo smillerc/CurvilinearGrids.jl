@@ -1,68 +1,85 @@
-@testset "2D Uniform Mesh" begin
-  x0, x1 = (0, 4)
-  y0, y1 = (1, 9)
-  dx = 0.1
-  mesh = UniformGrid2D((x0, y0), (x1, y1), dx, :MEG6)
-  domain = mesh.iterators.cell.domain
+function rectilinear_nodes_2d(x0, x1, y0, y1, ni, nj; halo_coords_included=false)
+  Δx = (x1 - x0) / ni
+  Δy = (y1 - y0) / nj
 
-  @test mesh.iterators.cell.full == CartesianIndices((50, 90))
-  @test mesh.iterators.cell.domain == CartesianIndices((6:45, 6:85))
+  if halo_coords_included
+    xnodes = collect(range(x0, x1; length=ni + 1))
+    ynodes = collect(range(y0, y1; length=nj + 1))
+  else
+    xnodes = collect(range(x0, x1; length=ni + 1))
+    ynodes = collect(range(y0, y1; length=nj + 1))
+  end
 
-  @test mesh.iterators.node.full == CartesianIndices((51, 91))
-  @test mesh.iterators.node.domain == CartesianIndices((6:46, 6:86))
+  x = [xnodes[i] for i in eachindex(xnodes), j in eachindex(ynodes)]
+  y = [ynodes[j] for i in eachindex(xnodes), j in eachindex(ynodes)]
+  return x, y, Δx, Δy
+end
 
-  @test mesh.domain_limits.node == (ilo=6, ihi=46, jlo=6, jhi=86)
-  @test mesh.domain_limits.cell == (ilo=6, ihi=45, jlo=6, jhi=85)
+function assert_rectilinear_metrics_2d(mesh, domain, Δx, Δy)
+  cm = cell_metrics(mesh)
+  fm = face_metrics(mesh)
 
-  @test all(mesh.cell_center_metrics.J[domain] .≈ 0.01)
-  @test all(mesh.cell_center_metrics.x₁.ξ[domain] .≈ 0.1)
-  @test all(mesh.cell_center_metrics.x₂.ξ[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₁.η[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₂.η[domain] .≈ 0.1)
+  J = Δx * Δy
+  ξx = inv(Δx)
+  ηy = inv(Δy)
+  ξ̂x = J * ξx
+  η̂y = J * ηy
 
-  @test all(mesh.cell_center_metrics.ξ.x₁[domain] .≈ 10.0)
-  @test all(mesh.cell_center_metrics.ξ.x₂[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η.x₁[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η.x₂[domain] .≈ 10.0)
-  @test all(mesh.cell_center_metrics.ξ.t[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η.t[domain] .≈ 0.0)
+  @test all(cm.forward[idx].J ≈ J for idx in domain)
+  @test all(cm.forward[idx][1, 1] ≈ Δx for idx in domain)
+  @test all(cm.forward[idx][1, 2] ≈ 0.0 for idx in domain)
+  @test all(cm.forward[idx][2, 1] ≈ 0.0 for idx in domain)
+  @test all(cm.forward[idx][2, 2] ≈ Δy for idx in domain)
 
-  @test all(mesh.cell_center_metrics.ξ̂.x₁[domain] .≈ 0.1)
-  @test all(mesh.cell_center_metrics.ξ̂.x₂[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η̂.x₁[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η̂.x₂[domain] .≈ 0.1)
-  @test all(mesh.cell_center_metrics.ξ̂.t[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η̂.t[domain] .≈ 0.0)
+  @test all(cm.inverse[idx][1, 1] ≈ ξx for idx in domain)
+  @test all(cm.inverse[idx][1, 2] ≈ 0.0 for idx in domain)
+  @test all(cm.inverse[idx][2, 1] ≈ 0.0 for idx in domain)
+  @test all(cm.inverse[idx][2, 2] ≈ ηy for idx in domain)
 
   iaxis, jaxis = (1, 2)
   i₊½_domain = expand(domain, iaxis, -1)
   j₊½_domain = expand(domain, jaxis, -1)
 
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain] .≈ 0.1)
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain] .≈ 0.1)
+  @test all(fm[1].forward[idx].J ≈ J for idx in i₊½_domain)
+  @test all(fm[2].forward[idx].J ≈ J for idx in j₊½_domain)
+  @test all(fm[1].forward[idx][1, 1] ≈ Δx for idx in i₊½_domain)
+  @test all(fm[2].forward[idx][1, 1] ≈ Δx for idx in j₊½_domain)
+  @test all(fm[1].forward[idx][2, 2] ≈ Δy for idx in i₊½_domain)
+  @test all(fm[2].forward[idx][2, 2] ≈ Δy for idx in j₊½_domain)
 
-  @test all(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain] .≈ 0.1)
-  @test all(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain] .≈ 0.1)
+  @test all(fm[1].inverse[idx][1, 1] ≈ ξx for idx in i₊½_domain)
+  @test all(fm[2].inverse[idx][1, 1] ≈ ξx for idx in j₊½_domain)
+  @test all(fm[1].inverse[idx][2, 2] ≈ ηy for idx in i₊½_domain)
+  @test all(fm[2].inverse[idx][2, 2] ≈ ηy for idx in j₊½_domain)
 
-  @test all(mesh.edge_metrics.i₊½.J[i₊½_domain] .≈ 0.01)
-  @test all(mesh.edge_metrics.i₊½.ξ.x₁[i₊½_domain] .≈ 10.0)
-  @test all(mesh.edge_metrics.i₊½.ξ.x₂[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η.x₁[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η.x₂[i₊½_domain] .≈ 10.0)
+  @test all(fm[1].conserved[idx][1, 1] ≈ ξ̂x for idx in i₊½_domain)
+  @test all(fm[2].conserved[idx][1, 1] ≈ ξ̂x for idx in j₊½_domain)
+  @test all(fm[1].conserved[idx][1, 2] ≈ 0.0 for idx in i₊½_domain)
+  @test all(fm[2].conserved[idx][1, 2] ≈ 0.0 for idx in j₊½_domain)
+  @test all(fm[1].conserved[idx][2, 1] ≈ 0.0 for idx in i₊½_domain)
+  @test all(fm[2].conserved[idx][2, 1] ≈ 0.0 for idx in j₊½_domain)
+  @test all(fm[1].conserved[idx][2, 2] ≈ η̂y for idx in i₊½_domain)
+  @test all(fm[2].conserved[idx][2, 2] ≈ η̂y for idx in j₊½_domain)
+end
 
-  @test all(mesh.edge_metrics.j₊½.J[j₊½_domain] .≈ 0.01)
-  @test all(mesh.edge_metrics.j₊½.ξ.x₁[j₊½_domain] .≈ 10.0)
-  @test all(mesh.edge_metrics.j₊½.ξ.x₂[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η.x₁[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η.x₂[j₊½_domain] .≈ 10.0)
+@testset "2D Uniform Mesh" begin
+  x0, x1 = (0, 4)
+  y0, y1 = (1, 9)
+  ni, nj = (40, 80)
+  x, y, Δx, Δy = rectilinear_nodes_2d(x0, x1, y0, y1, ni, nj)
+
+  mesh = DiscreteGrid(x, y, :MEG6)
+  domain = mesh.iterators.cell.domain
+
+  @test mesh.iterators.cell.full == CartesianIndices((50, 90))
+  @test mesh.iterators.cell.domain == CartesianIndices((6:45, 6:85))
+  @test mesh.iterators.node.full == CartesianIndices((51, 91))
+  @test mesh.iterators.node.domain == CartesianIndices((6:46, 6:86))
+
+  assert_rectilinear_metrics_2d(mesh, domain, Δx, Δy)
 
   ilo_c = mesh.nhalo + 1
   jlo_c = mesh.nhalo + 1
-
   @test coord(mesh, (ilo_c + 1, jlo_c + 1)) == [0.1, 1.1]
   @test centroid(mesh, (ilo_c, jlo_c)) == [0.05, 1.05]
 
@@ -73,75 +90,25 @@
   xc, yc = centroids(mesh)
   @test size(xc) == (40, 80)
   @test size(yc) == (40, 80)
-
-  surf = extract_surface_mesh(mesh, :ilo)
 end
 
 @testset "2D Rectangular Mesh" begin
   ni, nj = (40, 80)
   x0, x1 = (0, 2)
   y0, y1 = (1, 3)
-  mesh = RectilinearGrid2D((x0, y0), (x1, y1), (ni, nj), :MEG6)
+  x, y, Δx, Δy = rectilinear_nodes_2d(x0, x1, y0, y1, ni, nj)
+  mesh = DiscreteGrid(x, y, :MEG6)
   domain = mesh.iterators.cell.domain
 
   @test mesh.iterators.cell.full == CartesianIndices((50, 90))
   @test mesh.iterators.cell.domain == CartesianIndices((6:45, 6:85))
-
   @test mesh.iterators.node.full == CartesianIndices((51, 91))
   @test mesh.iterators.node.domain == CartesianIndices((6:46, 6:86))
 
-  @test mesh.domain_limits.node == (ilo=6, ihi=46, jlo=6, jhi=86)
-  @test mesh.domain_limits.cell == (ilo=6, ihi=45, jlo=6, jhi=85)
-
-  @test all(mesh.cell_center_metrics.J[domain] .≈ 0.00125)
-  @test all(mesh.cell_center_metrics.x₁.ξ[domain] .≈ 0.05)
-  @test all(mesh.cell_center_metrics.x₂.ξ[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₁.η[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₂.η[domain] .≈ 0.025)
-
-  @test all(mesh.cell_center_metrics.ξ.x₁[domain] .≈ 20.0)
-  @test all(mesh.cell_center_metrics.ξ.x₂[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η.x₁[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η.x₂[domain] .≈ 40.0)
-  @test all(mesh.cell_center_metrics.ξ.t[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η.t[domain] .≈ 0.0)
-
-  @test all(mesh.cell_center_metrics.ξ̂.x₁[domain] .≈ 0.025)
-  @test all(mesh.cell_center_metrics.ξ̂.x₂[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η̂.x₁[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η̂.x₂[domain] .≈ 0.05)
-  @test all(mesh.cell_center_metrics.ξ̂.t[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η̂.t[domain] .≈ 0.0)
-
-  iaxis, jaxis = (1, 2)
-  i₊½_domain = expand(domain, iaxis, -1)
-  j₊½_domain = expand(domain, jaxis, -1)
-
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain] .≈ 0.025)
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain] .≈ 0.05)
-
-  @test all(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain] .≈ 0.025)
-  @test all(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain] .≈ 0.05)
-
-  @test all(mesh.edge_metrics.i₊½.J[i₊½_domain] .≈ 0.00125)
-  @test all(mesh.edge_metrics.i₊½.ξ.x₁[i₊½_domain] .≈ 20.0)
-  @test all(mesh.edge_metrics.i₊½.ξ.x₂[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η.x₁[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η.x₂[i₊½_domain] .≈ 40.0)
-
-  @test all(mesh.edge_metrics.j₊½.J[j₊½_domain] .≈ 0.00125)
-  @test all(mesh.edge_metrics.j₊½.ξ.x₁[j₊½_domain] .≈ 20.0)
-  @test all(mesh.edge_metrics.j₊½.ξ.x₂[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η.x₁[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η.x₂[j₊½_domain] .≈ 40.0)
+  assert_rectilinear_metrics_2d(mesh, domain, Δx, Δy)
 
   ilo_c = mesh.nhalo + 1
   jlo_c = mesh.nhalo + 1
-
   @test coord(mesh, (ilo_c + 1, jlo_c + 1)) == [0.05, 1.025]
   @test centroid(mesh, (ilo_c, jlo_c)) == [0.025, 1.0125]
 
@@ -152,75 +119,25 @@ end
   xc, yc = centroids(mesh)
   @test size(xc) == (40, 80)
   @test size(yc) == (40, 80)
-
-  surf = extract_surface_mesh(mesh, :ilo)
 end
 
 @testset "2D Rectangular Mesh -- Halo Geometry Defined" begin
   ni, nj = (40, 80)
   x0, x1 = (0, 2)
   y0, y1 = (1, 3)
-  mesh = RectilinearGrid2D((x0, y0), (x1, y1), (ni, nj), :MEG6; halo_coords_included=true)
+  x, y, Δx, Δy = rectilinear_nodes_2d(x0, x1, y0, y1, ni, nj; halo_coords_included=true)
+  mesh = DiscreteGrid(x, y, :MEG6; halo_coords_included=true)
   domain = mesh.iterators.cell.full
 
   @test mesh.iterators.cell.full == CartesianIndices((40, 80))
   @test mesh.iterators.cell.domain == CartesianIndices((6:35, 6:75))
-
   @test mesh.iterators.node.full == CartesianIndices((41, 81))
   @test mesh.iterators.node.domain == CartesianIndices((6:36, 6:76))
 
-  @test mesh.domain_limits.node == (ilo=6, ihi=36, jlo=6, jhi=76)
-  @test mesh.domain_limits.cell == (ilo=6, ihi=35, jlo=6, jhi=75)
-
-  @test all(mesh.cell_center_metrics.J[domain] .≈ 0.00125)
-  @test all(mesh.cell_center_metrics.x₁.ξ[domain] .≈ 0.05)
-  @test all(mesh.cell_center_metrics.x₂.ξ[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₁.η[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₂.η[domain] .≈ 0.025)
-
-  @test all(mesh.cell_center_metrics.ξ.x₁[domain] .≈ 20.0)
-  @test all(mesh.cell_center_metrics.ξ.x₂[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η.x₁[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η.x₂[domain] .≈ 40.0)
-  @test all(mesh.cell_center_metrics.ξ.t[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η.t[domain] .≈ 0.0)
-
-  @test all(mesh.cell_center_metrics.ξ̂.x₁[domain] .≈ 0.025)
-  @test all(mesh.cell_center_metrics.ξ̂.x₂[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η̂.x₁[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η̂.x₂[domain] .≈ 0.05)
-  @test all(mesh.cell_center_metrics.ξ̂.t[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η̂.t[domain] .≈ 0.0)
-
-  iaxis, jaxis = (1, 2)
-  i₊½_domain = expand(domain, iaxis, -1)
-  j₊½_domain = expand(domain, jaxis, -1)
-
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain] .≈ 0.025)
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain] .≈ 0.05)
-
-  @test all(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain] .≈ 0.025)
-  @test all(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain] .≈ 0.05)
-
-  @test all(mesh.edge_metrics.i₊½.J[i₊½_domain] .≈ 0.00125)
-  @test all(mesh.edge_metrics.i₊½.ξ.x₁[i₊½_domain] .≈ 20.0)
-  @test all(mesh.edge_metrics.i₊½.ξ.x₂[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η.x₁[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η.x₂[i₊½_domain] .≈ 40.0)
-
-  @test all(mesh.edge_metrics.j₊½.J[j₊½_domain] .≈ 0.00125)
-  @test all(mesh.edge_metrics.j₊½.ξ.x₁[j₊½_domain] .≈ 20.0)
-  @test all(mesh.edge_metrics.j₊½.ξ.x₂[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η.x₁[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η.x₂[j₊½_domain] .≈ 40.0)
+  assert_rectilinear_metrics_2d(mesh, domain, Δx, Δy)
 
   ilo_c = mesh.nhalo + 1
   jlo_c = mesh.nhalo + 1
-
   @test coord(mesh, (ilo_c + 1, jlo_c + 1)) == [0.3, 1.15]
   @test centroid(mesh, (ilo_c, jlo_c)) == [0.275, 1.1375]
 
@@ -231,8 +148,6 @@ end
   xc, yc = centroids(mesh)
   @test size(xc) == (30, 70)
   @test size(yc) == (30, 70)
-
-  surf = extract_surface_mesh(mesh, :ilo)
 end
 
 @testset "2D Wavy Mesh GCL" begin
@@ -267,12 +182,12 @@ end
 
   ni, nj = (41, 41)
   x, y = wavy_grid(ni, nj)
-  mesh = CurvilinearGrid2D(x, y, :MEG6)
+  mesh = DiscreteGrid(x, y, :MEG6)
 
-  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, 5e-15)
+  gcl_identities, max_vals = gcl(face_metrics(mesh), mesh.iterators.cell.domain, 5e-15)
   @test all(gcl_identities)
 
-  save_vtk(mesh, "wavy")
+  save_vtk(coords(mesh), "wavy")
   nothing
 end
 
@@ -310,5 +225,8 @@ end
 
   ni, nj = (41, 41)
   x, y = wavy_grid(ni, nj)
-  mesh = CurvilinearGrid2D(x, y, :MEG6; halo_coords_included=true)
+  mesh = DiscreteGrid(x, y, :MEG6; halo_coords_included=true)
+
+  gcl_identities, max_vals = gcl(face_metrics(mesh), mesh.iterators.cell.domain, 5e-15)
+  @test all(gcl_identities)
 end

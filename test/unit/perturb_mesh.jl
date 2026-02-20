@@ -7,11 +7,14 @@ function gaussian(x, x0, fwhm, p)
 end
 
 function perturb_coords!(mesh, x_interface, λ, k)
+  xcoords = Array(mesh.node_coordinates.x)
+  ycoords = Array(mesh.node_coordinates.y)
+
   for idx in mesh.iterators.node.domain
     i, j = idx.I
 
-    x = mesh.node_coordinates.x[i, j]
-    y = mesh.node_coordinates.y[i, j]
+    x = xcoords[i, j]
+    y = ycoords[i, j]
     amp = 0.25
 
     x_pert = (
@@ -25,13 +28,12 @@ function perturb_coords!(mesh, x_interface, λ, k)
       ) # decay away from interface
     )
 
-    mesh.node_coordinates.x[i, j] += x_pert
+    xcoords[i, j] += x_pert
   end
 
-  force = true
-  halo_coords_included = false
-  CurvilinearGrids.update!(mesh, force, halo_coords_included)
-  return nothing
+  return DiscreteGrid(
+    xcoords, ycoords, mesh.discretization_scheme_name; halo_coords_included=true
+  )
 end
 
 @testset "2D Mesh Perturbation" begin
@@ -42,12 +44,16 @@ end
   x0, x1 = (0.0, 10.0)
   y0, y1 = (0.0, 0.5λ)
 
-  mesh = CurvilinearGrid2D((x0, y0), (x1, y1), (501, 101), :meg6_symmetric; is_static=true)
+  xnodes = collect(range(x0, x1, 502))
+  ynodes = collect(range(y0, y1, 102))
+  x = [xnodes[i] for i in eachindex(xnodes), j in eachindex(ynodes)]
+  y = [ynodes[j] for i in eachindex(xnodes), j in eachindex(ynodes)]
+  mesh = DiscreteGrid(x, y, :meg6_symmetric)
 
-  perturb_coords!(mesh, x_interface, λ, k)
+  mesh = perturb_coords!(mesh, x_interface, λ, k)
 
   # save_vtk(mesh)
 
-  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
+  gcl_identities, max_vals = gcl(face_metrics(mesh), mesh.iterators.cell.domain, eps())
   @test_broken all(gcl_identities)
 end

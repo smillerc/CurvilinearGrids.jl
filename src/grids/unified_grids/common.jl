@@ -70,9 +70,10 @@ function _allocate_unified_metric_storage(::Val{N}, backend, ::Type{T}, iterator
 
   # Cell metrics: [1] forward, [2] inverse
   cell = (; forward=metric_array(), inverse=metric_array())
-  # Face metrics: [edge_dim][component_dim], where component_dim:
-  #   1 => forward, 2 => inverse, 3 => inverse normalized
-  face = ntuple(_ -> (metric_array(), metric_array(), metric_array()), N)
+  # Face metrics: face_metrics[edge_dim].{forward,inverse,conserved}
+  face = ntuple(
+    _ -> (; forward=metric_array(), inverse=metric_array(), conserved=metric_array()), N
+  )
 
   return cell, face
 end
@@ -398,13 +399,13 @@ function _fill_face_metric_storage!(
       F = inv(G)
       J = det(F)
 
-      face_metric_storage[axis][1][I] = _metric_from_jacobian(
+      face_metric_storage[axis].forward[I] = _metric_from_jacobian(
         SMatrix{N,N,T,N * N}(Tuple(F)), T(J)
       )
-      face_metric_storage[axis][2][I] = _metric_from_jacobian(
+      face_metric_storage[axis].inverse[I] = _metric_from_jacobian(
         SMatrix{N,N,T,N * N}(Tuple(G)), T(J)
       )
-      face_metric_storage[axis][3][I] = _metric_from_jacobian(
+      face_metric_storage[axis].conserved[I] = _metric_from_jacobian(
         SMatrix{N,N,T,N * N}(Tuple(Ghat)), T(J)
       )
     end

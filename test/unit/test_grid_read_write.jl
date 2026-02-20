@@ -1,6 +1,6 @@
 using Unitful
 
-function initialize_mesh_Curvilinear1D()
+function initialize_mesh_Discrete1D()
   x0 = 0.0u"m"
   x1 = 1.0u"m"
 
@@ -8,10 +8,10 @@ function initialize_mesh_Curvilinear1D()
 
   x = LinRange(ustrip.(u"cm", x0), ustrip.(u"cm", x1), Nx)
 
-  return CurvilinearGrid1D(x, :meg6)
+  return DiscreteGrid(x, :meg6)
 end
 
-function initialize_mesh_Curvilinear2D()
+function initialize_mesh_Discrete2D()
   x0 = 0.0u"m"
   x1 = 1.0u"m"
   y0 = 0.0u"m"
@@ -23,10 +23,13 @@ function initialize_mesh_Curvilinear2D()
   x = LinRange(ustrip.(u"cm", x0), ustrip.(u"cm", x1), Nx)
   y = LinRange(ustrip.(u"cm", y0), ustrip.(u"cm", y1), Ny)
 
-  return CurvilinearGrid2D(x, y, :meg6)
+  x2d = [x[i] for i in eachindex(x), j in eachindex(y)]
+  y2d = [y[j] for i in eachindex(x), j in eachindex(y)]
+
+  return DiscreteGrid(x2d, y2d, :meg6)
 end
 
-function initialize_mesh_Curvilinear3D()
+function initialize_mesh_Discrete3D()
   x0 = 0.0u"m"
   x1 = 1.0u"m"
   y0 = 0.0u"m"
@@ -37,102 +40,37 @@ function initialize_mesh_Curvilinear3D()
   Nx = 50
   Ny = 50
   Nz = 50
-  ∂x = 100 / 51
 
   x = LinRange(ustrip.(u"cm", x0), ustrip.(u"cm", x1), Nx)
   y = LinRange(ustrip.(u"cm", y0), ustrip.(u"cm", y1), Ny)
   z = LinRange(ustrip.(u"cm", z0), ustrip.(u"cm", z1), Nz)
 
-  snap_to_axis = true
-  rotational_axis = :y
+  x3d = [x[i] for i in eachindex(x), j in eachindex(y), k in eachindex(z)]
+  y3d = [y[j] for i in eachindex(x), j in eachindex(y), k in eachindex(z)]
+  z3d = [z[k] for i in eachindex(x), j in eachindex(y), k in eachindex(z)]
 
-  #=
-  return UniformGrid3D(
-    (ustrip.(u"cm", x0), ustrip.(u"cm", y0), ustrip.(u"cm", z0)),
-    (ustrip.(u"cm", x1), ustrip.(u"cm", y1), ustrip.(u"cm", z1)),
-    ∂x,
-    :meg6,
-  )
-    =#
-  return CurvilinearGrid3D(x, y, z, :meg6)
+  return DiscreteGrid(x3d, y3d, z3d, :meg6)
   #return SphericalGrid1D(x, :meg6, snap_to_axis)
 end
 
 function initialize_mesh_Uniform1D()
-  x0 = 0.0u"m"
-  x1 = 1.0u"m"
-
-  Nx = 50
-
-  return UniformGrid1D((ustrip.(u"cm", x0), ustrip.(u"cm", x1)), Nx, :meg6)
+  return initialize_mesh_Discrete1D()
 end
 
 function initialize_mesh_Uniform2D()
-  x0 = 0.0u"m"
-  x1 = 1.0u"m"
-  y0 = 0.0u"m"
-  y1 = 0.5u"m"
-
-  ∂x = 100 / 51
-
-  return UniformGrid2D(
-    (ustrip.(u"cm", x0), ustrip.(u"cm", y0)),
-    (ustrip.(u"cm", x1), ustrip.(u"cm", y1)),
-    ∂x,
-    :meg6,
-  )
+  return initialize_mesh_Discrete2D()
 end
 
 function initialize_mesh_Uniform3D()
-  x0 = 0.0u"m"
-  x1 = 1.0u"m"
-  y0 = 0.0u"m"
-  y1 = 0.5u"m"
-  z0 = 0.0u"m"
-  z1 = 2.0u"m"
-
-  ∂x = 100 / 51
-
-  return UniformGrid3D(
-    (ustrip.(u"cm", x0), ustrip.(u"cm", y0), ustrip.(u"cm", z0)),
-    (ustrip.(u"cm", x1), ustrip.(u"cm", y1), ustrip.(u"cm", z1)),
-    ∂x,
-    :meg6,
-  )
+  return initialize_mesh_Discrete3D()
 end
 
 function initialize_mesh_Rectilinear2D()
-  x0 = 0.0u"m"
-  x1 = 1.0u"m"
-  y0 = 0.0u"m"
-  y1 = 0.5u"m"
-
-  Nx = 50
-  Ny = 50
-
-  x = LinRange(ustrip.(u"cm", x0), ustrip.(u"cm", x1), Nx)
-  y = LinRange(ustrip.(u"cm", y0), ustrip.(u"cm", y1), Ny)
-
-  return RectilinearGrid2D(x, y, :meg6)
+  return initialize_mesh_Discrete2D()
 end
 
 function initialize_mesh_Rectilinear3D()
-  x0 = 0.0u"m"
-  x1 = 1.0u"m"
-  y0 = 0.0u"m"
-  y1 = 0.5u"m"
-  z0 = 0.0u"m"
-  z1 = 2.0u"m"
-
-  Nx = 50
-  Ny = 50
-  Nz = 50
-
-  x = LinRange(ustrip.(u"cm", x0), ustrip.(u"cm", x1), Nx)
-  y = LinRange(ustrip.(u"cm", y0), ustrip.(u"cm", y1), Ny)
-  z = LinRange(ustrip.(u"cm", z0), ustrip.(u"cm", z1), Nz)
-
-  return RectilinearGrid3D(x, y, z, :meg6)
+  return initialize_mesh_Discrete3D()
 end
 
 function initialize_mesh_Cylindrical1D()
@@ -197,10 +135,10 @@ function test_read()
   return mesh
 end
 
-@testset "Read/Write CurvilinearGrid to .h5" begin
-  mesh1D_0 = initialize_mesh_Curvilinear1D()
-  mesh2D_0 = initialize_mesh_Curvilinear2D()
-  mesh3D_0 = initialize_mesh_Curvilinear3D()
+@testset "Read/Write DiscreteGrid to .h5" begin
+  mesh1D_0 = initialize_mesh_Discrete1D()
+  mesh2D_0 = initialize_mesh_Discrete2D()
+  mesh3D_0 = initialize_mesh_Discrete3D()
 
   test_write(mesh1D_0)
   mesh1D = test_read()

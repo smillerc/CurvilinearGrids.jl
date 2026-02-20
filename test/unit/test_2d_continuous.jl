@@ -205,7 +205,7 @@ end
   @test all(mesh.edge_metrics.j₊½.η̂.t[j₊½_domain] .≈ 0.0)
 end
 
-@testset "ContinuousCurvilinearGrid2D vs CurvilinearGrid2D" begin
+@testset "ContinuousCurvilinearGrid2D vs DiscreteGrid2D" begin
   params, celldims = cylindrical_params()
   x, y = cylindrical_mapping()
 
@@ -218,11 +218,11 @@ end
   @test all(abs.(extrema(I2)) .< 1e-14)
   # CurvilinearGrids.save_vtk(cm, "cylindrical_sector_ad")
 
-  @info "CurvilinearGrid2D"
+  @info "DiscreteGrid2D"
   xdom = cm.node_coordinates.x[cm.iterators.node.full]
   ydom = cm.node_coordinates.y[cm.iterators.node.full]
-  dm = CurvilinearGrid2D(xdom, ydom, :meg6; halo_coords_included=true)
-  I1, I2 = CurvilinearGrids.GridTypes.gcl(dm.edge_metrics, dm.iterators.cell.domain)
+  dm = DiscreteGrid(xdom, ydom, :meg6; halo_coords_included=true)
+  I1, I2 = CurvilinearGrids.GridTypes.gcl(face_metrics(dm), dm.iterators.cell.domain)
   # @show extrema(I1)
   # @show extrema(I2)
   @test all(abs.(extrema(I1)) .< 1e-14)
