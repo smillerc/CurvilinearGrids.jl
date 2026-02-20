@@ -213,12 +213,11 @@ end
   )
 
   cm = coord(mgrid, idx)
-  ctm = centroid(mgrid, idx)
   Jm = jacobian_matrix(mgrid, idx)
   Vm = cellvolume(mgrid, idx)
 
   @test cm ≈ [1.0, 4.6, 12.0]
-  @test ctm ≈ [1.0, 4.6, 12.0]
+  @test_throws MethodError centroid(mgrid, idx)
   @test Jm[1, 1] ≈ 1.0
   @test Jm[2, 2] ≈ 2.0
   @test Jm[3, 3] ≈ 3.0
@@ -235,12 +234,11 @@ end
   )
 
   cd = coord(dgrid, idx)
-  ctd = centroid(dgrid, idx)
   Jd = jacobian_matrix(dgrid, idx)
   Vd = cellvolume(dgrid, idx)
 
   @test cd ≈ [1.0, 4.6, 12.0]
-  @test ctd ≈ [1.0, 4.6, 12.0]
+  @test_throws MethodError centroid(dgrid, idx)
   @test Jd[1, 1] ≈ 1.0
   @test Jd[2, 2] ≈ 2.0
   @test Jd[3, 3] ≈ 3.0

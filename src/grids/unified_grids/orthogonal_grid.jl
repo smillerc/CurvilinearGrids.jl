@@ -2,11 +2,38 @@
 # OrthogonalGrid
 #
 
+"""
+    OrthogonalGrid{N,T,L,CS,GC}
+
+Unified-grid adapter around legacy orthogonal-grid implementations.
+
+This type preserves the new trait-based API while delegating geometry and
+volume queries to the wrapped legacy grid.
+
+# Fields
+  - `legacy`: Wrapped legacy orthogonal grid instance.
+  - `geometry_cache`: Optional external geometry cache handle.
+"""
 struct OrthogonalGrid{N,T,L,CS<:CoordinateSystemTrait,GC} <: AbstractUnifiedGrid
   legacy::L
   geometry_cache::GC
 end
 
+"""
+    OrthogonalGrid(legacy; coordinate_system, geometry_cache)
+
+Wrap a legacy orthogonal grid into the unified-grid API.
+
+# Arguments
+  - `legacy`: Legacy orthogonal grid instance.
+
+# Keywords
+  - `coordinate_system`: Coordinate-system trait for the wrapper.
+  - `geometry_cache`: Optional geometry cache payload.
+
+# Returns
+`OrthogonalGrid` wrapper with trait metadata.
+"""
 function OrthogonalGrid(
   legacy::Union{
     CartesianOrthogonalGrid1D,
@@ -58,7 +85,9 @@ function OrthogonalGrid(
   halo_coords_included=false,
 ) where {T<:Real}
   if !(coordinate_system isa AxisymmetricCS)
-    throw(ArgumentError("2D orthogonal constructor currently supports only axisymmetric CS."))
+    throw(
+      ArgumentError("2D orthogonal constructor currently supports only axisymmetric CS.")
+    )
   end
   legacy = AxisymmetricOrthogonalGrid2D(
     r, z, nhalo, backend; halo_coords_included=halo_coords_included

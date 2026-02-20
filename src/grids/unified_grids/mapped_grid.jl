@@ -2,6 +2,29 @@
 # MappedGrid
 #
 
+"""
+    MappedGrid{N,T,CS,BT,...}
+
+Unified grid backed by continuous mapping functions from computational space to
+physical space.
+
+`MappedGrid` stores node/centroid coordinates, mapping/metric function caches,
+and independent metric caches for cell and face data.
+
+# Fields
+  - `node_coordinates`: Node coordinate arrays as `NTuple{N,AbstractArray}`.
+  - `centroid_coordinates`: Cell-center coordinate arrays as `NTuple{N,AbstractArray}`.
+  - `mapping_functions`: Physical mapping callbacks (`x`, `y`, `z` by dimension).
+  - `metric_functions_cache`: Cached metric-function closures.
+  - `backend`: Compute backend used for storage allocation.
+  - `diff_backend`: Differentiation backend used for metric evaluation.
+  - `nhalo`: Halo width used by iterator/domain definitions.
+  - `discretization_scheme`: Discretization scheme object.
+  - `discretization_scheme_name`: Symbol name of the discretization scheme.
+  - `iterators`: Node/cell iterator bundle for local/global indexing.
+  - `state`: Mutable reference to runtime state (`t`, `params`).
+  - `metric_caches`: Independent cell and face metric caches.
+"""
 struct MappedGrid{
   N,
   T,
@@ -169,7 +192,8 @@ function _new_mapped_grid(
     global_cell_indices=global_cell_indices,
   )
 
-  requested_mode = compute_metrics ? cache_mode : (cache_mode === :eager ? :lazy : cache_mode)
+  requested_mode =
+    compute_metrics ? cache_mode : (cache_mode === :eager ? :lazy : cache_mode)
   caches = _new_metric_caches(
     requested_mode, components.cell_metric_storage, components.face_metric_storage
   )
@@ -232,6 +256,34 @@ function _new_mapped_grid(
   return grid
 end
 
+"""
+    MappedGrid(x[, y[, z]], params, celldims, discretization_scheme; kwargs...)
+
+Construct a mapped unified grid from continuous coordinate mapping functions.
+
+# Arguments
+  - `x`: Mapping function for the first physical coordinate.
+  - `y`: Mapping function for the second physical coordinate (2D/3D).
+  - `z`: Mapping function for the third physical coordinate (3D).
+  - `params`: Mapping parameter tuple passed to mapping functions.
+  - `celldims`: Cell counts in each computational dimension.
+  - `discretization_scheme`: Gradient scheme symbol (for example `:meg6`).
+
+# Keywords
+  - `backend`: Storage backend. Default: `CPU()`.
+  - `diff_backend`: Differentiation backend. Default: `AutoForwardDiff()`.
+  - `t`: Initial time. Default: `zero(Float64)`.
+  - `T`: Grid floating-point type. Default: `Float64`.
+  - `compute_metrics`: Enable initial metric computation. Default: `true`.
+  - `global_cell_indices`: Optional global index map. Default: `nothing`.
+  - `coordinate_system`: Coordinate-system trait. Default: `CurvilinearCS()`.
+  - `basis`: Basis trait. Default: `CartesianBasis()`.
+  - `cache_mode`: Metric cache mode (`:eager`, `:lazy`, `:off`). Default: `:eager`.
+
+# Returns
+A `MappedGrid{N,T,...}` instance with initialized coordinates and metric cache
+storage.
+"""
 function MappedGrid(
   x::Function,
   params::NamedTuple,
@@ -337,6 +389,19 @@ function MappedGrid(
   )
 end
 
+"""
+    update!(grid::MappedGrid{N}, t::Real, params::NamedTuple) where {N}
+
+Update mapped grid coordinates and invalidate metric caches for a new state.
+
+# Arguments
+  - `grid`: Target mapped grid.
+  - `t`: New time value.
+  - `params`: New parameter tuple used by mapping functions.
+
+# Returns
+`nothing`.
+"""
 function update!(grid::MappedGrid{N}, t::Real, params::NamedTuple) where {N}
   _compute_unified_node_coordinates!(
     grid.node_coordinates,

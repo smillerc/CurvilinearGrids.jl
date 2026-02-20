@@ -5,7 +5,14 @@ Unified grid model (Phase 1, additive):
 - OrthogonalGrid
 """
 
+"""
+Base abstract type for all unified-grid implementations.
+"""
 abstract type AbstractUnifiedGrid end
+
+"""
+Base abstract type for unified grids that own mapping/metric caches.
+"""
 abstract type AbstractMappedOrDiscreteGrid <: AbstractUnifiedGrid end
 
 #
@@ -27,12 +34,31 @@ struct SphericalBasis <: BasisTrait end
 # Independent metric caches
 #
 
+"""
+    UnifiedMetricCache{D}
+
+Cache wrapper for one metric domain (cell or face).
+
+# Fields
+  - `data`: Backing metric storage container.
+  - `valid`: Cache validity flag.
+  - `mode`: Cache mode (`:eager`, `:lazy`, `:off`).
+"""
 mutable struct UnifiedMetricCache{D}
   data::D
   valid::Bool
   mode::Symbol
 end
 
+"""
+    UnifiedMetricCaches{C,F}
+
+Container for independently managed cell and face metric caches.
+
+# Fields
+  - `cell`: Cell-center metric cache.
+  - `face`: Face metric cache.
+"""
 mutable struct UnifiedMetricCaches{C,F}
   cell::UnifiedMetricCache{C}
   face::UnifiedMetricCache{F}
@@ -147,12 +173,15 @@ function _allocate_unified_coordinates(::Val{3}, iterators, backend, ::Type{T}) 
   return node_coordinates, centroid_coordinates
 end
 
-@inline _metric_cache_for_mapping(::Val{1}, mapping_functions, diff_backend) =
-  MetricCache(mapping_functions.x, diff_backend)
-@inline _metric_cache_for_mapping(::Val{2}, mapping_functions, diff_backend) =
-  MetricCache(mapping_functions.x, mapping_functions.y, diff_backend)
-@inline _metric_cache_for_mapping(::Val{3}, mapping_functions, diff_backend) =
-  MetricCache(mapping_functions.x, mapping_functions.y, mapping_functions.z, diff_backend)
+@inline _metric_cache_for_mapping(::Val{1}, mapping_functions, diff_backend) = MetricCache(
+  mapping_functions.x, diff_backend
+)
+@inline _metric_cache_for_mapping(::Val{2}, mapping_functions, diff_backend) = MetricCache(
+  mapping_functions.x, mapping_functions.y, diff_backend
+)
+@inline _metric_cache_for_mapping(::Val{3}, mapping_functions, diff_backend) = MetricCache(
+  mapping_functions.x, mapping_functions.y, mapping_functions.z, diff_backend
+)
 
 function _build_unified_components(
   ::Val{N},

@@ -1,3 +1,7 @@
+# Unified grid implementations and APIs for:
+# - `MappedGrid`
+# - `DiscreteGrid`
+# - `OrthogonalGrid`
 include("metrics.jl")
 include("common.jl")
 include("mapped_grid.jl")

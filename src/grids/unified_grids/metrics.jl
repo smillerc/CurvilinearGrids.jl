@@ -5,15 +5,31 @@
 """
     Metric{N,T,M}
 
-Unified AoS metric payload storing:
-- `jacobian_matrix`: metric tensor (forward, inverse, or normalized inverse, depending on cache)
-- `J`: determinant of `jacobian_matrix` for forward tensors, or the associated Jacobian determinant for inverse forms.
+Unified AoS metric payload used by unified-grid metric caches.
+
+The payload stores the metric tensor and associated Jacobian determinant for
+forward, inverse, or conserved inverse metric forms.
+
+# Fields
+  - `jacobian_matrix`: Metric tensor as a static matrix.
+  - `J`: Jacobian determinant associated with `jacobian_matrix`.
 """
-struct Metric{N,T,M<:StaticMatrix{N,N,T}} 
+struct Metric{N,T,M<:StaticMatrix{N,N,T}}
   jacobian_matrix::M
   J::T
 end
 
+"""
+    Metric(jacobian_matrix::StaticMatrix{N,N,T}) where {N,T}
+
+Construct a metric payload from a Jacobian matrix.
+
+# Arguments
+  - `jacobian_matrix`: Jacobian matrix for a cell or face metric.
+
+# Returns
+`Metric` with `J = det(jacobian_matrix)`.
+"""
 @inline function Metric(jacobian_matrix::StaticMatrix{N,N,T}) where {N,T}
   Metric{N,T,typeof(jacobian_matrix)}(jacobian_matrix, det(jacobian_matrix))
 end
@@ -30,7 +46,9 @@ end
   Metric{N,T,SMatrix{N,N,T,N * N}}
 end
 
-Base.zero(::Type{Metric{N,T,M}}) where {N,T,M<:StaticMatrix{N,N,T}} = Metric(zero(M), zero(T))
+function Base.zero(::Type{Metric{N,T,M}}) where {N,T,M<:StaticMatrix{N,N,T}}
+  Metric(zero(M), zero(T))
+end
 Base.zero(metric::Metric{N,T,M}) where {N,T,M<:StaticMatrix{N,N,T}} = zero(Metric{N,T,M})
 
 @inline function _as_smatrix(::Val{1}, x)

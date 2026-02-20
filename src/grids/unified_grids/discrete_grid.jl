@@ -4,6 +4,31 @@
 
 using Interpolations
 
+"""
+    DiscreteGrid{N,T,CS,BT,...}
+
+Unified grid built from user-provided coordinate arrays and linear
+interpolation in computational space.
+
+`DiscreteGrid` stores interpolation-backed mapping functions along with
+node/centroid coordinates and independent cell/face metric caches.
+
+# Fields
+  - `node_coordinates`: Node coordinate arrays as `NTuple{N,AbstractArray}`.
+  - `centroid_coordinates`: Cell-center coordinate arrays as `NTuple{N,AbstractArray}`.
+  - `mapping_functions`: Interpolation-backed mapping callbacks.
+  - `metric_functions_cache`: Cached metric-function closures.
+  - `backend`: Compute backend used for storage allocation.
+  - `diff_backend`: Differentiation backend used for metric evaluation.
+  - `nhalo`: Halo width used by iterator/domain definitions.
+  - `discretization_scheme`: Discretization scheme object.
+  - `discretization_scheme_name`: Symbol name of the discretization scheme.
+  - `iterators`: Node/cell iterator bundle for local/global indexing.
+  - `interpolation`: Interpolation mode symbol (`:linear`).
+  - `interpolants`: Cached interpolation objects.
+  - `state`: Mutable reference to runtime state (`t`, `params`).
+  - `metric_caches`: Independent cell and face metric caches.
+"""
 struct DiscreteGrid{
   N,
   T,
@@ -186,13 +211,7 @@ function _new_discrete_grid(
   _validate_discrete_interpolation(interpolation)
 
   components = _build_unified_components(
-    Val(N),
-    mapping_functions,
-    celldims,
-    discretization_scheme,
-    backend,
-    diff_backend,
-    T,
+    Val(N), mapping_functions, celldims, discretization_scheme, backend, diff_backend, T
   )
 
   caches = _new_metric_caches(
@@ -259,6 +278,33 @@ function _new_discrete_grid(
   return grid
 end
 
+"""
+    DiscreteGrid(x[, y[, z]], discretization_scheme; kwargs...)
+
+Construct a discrete unified grid from coordinate arrays using linear
+interpolation.
+
+# Arguments
+  - `x`: First coordinate array.
+  - `y`: Second coordinate array (2D/3D).
+  - `z`: Third coordinate array (3D).
+  - `discretization_scheme`: Gradient scheme symbol (for example `:meg6`).
+
+# Keywords
+  - `backend`: Storage backend. Default: `CPU()`.
+  - `diff_backend`: Differentiation backend. Default: `AutoForwardDiff()`.
+  - `T`: Grid floating-point type.
+  - `Tcore`: Deprecated alias for `T` behavior; if provided, overrides numeric type.
+  - `halo_coords_included`: Whether inputs include halo nodes. Default: `false`.
+  - `coordinate_system`: Coordinate-system trait. Default: `CurvilinearCS()`.
+  - `basis`: Basis trait. Default: `CartesianBasis()`.
+  - `interpolation`: Interpolation mode. Must be `:linear`.
+  - `cache_mode`: Metric cache mode (`:eager`, `:lazy`, `:off`). Default: `:eager`.
+
+# Returns
+A `DiscreteGrid{N,T,...}` instance with initialized coordinates and metric
+cache storage.
+"""
 function DiscreteGrid(
   x::AbstractVector{TX},
   discretization_scheme::Symbol;
@@ -315,7 +361,8 @@ function DiscreteGrid(
   interpolation::Symbol=:linear,
   cache_mode::Symbol=:eager,
 ) where {TX}
-  size(x) == size(y) || throw(ArgumentError("x and y arrays must have matching dimensions."))
+  size(x) == size(y) ||
+    throw(ArgumentError("x and y arrays must have matching dimensions."))
   _validate_discrete_interpolation(interpolation)
 
   number_type = isnothing(Tcore) ? T : Tcore
@@ -407,6 +454,19 @@ function DiscreteGrid(
   )
 end
 
+"""
+    update!(grid::DiscreteGrid{N}, t::Real, params::NamedTuple) where {N}
+
+Update discrete grid coordinates and invalidate metric caches for a new state.
+
+# Arguments
+  - `grid`: Target discrete grid.
+  - `t`: New time value.
+  - `params`: New parameter tuple used by mapping functions.
+
+# Returns
+`nothing`.
+"""
 function update!(grid::DiscreteGrid{N}, t::Real, params::NamedTuple) where {N}
   _compute_unified_node_coordinates!(
     grid.node_coordinates,
