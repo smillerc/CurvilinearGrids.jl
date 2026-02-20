@@ -34,8 +34,8 @@ end
   i₊½_domain = expand(cell_domain, iaxis, -1)
   @test all(fm[1].conserved[idx][1, 1] ≈ 1.0 for idx in i₊½_domain)
 
-  @test mesh.node_coordinates.x == collect(0:0.5:20)
-  @test mesh.centroid_coordinates.x == collect(0.25:0.5:19.75)
+  @test mesh.node_coordinates[1] == collect(0:0.5:20)
+  @test mesh.centroid_coordinates[1] == collect(0.25:0.5:19.75)
   @test centroid(mesh, mesh.nhalo).x ≈ 2.25
   @test collect(centroids(mesh)) == collect(2.75:0.5:17.25)
   @test collect(coords(mesh)) == collect(2.5:0.5:17.5)

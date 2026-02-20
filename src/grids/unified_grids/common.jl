@@ -62,18 +62,43 @@ end
 # Unified-grid geometry/metric helpers (AoS)
 #
 
-function _allocate_unified_metric_storage(::Val{N}, backend, ::Type{T}, iterators) where {N,T}
+function _allocate_unified_cell_metric_storage(::Val{N}, backend, ::Type{T}, iterators) where {N,T}
   celldims = size(iterators.cell.full)
   metric_type = _metric_eltype(Val(N), T)
-
   metric_array() = KernelAbstractions.zeros(backend, metric_type, celldims...)
+  return (; forward=metric_array(), inverse=metric_array())
+end
 
-  # Cell metrics: [1] forward, [2] inverse
-  cell = (; forward=metric_array(), inverse=metric_array())
-  # Face metrics: face_metrics[edge_dim].{forward,inverse,conserved}
-  face = ntuple(
+function _allocate_unified_face_metric_storage(::Val{N}, backend, ::Type{T}, iterators) where {N,T}
+  celldims = size(iterators.cell.full)
+  metric_type = _metric_eltype(Val(N), T)
+  metric_array() = KernelAbstractions.zeros(backend, metric_type, celldims...)
+  return ntuple(
     _ -> (; forward=metric_array(), inverse=metric_array(), conserved=metric_array()), N
   )
+end
+
+function _allocate_unified_metric_storage(::Val{N}, backend, ::Type{T}, iterators) where {N,T}
+  cell = _allocate_unified_cell_metric_storage(Val(N), backend, T, iterators)
+  face = _allocate_unified_face_metric_storage(Val(N), backend, T, iterators)
+
+  return cell, face
+end
+
+function _ensure_metric_storage!(
+  grid::AbstractMappedOrDiscreteGrid, ::Val{N}, ::Type{T}
+) where {N,T}
+  cell = grid.metric_caches.cell.data
+  face = grid.metric_caches.face.data
+
+  if isnothing(cell)
+    cell = _allocate_unified_cell_metric_storage(Val(N), grid.backend, T, grid.iterators)
+    grid.metric_caches.cell.data = cell
+  end
+  if isnothing(face)
+    face = _allocate_unified_face_metric_storage(Val(N), grid.backend, T, grid.iterators)
+    grid.metric_caches.face.data = face
+  end
 
   return cell, face
 end
@@ -82,8 +107,8 @@ function _allocate_unified_coordinates(::Val{1}, iterators, backend, ::Type{T}) 
   ni_nodes, = size(iterators.node.full)
   ni_cells, = size(iterators.cell.full)
 
-  node_coordinates = StructArray((x=KernelAbstractions.zeros(backend, T, (ni_nodes,)),))
-  centroid_coordinates = StructArray((x=KernelAbstractions.zeros(backend, T, (ni_cells,)),))
+  node_coordinates = (KernelAbstractions.zeros(backend, T, (ni_nodes,)),)
+  centroid_coordinates = (KernelAbstractions.zeros(backend, T, (ni_cells,)),)
   return node_coordinates, centroid_coordinates
 end
 
@@ -91,14 +116,14 @@ function _allocate_unified_coordinates(::Val{2}, iterators, backend, ::Type{T}) 
   ni_nodes, nj_nodes = size(iterators.node.full)
   ni_cells, nj_cells = size(iterators.cell.full)
 
-  node_coordinates = StructArray((
-    x=KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes)),
-    y=KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes)),
-  ))
-  centroid_coordinates = StructArray((
-    x=KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells)),
-    y=KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells)),
-  ))
+  node_coordinates = (
+    KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes)),
+    KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes)),
+  )
+  centroid_coordinates = (
+    KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells)),
+    KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells)),
+  )
   return node_coordinates, centroid_coordinates
 end
 
@@ -106,16 +131,16 @@ function _allocate_unified_coordinates(::Val{3}, iterators, backend, ::Type{T}) 
   ni_nodes, nj_nodes, nk_nodes = size(iterators.node.full)
   ni_cells, nj_cells, nk_cells = size(iterators.cell.full)
 
-  node_coordinates = StructArray((
-    x=KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes, nk_nodes)),
-    y=KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes, nk_nodes)),
-    z=KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes, nk_nodes)),
-  ))
-  centroid_coordinates = StructArray((
-    x=KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells, nk_cells)),
-    y=KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells, nk_cells)),
-    z=KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells, nk_cells)),
-  ))
+  node_coordinates = (
+    KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes, nk_nodes)),
+    KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes, nk_nodes)),
+    KernelAbstractions.zeros(backend, T, (ni_nodes, nj_nodes, nk_nodes)),
+  )
+  centroid_coordinates = (
+    KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells, nk_cells)),
+    KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells, nk_cells)),
+    KernelAbstractions.zeros(backend, T, (ni_cells, nj_cells, nk_cells)),
+  )
   return node_coordinates, centroid_coordinates
 end
 
@@ -179,7 +204,7 @@ function _compute_unified_node_coordinates!(
   @threads for I in iterators.node.full
     Iglobal = iterators.global_domain.node.full[I]
     ξ = Iglobal.I .- nhalo
-    node_coordinates.x[I] = x(t, ξ..., params)
+    node_coordinates[1][I] = x(t, ξ..., params)
   end
   return nothing
 end
@@ -198,8 +223,8 @@ function _compute_unified_node_coordinates!(
   @threads for I in iterators.node.full
     Iglobal = iterators.global_domain.node.full[I]
     ξη = Iglobal.I .- nhalo
-    node_coordinates.x[I] = x(t, ξη..., params)
-    node_coordinates.y[I] = y(t, ξη..., params)
+    node_coordinates[1][I] = x(t, ξη..., params)
+    node_coordinates[2][I] = y(t, ξη..., params)
   end
   return nothing
 end
@@ -219,9 +244,9 @@ function _compute_unified_node_coordinates!(
   @threads for I in iterators.node.full
     Iglobal = iterators.global_domain.node.full[I]
     ξηζ = Iglobal.I .- nhalo
-    node_coordinates.x[I] = x(t, ξηζ..., params)
-    node_coordinates.y[I] = y(t, ξηζ..., params)
-    node_coordinates.z[I] = z(t, ξηζ..., params)
+    node_coordinates[1][I] = x(t, ξηζ..., params)
+    node_coordinates[2][I] = y(t, ξηζ..., params)
+    node_coordinates[3][I] = z(t, ξηζ..., params)
   end
   return nothing
 end
@@ -239,7 +264,7 @@ function _compute_unified_centroid_coordinates!(
   @threads for I in iterators.cell.full
     Iglobal = iterators.global_domain.cell.full[I]
     ξ = Iglobal.I .- nhalo .+ 0.5
-    centroid_coordinates.x[I] = x(t, ξ..., params)
+    centroid_coordinates[1][I] = x(t, ξ..., params)
   end
   return nothing
 end
@@ -258,8 +283,8 @@ function _compute_unified_centroid_coordinates!(
   @threads for I in iterators.cell.full
     Iglobal = iterators.global_domain.cell.full[I]
     ξη = Iglobal.I .- nhalo .+ 0.5
-    centroid_coordinates.x[I] = x(t, ξη..., params)
-    centroid_coordinates.y[I] = y(t, ξη..., params)
+    centroid_coordinates[1][I] = x(t, ξη..., params)
+    centroid_coordinates[2][I] = y(t, ξη..., params)
   end
   return nothing
 end
@@ -279,9 +304,9 @@ function _compute_unified_centroid_coordinates!(
   @threads for I in iterators.cell.full
     Iglobal = iterators.global_domain.cell.full[I]
     ξηζ = Iglobal.I .- nhalo .+ 0.5
-    centroid_coordinates.x[I] = x(t, ξηζ..., params)
-    centroid_coordinates.y[I] = y(t, ξηζ..., params)
-    centroid_coordinates.z[I] = z(t, ξηζ..., params)
+    centroid_coordinates[1][I] = x(t, ξηζ..., params)
+    centroid_coordinates[2][I] = y(t, ξηζ..., params)
+    centroid_coordinates[3][I] = z(t, ξηζ..., params)
   end
   return nothing
 end

@@ -65,8 +65,7 @@ end
   fm = face_metrics(dgrid2d)
 
   I = first(dgrid2d.iterators.cell.domain)
-  # face_metrics[edge_dim][component_dim]:
-  # component_dim = 1 => forward, 2 => inverse, 3 => inverse normalized
+  # face_metrics[edge_dim].{forward,inverse,conserved}[grid_index]
   i_face_metric = fm[1].conserved[I]
 
   @test i_face_metric isa Metric{2,Float64}

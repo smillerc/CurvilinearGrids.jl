@@ -28,13 +28,11 @@ Base.eltype(::OrthogonalGrid{N,T}) where {N,T} = T
 
 function invalidate_cell_metrics!(grid::AbstractMappedOrDiscreteGrid)
   grid.metric_caches.cell.valid = false
-  grid.metric_caches.cell.data = nothing
   return nothing
 end
 
 function invalidate_face_metrics!(grid::AbstractMappedOrDiscreteGrid)
   grid.metric_caches.face.valid = false
-  grid.metric_caches.face.data = nothing
   return nothing
 end
 
@@ -75,57 +73,57 @@ end
 legacy_grid(grid::OrthogonalGrid) = grid.legacy
 
 coords(grid::Union{MappedGrid{1},DiscreteGrid{1}}) =
-  @views grid.node_coordinates.x[grid.iterators.node.domain]
+  @views grid.node_coordinates[1][grid.iterators.node.domain]
 
 coords(grid::Union{MappedGrid{2},DiscreteGrid{2}}) = @views (
-  grid.node_coordinates.x[grid.iterators.node.domain],
-  grid.node_coordinates.y[grid.iterators.node.domain],
+  grid.node_coordinates[1][grid.iterators.node.domain],
+  grid.node_coordinates[2][grid.iterators.node.domain],
 )
 
 coords(grid::Union{MappedGrid{3},DiscreteGrid{3}}) = @views (
-  grid.node_coordinates.x[grid.iterators.node.domain],
-  grid.node_coordinates.y[grid.iterators.node.domain],
-  grid.node_coordinates.z[grid.iterators.node.domain],
+  grid.node_coordinates[1][grid.iterators.node.domain],
+  grid.node_coordinates[2][grid.iterators.node.domain],
+  grid.node_coordinates[3][grid.iterators.node.domain],
 )
 
 coords(grid::OrthogonalGrid) = coords(grid.legacy)
 
 coord(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int}) =
-  @SVector [grid.node_coordinates.x[i]]
+  @SVector [grid.node_coordinates[1][i]]
 coord(grid::Union{MappedGrid{2},DiscreteGrid{2}}, (i, j)::NTuple{2,Int}) =
-  @SVector [grid.node_coordinates.x[i, j], grid.node_coordinates.y[i, j]]
+  @SVector [grid.node_coordinates[1][i, j], grid.node_coordinates[2][i, j]]
 coord(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{3,Int}) = @SVector [
-  grid.node_coordinates.x[i, j, k],
-  grid.node_coordinates.y[i, j, k],
-  grid.node_coordinates.z[i, j, k],
+  grid.node_coordinates[1][i, j, k],
+  grid.node_coordinates[2][i, j, k],
+  grid.node_coordinates[3][i, j, k],
 ]
 
 coord(grid::OrthogonalGrid, idx) = coord(grid.legacy, idx)
 
 centroids(grid::Union{MappedGrid{1},DiscreteGrid{1}}) =
-  @views grid.centroid_coordinates.x[grid.iterators.cell.domain]
+  @views grid.centroid_coordinates[1][grid.iterators.cell.domain]
 
 centroids(grid::Union{MappedGrid{2},DiscreteGrid{2}}) = @views (
-  grid.centroid_coordinates.x[grid.iterators.cell.domain],
-  grid.centroid_coordinates.y[grid.iterators.cell.domain],
+  grid.centroid_coordinates[1][grid.iterators.cell.domain],
+  grid.centroid_coordinates[2][grid.iterators.cell.domain],
 )
 
 centroids(grid::Union{MappedGrid{3},DiscreteGrid{3}}) = @views (
-  grid.centroid_coordinates.x[grid.iterators.cell.domain],
-  grid.centroid_coordinates.y[grid.iterators.cell.domain],
-  grid.centroid_coordinates.z[grid.iterators.cell.domain],
+  grid.centroid_coordinates[1][grid.iterators.cell.domain],
+  grid.centroid_coordinates[2][grid.iterators.cell.domain],
+  grid.centroid_coordinates[3][grid.iterators.cell.domain],
 )
 
 centroids(grid::OrthogonalGrid) = centroids(grid.legacy)
 
 centroid(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int}) =
-  @SVector [grid.centroid_coordinates.x[i]]
+  @SVector [grid.centroid_coordinates[1][i]]
 centroid(grid::Union{MappedGrid{2},DiscreteGrid{2}}, (i, j)::NTuple{2,Int}) =
-  @SVector [grid.centroid_coordinates.x[i, j], grid.centroid_coordinates.y[i, j]]
+  @SVector [grid.centroid_coordinates[1][i, j], grid.centroid_coordinates[2][i, j]]
 centroid(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{3,Int}) = @SVector [
-  grid.centroid_coordinates.x[i, j, k],
-  grid.centroid_coordinates.y[i, j, k],
-  grid.centroid_coordinates.z[i, j, k],
+  grid.centroid_coordinates[1][i, j, k],
+  grid.centroid_coordinates[2][i, j, k],
+  grid.centroid_coordinates[3][i, j, k],
 ]
 
 centroid(grid::OrthogonalGrid, idx) = centroid(grid.legacy, idx)

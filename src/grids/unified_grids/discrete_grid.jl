@@ -6,8 +6,8 @@ using Interpolations
 
 mutable struct DiscreteGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,I} <:
                AbstractMappedOrDiscreteGrid
-  node_coordinates
-  centroid_coordinates
+  node_coordinates::NTuple{N,AbstractArray}
+  centroid_coordinates::NTuple{N,AbstractArray}
   mapping_functions
   metric_functions_cache
   backend
@@ -16,8 +16,6 @@ mutable struct DiscreteGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,I} <:
   discretization_scheme
   discretization_scheme_name::Symbol
   iterators
-  cell_metric_storage
-  face_metric_storage
   coordinate_system_trait::CS
   basis_vector_trait::BT
   interpolation::Symbol
@@ -58,6 +56,7 @@ function _recompute_discrete_cell_metrics!(grid::DiscreteGrid{N,T}) where {N,T}
   if !has_state
     return nothing
   end
+  cell_storage, _ = _ensure_metric_storage!(grid, Val(N), T)
 
   _compute_unified_node_coordinates!(
     grid.node_coordinates,
@@ -78,7 +77,7 @@ function _recompute_discrete_cell_metrics!(grid::DiscreteGrid{N,T}) where {N,T}
     Val(N),
   )
   _fill_cell_metric_storage!(
-    grid.cell_metric_storage,
+    cell_storage,
     grid.metric_functions_cache,
     grid.iterators,
     grid.nhalo,
@@ -96,6 +95,7 @@ function _recompute_discrete_face_metrics!(grid::DiscreteGrid{N,T}) where {N,T}
   if !has_state
     return nothing
   end
+  _, face_storage = _ensure_metric_storage!(grid, Val(N), T)
 
   _compute_unified_node_coordinates!(
     grid.node_coordinates,
@@ -116,7 +116,7 @@ function _recompute_discrete_face_metrics!(grid::DiscreteGrid{N,T}) where {N,T}
     Val(N),
   )
   _fill_face_metric_storage!(
-    grid.face_metric_storage,
+    face_storage,
     grid.metric_functions_cache,
     grid.iterators,
     grid.nhalo,
@@ -131,26 +131,24 @@ end
 
 function _refresh_cell_metrics!(grid::DiscreteGrid; include_halo_region::Bool=false)
   _recompute_discrete_cell_metrics!(grid)
-  data = grid.cell_metric_storage
+  data = grid.metric_caches.cell.data
 
   if grid.metric_caches.cell.mode === :off
     return data
   end
 
-  grid.metric_caches.cell.data = data
   grid.metric_caches.cell.valid = true
   return data
 end
 
 function _refresh_face_metrics!(grid::DiscreteGrid; include_halo_region::Bool=false)
   _recompute_discrete_face_metrics!(grid)
-  data = grid.face_metric_storage
+  data = grid.metric_caches.face.data
 
   if grid.metric_caches.face.mode === :off
     return data
   end
 
-  grid.metric_caches.face.data = data
   grid.metric_caches.face.valid = true
   return data
 end
@@ -184,6 +182,8 @@ function _new_discrete_grid(
   )
 
   caches = _new_metric_caches(cache_mode)
+  caches.cell.data = components.cell_metric_storage
+  caches.face.data = components.face_metric_storage
   grid = DiscreteGrid{N,T,typeof(coordinate_system),typeof(basis),typeof(interpolants)}(
     components.node_coordinates,
     components.centroid_coordinates,
@@ -195,8 +195,6 @@ function _new_discrete_grid(
     components.discretization_scheme,
     components.discretization_scheme_name,
     components.iterators,
-    components.cell_metric_storage,
-    components.face_metric_storage,
     coordinate_system,
     basis,
     interpolation,
