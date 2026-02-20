@@ -42,7 +42,7 @@ function _check_cache_mode(cache_mode::Symbol)
   if cache_mode ∉ (:eager, :lazy, :off)
     throw(
       ArgumentError(
-        "Invalid cache mode `$cache_mode`. Expected one of `:eager`, `:lazy`, `:off`.",
+        "Invalid cache mode `$cache_mode`. Expected one of `:eager`, `:lazy`, `:off`."
       ),
     )
   end
@@ -60,14 +60,18 @@ end
 # Unified-grid geometry/metric helpers (AoS)
 #
 
-function _allocate_unified_cell_metric_storage(::Val{N}, backend, ::Type{T}, iterators) where {N,T}
+function _allocate_unified_cell_metric_storage(
+  ::Val{N}, backend, ::Type{T}, iterators
+) where {N,T}
   celldims = size(iterators.cell.full)
   metric_type = _metric_eltype(Val(N), T)
   metric_array() = KernelAbstractions.zeros(backend, metric_type, celldims...)
   return (; forward=metric_array(), inverse=metric_array())
 end
 
-function _allocate_unified_face_metric_storage(::Val{N}, backend, ::Type{T}, iterators) where {N,T}
+function _allocate_unified_face_metric_storage(
+  ::Val{N}, backend, ::Type{T}, iterators
+) where {N,T}
   celldims = size(iterators.cell.full)
   metric_type = _metric_eltype(Val(N), T)
   metric_array() = KernelAbstractions.zeros(backend, metric_type, celldims...)
@@ -76,7 +80,9 @@ function _allocate_unified_face_metric_storage(::Val{N}, backend, ::Type{T}, ite
   )
 end
 
-function _allocate_unified_metric_storage(::Val{N}, backend, ::Type{T}, iterators) where {N,T}
+function _allocate_unified_metric_storage(
+  ::Val{N}, backend, ::Type{T}, iterators
+) where {N,T}
   cell = _allocate_unified_cell_metric_storage(Val(N), backend, T, iterators)
   face = _allocate_unified_face_metric_storage(Val(N), backend, T, iterators)
 
@@ -141,15 +147,12 @@ function _allocate_unified_coordinates(::Val{3}, iterators, backend, ::Type{T}) 
   return node_coordinates, centroid_coordinates
 end
 
-@inline _metric_cache_for_mapping(::Val{1}, mapping_functions, diff_backend) = MetricCache(
-  mapping_functions.x, diff_backend
-)
-@inline _metric_cache_for_mapping(::Val{2}, mapping_functions, diff_backend) = MetricCache(
-  mapping_functions.x, mapping_functions.y, diff_backend
-)
-@inline _metric_cache_for_mapping(::Val{3}, mapping_functions, diff_backend) = MetricCache(
-  mapping_functions.x, mapping_functions.y, mapping_functions.z, diff_backend
-)
+@inline _metric_cache_for_mapping(::Val{1}, mapping_functions, diff_backend) =
+  MetricCache(mapping_functions.x, diff_backend)
+@inline _metric_cache_for_mapping(::Val{2}, mapping_functions, diff_backend) =
+  MetricCache(mapping_functions.x, mapping_functions.y, diff_backend)
+@inline _metric_cache_for_mapping(::Val{3}, mapping_functions, diff_backend) =
+  MetricCache(mapping_functions.x, mapping_functions.y, mapping_functions.z, diff_backend)
 
 function _build_unified_components(
   ::Val{N},
@@ -169,7 +172,9 @@ function _build_unified_components(
   node_coordinates, centroid_coordinates = _allocate_unified_coordinates(
     Val(N), iterators, backend, T
   )
-  metric_functions_cache = _metric_cache_for_mapping(Val(N), mapping_functions, diff_backend)
+  metric_functions_cache = _metric_cache_for_mapping(
+    Val(N), mapping_functions, diff_backend
+  )
   cell_metric_storage, face_metric_storage = _allocate_unified_metric_storage(
     Val(N), backend, T, iterators
   )
@@ -189,13 +194,7 @@ function _build_unified_components(
 end
 
 function _compute_unified_node_coordinates!(
-  node_coordinates,
-  mapping_functions,
-  iterators,
-  nhalo::Int,
-  t,
-  params,
-  ::Val{1},
+  node_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{1}
 )
   x = mapping_functions.x
   @threads for I in iterators.node.full
@@ -207,13 +206,7 @@ function _compute_unified_node_coordinates!(
 end
 
 function _compute_unified_node_coordinates!(
-  node_coordinates,
-  mapping_functions,
-  iterators,
-  nhalo::Int,
-  t,
-  params,
-  ::Val{2},
+  node_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{2}
 )
   x = mapping_functions.x
   y = mapping_functions.y
@@ -227,13 +220,7 @@ function _compute_unified_node_coordinates!(
 end
 
 function _compute_unified_node_coordinates!(
-  node_coordinates,
-  mapping_functions,
-  iterators,
-  nhalo::Int,
-  t,
-  params,
-  ::Val{3},
+  node_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{3}
 )
   x = mapping_functions.x
   y = mapping_functions.y
@@ -249,13 +236,7 @@ function _compute_unified_node_coordinates!(
 end
 
 function _compute_unified_centroid_coordinates!(
-  centroid_coordinates,
-  mapping_functions,
-  iterators,
-  nhalo::Int,
-  t,
-  params,
-  ::Val{1},
+  centroid_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{1}
 )
   x = mapping_functions.x
   @threads for I in iterators.cell.full
@@ -267,13 +248,7 @@ function _compute_unified_centroid_coordinates!(
 end
 
 function _compute_unified_centroid_coordinates!(
-  centroid_coordinates,
-  mapping_functions,
-  iterators,
-  nhalo::Int,
-  t,
-  params,
-  ::Val{2},
+  centroid_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{2}
 )
   x = mapping_functions.x
   y = mapping_functions.y
@@ -287,13 +262,7 @@ function _compute_unified_centroid_coordinates!(
 end
 
 function _compute_unified_centroid_coordinates!(
-  centroid_coordinates,
-  mapping_functions,
-  iterators,
-  nhalo::Int,
-  t,
-  params,
-  ::Val{3},
+  centroid_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{3}
 )
   x = mapping_functions.x
   y = mapping_functions.y
@@ -342,23 +311,23 @@ end
 end
 
 @inline function _inverse_and_normalized_edge_metrics(
-  ::Val{3}, edge, axis::Int, t, ξηζ, params
+  ::Val{3}, edge, edge_axis::Int, t, ξηζ, params
 )
-  if axis == 1
+  if edge_axis == 1
     G = _as_smatrix(Val(3), edge.Jinvᵢ₊½(t, ξηζ..., params))
     Ghat = @SMatrix [
       edge.ξ̂xᵢ₊½(t, ξηζ..., params) edge.ξ̂yᵢ₊½(t, ξηζ..., params) edge.ξ̂zᵢ₊½(t, ξηζ..., params)
       edge.η̂xᵢ₊½(t, ξηζ..., params) edge.η̂yᵢ₊½(t, ξηζ..., params) edge.η̂zᵢ₊½(t, ξηζ..., params)
       edge.ζ̂xᵢ₊½(t, ξηζ..., params) edge.ζ̂yᵢ₊½(t, ξηζ..., params) edge.ζ̂zᵢ₊½(t, ξηζ..., params)
     ]
-  elseif axis == 2
+  elseif edge_axis == 2
     G = _as_smatrix(Val(3), edge.Jinvⱼ₊½(t, ξηζ..., params))
     Ghat = @SMatrix [
       edge.ξ̂xⱼ₊½(t, ξηζ..., params) edge.ξ̂yⱼ₊½(t, ξηζ..., params) edge.ξ̂zⱼ₊½(t, ξηζ..., params)
       edge.η̂xⱼ₊½(t, ξηζ..., params) edge.η̂yⱼ₊½(t, ξηζ..., params) edge.η̂zⱼ₊½(t, ξηζ..., params)
       edge.ζ̂xⱼ₊½(t, ξηζ..., params) edge.ζ̂yⱼ₊½(t, ξηζ..., params) edge.ζ̂zⱼ₊½(t, ξηζ..., params)
     ]
-  elseif axis == 3
+  elseif edge_axis == 3
     G = _as_smatrix(Val(3), edge.Jinvₖ₊½(t, ξηζ..., params))
     Ghat = @SMatrix [
       edge.ξ̂xₖ₊½(t, ξηζ..., params) edge.ξ̂yₖ₊½(t, ξηζ..., params) edge.ξ̂zₖ₊½(t, ξηζ..., params)
@@ -366,7 +335,7 @@ end
       edge.ζ̂xₖ₊½(t, ξηζ..., params) edge.ζ̂yₖ₊½(t, ξηζ..., params) edge.ζ̂zₖ₊½(t, ξηζ..., params)
     ]
   else
-    throw(ArgumentError("Invalid 3D face axis: $axis"))
+    throw(ArgumentError("Invalid 3D face axis: $edge_axis"))
   end
 
   return G, Ghat
