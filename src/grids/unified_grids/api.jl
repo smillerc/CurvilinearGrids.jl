@@ -6,8 +6,8 @@
 # Trait helpers
 #
 
-coordinate_system(grid::AbstractUnifiedGrid) = grid.coordinate_system_trait
-basis_trait(grid::Union{MappedGrid,DiscreteGrid}) = grid.basis_vector_trait
+coordinate_system(grid::AbstractUnifiedGrid) = coordinate_system(typeof(grid))
+basis_trait(grid::Union{MappedGrid,DiscreteGrid}) = basis_trait(typeof(grid))
 function basis_trait(::OrthogonalGrid)
   throw(ArgumentError("`basis_trait` is undefined for `OrthogonalGrid`."))
 end

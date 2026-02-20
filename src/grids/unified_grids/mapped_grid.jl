@@ -14,8 +14,6 @@ mutable struct MappedGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait} <:
   discretization_scheme
   discretization_scheme_name::Symbol
   iterators
-  coordinate_system_trait::CS
-  basis_vector_trait::BT
   state::Any
   metric_caches::UnifiedMetricCaches
 end
@@ -171,8 +169,6 @@ function _new_mapped_grid(
     components.discretization_scheme,
     components.discretization_scheme_name,
     components.iterators,
-    coordinate_system,
-    basis,
     (; t, params),
     caches,
   )

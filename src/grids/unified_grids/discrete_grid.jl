@@ -16,8 +16,6 @@ mutable struct DiscreteGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,I} <:
   discretization_scheme
   discretization_scheme_name::Symbol
   iterators
-  coordinate_system_trait::CS
-  basis_vector_trait::BT
   interpolation::Symbol
   interpolants::I
   state::Any
@@ -195,8 +193,6 @@ function _new_discrete_grid(
     components.discretization_scheme,
     components.discretization_scheme_name,
     components.iterators,
-    coordinate_system,
-    basis,
     interpolation,
     interpolants,
     (; t, params),

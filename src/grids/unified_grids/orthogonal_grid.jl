@@ -4,7 +4,6 @@
 
 mutable struct OrthogonalGrid{N,T,L,CS<:CoordinateSystemTrait} <: AbstractUnifiedGrid
   legacy::L
-  coordinate_system_trait::CS
   geometry_cache::Any
 end
 
@@ -21,9 +20,7 @@ function OrthogonalGrid(
 )
   N = ndims(legacy.iterators.cell.full)
   T = eltype(legacy)
-  OrthogonalGrid{N,T,typeof(legacy),typeof(coordinate_system)}(
-    legacy, coordinate_system, geometry_cache
-  )
+  OrthogonalGrid{N,T,typeof(legacy),typeof(coordinate_system)}(legacy, geometry_cache)
 end
 
 function OrthogonalGrid(
