@@ -156,6 +156,8 @@ function _new_mapped_grid(
   basis::BasisTrait,
   cache_mode::Symbol,
 ) where {N}
+  _check_unified_basis_trait(basis)
+
   components = _build_unified_components(
     Val(N),
     mapping_functions,
@@ -242,7 +244,7 @@ function MappedGrid(
   compute_metrics=true,
   global_cell_indices=nothing,
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
-  basis::BasisTrait=ContravariantBasis(),
+  basis::BasisTrait=CartesianBasis(),
   cache_mode::Symbol=:eager,
 )
   mapping_functions = (; x)
@@ -277,7 +279,7 @@ function MappedGrid(
   compute_metrics=true,
   global_cell_indices=nothing,
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
-  basis::BasisTrait=ContravariantBasis(),
+  basis::BasisTrait=CartesianBasis(),
   cache_mode::Symbol=:eager,
 )
   mapping_functions = (; x, y)
@@ -313,7 +315,7 @@ function MappedGrid(
   compute_metrics=true,
   global_cell_indices=nothing,
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
-  basis::BasisTrait=ContravariantBasis(),
+  basis::BasisTrait=CartesianBasis(),
   cache_mode::Symbol=:eager,
 )
   mapping_functions = (; x, y, z)

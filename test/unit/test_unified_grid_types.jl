@@ -13,7 +13,7 @@ using CurvilinearGrids
   @test !hasproperty(dgrid, :legacy)
   @test dgrid.interpolation === :linear
   @test coordinate_system(dgrid) isa CurvilinearCS
-  @test basis_trait(dgrid) isa ContravariantBasis
+  @test basis_trait(dgrid) isa CartesianBasis
   @test fieldtype(typeof(dgrid), :mapping_functions) !== Any
   @test fieldtype(typeof(dgrid), :metric_functions_cache) !== Any
   @test fieldtype(typeof(dgrid), :metric_caches) !== Any
@@ -22,6 +22,9 @@ using CurvilinearGrids
 
   @test dgrid.metric_caches.cell.valid
   @test dgrid.metric_caches.face.valid
+
+  dgrid_spherical = DiscreteGrid(x, :meg6; basis=SphericalBasis())
+  @test basis_trait(dgrid_spherical) isa SphericalBasis
 
   invalidate_cell_metrics!(dgrid)
   @test !dgrid.metric_caches.cell.valid
@@ -46,7 +49,7 @@ end
   @test !hasproperty(mgrid, :core)
   @test !hasproperty(mgrid, :legacy)
   @test coordinate_system(mgrid) isa CurvilinearCS
-  @test basis_trait(mgrid) isa ContravariantBasis
+  @test basis_trait(mgrid) isa CartesianBasis
   @test fieldtype(typeof(mgrid), :mapping_functions) !== Any
   @test fieldtype(typeof(mgrid), :metric_functions_cache) !== Any
   @test fieldtype(typeof(mgrid), :metric_caches) !== Any
@@ -54,6 +57,9 @@ end
   @test fieldtype(typeof(mgrid.metric_caches.face), :data) !== Any
   @test mgrid.metric_caches.cell.valid
   @test mgrid.metric_caches.face.valid
+
+  mgrid_spherical = MappedGrid(xmap, params, (8,), :meg6; basis=SphericalBasis())
+  @test basis_trait(mgrid_spherical) isa SphericalBasis
 
   update!(mgrid, 1.0, params)
   @test !mgrid.metric_caches.cell.valid

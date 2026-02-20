@@ -21,8 +21,6 @@ struct CurvilinearCS <: CoordinateSystemTrait end
 
 abstract type BasisTrait end
 struct CartesianBasis <: BasisTrait end
-struct ContravariantBasis <: BasisTrait end
-struct CovariantBasis <: BasisTrait end
 struct SphericalBasis <: BasisTrait end
 
 #
@@ -89,6 +87,17 @@ function _ensure_metric_storage!(
   grid::AbstractMappedOrDiscreteGrid, ::Val{N}, ::Type{T}
 ) where {N,T}
   return grid.metric_caches.cell.data, grid.metric_caches.face.data
+end
+
+@inline function _check_unified_basis_trait(basis::BasisTrait)
+  if basis isa CartesianBasis || basis isa SphericalBasis
+    return basis
+  end
+  throw(
+    ArgumentError(
+      "Unsupported basis trait $(typeof(basis)) for unified grids. Use `CartesianBasis()` or `SphericalBasis()`.",
+    ),
+  )
 end
 
 function _allocate_unified_coordinates(::Val{1}, iterators, backend, ::Type{T}) where {T}
@@ -450,4 +459,4 @@ _coordinate_system_from_legacy(::AxisymmetricOrthogonalGrid2D) = AxisymmetricCS{
 _coordinate_system_from_legacy(::AbstractCurvilinearGrid) = CurvilinearCS()
 
 _basis_trait_from_legacy(::SphericalBasisCurvilinearGrid3D) = SphericalBasis()
-_basis_trait_from_legacy(::AbstractCurvilinearGrid) = ContravariantBasis()
+_basis_trait_from_legacy(::AbstractCurvilinearGrid) = CartesianBasis()

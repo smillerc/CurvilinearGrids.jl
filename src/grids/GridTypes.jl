@@ -40,7 +40,7 @@ export CoordinateSystemTrait
 export CartesianCS, CylindricalCS, SphericalCS, AxisymmetricCS, CurvilinearCS
 
 export BasisTrait
-export CartesianBasis, ContravariantBasis, CovariantBasis, SphericalBasis
+export CartesianBasis, SphericalBasis
 
 export coordinate_system, basis_trait
 export cell_metrics, face_metrics

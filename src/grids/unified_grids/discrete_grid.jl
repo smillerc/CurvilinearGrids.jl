@@ -182,6 +182,7 @@ function _new_discrete_grid(
   interpolation::Symbol,
   cache_mode::Symbol,
 ) where {N}
+  _check_unified_basis_trait(basis)
   _validate_discrete_interpolation(interpolation)
 
   components = _build_unified_components(
@@ -267,7 +268,7 @@ function DiscreteGrid(
   Tcore::Union{Nothing,Type}=nothing,
   halo_coords_included=false,
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
-  basis::BasisTrait=ContravariantBasis(),
+  basis::BasisTrait=CartesianBasis(),
   interpolation::Symbol=:linear,
   cache_mode::Symbol=:eager,
 ) where {TX}
@@ -310,7 +311,7 @@ function DiscreteGrid(
   Tcore::Union{Nothing,Type}=nothing,
   halo_coords_included=false,
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
-  basis::BasisTrait=ContravariantBasis(),
+  basis::BasisTrait=CartesianBasis(),
   interpolation::Symbol=:linear,
   cache_mode::Symbol=:eager,
 ) where {TX}
@@ -361,7 +362,7 @@ function DiscreteGrid(
   Tcore::Union{Nothing,Type}=nothing,
   halo_coords_included=false,
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
-  basis::BasisTrait=ContravariantBasis(),
+  basis::BasisTrait=CartesianBasis(),
   interpolation::Symbol=:linear,
   cache_mode::Symbol=:eager,
 ) where {TX}
