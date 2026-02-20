@@ -139,10 +139,107 @@ end
 end
 
 cellvolume(grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex) = cellvolume(grid, idx.I)
-cellvolume(grid::Union{MappedGrid,DiscreteGrid}, idx::NTuple{N,Int}) where {N} =
-  _cell_forward_metric_at(grid, idx).J
+cellvolume(
+  grid::Union{MappedGrid{N,T,CS,BT},DiscreteGrid{N,T,CS,BT}}, idx::NTuple{N,Int}
+) where {N,T,CS,BT} = _cellvolume_dispatch(CS(), BT(), grid, idx)
 
 cellvolume(grid::OrthogonalGrid, idx) = cellvolume(grid.legacy, idx)
+
+@inline _jacobian_volume_factor(grid::AbstractMappedOrDiscreteGrid, idx::NTuple{N,Int}) where {N} =
+  _cell_forward_metric_at(grid, idx).J
+
+@inline _radial_centroid_1d(grid::AbstractMappedOrDiscreteGrid, idx::NTuple{1,Int}) =
+  grid.centroid_coordinates[1][idx...]
+
+@inline function _axisymmetric_radius(
+  ::AxisymmetricCS{:x}, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{2,Int}
+)
+  return grid.centroid_coordinates[2][idx...]
+end
+
+@inline function _axisymmetric_radius(
+  ::AxisymmetricCS{:y}, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{2,Int}
+)
+  return grid.centroid_coordinates[1][idx...]
+end
+
+@inline function _axisymmetric_radius(
+  ::AxisymmetricCS{Axis}, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{2,Int}
+) where {Axis}
+  throw(
+    ArgumentError(
+      "Unsupported axisymmetric axis `:$Axis`. Supported values are `:x` and `:y`.",
+    ),
+  )
+end
+
+@inline function _cellvolume_dispatch(
+  ::CoordinateSystemTrait, ::CartesianBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{N,Int}
+) where {N}
+  return _jacobian_volume_factor(grid, idx)
+end
+
+@inline function _cellvolume_dispatch(
+  ::CylindricalCS, ::CartesianBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{1,Int}
+)
+  r = _radial_centroid_1d(grid, idx)
+  return (2 * π * r) * _jacobian_volume_factor(grid, idx)
+end
+
+@inline function _cellvolume_dispatch(
+  ::CylindricalCS, ::CartesianBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{2,Int}
+)
+  r = grid.centroid_coordinates[1][idx...]
+  return (2 * π * r) * _jacobian_volume_factor(grid, idx)
+end
+
+@inline function _cellvolume_dispatch(
+  cs::AxisymmetricCS{Axis},
+  ::CartesianBasis,
+  grid::AbstractMappedOrDiscreteGrid,
+  idx::NTuple{2,Int},
+) where {Axis}
+  r = _axisymmetric_radius(cs, grid, idx)
+  return (2 * π * r) * _jacobian_volume_factor(grid, idx)
+end
+
+@inline function _cellvolume_dispatch(
+  ::SphericalCS, ::SphericalBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{1,Int}
+)
+  r = _radial_centroid_1d(grid, idx)
+  return (4 * π * r * r) * _jacobian_volume_factor(grid, idx)
+end
+
+@inline function _cellvolume_dispatch(
+  ::SphericalCS, ::SphericalBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{3,Int}
+)
+  r = grid.centroid_coordinates[1][idx...]
+  θ = grid.centroid_coordinates[2][idx...]
+  return (r * r * sin(θ)) * _jacobian_volume_factor(grid, idx)
+end
+
+function _cellvolume_dispatch(
+  ::SphericalCS, ::SphericalBasis, ::AbstractMappedOrDiscreteGrid, idx::NTuple{2,Int}
+)
+  throw(
+    ArgumentError(
+      "Spherical cellvolume dispatch is not implemented for 2D grids.",
+    ),
+  )
+end
+
+function _cellvolume_dispatch(
+  cs::CoordinateSystemTrait,
+  bt::SphericalBasis,
+  ::AbstractMappedOrDiscreteGrid,
+  ::NTuple{N,Int},
+) where {N}
+  throw(
+    ArgumentError(
+      "Unsupported basis/coordinate-system combination: $(typeof(bt)) with $(typeof(cs)).",
+    ),
+  )
+end
 
 function cellvolumes(grid::Union{MappedGrid,DiscreteGrid})
   volumes = zeros(eltype(grid), size(grid.iterators.cell.domain))

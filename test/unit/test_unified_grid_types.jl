@@ -109,3 +109,94 @@ end
   @test_throws ArgumentError cell_metrics(ogrid)
   @test_throws ArgumentError face_metrics(ogrid)
 end
+
+@testset "Unified cellvolume trait dispatch" begin
+  x1d = collect(range(1.0, 3.0; length=8))
+  cyl1d = DiscreteGrid(
+    x1d, :meg6; coordinate_system=CylindricalCS(), basis=CartesianBasis(), cache_mode=:eager
+  )
+  I1 = first(cyl1d.iterators.cell.domain)
+  J1 = cell_metrics(cyl1d).forward[I1].J
+  r1 = centroid(cyl1d, I1)[1]
+  @test cellvolume(cyl1d, I1) ≈ (2 * π * r1) * J1
+
+  nx, ny = (6, 7)
+  x2 = zeros(Float64, nx, ny)
+  y2 = zeros(Float64, nx, ny)
+  for j in 1:ny
+    for i in 1:nx
+      x2[i, j] = i
+      y2[i, j] = j
+    end
+  end
+
+  cyl2d = DiscreteGrid(
+    x2,
+    y2,
+    :MEG6;
+    coordinate_system=CylindricalCS(),
+    basis=CartesianBasis(),
+    cache_mode=:eager,
+  )
+  I2 = first(cyl2d.iterators.cell.domain)
+  J2 = cell_metrics(cyl2d).forward[I2].J
+  r2 = centroid(cyl2d, I2)[1]
+  @test cellvolume(cyl2d, I2) ≈ (2 * π * r2) * J2
+
+  axi_y = DiscreteGrid(
+    x2,
+    y2,
+    :MEG6;
+    coordinate_system=AxisymmetricCS{:y}(),
+    basis=CartesianBasis(),
+    cache_mode=:eager,
+  )
+  Iay = first(axi_y.iterators.cell.domain)
+  Jay = cell_metrics(axi_y).forward[Iay].J
+  ray = centroid(axi_y, Iay)[1]
+  @test cellvolume(axi_y, Iay) ≈ (2 * π * ray) * Jay
+
+  axi_x = DiscreteGrid(
+    x2,
+    y2,
+    :MEG6;
+    coordinate_system=AxisymmetricCS{:x}(),
+    basis=CartesianBasis(),
+    cache_mode=:eager,
+  )
+  Iax = first(axi_x.iterators.cell.domain)
+  Jax = cell_metrics(axi_x).forward[Iax].J
+  rax = centroid(axi_x, Iax)[2]
+  @test cellvolume(axi_x, Iax) ≈ (2 * π * rax) * Jax
+
+  params = (r0=1.0, θ0=0.2, ϕ0=0.1, Δr=0.1, Δθ=0.05, Δϕ=0.07)
+  rmap(t, ξ, η, ζ, p) = p.r0 + (ξ - 1) * p.Δr
+  θmap(t, ξ, η, ζ, p) = p.θ0 + (η - 1) * p.Δθ
+  ϕmap(t, ξ, η, ζ, p) = p.ϕ0 + (ζ - 1) * p.Δϕ
+  sph3d = MappedGrid(
+    rmap,
+    θmap,
+    ϕmap,
+    params,
+    (6, 6, 6),
+    :meg6;
+    coordinate_system=SphericalCS(),
+    basis=SphericalBasis(),
+    cache_mode=:eager,
+  )
+  I3 = first(sph3d.iterators.cell.domain)
+  J3 = cell_metrics(sph3d).forward[I3].J
+  c3 = centroid(sph3d, I3)
+  @test cellvolume(sph3d, I3) ≈ (c3[1]^2 * sin(c3[2])) * J3
+
+  sph2d = DiscreteGrid(
+    x2,
+    y2,
+    :MEG6;
+    coordinate_system=SphericalCS(),
+    basis=SphericalBasis(),
+    cache_mode=:eager,
+  )
+  Is2 = first(sph2d.iterators.cell.domain)
+  @test_throws ArgumentError cellvolume(sph2d, Is2)
+end
