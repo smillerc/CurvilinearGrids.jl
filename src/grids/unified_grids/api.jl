@@ -375,12 +375,10 @@ end
   return T(det(_continuous_forward_jacobian(grid, idx)))
 end
 
-@inline _radial_centroid_1d(
-  grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::NTuple{1,Int}
-) = grid.centroid_coordinates[1][idx...]
-@inline _radial_centroid_1d(
-  grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::Tuple{Vararg{Real,1}}
-) = _continuous_coord(grid, idx)[1]
+@inline _radial_centroid_1d(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::NTuple{1,Int}) = grid.centroid_coordinates[1][idx...]
+@inline _radial_centroid_1d(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::Tuple{Vararg{Real,1}}) = _continuous_coord(
+  grid, idx
+)[1]
 
 @inline function _axisymmetric_radius(
   ::AxisymmetricCS{:x}, grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx::NTuple{2,Int}

@@ -89,31 +89,14 @@ function _discrete_state(grid::DiscreteGrid)
   has_state ? (state.t, state.params, true) : (nothing, nothing, false)
 end
 
-function _recompute_discrete_cell_metrics!(grid::DiscreteGrid{N,T}) where {N,T}
+function _recompute_discrete_cell_metrics!(
+  grid::DiscreteGrid{N,T}; include_halo_region::Bool=false
+) where {N,T}
   t, params, has_state = _discrete_state(grid)
   if !has_state
     return nothing
   end
   cell_storage, _ = _ensure_metric_storage!(grid, Val(N), T)
-
-  _compute_unified_node_coordinates!(
-    grid.node_coordinates,
-    grid.mapping_functions,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-  )
-  _compute_unified_centroid_coordinates!(
-    grid.centroid_coordinates,
-    grid.mapping_functions,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-  )
   _fill_cell_metric_storage!(
     cell_storage,
     grid.metric_functions_cache,
@@ -128,31 +111,14 @@ function _recompute_discrete_cell_metrics!(grid::DiscreteGrid{N,T}) where {N,T}
   return nothing
 end
 
-function _recompute_discrete_face_metrics!(grid::DiscreteGrid{N,T}) where {N,T}
+function _recompute_discrete_face_metrics!(
+  grid::DiscreteGrid{N,T}; include_halo_region::Bool=false
+) where {N,T}
   t, params, has_state = _discrete_state(grid)
   if !has_state
     return nothing
   end
   _, face_storage = _ensure_metric_storage!(grid, Val(N), T)
-
-  _compute_unified_node_coordinates!(
-    grid.node_coordinates,
-    grid.mapping_functions,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-  )
-  _compute_unified_centroid_coordinates!(
-    grid.centroid_coordinates,
-    grid.mapping_functions,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-  )
   _fill_face_metric_storage!(
     face_storage,
     grid.metric_functions_cache,
@@ -168,7 +134,7 @@ function _recompute_discrete_face_metrics!(grid::DiscreteGrid{N,T}) where {N,T}
 end
 
 function _refresh_cell_metrics!(grid::DiscreteGrid; include_halo_region::Bool=false)
-  _recompute_discrete_cell_metrics!(grid)
+  _recompute_discrete_cell_metrics!(grid; include_halo_region=include_halo_region)
   data = grid.metric_caches.cell.data
 
   if grid.metric_caches.cell.mode === :off
@@ -180,7 +146,7 @@ function _refresh_cell_metrics!(grid::DiscreteGrid; include_halo_region::Bool=fa
 end
 
 function _refresh_face_metrics!(grid::DiscreteGrid; include_halo_region::Bool=false)
-  _recompute_discrete_face_metrics!(grid)
+  _recompute_discrete_face_metrics!(grid; include_halo_region=include_halo_region)
   data = grid.metric_caches.face.data
 
   if grid.metric_caches.face.mode === :off
