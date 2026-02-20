@@ -200,3 +200,50 @@ end
   Is2 = first(sph2d.iterators.cell.domain)
   @test_throws ArgumentError cellvolume(sph2d, Is2)
 end
+
+@testset "Mixed Real/Int tuple indexing" begin
+  idx = (1, 2.3, 4)
+
+  xmap(t, ξ, η, ζ, p) = ξ
+  ymap(t, ξ, η, ζ, p) = 2 * η
+  zmap(t, ξ, η, ζ, p) = 3 * ζ
+
+  mgrid = MappedGrid(
+    xmap, ymap, zmap, (;), (7, 7, 7), :meg6; basis=CartesianBasis(), cache_mode=:eager
+  )
+
+  cm = coord(mgrid, idx)
+  ctm = centroid(mgrid, idx)
+  Jm = jacobian_matrix(mgrid, idx)
+  Vm = cellvolume(mgrid, idx)
+
+  @test cm ≈ [1.0, 4.6, 12.0]
+  @test ctm ≈ [1.0, 4.6, 12.0]
+  @test Jm[1, 1] ≈ 1.0
+  @test Jm[2, 2] ≈ 2.0
+  @test Jm[3, 3] ≈ 3.0
+  @test Jm[1, 2] ≈ 0.0
+  @test Vm ≈ 6.0
+
+  nx, ny, nz = (8, 8, 8)
+  x = [Float64(i) for i in 1:nx, j in 1:ny, k in 1:nz]
+  y = [2.0 * j for i in 1:nx, j in 1:ny, k in 1:nz]
+  z = [3.0 * k for i in 1:nx, j in 1:ny, k in 1:nz]
+
+  dgrid = DiscreteGrid(
+    x, y, z, :meg6; basis=CartesianBasis(), interpolation=:linear, cache_mode=:eager
+  )
+
+  cd = coord(dgrid, idx)
+  ctd = centroid(dgrid, idx)
+  Jd = jacobian_matrix(dgrid, idx)
+  Vd = cellvolume(dgrid, idx)
+
+  @test cd ≈ [1.0, 4.6, 12.0]
+  @test ctd ≈ [1.0, 4.6, 12.0]
+  @test Jd[1, 1] ≈ 1.0
+  @test Jd[2, 2] ≈ 2.0
+  @test Jd[3, 3] ≈ 3.0
+  @test Jd[2, 1] ≈ 0.0
+  @test Vd ≈ 6.0
+end
