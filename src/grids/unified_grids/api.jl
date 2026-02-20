@@ -36,11 +36,15 @@ function invalidate_face_metrics!(grid::AbstractMappedOrDiscreteGrid)
   return nothing
 end
 
-function refresh_cell_metrics!(grid::AbstractMappedOrDiscreteGrid; include_halo_region::Bool=false)
+function refresh_cell_metrics!(
+  grid::AbstractMappedOrDiscreteGrid; include_halo_region::Bool=false
+)
   _refresh_cell_metrics!(grid; include_halo_region=include_halo_region)
 end
 
-function refresh_face_metrics!(grid::AbstractMappedOrDiscreteGrid; include_halo_region::Bool=false)
+function refresh_face_metrics!(
+  grid::AbstractMappedOrDiscreteGrid; include_halo_region::Bool=false
+)
   _refresh_face_metrics!(grid; include_halo_region=include_halo_region)
 end
 
@@ -72,59 +76,77 @@ end
 
 legacy_grid(grid::OrthogonalGrid) = grid.legacy
 
-coords(grid::Union{MappedGrid{1},DiscreteGrid{1}}) =
+function coords(grid::Union{MappedGrid{1},DiscreteGrid{1}})
   @views grid.node_coordinates[1][grid.iterators.node.domain]
+end
 
-coords(grid::Union{MappedGrid{2},DiscreteGrid{2}}) = @views (
-  grid.node_coordinates[1][grid.iterators.node.domain],
-  grid.node_coordinates[2][grid.iterators.node.domain],
-)
+function coords(grid::Union{MappedGrid{2},DiscreteGrid{2}})
+  @views (
+    grid.node_coordinates[1][grid.iterators.node.domain],
+    grid.node_coordinates[2][grid.iterators.node.domain],
+  )
+end
 
-coords(grid::Union{MappedGrid{3},DiscreteGrid{3}}) = @views (
-  grid.node_coordinates[1][grid.iterators.node.domain],
-  grid.node_coordinates[2][grid.iterators.node.domain],
-  grid.node_coordinates[3][grid.iterators.node.domain],
-)
+function coords(grid::Union{MappedGrid{3},DiscreteGrid{3}})
+  @views (
+    grid.node_coordinates[1][grid.iterators.node.domain],
+    grid.node_coordinates[2][grid.iterators.node.domain],
+    grid.node_coordinates[3][grid.iterators.node.domain],
+  )
+end
 
 coords(grid::OrthogonalGrid) = coords(grid.legacy)
 
-coord(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int}) =
+function coord(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int})
   @SVector [grid.node_coordinates[1][i]]
-coord(grid::Union{MappedGrid{2},DiscreteGrid{2}}, (i, j)::NTuple{2,Int}) =
+end
+function coord(grid::Union{MappedGrid{2},DiscreteGrid{2}}, (i, j)::NTuple{2,Int})
   @SVector [grid.node_coordinates[1][i, j], grid.node_coordinates[2][i, j]]
-coord(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{3,Int}) = @SVector [
-  grid.node_coordinates[1][i, j, k],
-  grid.node_coordinates[2][i, j, k],
-  grid.node_coordinates[3][i, j, k],
-]
+end
+function coord(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{3,Int})
+  @SVector [
+    grid.node_coordinates[1][i, j, k],
+    grid.node_coordinates[2][i, j, k],
+    grid.node_coordinates[3][i, j, k],
+  ]
+end
 
 coord(grid::OrthogonalGrid, idx) = coord(grid.legacy, idx)
 
-centroids(grid::Union{MappedGrid{1},DiscreteGrid{1}}) =
+function centroids(grid::Union{MappedGrid{1},DiscreteGrid{1}})
   @views grid.centroid_coordinates[1][grid.iterators.cell.domain]
+end
 
-centroids(grid::Union{MappedGrid{2},DiscreteGrid{2}}) = @views (
-  grid.centroid_coordinates[1][grid.iterators.cell.domain],
-  grid.centroid_coordinates[2][grid.iterators.cell.domain],
-)
+function centroids(grid::Union{MappedGrid{2},DiscreteGrid{2}})
+  @views (
+    grid.centroid_coordinates[1][grid.iterators.cell.domain],
+    grid.centroid_coordinates[2][grid.iterators.cell.domain],
+  )
+end
 
-centroids(grid::Union{MappedGrid{3},DiscreteGrid{3}}) = @views (
-  grid.centroid_coordinates[1][grid.iterators.cell.domain],
-  grid.centroid_coordinates[2][grid.iterators.cell.domain],
-  grid.centroid_coordinates[3][grid.iterators.cell.domain],
-)
+function centroids(grid::Union{MappedGrid{3},DiscreteGrid{3}})
+  @views (
+    grid.centroid_coordinates[1][grid.iterators.cell.domain],
+    grid.centroid_coordinates[2][grid.iterators.cell.domain],
+    grid.centroid_coordinates[3][grid.iterators.cell.domain],
+  )
+end
 
 centroids(grid::OrthogonalGrid) = centroids(grid.legacy)
 
-centroid(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int}) =
+function centroid(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int})
   @SVector [grid.centroid_coordinates[1][i]]
-centroid(grid::Union{MappedGrid{2},DiscreteGrid{2}}, (i, j)::NTuple{2,Int}) =
+end
+function centroid(grid::Union{MappedGrid{2},DiscreteGrid{2}}, (i, j)::NTuple{2,Int})
   @SVector [grid.centroid_coordinates[1][i, j], grid.centroid_coordinates[2][i, j]]
-centroid(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{3,Int}) = @SVector [
-  grid.centroid_coordinates[1][i, j, k],
-  grid.centroid_coordinates[2][i, j, k],
-  grid.centroid_coordinates[3][i, j, k],
-]
+end
+function centroid(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{3,Int})
+  @SVector [
+    grid.centroid_coordinates[1][i, j, k],
+    grid.centroid_coordinates[2][i, j, k],
+    grid.centroid_coordinates[3][i, j, k],
+  ]
+end
 
 centroid(grid::OrthogonalGrid, idx) = centroid(grid.legacy, idx)
 
@@ -152,8 +174,7 @@ end
   ξη = _promote_real_tuple(idx)
   t, params = _state_for_eval(grid)
   return @SVector [
-    grid.mapping_functions.x(t, ξη..., params),
-    grid.mapping_functions.y(t, ξη..., params),
+    grid.mapping_functions.x(t, ξη..., params), grid.mapping_functions.y(t, ξη..., params)
   ]
 end
 
@@ -186,13 +207,11 @@ end
   return SMatrix{N,N,T,N * N}(Tuple(G))
 end
 
-coord(
+function coord(
   grid::Union{MappedGrid{N},DiscreteGrid{N}}, idx::Tuple{Vararg{Real,N}}
-) where {N} = _continuous_coord(grid, idx)
-
-centroid(
-  grid::Union{MappedGrid{N},DiscreteGrid{N}}, idx::Tuple{Vararg{Real,N}}
-) where {N} = _continuous_coord(grid, idx)
+) where {N}
+  _continuous_coord(grid, idx)
+end
 
 @inline function _cell_forward_metric_at(grid::AbstractMappedOrDiscreteGrid, idx)
   cm = cell_metrics(grid)
@@ -219,13 +238,19 @@ end
   return _metric_from_jacobian(G, T(det(F)))
 end
 
-cellvolume(grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex) = cellvolume(grid, idx.I)
-cellvolume(
+function cellvolume(grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex)
+  cellvolume(grid, idx.I)
+end
+function cellvolume(
   grid::Union{MappedGrid{N,T,CS,BT},DiscreteGrid{N,T,CS,BT}}, idx::NTuple{N,Int}
-) where {N,T,CS,BT} = _cellvolume_dispatch(CS(), BT(), grid, idx)
-cellvolume(
+) where {N,T,CS,BT}
+  _cellvolume_dispatch(CS(), BT(), grid, idx)
+end
+function cellvolume(
   grid::Union{MappedGrid{N,T,CS,BT},DiscreteGrid{N,T,CS,BT}}, idx::Tuple{Vararg{Real,N}}
-) where {N,T,CS,BT} = _cellvolume_dispatch(CS(), BT(), grid, _promote_real_tuple(idx))
+) where {N,T,CS,BT}
+  _cellvolume_dispatch(CS(), BT(), grid, _promote_real_tuple(idx))
+end
 
 cellvolume(grid::OrthogonalGrid, idx) = cellvolume(grid.legacy, idx)
 
@@ -240,8 +265,9 @@ end
   return T(det(_continuous_forward_jacobian(grid, idx)))
 end
 
-@inline _radial_centroid_1d(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::NTuple{1,Int}) =
-  grid.centroid_coordinates[1][idx...]
+@inline _radial_centroid_1d(
+  grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::NTuple{1,Int}
+) = grid.centroid_coordinates[1][idx...]
 @inline _radial_centroid_1d(
   grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::Tuple{Vararg{Real,1}}
 ) = _continuous_coord(grid, idx)[1]
@@ -252,7 +278,9 @@ end
   return grid.centroid_coordinates[2][idx...]
 end
 @inline function _axisymmetric_radius(
-  ::AxisymmetricCS{:x}, grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx::Tuple{Vararg{Real,2}}
+  ::AxisymmetricCS{:x},
+  grid::Union{MappedGrid{2},DiscreteGrid{2}},
+  idx::Tuple{Vararg{Real,2}},
 )
   return _continuous_coord(grid, idx)[2]
 end
@@ -263,7 +291,9 @@ end
   return grid.centroid_coordinates[1][idx...]
 end
 @inline function _axisymmetric_radius(
-  ::AxisymmetricCS{:y}, grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx::Tuple{Vararg{Real,2}}
+  ::AxisymmetricCS{:y},
+  grid::Union{MappedGrid{2},DiscreteGrid{2}},
+  idx::Tuple{Vararg{Real,2}},
 )
   return _continuous_coord(grid, idx)[1]
 end
@@ -273,7 +303,7 @@ end
 ) where {Axis}
   throw(
     ArgumentError(
-      "Unsupported axisymmetric axis `:$Axis`. Supported values are `:x` and `:y`.",
+      "Unsupported axisymmetric axis `:$Axis`. Supported values are `:x` and `:y`."
     ),
   )
 end
@@ -304,21 +334,30 @@ end
 end
 
 @inline function _cellvolume_dispatch(
-  ::CylindricalCS, ::CartesianBasis, grid::AbstractMappedOrDiscreteGrid, idx::Tuple{Vararg{Real,1}}
+  ::CylindricalCS,
+  ::CartesianBasis,
+  grid::AbstractMappedOrDiscreteGrid,
+  idx::Tuple{Vararg{Real,1}},
 )
   r = _radial_centroid_1d(grid, idx)
   return (2 * π * r) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
-  ::CylindricalCS, ::CartesianBasis, grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx::NTuple{2,Int}
+  ::CylindricalCS,
+  ::CartesianBasis,
+  grid::Union{MappedGrid{2},DiscreteGrid{2}},
+  idx::NTuple{2,Int},
 )
   r = centroid(grid, idx)[1]
   return (2 * π * r) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
-  ::CylindricalCS, ::CartesianBasis, grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx::Tuple{Vararg{Real,2}}
+  ::CylindricalCS,
+  ::CartesianBasis,
+  grid::Union{MappedGrid{2},DiscreteGrid{2}},
+  idx::Tuple{Vararg{Real,2}},
 )
   r = _continuous_coord(grid, idx)[1]
   return (2 * π * r) * _jacobian_volume_factor(grid, idx)
@@ -352,14 +391,20 @@ end
 end
 
 @inline function _cellvolume_dispatch(
-  ::SphericalCS, ::SphericalBasis, grid::AbstractMappedOrDiscreteGrid, idx::Tuple{Vararg{Real,1}}
+  ::SphericalCS,
+  ::SphericalBasis,
+  grid::AbstractMappedOrDiscreteGrid,
+  idx::Tuple{Vararg{Real,1}},
 )
   r = _radial_centroid_1d(grid, idx)
   return (4 * π * r * r) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
-  ::SphericalCS, ::SphericalBasis, grid::Union{MappedGrid{3},DiscreteGrid{3}}, idx::NTuple{3,Int}
+  ::SphericalCS,
+  ::SphericalBasis,
+  grid::Union{MappedGrid{3},DiscreteGrid{3}},
+  idx::NTuple{3,Int},
 )
   c = centroid(grid, idx)
   r = c[1]
@@ -368,7 +413,10 @@ end
 end
 
 @inline function _cellvolume_dispatch(
-  ::SphericalCS, ::SphericalBasis, grid::Union{MappedGrid{3},DiscreteGrid{3}}, idx::Tuple{Vararg{Real,3}}
+  ::SphericalCS,
+  ::SphericalBasis,
+  grid::Union{MappedGrid{3},DiscreteGrid{3}},
+  idx::Tuple{Vararg{Real,3}},
 )
   c = _continuous_coord(grid, idx)
   r = c[1]
@@ -379,21 +427,16 @@ end
 function _cellvolume_dispatch(
   ::SphericalCS, ::SphericalBasis, ::AbstractMappedOrDiscreteGrid, idx::NTuple{2,Int}
 )
-  throw(
-    ArgumentError(
-      "Spherical cellvolume dispatch is not implemented for 2D grids.",
-    ),
-  )
+  throw(ArgumentError("Spherical cellvolume dispatch is not implemented for 2D grids."))
 end
 
 function _cellvolume_dispatch(
-  ::SphericalCS, ::SphericalBasis, ::AbstractMappedOrDiscreteGrid, idx::Tuple{Vararg{Real,2}}
+  ::SphericalCS,
+  ::SphericalBasis,
+  ::AbstractMappedOrDiscreteGrid,
+  idx::Tuple{Vararg{Real,2}},
 )
-  throw(
-    ArgumentError(
-      "Spherical cellvolume dispatch is not implemented for 2D grids.",
-    ),
-  )
+  throw(ArgumentError("Spherical cellvolume dispatch is not implemented for 2D grids."))
 end
 
 function _cellvolume_dispatch(
@@ -404,7 +447,7 @@ function _cellvolume_dispatch(
 ) where {N}
   throw(
     ArgumentError(
-      "Unsupported basis/coordinate-system combination: $(typeof(bt)) with $(typeof(cs)).",
+      "Unsupported basis/coordinate-system combination: $(typeof(bt)) with $(typeof(cs))."
     ),
   )
 end
@@ -417,7 +460,7 @@ function _cellvolume_dispatch(
 ) where {N}
   throw(
     ArgumentError(
-      "Unsupported basis/coordinate-system combination: $(typeof(bt)) with $(typeof(cs)).",
+      "Unsupported basis/coordinate-system combination: $(typeof(bt)) with $(typeof(cs))."
     ),
   )
 end
@@ -440,9 +483,9 @@ cellsize(grid::OrthogonalGrid) = cellsize(grid.legacy)
 cellsize_withhalo(grid::Union{MappedGrid,DiscreteGrid}) = size(grid.iterators.cell.full)
 cellsize_withhalo(grid::OrthogonalGrid) = cellsize_withhalo(grid.legacy)
 
-jacobian_matrix(grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex) = jacobian_matrix(
-  grid, idx.I
-)
+function jacobian_matrix(grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex)
+  jacobian_matrix(grid, idx.I)
+end
 function jacobian_matrix(grid::Union{MappedGrid,DiscreteGrid}, idx::NTuple{N,Int}) where {N}
   _cell_forward_metric_at(grid, idx).jacobian_matrix
 end
@@ -464,8 +507,7 @@ end
 
 function forward_cell_metrics(grid::Union{MappedGrid{3},DiscreteGrid{3}}, idx)
   F = _cell_forward_metric_at(grid, idx isa CartesianIndex ? idx.I : idx).jacobian_matrix
-  return (
-    ;
+  return (;
     x=(; ξ=F[1, 1], η=F[1, 2], ζ=F[1, 3]),
     y=(; ξ=F[2, 1], η=F[2, 2], ζ=F[2, 3]),
     z=(; ξ=F[3, 1], η=F[3, 2], ζ=F[3, 3]),
@@ -483,8 +525,7 @@ function inverse_cell_metrics(grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx)
   m = _cell_inverse_metric_at(grid, idx isa CartesianIndex ? idx.I : idx)
   G = m.jacobian_matrix
   Ghat = G .* m.J
-  return (
-    ;
+  return (;
     ξ=(; x₁=G[1, 1], x₂=G[1, 2]),
     η=(; x₁=G[2, 1], x₂=G[2, 2]),
     ξ̂=(; x₁=Ghat[1, 1], x₂=Ghat[1, 2]),
@@ -496,8 +537,7 @@ function inverse_cell_metrics(grid::Union{MappedGrid{3},DiscreteGrid{3}}, idx)
   m = _cell_inverse_metric_at(grid, idx isa CartesianIndex ? idx.I : idx)
   G = m.jacobian_matrix
   Ghat = G .* m.J
-  return (
-    ;
+  return (;
     ξ=(; x₁=G[1, 1], x₂=G[1, 2], x₃=G[1, 3]),
     η=(; x₁=G[2, 1], x₂=G[2, 2], x₃=G[2, 3]),
     ζ=(; x₁=G[3, 1], x₂=G[3, 2], x₃=G[3, 3]),
