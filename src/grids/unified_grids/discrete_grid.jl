@@ -4,22 +4,37 @@
 
 using Interpolations
 
-mutable struct DiscreteGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,I} <:
-               AbstractMappedOrDiscreteGrid
-  node_coordinates::NTuple{N,AbstractArray}
-  centroid_coordinates::NTuple{N,AbstractArray}
-  mapping_functions
-  metric_functions_cache
-  backend
-  diff_backend
+mutable struct DiscreteGrid{
+  N,
+  T,
+  CS<:CoordinateSystemTrait,
+  BT<:BasisTrait,
+  IP,
+  NC,
+  CC,
+  MF,
+  MFC,
+  B,
+  DB,
+  DS,
+  I,
+  S,
+  MC<:UnifiedMetricCaches,
+} <: AbstractMappedOrDiscreteGrid
+  node_coordinates::NC
+  centroid_coordinates::CC
+  mapping_functions::MF
+  metric_functions_cache::MFC
+  backend::B
+  diff_backend::DB
   nhalo::Int
-  discretization_scheme
+  discretization_scheme::DS
   discretization_scheme_name::Symbol
-  iterators
+  iterators::I
   interpolation::Symbol
-  interpolants::I
-  state::Any
-  metric_caches::UnifiedMetricCaches
+  interpolants::IP
+  state::S
+  metric_caches::MC
 end
 
 function _strip_halo_nodes(A, nhalo::Int)
@@ -179,10 +194,27 @@ function _new_discrete_grid(
     T,
   )
 
-  caches = _new_metric_caches(cache_mode)
-  caches.cell.data = components.cell_metric_storage
-  caches.face.data = components.face_metric_storage
-  grid = DiscreteGrid{N,T,typeof(coordinate_system),typeof(basis),typeof(interpolants)}(
+  caches = _new_metric_caches(
+    cache_mode, components.cell_metric_storage, components.face_metric_storage
+  )
+  state = (; t, params)
+  grid = DiscreteGrid{
+    N,
+    T,
+    typeof(coordinate_system),
+    typeof(basis),
+    typeof(interpolants),
+    typeof(components.node_coordinates),
+    typeof(components.centroid_coordinates),
+    typeof(mapping_functions),
+    typeof(components.metric_functions_cache),
+    typeof(backend),
+    typeof(diff_backend),
+    typeof(components.discretization_scheme),
+    typeof(components.iterators),
+    typeof(state),
+    typeof(caches),
+  }(
     components.node_coordinates,
     components.centroid_coordinates,
     mapping_functions,
@@ -195,7 +227,7 @@ function _new_discrete_grid(
     components.iterators,
     interpolation,
     interpolants,
-    (; t, params),
+    state,
     caches,
   )
 

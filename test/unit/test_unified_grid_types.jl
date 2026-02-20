@@ -7,11 +7,17 @@ using CurvilinearGrids
 
   @test dgrid isa DiscreteGrid
   @test dgrid isa DiscreteGrid{1,Float64}
+  @test isconcretetype(typeof(dgrid))
   @test !hasproperty(dgrid, :core)
   @test !hasproperty(dgrid, :legacy)
   @test dgrid.interpolation === :linear
   @test coordinate_system(dgrid) isa CurvilinearCS
   @test basis_trait(dgrid) isa ContravariantBasis
+  @test fieldtype(typeof(dgrid), :mapping_functions) !== Any
+  @test fieldtype(typeof(dgrid), :metric_functions_cache) !== Any
+  @test fieldtype(typeof(dgrid), :metric_caches) !== Any
+  @test fieldtype(typeof(dgrid.metric_caches.cell), :data) !== Any
+  @test fieldtype(typeof(dgrid.metric_caches.face), :data) !== Any
 
   @test dgrid.metric_caches.cell.valid
   @test dgrid.metric_caches.face.valid
@@ -34,10 +40,16 @@ end
   mgrid = MappedGrid(xmap, params, (8,), :meg6; cache_mode=:eager)
   @test mgrid isa MappedGrid
   @test mgrid isa MappedGrid{1,Float64}
+  @test isconcretetype(typeof(mgrid))
   @test !hasproperty(mgrid, :core)
   @test !hasproperty(mgrid, :legacy)
   @test coordinate_system(mgrid) isa CurvilinearCS
   @test basis_trait(mgrid) isa ContravariantBasis
+  @test fieldtype(typeof(mgrid), :mapping_functions) !== Any
+  @test fieldtype(typeof(mgrid), :metric_functions_cache) !== Any
+  @test fieldtype(typeof(mgrid), :metric_caches) !== Any
+  @test fieldtype(typeof(mgrid.metric_caches.cell), :data) !== Any
+  @test fieldtype(typeof(mgrid.metric_caches.face), :data) !== Any
   @test mgrid.metric_caches.cell.valid
   @test mgrid.metric_caches.face.valid
 

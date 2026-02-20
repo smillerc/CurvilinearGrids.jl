@@ -29,15 +29,15 @@ struct SphericalBasis <: BasisTrait end
 # Independent metric caches
 #
 
-mutable struct UnifiedMetricCache
-  data::Any
+mutable struct UnifiedMetricCache{D}
+  data::D
   valid::Bool
   mode::Symbol
 end
 
-mutable struct UnifiedMetricCaches
-  cell::UnifiedMetricCache
-  face::UnifiedMetricCache
+mutable struct UnifiedMetricCaches{C,F}
+  cell::UnifiedMetricCache{C}
+  face::UnifiedMetricCache{F}
 end
 
 function _check_cache_mode(cache_mode::Symbol)
@@ -51,10 +51,10 @@ function _check_cache_mode(cache_mode::Symbol)
   return cache_mode
 end
 
-function _new_metric_caches(cache_mode::Symbol)
+function _new_metric_caches(cache_mode::Symbol, cell_data, face_data)
   mode = _check_cache_mode(cache_mode)
   UnifiedMetricCaches(
-    UnifiedMetricCache(nothing, false, mode), UnifiedMetricCache(nothing, false, mode)
+    UnifiedMetricCache(cell_data, false, mode), UnifiedMetricCache(face_data, false, mode)
   )
 end
 
@@ -88,19 +88,7 @@ end
 function _ensure_metric_storage!(
   grid::AbstractMappedOrDiscreteGrid, ::Val{N}, ::Type{T}
 ) where {N,T}
-  cell = grid.metric_caches.cell.data
-  face = grid.metric_caches.face.data
-
-  if isnothing(cell)
-    cell = _allocate_unified_cell_metric_storage(Val(N), grid.backend, T, grid.iterators)
-    grid.metric_caches.cell.data = cell
-  end
-  if isnothing(face)
-    face = _allocate_unified_face_metric_storage(Val(N), grid.backend, T, grid.iterators)
-    grid.metric_caches.face.data = face
-  end
-
-  return cell, face
+  return grid.metric_caches.cell.data, grid.metric_caches.face.data
 end
 
 function _allocate_unified_coordinates(::Val{1}, iterators, backend, ::Type{T}) where {T}

@@ -2,20 +2,34 @@
 # MappedGrid
 #
 
-mutable struct MappedGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait} <:
-               AbstractMappedOrDiscreteGrid
-  node_coordinates::NTuple{N,AbstractArray}
-  centroid_coordinates::NTuple{N,AbstractArray}
-  mapping_functions
-  metric_functions_cache
-  backend
-  diff_backend
+mutable struct MappedGrid{
+  N,
+  T,
+  CS<:CoordinateSystemTrait,
+  BT<:BasisTrait,
+  NC,
+  CC,
+  MF,
+  MFC,
+  B,
+  DB,
+  DS,
+  I,
+  S,
+  MC<:UnifiedMetricCaches,
+} <: AbstractMappedOrDiscreteGrid
+  node_coordinates::NC
+  centroid_coordinates::CC
+  mapping_functions::MF
+  metric_functions_cache::MFC
+  backend::B
+  diff_backend::DB
   nhalo::Int
-  discretization_scheme
+  discretization_scheme::DS
   discretization_scheme_name::Symbol
-  iterators
-  state::Any
-  metric_caches::UnifiedMetricCaches
+  iterators::I
+  state::S
+  metric_caches::MC
 end
 
 function _mapped_state(grid::MappedGrid)
@@ -154,11 +168,27 @@ function _new_mapped_grid(
   )
 
   requested_mode = compute_metrics ? cache_mode : (cache_mode === :eager ? :lazy : cache_mode)
-  caches = _new_metric_caches(requested_mode)
-  caches.cell.data = components.cell_metric_storage
-  caches.face.data = components.face_metric_storage
+  caches = _new_metric_caches(
+    requested_mode, components.cell_metric_storage, components.face_metric_storage
+  )
+  state = (; t, params)
 
-  grid = MappedGrid{N,T,typeof(coordinate_system),typeof(basis)}(
+  grid = MappedGrid{
+    N,
+    T,
+    typeof(coordinate_system),
+    typeof(basis),
+    typeof(components.node_coordinates),
+    typeof(components.centroid_coordinates),
+    typeof(mapping_functions),
+    typeof(components.metric_functions_cache),
+    typeof(backend),
+    typeof(diff_backend),
+    typeof(components.discretization_scheme),
+    typeof(components.iterators),
+    typeof(state),
+    typeof(caches),
+  }(
     components.node_coordinates,
     components.centroid_coordinates,
     mapping_functions,
@@ -169,7 +199,7 @@ function _new_mapped_grid(
     components.discretization_scheme,
     components.discretization_scheme_name,
     components.iterators,
-    (; t, params),
+    state,
     caches,
   )
 
