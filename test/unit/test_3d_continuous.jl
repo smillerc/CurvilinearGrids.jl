@@ -141,9 +141,8 @@ end
     elapsed_seconds = (time_ns() - t0) * 1e-9
     push!(runtimes, elapsed_seconds)
 
-    @info "Wavy MappedGrid3D edge interpolation comparison" scheme = name max_I1 =
-      errors.m1 max_I2 = errors.m2 max_I3 = errors.m3 max_error = errors.m runtime_seconds =
-      elapsed_seconds
+    @info "Wavy MappedGrid3D edge interpolation comparison" scheme = name max_I1 = errors.m1 max_I2 =
+      errors.m2 max_I3 = errors.m3 max_error = errors.m runtime_seconds = elapsed_seconds
 
     @test errors.m1 < 1e-14
     @test errors.m2 < 1e-14
@@ -204,11 +203,23 @@ end
 
   backend = AutoForwardDiff()
   mesh = MappedGrid(
-    x, y, z, sector_params, celldims, :meg6; backend=CPU(), diff_backend=backend
+    x,
+    y,
+    z,
+    sector_params,
+    celldims,
+    :meg6;
+    backend=CPU(),
+    diff_backend=backend,
+    conserved_metric_scheme=CurvilinearGrids.GridTypes.EdgeInterpolationOrder1(),
   )
   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(
     face_metrics(mesh), mesh.iterators.cell.domain
   )
+
+  @show extrema(I1)
+  @show extrema(I2)
+  @show extrema(I3)
 
   @test all(abs.(extrema(I1)) .< 1e-14)
   @test all(abs.(extrema(I2)) .< 1e-14)

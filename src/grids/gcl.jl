@@ -75,52 +75,41 @@ function _gcl_unified_face_metrics(em, domain::CartesianIndices{2})
 end
 
 function _gcl_unified_face_metrics(em, domain::CartesianIndices{3})
-  ξ = 1
-  η = 2
-  ζ = 3
-  x = 1
-  y = 2
-  z = 3
+  ξ, η, ζ = (1, 2, 3) # axis enums
+  x, y, z = (1, 2, 3) # axis enums
 
-  cξ = _conserved_face_axis(em[ξ])
-  cη = _conserved_face_axis(em[η])
-  cζ = _conserved_face_axis(em[ζ])
-  sample = cξ[first(domain)]
+  ξ_edge = _conserved_face_axis(em[ξ])
+  η_edge = _conserved_face_axis(em[η])
+  ζ_edge = _conserved_face_axis(em[ζ])
+  sample = ξ_edge[first(domain)]
+
   T = typeof(sample[ξ, x])
-  I₁ = similar(cξ, T)
-  I₂ = similar(cξ, T)
-  I₃ = similar(cξ, T)
+
+  I₁ = similar(ξ_edge, T)
+  I₂ = similar(ξ_edge, T)
+  I₃ = similar(ξ_edge, T)
+
   fill!(I₁, zero(T))
   fill!(I₂, zero(T))
   fill!(I₃, zero(T))
 
   for idx in domain
     i, j, k = idx.I
-    idx_ξ_prev = CartesianIndex(i - 1, j, k)
-    idx_η_prev = CartesianIndex(i, j - 1, k)
-    idx_ζ_prev = CartesianIndex(i, j, k - 1)
-
-    metric_ξ = cξ[idx]
-    metric_ξ_prev = cξ[idx_ξ_prev]
-    metric_η = cη[idx]
-    metric_η_prev = cη[idx_η_prev]
-    metric_ζ = cζ[idx]
-    metric_ζ_prev = cζ[idx_ζ_prev]
 
     I₁[idx] = (
-      (metric_ξ[ξ, x] - metric_ξ_prev[ξ, x]) +
-      (metric_η[η, x] - metric_η_prev[η, x]) +
-      (metric_ζ[ζ, x] - metric_ζ_prev[ζ, x])
+      (ξ_edge[i, j, k][ξ, x] - ξ_edge[i - 1, j, k][ξ, x]) +
+      (η_edge[i, j, k][η, x] - η_edge[i, j - 1, k][η, x]) +
+      (ζ_edge[i, j, k][ζ, x] - ζ_edge[i, j, k - 1][ζ, x])
     )
     I₂[idx] = (
-      (metric_ξ[ξ, y] - metric_ξ_prev[ξ, y]) +
-      (metric_η[η, y] - metric_η_prev[η, y]) +
-      (metric_ζ[ζ, y] - metric_ζ_prev[ζ, y])
+      (ξ_edge[i, j, k][ξ, y] - ξ_edge[i - 1, j, k][ξ, y]) +
+      (η_edge[i, j, k][η, y] - η_edge[i, j - 1, k][η, y]) +
+      (ζ_edge[i, j, k][ζ, y] - ζ_edge[i, j, k - 1][ζ, y])
     )
     I₃[idx] = (
-      (metric_ξ[ξ, z] - metric_ξ_prev[ξ, z]) +
-      (metric_η[η, z] - metric_η_prev[η, z]) +
-      (metric_ζ[ζ, z] - metric_ζ_prev[ζ, z])
+      (ξ_edge[i, j, k][ξ, z] - ξ_edge[i - 1, j, k][ξ, z]) +
+      (η_edge[i, j, k][η, z] - η_edge[i, j - 1, k][η, z]) +
+      (ζ_edge[i, j, k][ζ, z] - ζ_edge[i, j, k - 1][ζ, z])
     )
   end
 
