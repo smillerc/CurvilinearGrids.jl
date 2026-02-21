@@ -54,6 +54,112 @@ end
 
 _linear_interpolant(A) = extrapolate(interpolate(A, BSpline(Linear())), Line())
 
+struct InterpolantMapping{N,I}
+  itp::I
+end
+
+@inline (m::InterpolantMapping{1})(_t, ξ, _p) = m.itp(ξ)
+@inline (m::InterpolantMapping{2})(_t, ξ, η, _p) = m.itp(ξ, η)
+@inline (m::InterpolantMapping{3})(_t, ξ, η, ζ, _p) = m.itp(ξ, η, ζ)
+
+function MetricCache(
+  x::InterpolantMapping{1},
+  backend;
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+)
+  return MetricCache(
+    (t, ξ, p) -> x(t, ξ, p), backend; edge_interpolation_scheme=edge_interpolation_scheme
+  )
+end
+
+function MetricCache(
+  x::InterpolantMapping{2},
+  y::InterpolantMapping{2},
+  backend;
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+)
+  return MetricCache(
+    (t, ξ, η, p) -> x(t, ξ, η, p),
+    (t, ξ, η, p) -> y(t, ξ, η, p),
+    backend;
+    edge_interpolation_scheme=edge_interpolation_scheme,
+  )
+end
+
+function MetricCache(
+  x::InterpolantMapping{3},
+  y::InterpolantMapping{3},
+  z::InterpolantMapping{3},
+  backend;
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+)
+  return MetricCache(
+    (t, ξ, η, ζ, p) -> x(t, ξ, η, ζ, p),
+    (t, ξ, η, ζ, p) -> y(t, ξ, η, ζ, p),
+    (t, ξ, η, ζ, p) -> z(t, ξ, η, ζ, p),
+    backend;
+    edge_interpolation_scheme=edge_interpolation_scheme,
+  )
+end
+
+@inline function _discrete_jacobian_from_interpolants(interpolants::NamedTuple, ::Val{1})
+  function jacobian(_t, ξ, _p)
+    gx = Interpolations.gradient(interpolants.x1, ξ)
+    return @SMatrix [gx[1]]
+  end
+  return jacobian
+end
+
+@inline function _discrete_jacobian_from_interpolants(interpolants::NamedTuple, ::Val{2})
+  function jacobian(_t, ξ, η, _p)
+    gx = Interpolations.gradient(interpolants.x1, ξ, η)
+    gy = Interpolations.gradient(interpolants.x2, ξ, η)
+    return @SMatrix [gx[1] gx[2]; gy[1] gy[2]]
+  end
+  return jacobian
+end
+
+@inline function _discrete_jacobian_from_interpolants(interpolants::NamedTuple, ::Val{3})
+  function jacobian(_t, ξ, η, ζ, _p)
+    gx = Interpolations.gradient(interpolants.x1, ξ, η, ζ)
+    gy = Interpolations.gradient(interpolants.x2, ξ, η, ζ)
+    gz = Interpolations.gradient(interpolants.x3, ξ, η, ζ)
+    return @SMatrix [
+      gx[1] gx[2] gx[3]
+      gy[1] gy[2] gy[3]
+      gz[1] gz[2] gz[3]
+    ]
+  end
+  return jacobian
+end
+
+@inline function _discrete_metric_cache(
+  ::Val{1}, metric_cache::MetricCache, interpolants::NamedTuple
+)
+  jacobian = _discrete_jacobian_from_interpolants(interpolants, Val(1))
+  J(t, ξ, p) = det(jacobian(t, ξ, p))
+  forward = merge(metric_cache.forward, (; jacobian=jacobian, J=J))
+  return MetricCache(forward, metric_cache.inverse, metric_cache.edge)
+end
+
+@inline function _discrete_metric_cache(
+  ::Val{2}, metric_cache::MetricCache, interpolants::NamedTuple
+)
+  jacobian = _discrete_jacobian_from_interpolants(interpolants, Val(2))
+  J(t, ξ, η, p) = det(jacobian(t, ξ, η, p))
+  forward = merge(metric_cache.forward, (; jacobian=jacobian, J=J))
+  return MetricCache(forward, metric_cache.inverse, metric_cache.edge)
+end
+
+@inline function _discrete_metric_cache(
+  ::Val{3}, metric_cache::MetricCache, interpolants::NamedTuple
+)
+  jacobian = _discrete_jacobian_from_interpolants(interpolants, Val(3))
+  J(t, ξ, η, ζ, p) = det(jacobian(t, ξ, η, ζ, p))
+  forward = merge(metric_cache.forward, (; jacobian=jacobian, J=J))
+  return MetricCache(forward, metric_cache.inverse, metric_cache.edge)
+end
+
 function _validate_discrete_interpolation(interpolation::Symbol)
   if interpolation !== :linear
     throw(
@@ -80,16 +186,17 @@ function _recompute_discrete_cell_metrics!(
     return nothing
   end
   cell_storage, _ = _ensure_metric_storage!(grid, Val(N), T)
-  _fill_cell_metric_storage!(
-    cell_storage,
-    grid.metric_functions_cache,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-    T,
-  )
+  @threads for I in grid.iterators.cell.full
+    Iglobal = grid.iterators.global_domain.cell.full[I]
+    ξηζ = Iglobal.I .- grid.nhalo .+ 0.5
+    F = _as_smatrix(Val(N), grid.metric_functions_cache.forward.jacobian(t, ξηζ..., params))
+    G = inv(F)
+    J = det(F)
+    Jinv = det(G)
+
+    cell_storage.forward[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(F)), T(J))
+    cell_storage.inverse[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(G)), T(Jinv))
+  end
 
   return nothing
 end
@@ -178,6 +285,9 @@ function _new_discrete_grid(
     T;
     build_metric_storage=(!disable_metrics),
   )
+  discrete_metric_functions_cache = _discrete_metric_cache(
+    Val(N), components.metric_functions_cache, interpolants
+  )
 
   requested_mode =
     compute_metrics ? cache_mode : (cache_mode === :eager ? :lazy : cache_mode)
@@ -198,7 +308,7 @@ function _new_discrete_grid(
     typeof(components.node_coordinates),
     typeof(components.centroid_coordinates),
     typeof(mapping_functions),
-    typeof(components.metric_functions_cache),
+    typeof(discrete_metric_functions_cache),
     typeof(backend),
     typeof(diff_backend),
     typeof(components.iterators),
@@ -208,7 +318,7 @@ function _new_discrete_grid(
     components.node_coordinates,
     components.centroid_coordinates,
     mapping_functions,
-    components.metric_functions_cache,
+    discrete_metric_functions_cache,
     backend,
     diff_backend,
     components.nhalo,
@@ -302,7 +412,7 @@ function DiscreteGrid(
   x_nodes = number_type.(x_nodes)
 
   x_itp = _linear_interpolant(x_nodes)
-  x_map(_t, ξ, _p) = x_itp(ξ)
+  x_map = InterpolantMapping{1,typeof(x_itp)}(x_itp)
 
   return _new_discrete_grid(
     Val(1),
@@ -357,8 +467,8 @@ function DiscreteGrid(
   x_itp = _linear_interpolant(x_nodes)
   y_itp = _linear_interpolant(y_nodes)
 
-  x_map(_t, ξ, η, _p) = x_itp(ξ, η)
-  y_map(_t, ξ, η, _p) = y_itp(ξ, η)
+  x_map = InterpolantMapping{2,typeof(x_itp)}(x_itp)
+  y_map = InterpolantMapping{2,typeof(y_itp)}(y_itp)
 
   return _new_discrete_grid(
     Val(2),
@@ -417,9 +527,9 @@ function DiscreteGrid(
   y_itp = _linear_interpolant(y_nodes)
   z_itp = _linear_interpolant(z_nodes)
 
-  x_map(_t, ξ, η, ζ, _p) = x_itp(ξ, η, ζ)
-  y_map(_t, ξ, η, ζ, _p) = y_itp(ξ, η, ζ)
-  z_map(_t, ξ, η, ζ, _p) = z_itp(ξ, η, ζ)
+  x_map = InterpolantMapping{3,typeof(x_itp)}(x_itp)
+  y_map = InterpolantMapping{3,typeof(y_itp)}(y_itp)
+  z_map = InterpolantMapping{3,typeof(z_itp)}(z_itp)
 
   return _new_discrete_grid(
     Val(3),
