@@ -11,6 +11,8 @@ using CurvilinearGrids
   @test !ismutabletype(typeof(dgrid))
   @test !hasproperty(dgrid, :core)
   @test !hasproperty(dgrid, :legacy)
+  @test !hasproperty(dgrid, :discretization_scheme)
+  @test !hasproperty(dgrid, :discretization_scheme_name)
   @test dgrid.interpolation === :linear
   @test coordinate_system(dgrid) isa CurvilinearCS
   @test basis_trait(dgrid) isa CartesianBasis
@@ -108,6 +110,8 @@ end
   @test !ismutabletype(typeof(mgrid))
   @test !hasproperty(mgrid, :core)
   @test !hasproperty(mgrid, :legacy)
+  @test !hasproperty(mgrid, :discretization_scheme)
+  @test !hasproperty(mgrid, :discretization_scheme_name)
   @test coordinate_system(mgrid) isa CurvilinearCS
   @test basis_trait(mgrid) isa CartesianBasis
   @test fieldtype(typeof(mgrid), :mapping_functions) !== Any
@@ -128,6 +132,45 @@ end
   refresh_face_metrics!(mgrid)
   @test !mgrid.metric_caches.cell.valid
   @test mgrid.metric_caches.face.valid
+end
+
+@testset "Metrics can be fully disabled" begin
+  xmap(t, ξ, p) = ξ + p.shift
+  mgrid = MappedGrid(
+    xmap, (; shift=1.0), (8,), :meg6; compute_metrics=false, cache_mode=:off
+  )
+
+  @test mgrid.metric_functions_cache !== nothing
+  @test mgrid.metric_caches === nothing
+  c0 = coord(mgrid, (1,))
+  @test isfinite(c0[1])
+  update!(mgrid, 1.0, (; shift=2.0))
+  c1 = coord(mgrid, (1,))
+  @test c1[1] ≈ c0[1] + 1.0
+
+  @test_throws ArgumentError cell_metrics(mgrid)
+  @test_throws ArgumentError face_metrics(mgrid)
+  @test forward_cell_metrics(mgrid, (1.2,)) isa Metric{1,Float64}
+  @test inverse_cell_metrics(mgrid, (1.2,)) isa Metric{1,Float64}
+  @test isfinite(cellvolume(mgrid, (1.2,)))
+  @test forward_cell_metrics(mgrid, (1,)) isa Metric{1,Float64}
+  @test inverse_cell_metrics(mgrid, (1,)) isa Metric{1,Float64}
+  @test isfinite(cellvolume(mgrid, (1,)))
+
+  x = collect(range(0.0, 1.0; length=8))
+  dgrid = DiscreteGrid(x, :meg6; compute_metrics=false, cache_mode=:off)
+  @test dgrid.metric_functions_cache !== nothing
+  @test dgrid.metric_caches === nothing
+  @test isfinite(coord(dgrid, (1,))[1])
+
+  @test_throws ArgumentError cell_metrics(dgrid)
+  @test_throws ArgumentError face_metrics(dgrid)
+  @test forward_cell_metrics(dgrid, (1.2,)) isa Metric{1,Float64}
+  @test inverse_cell_metrics(dgrid, (1.2,)) isa Metric{1,Float64}
+  @test isfinite(cellvolume(dgrid, (1.2,)))
+  @test forward_cell_metrics(dgrid, (1,)) isa Metric{1,Float64}
+  @test inverse_cell_metrics(dgrid, (1,)) isa Metric{1,Float64}
+  @test isfinite(cellvolume(dgrid, (1,)))
 end
 
 @testset "Face metrics include conservative hatted terms" begin

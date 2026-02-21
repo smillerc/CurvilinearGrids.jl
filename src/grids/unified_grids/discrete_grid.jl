@@ -21,8 +21,6 @@ node/centroid coordinates and independent cell/face metric caches.
   - `backend`: Compute backend used for storage allocation.
   - `diff_backend`: Differentiation backend used for metric evaluation.
   - `nhalo`: Halo width used by iterator/domain definitions.
-  - `discretization_scheme`: Discretization scheme object.
-  - `discretization_scheme_name`: Symbol name of the discretization scheme.
   - `iterators`: Node/cell iterator bundle for local/global indexing.
   - `interpolation`: Interpolation mode symbol (`:linear`).
   - `interpolants`: Cached interpolation objects.
@@ -30,21 +28,7 @@ node/centroid coordinates and independent cell/face metric caches.
   - `metric_caches`: Independent cell and face metric caches.
 """
 struct DiscreteGrid{
-  N,
-  T,
-  CS<:CoordinateSystemTrait,
-  BT<:BasisTrait,
-  IP,
-  NC,
-  CC,
-  MF,
-  MFC,
-  B,
-  DB,
-  DS,
-  I,
-  S,
-  MC<:UnifiedMetricCaches,
+  N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,IP,NC,CC,MF,MFC,B,DB,I,S,MC
 } <: AbstractMappedOrDiscreteGrid
   node_coordinates::NC
   centroid_coordinates::CC
@@ -53,8 +37,6 @@ struct DiscreteGrid{
   backend::B
   diff_backend::DB
   nhalo::Int
-  discretization_scheme::DS
-  discretization_scheme_name::Symbol
   iterators::I
   interpolation::Symbol
   interpolants::IP
@@ -92,6 +74,7 @@ end
 function _recompute_discrete_cell_metrics!(
   grid::DiscreteGrid{N,T}; include_halo_region::Bool=false
 ) where {N,T}
+  _require_metric_storage(grid, "refresh_cell_metrics!")
   t, params, has_state = _discrete_state(grid)
   if !has_state
     return nothing
@@ -114,6 +97,7 @@ end
 function _recompute_discrete_face_metrics!(
   grid::DiscreteGrid{N,T}; include_halo_region::Bool=false
 ) where {N,T}
+  _require_metric_storage(grid, "refresh_face_metrics!")
   t, params, has_state = _discrete_state(grid)
   if !has_state
     return nothing
@@ -134,6 +118,7 @@ function _recompute_discrete_face_metrics!(
 end
 
 function _refresh_cell_metrics!(grid::DiscreteGrid; include_halo_region::Bool=false)
+  _require_metric_storage(grid, "refresh_cell_metrics!")
   _recompute_discrete_cell_metrics!(grid; include_halo_region=include_halo_region)
   data = grid.metric_caches.cell.data
 
@@ -146,6 +131,7 @@ function _refresh_cell_metrics!(grid::DiscreteGrid; include_halo_region::Bool=fa
 end
 
 function _refresh_face_metrics!(grid::DiscreteGrid; include_halo_region::Bool=false)
+  _require_metric_storage(grid, "refresh_face_metrics!")
   _recompute_discrete_face_metrics!(grid; include_halo_region=include_halo_region)
   data = grid.metric_caches.face.data
 
@@ -168,6 +154,7 @@ function _new_discrete_grid(
   t,
   params,
   T::Type,
+  compute_metrics::Bool,
   coordinate_system::CoordinateSystemTrait,
   basis::BasisTrait,
   interpolation::Symbol,
@@ -177,6 +164,7 @@ function _new_discrete_grid(
   _check_unified_basis_trait(basis)
   _validate_discrete_interpolation(interpolation)
 
+  disable_metrics = (!compute_metrics && cache_mode === :off)
   components = _build_unified_components(
     Val(N),
     mapping_functions,
@@ -185,12 +173,19 @@ function _new_discrete_grid(
     conserved_metric_scheme,
     backend,
     diff_backend,
-    T,
+    T;
+    build_metric_storage=(!disable_metrics),
   )
 
-  caches = _new_metric_caches(
-    cache_mode, components.cell_metric_storage, components.face_metric_storage
-  )
+  requested_mode =
+    compute_metrics ? cache_mode : (cache_mode === :eager ? :lazy : cache_mode)
+  caches = if disable_metrics
+    nothing
+  else
+    _new_metric_caches(
+      requested_mode, components.cell_metric_storage, components.face_metric_storage
+    )
+  end
   state = Ref((; t, params))
   grid = DiscreteGrid{
     N,
@@ -204,7 +199,6 @@ function _new_discrete_grid(
     typeof(components.metric_functions_cache),
     typeof(backend),
     typeof(diff_backend),
-    typeof(components.discretization_scheme),
     typeof(components.iterators),
     typeof(state),
     typeof(caches),
@@ -216,8 +210,6 @@ function _new_discrete_grid(
     backend,
     diff_backend,
     components.nhalo,
-    components.discretization_scheme,
-    components.discretization_scheme_name,
     components.iterators,
     interpolation,
     interpolants,
@@ -244,7 +236,7 @@ function _new_discrete_grid(
     Val(N),
   )
 
-  if cache_mode === :eager
+  if !disable_metrics && requested_mode === :eager
     _refresh_cell_metrics!(grid)
     _refresh_face_metrics!(grid)
   end
@@ -269,6 +261,9 @@ interpolation.
   - `diff_backend`: Differentiation backend. Default: `AutoForwardDiff()`.
   - `T`: Grid floating-point type.
   - `Tcore`: Deprecated alias for `T` behavior; if provided, overrides numeric type.
+  - `compute_metrics`: Enable initial metric computation. Default: `true`.
+    Set `compute_metrics=false` with `cache_mode=:off` to disable metric
+    allocation/caching entirely.
   - `halo_coords_included`: Whether inputs include halo nodes. Default: `false`.
   - `coordinate_system`: Coordinate-system trait. Default: `CurvilinearCS()`.
   - `basis`: Basis trait. Default: `CartesianBasis()`.
@@ -287,6 +282,7 @@ function DiscreteGrid(
   diff_backend=AutoForwardDiff(),
   T::Type=TX,
   Tcore::Union{Nothing,Type}=nothing,
+  compute_metrics::Bool=true,
   halo_coords_included=false,
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
   basis::BasisTrait=CartesianBasis(),
@@ -316,6 +312,7 @@ function DiscreteGrid(
     t=zero(number_type),
     params=(;),
     T=number_type,
+    compute_metrics=compute_metrics,
     coordinate_system=coordinate_system,
     basis=basis,
     interpolation=interpolation,
@@ -332,6 +329,7 @@ function DiscreteGrid(
   diff_backend=AutoForwardDiff(),
   T::Type=TX,
   Tcore::Union{Nothing,Type}=nothing,
+  compute_metrics::Bool=true,
   halo_coords_included=false,
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
   basis::BasisTrait=CartesianBasis(),
@@ -369,6 +367,7 @@ function DiscreteGrid(
     t=zero(number_type),
     params=(;),
     T=number_type,
+    compute_metrics=compute_metrics,
     coordinate_system=coordinate_system,
     basis=basis,
     interpolation=interpolation,
@@ -386,6 +385,7 @@ function DiscreteGrid(
   diff_backend=AutoForwardDiff(),
   T::Type=TX,
   Tcore::Union{Nothing,Type}=nothing,
+  compute_metrics::Bool=true,
   halo_coords_included=false,
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
   basis::BasisTrait=CartesianBasis(),
@@ -427,6 +427,7 @@ function DiscreteGrid(
     t=zero(number_type),
     params=(;),
     T=number_type,
+    compute_metrics=compute_metrics,
     coordinate_system=coordinate_system,
     basis=basis,
     interpolation=interpolation,

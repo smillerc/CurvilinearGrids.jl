@@ -82,6 +82,40 @@ function _new_metric_caches(cache_mode::Symbol, cell_data, face_data)
   )
 end
 
+@inline function _has_metric_storage(grid::AbstractMappedOrDiscreteGrid)
+  return grid.metric_caches !== nothing
+end
+
+@inline function _require_metric_storage(
+  grid::AbstractMappedOrDiscreteGrid, caller::AbstractString
+)
+  if !_has_metric_storage(grid)
+    throw(
+      ArgumentError(
+        "`$caller` is unavailable because this grid was created without metric storage (`compute_metrics=false, cache_mode=:off`).",
+      ),
+    )
+  end
+  return nothing
+end
+
+@inline function _has_metric_functions(grid::AbstractMappedOrDiscreteGrid)
+  return grid.metric_functions_cache !== nothing
+end
+
+@inline function _require_metric_functions(
+  grid::AbstractMappedOrDiscreteGrid, caller::AbstractString
+)
+  if !_has_metric_functions(grid)
+    throw(
+      ArgumentError(
+        "`$caller` is unavailable because this grid has no metric function cache."
+      ),
+    )
+  end
+  return nothing
+end
+
 #
 # Unified-grid geometry/metric helpers (AoS)
 #
@@ -125,6 +159,7 @@ end
 function _ensure_metric_storage!(
   grid::AbstractMappedOrDiscreteGrid, ::Val{N}, ::Type{T}
 ) where {N,T}
+  _require_metric_storage(grid, "_ensure_metric_storage!")
   return grid.metric_caches.cell.data, grid.metric_caches.face.data
 end
 
@@ -228,10 +263,9 @@ function _build_unified_components(
   diff_backend,
   ::Type{T};
   global_cell_indices=nothing,
+  build_metric_storage::Bool=true,
 ) where {N,T}
-  GradientDiscretizationScheme, order, _, nhalo, scheme_name = get_gradient_discretization_scheme(
-    discretization_scheme
-  )
+  _, _, _, nhalo, _ = get_gradient_discretization_scheme(discretization_scheme)
 
   iterators = get_iterators(celldims, nhalo, global_cell_indices)
   node_coordinates, centroid_coordinates = _allocate_unified_coordinates(
@@ -240,10 +274,11 @@ function _build_unified_components(
   metric_functions_cache = _metric_cache_for_mapping(
     Val(N), mapping_functions, diff_backend, edge_interpolation_scheme
   )
-  cell_metric_storage, face_metric_storage = _allocate_unified_metric_storage(
-    Val(N), backend, T, iterators
-  )
-  discr_scheme = GradientDiscretizationScheme(order; use_cache=false)
+  cell_metric_storage, face_metric_storage = if build_metric_storage
+    _allocate_unified_metric_storage(Val(N), backend, T, iterators)
+  else
+    nothing, nothing
+  end
 
   return (;
     node_coordinates,
@@ -252,8 +287,6 @@ function _build_unified_components(
     cell_metric_storage,
     face_metric_storage,
     nhalo,
-    discretization_scheme=discr_scheme,
-    discretization_scheme_name=scheme_name,
     iterators,
   )
 end

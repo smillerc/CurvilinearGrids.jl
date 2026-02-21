@@ -61,6 +61,9 @@ Mark cell-metric cache entries as stale.
 `nothing`.
 """
 function invalidate_cell_metrics!(grid::AbstractMappedOrDiscreteGrid)
+  if !_has_metric_storage(grid)
+    return nothing
+  end
   grid.metric_caches.cell.valid = false
   return nothing
 end
@@ -77,6 +80,9 @@ Mark face-metric cache entries as stale.
 `nothing`.
 """
 function invalidate_face_metrics!(grid::AbstractMappedOrDiscreteGrid)
+  if !_has_metric_storage(grid)
+    return nothing
+  end
   grid.metric_caches.face.valid = false
   return nothing
 end
@@ -98,6 +104,7 @@ Cell metric cache payload.
 function refresh_cell_metrics!(
   grid::AbstractMappedOrDiscreteGrid; include_halo_region::Bool=false
 )
+  _require_metric_storage(grid, "refresh_cell_metrics!")
   _refresh_cell_metrics!(grid; include_halo_region=include_halo_region)
 end
 
@@ -118,6 +125,7 @@ Face metric cache payload.
 function refresh_face_metrics!(
   grid::AbstractMappedOrDiscreteGrid; include_halo_region::Bool=false
 )
+  _require_metric_storage(grid, "refresh_face_metrics!")
   _refresh_face_metrics!(grid; include_halo_region=include_halo_region)
 end
 
@@ -136,6 +144,7 @@ Access cell metric cache data.
 Cell metric cache payload.
 """
 function cell_metrics(grid::AbstractMappedOrDiscreteGrid; refresh::Bool=false)
+  _require_metric_storage(grid, "cell_metrics")
   if refresh || !grid.metric_caches.cell.valid
     return refresh_cell_metrics!(grid)
   end
@@ -157,6 +166,7 @@ Access face metric cache data.
 Face metric cache payload.
 """
 function face_metrics(grid::AbstractMappedOrDiscreteGrid; refresh::Bool=false)
+  _require_metric_storage(grid, "face_metrics")
   if refresh || !grid.metric_caches.face.valid
     return refresh_face_metrics!(grid)
   end
@@ -294,6 +304,7 @@ end
 @inline function _continuous_forward_jacobian(
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::Tuple{Vararg{Real,N}}
 ) where {N,T}
+  _require_metric_functions(grid, "forward_cell_metrics")
   ξηζ = _promote_real_tuple(idx)
   t, params = _state_for_eval(grid)
   F = _as_smatrix(Val(N), grid.metric_functions_cache.forward.jacobian(t, ξηζ..., params))

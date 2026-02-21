@@ -19,28 +19,12 @@ and independent metric caches for cell and face data.
   - `backend`: Compute backend used for storage allocation.
   - `diff_backend`: Differentiation backend used for metric evaluation.
   - `nhalo`: Halo width used by iterator/domain definitions.
-  - `discretization_scheme`: Discretization scheme object.
-  - `discretization_scheme_name`: Symbol name of the discretization scheme.
   - `iterators`: Node/cell iterator bundle for local/global indexing.
   - `state`: Mutable reference to runtime state (`t`, `params`).
   - `metric_caches`: Independent cell and face metric caches.
 """
-struct MappedGrid{
-  N,
-  T,
-  CS<:CoordinateSystemTrait,
-  BT<:BasisTrait,
-  NC,
-  CC,
-  MF,
-  MFC,
-  B,
-  DB,
-  DS,
-  I,
-  S,
-  MC<:UnifiedMetricCaches,
-} <: AbstractMappedOrDiscreteGrid
+struct MappedGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,NC,CC,MF,MFC,B,DB,I,S,MC} <:
+       AbstractMappedOrDiscreteGrid
   node_coordinates::NC
   centroid_coordinates::CC
   mapping_functions::MF
@@ -48,8 +32,6 @@ struct MappedGrid{
   backend::B
   diff_backend::DB
   nhalo::Int
-  discretization_scheme::DS
-  discretization_scheme_name::Symbol
   iterators::I
   state::S
   metric_caches::MC
@@ -64,6 +46,7 @@ end
 function _recompute_mapped_cell_metrics!(
   grid::MappedGrid{N,T}; include_halo_region::Bool=false
 ) where {N,T}
+  _require_metric_storage(grid, "refresh_cell_metrics!")
   t, params, has_state = _mapped_state(grid)
   if !has_state
     return nothing
@@ -86,6 +69,7 @@ end
 function _recompute_mapped_face_metrics!(
   grid::MappedGrid{N,T}; include_halo_region::Bool=false
 ) where {N,T}
+  _require_metric_storage(grid, "refresh_face_metrics!")
   t, params, has_state = _mapped_state(grid)
   if !has_state
     return nothing
@@ -106,6 +90,7 @@ function _recompute_mapped_face_metrics!(
 end
 
 function _refresh_cell_metrics!(grid::MappedGrid; include_halo_region::Bool=false)
+  _require_metric_storage(grid, "refresh_cell_metrics!")
   _recompute_mapped_cell_metrics!(grid; include_halo_region=include_halo_region)
   data = grid.metric_caches.cell.data
 
@@ -118,6 +103,7 @@ function _refresh_cell_metrics!(grid::MappedGrid; include_halo_region::Bool=fals
 end
 
 function _refresh_face_metrics!(grid::MappedGrid; include_halo_region::Bool=false)
+  _require_metric_storage(grid, "refresh_face_metrics!")
   _recompute_mapped_face_metrics!(grid; include_halo_region=include_halo_region)
   data = grid.metric_caches.face.data
 
@@ -148,6 +134,7 @@ function _new_mapped_grid(
 ) where {N}
   _check_unified_basis_trait(basis)
 
+  disable_metrics = (!compute_metrics && cache_mode === :off)
   components = _build_unified_components(
     Val(N),
     mapping_functions,
@@ -158,13 +145,18 @@ function _new_mapped_grid(
     diff_backend,
     T;
     global_cell_indices=global_cell_indices,
+    build_metric_storage=(!disable_metrics),
   )
 
   requested_mode =
     compute_metrics ? cache_mode : (cache_mode === :eager ? :lazy : cache_mode)
-  caches = _new_metric_caches(
-    requested_mode, components.cell_metric_storage, components.face_metric_storage
-  )
+  caches = if disable_metrics
+    nothing
+  else
+    _new_metric_caches(
+      requested_mode, components.cell_metric_storage, components.face_metric_storage
+    )
+  end
   state = Ref((; t, params))
 
   grid = MappedGrid{
@@ -178,7 +170,6 @@ function _new_mapped_grid(
     typeof(components.metric_functions_cache),
     typeof(backend),
     typeof(diff_backend),
-    typeof(components.discretization_scheme),
     typeof(components.iterators),
     typeof(state),
     typeof(caches),
@@ -190,8 +181,6 @@ function _new_mapped_grid(
     backend,
     diff_backend,
     components.nhalo,
-    components.discretization_scheme,
-    components.discretization_scheme_name,
     components.iterators,
     state,
     caches,
@@ -216,7 +205,7 @@ function _new_mapped_grid(
     Val(N),
   )
 
-  if requested_mode === :eager
+  if !disable_metrics && requested_mode === :eager
     _refresh_cell_metrics!(grid)
     _refresh_face_metrics!(grid)
   end
@@ -243,6 +232,8 @@ Construct a mapped unified grid from continuous coordinate mapping functions.
   - `t`: Initial time. Default: `zero(Float64)`.
   - `T`: Grid floating-point type. Default: `Float64`.
   - `compute_metrics`: Enable initial metric computation. Default: `true`.
+    Set `compute_metrics=false` with `cache_mode=:off` to disable metric
+    allocation/caching entirely.
   - `global_cell_indices`: Optional global index map. Default: `nothing`.
   - `coordinate_system`: Coordinate-system trait. Default: `CurvilinearCS()`.
   - `basis`: Basis trait. Default: `CartesianBasis()`.
