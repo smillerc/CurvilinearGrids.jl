@@ -338,6 +338,66 @@ end
 end
 
 """
+    forward_cell_metrics(grid, idx)
+
+Return the forward cell metric payload at `idx` as a `Metric`.
+
+# Arguments
+  - `grid`: Mapped or discrete unified grid.
+  - `idx`: `CartesianIndex`, integer tuple (discrete coordinate), or real tuple
+    (continuous coordinate).
+"""
+@inline function forward_cell_metrics(
+  grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex
+)
+  forward_cell_metrics(grid, idx.I)
+end
+@inline function forward_cell_metrics(
+  grid::Union{MappedGrid,DiscreteGrid}, idx::NTuple{N,Int}
+) where {N}
+  _cell_forward_metric_at(grid, idx)
+end
+@inline function forward_cell_metrics(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::Tuple{Vararg{Real,N}}
+) where {N,T}
+  _cell_forward_metric_at(grid, idx)
+end
+
+"""
+    inverse_cell_metrics(grid, idx)
+
+Return the inverse cell metric payload at `idx` as a `Metric`.
+
+# Arguments
+  - `grid`: Mapped or discrete unified grid.
+  - `idx`: `CartesianIndex`, integer tuple (discrete coordinate), or real tuple
+    (continuous coordinate).
+"""
+@inline function inverse_cell_metrics(
+  grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex
+)
+  inverse_cell_metrics(grid, idx.I)
+end
+@inline function inverse_cell_metrics(
+  grid::Union{MappedGrid,DiscreteGrid}, idx::NTuple{N,Int}
+) where {N}
+  _cell_inverse_metric_at(grid, idx)
+end
+@inline function inverse_cell_metrics(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::Tuple{Vararg{Real,N}}
+) where {N,T}
+  _cell_inverse_metric_at(grid, idx)
+end
+
+function forward_cell_metrics(::OrthogonalGrid, idx)
+  throw(ArgumentError("`forward_cell_metrics` is undefined for `OrthogonalGrid`."))
+end
+
+function inverse_cell_metrics(::OrthogonalGrid, idx)
+  throw(ArgumentError("`inverse_cell_metrics` is undefined for `OrthogonalGrid`."))
+end
+
+"""
     cellvolume(grid, idx)
 
 Compute cell volume at a given index.
@@ -373,12 +433,10 @@ end
   return T(det(_continuous_forward_jacobian(grid, idx)))
 end
 
-@inline _radial_centroid_1d(
-  grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::NTuple{1,Int}
-) = grid.centroid_coordinates[1][idx...]
-@inline _radial_centroid_1d(
-  grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::Tuple{Vararg{Real,1}}
-) = _continuous_coord(grid, idx)[1]
+@inline _radial_centroid_1d(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::NTuple{1,Int}) = grid.centroid_coordinates[1][idx...]
+@inline _radial_centroid_1d(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::Tuple{Vararg{Real,1}}) = _continuous_coord(
+  grid, idx
+)[1]
 
 @inline function _axisymmetric_radius(
   ::AxisymmetricCS{:x}, grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx::NTuple{2,Int}
@@ -610,56 +668,4 @@ function jacobian_matrix(
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::Tuple{Vararg{Real,N}}
 ) where {N,T}
   _continuous_forward_jacobian(grid, idx)
-end
-
-function forward_cell_metrics(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx)
-  F = _cell_forward_metric_at(grid, idx isa CartesianIndex ? idx.I : idx).jacobian_matrix
-  return (; x=(; ξ=F[1, 1]),)
-end
-
-function forward_cell_metrics(grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx)
-  F = _cell_forward_metric_at(grid, idx isa CartesianIndex ? idx.I : idx).jacobian_matrix
-  return (; x=(; ξ=F[1, 1], η=F[1, 2]), y=(; ξ=F[2, 1], η=F[2, 2]))
-end
-
-function forward_cell_metrics(grid::Union{MappedGrid{3},DiscreteGrid{3}}, idx)
-  F = _cell_forward_metric_at(grid, idx isa CartesianIndex ? idx.I : idx).jacobian_matrix
-  return (;
-    x=(; ξ=F[1, 1], η=F[1, 2], ζ=F[1, 3]),
-    y=(; ξ=F[2, 1], η=F[2, 2], ζ=F[2, 3]),
-    z=(; ξ=F[3, 1], η=F[3, 2], ζ=F[3, 3]),
-  )
-end
-
-function inverse_cell_metrics(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx)
-  m = _cell_inverse_metric_at(grid, idx isa CartesianIndex ? idx.I : idx)
-  G = m.jacobian_matrix
-  Ghat = G .* m.J
-  return (; ξ=(; x₁=G[1, 1]), ξ̂=(; x₁=Ghat[1, 1]))
-end
-
-function inverse_cell_metrics(grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx)
-  m = _cell_inverse_metric_at(grid, idx isa CartesianIndex ? idx.I : idx)
-  G = m.jacobian_matrix
-  Ghat = G .* m.J
-  return (;
-    ξ=(; x₁=G[1, 1], x₂=G[1, 2]),
-    η=(; x₁=G[2, 1], x₂=G[2, 2]),
-    ξ̂=(; x₁=Ghat[1, 1], x₂=Ghat[1, 2]),
-    η̂=(; x₁=Ghat[2, 1], x₂=Ghat[2, 2]),
-  )
-end
-
-function inverse_cell_metrics(grid::Union{MappedGrid{3},DiscreteGrid{3}}, idx)
-  m = _cell_inverse_metric_at(grid, idx isa CartesianIndex ? idx.I : idx)
-  G = m.jacobian_matrix
-  Ghat = G .* m.J
-  return (;
-    ξ=(; x₁=G[1, 1], x₂=G[1, 2], x₃=G[1, 3]),
-    η=(; x₁=G[2, 1], x₂=G[2, 2], x₃=G[2, 3]),
-    ζ=(; x₁=G[3, 1], x₂=G[3, 2], x₃=G[3, 3]),
-    ξ̂=(; x₁=Ghat[1, 1], x₂=Ghat[1, 2], x₃=Ghat[1, 3]),
-    η̂=(; x₁=Ghat[2, 1], x₂=Ghat[2, 2], x₃=Ghat[2, 3]),
-    ζ̂=(; x₁=Ghat[3, 1], x₂=Ghat[3, 2], x₃=Ghat[3, 3]),
-  )
 end

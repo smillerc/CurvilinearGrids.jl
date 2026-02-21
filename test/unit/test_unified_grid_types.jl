@@ -213,6 +213,10 @@ end
 
   cm = coord(mgrid, idx)
   Jm = jacobian_matrix(mgrid, idx)
+  Fm_discrete = forward_cell_metrics(mgrid, (1, 2, 4))
+  Fm_continuous = forward_cell_metrics(mgrid, idx)
+  Gm_discrete = inverse_cell_metrics(mgrid, (1, 2, 4))
+  Gm_continuous = inverse_cell_metrics(mgrid, idx)
   Vm = cellvolume(mgrid, idx)
 
   @test cm ≈ [1.0, 4.6, 12.0]
@@ -222,6 +226,14 @@ end
   @test Jm[3, 3] ≈ 3.0
   @test Jm[1, 2] ≈ 0.0
   @test Vm ≈ 6.0
+  @test Fm_discrete isa Metric{3,Float64}
+  @test Fm_continuous isa Metric{3,Float64}
+  @test Gm_discrete isa Metric{3,Float64}
+  @test Gm_continuous isa Metric{3,Float64}
+  @test inv(Fm_discrete).jacobian_matrix ≈ Gm_discrete.jacobian_matrix
+  @test inv(Fm_discrete).J ≈ Gm_discrete.J
+  @test inv(Fm_continuous).jacobian_matrix ≈ Gm_continuous.jacobian_matrix
+  @test inv(Fm_continuous).J ≈ Gm_continuous.J
 
   nx, ny, nz = (8, 8, 8)
   x = [Float64(i) for i in 1:nx, j in 1:ny, k in 1:nz]
@@ -234,6 +246,10 @@ end
 
   cd = coord(dgrid, idx)
   Jd = jacobian_matrix(dgrid, idx)
+  Fd_discrete = forward_cell_metrics(dgrid, (1, 2, 4))
+  Fd_continuous = forward_cell_metrics(dgrid, idx)
+  Gd_discrete = inverse_cell_metrics(dgrid, (1, 2, 4))
+  Gd_continuous = inverse_cell_metrics(dgrid, idx)
   Vd = cellvolume(dgrid, idx)
 
   @test cd ≈ [1.0, 4.6, 12.0]
@@ -243,4 +259,12 @@ end
   @test Jd[3, 3] ≈ 3.0
   @test Jd[2, 1] ≈ 0.0
   @test Vd ≈ 6.0
+  @test Fd_discrete isa Metric{3,Float64}
+  @test Fd_continuous isa Metric{3,Float64}
+  @test Gd_discrete isa Metric{3,Float64}
+  @test Gd_continuous isa Metric{3,Float64}
+  @test inv(Fd_discrete).jacobian_matrix ≈ Gd_discrete.jacobian_matrix
+  @test inv(Fd_discrete).J ≈ Gd_discrete.J
+  @test inv(Fd_continuous).jacobian_matrix ≈ Gd_continuous.jacobian_matrix
+  @test inv(Fd_continuous).J ≈ Gd_continuous.J
 end

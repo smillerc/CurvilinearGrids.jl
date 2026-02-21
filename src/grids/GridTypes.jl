@@ -625,6 +625,34 @@ conservation law.
 """
 jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
 
+"""
+    forward_cell_metrics(mesh, idx)
+
+Return the forward cell metric payload at `idx` as a `Metric`.
+"""
+@inline forward_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) = forward_cell_metrics(
+  mesh, idx.I
+)
+@inline function forward_cell_metrics(
+  mesh::AbstractCurvilinearGrid, idx::Tuple{Vararg{Int}}
+)
+  Metric(jacobian_matrix(mesh, idx))
+end
+
+"""
+    inverse_cell_metrics(mesh, idx)
+
+Return the inverse cell metric payload at `idx` as a `Metric`.
+"""
+@inline inverse_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) = inverse_cell_metrics(
+  mesh, idx.I
+)
+@inline function inverse_cell_metrics(
+  mesh::AbstractCurvilinearGrid, idx::Tuple{Vararg{Int}}
+)
+  inv(forward_cell_metrics(mesh, idx))
+end
+
 function get_gradient_discretization_scheme(discretization_scheme_name)
   scheme_name = Symbol(uppercase("$discretization_scheme_name"))
   use_symmetric_conservative_metric_scheme = false

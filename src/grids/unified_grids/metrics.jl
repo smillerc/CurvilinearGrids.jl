@@ -50,6 +50,9 @@ end
 @inline Base.getindex(metric::ConservedMetric, i::Int, j::Int) = metric.jacobian_matrix[
   i, j
 ]
+@inline Base.inv(metric::Metric{N,T,M}) where {N,T,M<:StaticMatrix{N,N,T}} = Metric(
+  inv(metric.jacobian_matrix)
+)
 
 @inline function _metric_eltype(::Val{N}, ::Type{T}) where {N,T}
   Metric{N,T,SMatrix{N,N,T,N * N}}
