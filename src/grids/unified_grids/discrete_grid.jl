@@ -164,6 +164,8 @@ function _new_discrete_grid(
   _check_unified_basis_trait(basis)
   _validate_discrete_interpolation(interpolation)
 
+  @assert nhalo >= 0
+
   disable_metrics = (!compute_metrics && cache_mode === :off)
   components = _build_unified_components(
     Val(N),
@@ -294,8 +296,9 @@ function DiscreteGrid(
 
   number_type = isnothing(Tcore) ? T : Tcore
 
-  nhalo_value = _normalize_nhalo(nhalo)
-  x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo_value) : x
+  @assert nhalo >= 0
+
+  x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo) : x
   x_nodes = number_type.(x_nodes)
 
   x_itp = _linear_interpolant(x_nodes)
@@ -306,7 +309,7 @@ function DiscreteGrid(
     (; x1=x_map),
     (; x1=x_itp),
     (length(x_nodes) - 1,),
-    nhalo_value;
+    nhalo;
     backend=backend,
     diff_backend=diff_backend,
     t=zero(number_type),
@@ -343,9 +346,10 @@ function DiscreteGrid(
 
   number_type = isnothing(Tcore) ? T : Tcore
 
-  nhalo_value = _normalize_nhalo(nhalo)
-  x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo_value) : x
-  y_nodes = halo_coords_included ? _strip_halo_nodes(y, nhalo_value) : y
+  @assert nhalo >= 0
+
+  x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo) : x
+  y_nodes = halo_coords_included ? _strip_halo_nodes(y, nhalo) : y
 
   x_nodes = number_type.(x_nodes)
   y_nodes = number_type.(y_nodes)
@@ -361,7 +365,7 @@ function DiscreteGrid(
     (; x1=x_map, x2=y_map),
     (; x1=x_itp, x2=y_itp),
     Tuple(size(x_nodes) .- 1),
-    nhalo_value;
+    nhalo;
     backend=backend,
     diff_backend=diff_backend,
     t=zero(number_type),
@@ -399,10 +403,11 @@ function DiscreteGrid(
 
   number_type = isnothing(Tcore) ? T : Tcore
 
-  nhalo_value = _normalize_nhalo(nhalo)
-  x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo_value) : x
-  y_nodes = halo_coords_included ? _strip_halo_nodes(y, nhalo_value) : y
-  z_nodes = halo_coords_included ? _strip_halo_nodes(z, nhalo_value) : z
+  @assert nhalo >= 0
+
+  x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo) : x
+  y_nodes = halo_coords_included ? _strip_halo_nodes(y, nhalo) : y
+  z_nodes = halo_coords_included ? _strip_halo_nodes(z, nhalo) : z
 
   x_nodes = number_type.(x_nodes)
   y_nodes = number_type.(y_nodes)
@@ -421,7 +426,7 @@ function DiscreteGrid(
     (; x1=x_map, x2=y_map, x3=z_map),
     (; x1=x_itp, x2=y_itp, x3=z_itp),
     Tuple(size(x_nodes) .- 1),
-    nhalo_value;
+    nhalo;
     backend=backend,
     diff_backend=diff_backend,
     t=zero(number_type),

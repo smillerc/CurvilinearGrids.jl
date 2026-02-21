@@ -82,14 +82,6 @@ function _new_metric_caches(cache_mode::Symbol, cell_data, face_data)
   )
 end
 
-@inline function _normalize_nhalo(nhalo::Integer)
-  nhalo_int = Int(nhalo)
-  if nhalo_int < 0
-    throw(ArgumentError("`nhalo` must be non-negative."))
-  end
-  return nhalo_int
-end
-
 @inline function _has_metric_storage(grid::AbstractMappedOrDiscreteGrid)
   return grid.metric_caches !== nothing
 end
@@ -144,9 +136,9 @@ function _allocate_unified_face_metric_storage(
   metric_type = _metric_eltype(Val(N), T)
   conserved_metric_type = _conserved_metric_eltype(Val(N), T)
   metric_array() = KernelAbstractions.zeros(backend, metric_type, celldims...)
-  conserved_metric_array() = KernelAbstractions.zeros(
-    backend, conserved_metric_type, celldims...
-  )
+  function conserved_metric_array()
+    KernelAbstractions.zeros(backend, conserved_metric_type, celldims...)
+  end
   return ntuple(
     _ -> (;
       forward=metric_array(), inverse=metric_array(), conserved=conserved_metric_array()

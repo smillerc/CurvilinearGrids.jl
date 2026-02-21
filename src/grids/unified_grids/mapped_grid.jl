@@ -214,14 +214,14 @@ function _new_mapped_grid(
 end
 
 """
-    MappedGrid(x[, y[, z]], params, celldims, nhalo; kwargs...)
+    MappedGrid(x1[, x2[, x3]], params, celldims, nhalo; kwargs...)
 
 Construct a mapped unified grid from continuous coordinate mapping functions.
 
 # Arguments
-  - `x`: Mapping function for the first physical coordinate.
-  - `y`: Mapping function for the second physical coordinate (2D/3D).
-  - `z`: Mapping function for the third physical coordinate (3D).
+  - `x1`: Mapping function for the first physical coordinate.
+  - `x2`: Mapping function for the second physical coordinate (2D/3D).
+  - `x3`: Mapping function for the third physical coordinate (3D).
   - `params`: Mapping parameter tuple passed to mapping functions.
   - `celldims`: Cell counts in each computational dimension.
   - `nhalo`: Halo width used by node/cell domains.
@@ -245,7 +245,7 @@ A `MappedGrid{N,T,...}` instance with initialized coordinates and metric cache
 storage.
 """
 function MappedGrid(
-  x::Function,
+  x1::Function,
   params::NamedTuple,
   celldims::NTuple{1,Int},
   nhalo::Integer;
@@ -260,14 +260,15 @@ function MappedGrid(
   cache_mode::Symbol=:eager,
   conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
-  nhalo_value = _normalize_nhalo(nhalo)
-  mapping_functions = (; x1=x)
+  @assert nhalo >= 0
+
+  mapping_functions = (; x1=x1)
   return _new_mapped_grid(
     Val(1),
     mapping_functions,
     params,
     celldims,
-    nhalo_value;
+    nhalo;
     backend=backend,
     diff_backend=diff_backend,
     t=t,
@@ -282,8 +283,8 @@ function MappedGrid(
 end
 
 function MappedGrid(
-  x::Function,
-  y::Function,
+  x1::Function,
+  x2::Function,
   params::NamedTuple,
   celldims::NTuple{2,Int},
   nhalo::Integer;
@@ -298,14 +299,15 @@ function MappedGrid(
   cache_mode::Symbol=:eager,
   conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
-  nhalo_value = _normalize_nhalo(nhalo)
-  mapping_functions = (; x1=x, x2=y)
+  @assert nhalo >= 0
+
+  mapping_functions = (; x1=x1, x2=x2)
   return _new_mapped_grid(
     Val(2),
     mapping_functions,
     params,
     celldims,
-    nhalo_value;
+    nhalo;
     backend=backend,
     diff_backend=diff_backend,
     t=t,
@@ -320,9 +322,9 @@ function MappedGrid(
 end
 
 function MappedGrid(
-  x::Function,
-  y::Function,
-  z::Function,
+  x1::Function,
+  x2::Function,
+  x3::Function,
   params::NamedTuple,
   celldims::NTuple{3,Int},
   nhalo::Integer;
@@ -337,14 +339,15 @@ function MappedGrid(
   cache_mode::Symbol=:eager,
   conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
-  nhalo_value = _normalize_nhalo(nhalo)
-  mapping_functions = (; x1=x, x2=y, x3=z)
+  @assert nhalo >= 0
+
+  mapping_functions = (; x1=x1, x2=x2, x3=x3)
   return _new_mapped_grid(
     Val(3),
     mapping_functions,
     params,
     celldims,
-    nhalo_value;
+    nhalo;
     backend=backend,
     diff_backend=diff_backend,
     t=t,
