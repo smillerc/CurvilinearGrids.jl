@@ -20,6 +20,18 @@ struct Metric{N,T,M<:StaticMatrix{N,N,T}}
 end
 
 """
+    ConservedMetric{N,T,M}
+
+Tensor-only metric payload used for conserved face metrics.
+
+# Fields
+  - `jacobian_matrix`: Conserved metric tensor as a static matrix.
+"""
+struct ConservedMetric{N,T,M<:StaticMatrix{N,N,T}}
+  jacobian_matrix::M
+end
+
+"""
     Metric(jacobian_matrix::StaticMatrix{N,N,T}) where {N,T}
 
 Construct a metric payload from a Jacobian matrix.
@@ -34,22 +46,30 @@ Construct a metric payload from a Jacobian matrix.
   Metric{N,T,typeof(jacobian_matrix)}(jacobian_matrix, det(jacobian_matrix))
 end
 
-@inline function _metric_from_jacobian(
-  jacobian_matrix::StaticMatrix{N,N,T}, J::T
-) where {N,T}
-  Metric{N,T,typeof(jacobian_matrix)}(jacobian_matrix, J)
-end
-
 @inline Base.getindex(metric::Metric, i::Int, j::Int) = metric.jacobian_matrix[i, j]
+@inline Base.getindex(metric::ConservedMetric, i::Int, j::Int) = metric.jacobian_matrix[
+  i, j
+]
 
 @inline function _metric_eltype(::Val{N}, ::Type{T}) where {N,T}
   Metric{N,T,SMatrix{N,N,T,N * N}}
+end
+
+@inline function _conserved_metric_eltype(::Val{N}, ::Type{T}) where {N,T}
+  ConservedMetric{N,T,SMatrix{N,N,T,N * N}}
 end
 
 function Base.zero(::Type{Metric{N,T,M}}) where {N,T,M<:StaticMatrix{N,N,T}}
   Metric(zero(M), zero(T))
 end
 Base.zero(metric::Metric{N,T,M}) where {N,T,M<:StaticMatrix{N,N,T}} = zero(Metric{N,T,M})
+
+function Base.zero(::Type{ConservedMetric{N,T,M}}) where {N,T,M<:StaticMatrix{N,N,T}}
+  ConservedMetric(zero(M))
+end
+function Base.zero(metric::ConservedMetric{N,T,M}) where {N,T,M<:StaticMatrix{N,N,T}}
+  zero(ConservedMetric{N,T,M})
+end
 
 @inline function _as_smatrix(::Val{1}, x)
   if x isa Number

@@ -303,9 +303,8 @@ end
 @inline function _continuous_inverse_jacobian(
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::Tuple{Vararg{Real,N}}
 ) where {N,T}
-  F = _continuous_forward_jacobian(grid, idx)
-  G = inv(F)
-  return SMatrix{N,N,T,N * N}(Tuple(G))
+  Jinv = inv(_continuous_forward_jacobian(grid, idx))
+  return SMatrix{N,N,T,N * N}(Tuple(Jinv))
 end
 
 function coord(
@@ -328,15 +327,14 @@ end
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::Tuple{Vararg{Real,N}}
 ) where {N,T}
   F = _continuous_forward_jacobian(grid, idx)
-  return _metric_from_jacobian(F, T(det(F)))
+  return Metric(F, det(F))
 end
 
 @inline function _cell_inverse_metric_at(
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::Tuple{Vararg{Real,N}}
 ) where {N,T}
-  F = _continuous_forward_jacobian(grid, idx)
   G = _continuous_inverse_jacobian(grid, idx)
-  return _metric_from_jacobian(G, T(det(F)))
+  return Metric(G, det(G))
 end
 
 """
@@ -375,10 +373,12 @@ end
   return T(det(_continuous_forward_jacobian(grid, idx)))
 end
 
-@inline _radial_centroid_1d(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::NTuple{1,Int}) = grid.centroid_coordinates[1][idx...]
-@inline _radial_centroid_1d(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::Tuple{Vararg{Real,1}}) = _continuous_coord(
-  grid, idx
-)[1]
+@inline _radial_centroid_1d(
+  grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::NTuple{1,Int}
+) = grid.centroid_coordinates[1][idx...]
+@inline _radial_centroid_1d(
+  grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::Tuple{Vararg{Real,1}}
+) = _continuous_coord(grid, idx)[1]
 
 @inline function _axisymmetric_radius(
   ::AxisymmetricCS{:x}, grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx::NTuple{2,Int}
@@ -438,7 +438,7 @@ end
   ::CylindricalCS, ::CartesianBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{1,Int}
 )
   r = _radial_centroid_1d(grid, idx)
-  return (2 * π * r) * _jacobian_volume_factor(grid, idx)
+  return (2π * r) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -448,7 +448,7 @@ end
   idx::Tuple{Vararg{Real,1}},
 )
   r = _radial_centroid_1d(grid, idx)
-  return (2 * π * r) * _jacobian_volume_factor(grid, idx)
+  return (2π * r) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -458,7 +458,7 @@ end
   idx::NTuple{2,Int},
 )
   r = centroid(grid, idx)[1]
-  return (2 * π * r) * _jacobian_volume_factor(grid, idx)
+  return (2π * r) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -468,7 +468,7 @@ end
   idx::Tuple{Vararg{Real,2}},
 )
   r = _continuous_coord(grid, idx)[1]
-  return (2 * π * r) * _jacobian_volume_factor(grid, idx)
+  return (2π * r) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -478,7 +478,7 @@ end
   idx::NTuple{2,Int},
 ) where {Axis}
   r = _axisymmetric_radius(cs, grid, idx)
-  return (2 * π * r) * _jacobian_volume_factor(grid, idx)
+  return (2π * r) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -488,14 +488,14 @@ end
   idx::Tuple{Vararg{Real,2}},
 ) where {Axis}
   r = _axisymmetric_radius(cs, grid, idx)
-  return (2 * π * r) * _jacobian_volume_factor(grid, idx)
+  return (2π * r) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
   ::SphericalCS, ::SphericalBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{1,Int}
 )
   r = _radial_centroid_1d(grid, idx)
-  return (4 * π * r * r) * _jacobian_volume_factor(grid, idx)
+  return (4π * r^2) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -505,7 +505,7 @@ end
   idx::Tuple{Vararg{Real,1}},
 )
   r = _radial_centroid_1d(grid, idx)
-  return (4 * π * r * r) * _jacobian_volume_factor(grid, idx)
+  return (4π * r^2) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -517,7 +517,7 @@ end
   c = centroid(grid, idx)
   r = c[1]
   θ = c[2]
-  return (r * r * sin(θ)) * _jacobian_volume_factor(grid, idx)
+  return (r^2 * sin(θ)) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -529,7 +529,7 @@ end
   c = _continuous_coord(grid, idx)
   r = c[1]
   θ = c[2]
-  return (r * r * sin(θ)) * _jacobian_volume_factor(grid, idx)
+  return (r^2 * sin(θ)) * _jacobian_volume_factor(grid, idx)
 end
 
 function _cellvolume_dispatch(

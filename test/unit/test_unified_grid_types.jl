@@ -88,8 +88,7 @@ end
   # face_metrics[edge_dim].{forward,inverse,conserved}[grid_index]
   i_face_metric = fm[1].conserved[I]
 
-  @test i_face_metric isa Metric{2,Float64}
-  @test isfinite(i_face_metric.J)
+  @test i_face_metric isa ConservedMetric{2,Float64}
   @test isfinite(i_face_metric.jacobian_matrix[1, 1])
   @test isfinite(i_face_metric.jacobian_matrix[2, 2])
 end

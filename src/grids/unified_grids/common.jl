@@ -100,9 +100,16 @@ function _allocate_unified_face_metric_storage(
 ) where {N,T}
   celldims = size(iterators.cell.full)
   metric_type = _metric_eltype(Val(N), T)
+  conserved_metric_type = _conserved_metric_eltype(Val(N), T)
   metric_array() = KernelAbstractions.zeros(backend, metric_type, celldims...)
+  conserved_metric_array() = KernelAbstractions.zeros(
+    backend, conserved_metric_type, celldims...
+  )
   return ntuple(
-    _ -> (; forward=metric_array(), inverse=metric_array(), conserved=metric_array()), N
+    _ -> (;
+      forward=metric_array(), inverse=metric_array(), conserved=conserved_metric_array()
+    ),
+    N,
   )
 end
 
@@ -321,7 +328,8 @@ end
 
   G = _as_smatrix(Val(1), jinv_fun(t, ξηζ..., params))
   Ghat = _as_smatrix(Val(1), norm_fun(t, ξηζ..., params))
-  return G, Ghat
+  Jinv = det(G)
+  return G, Ghat, Jinv
 end
 
 @inline function _inverse_and_normalized_edge_metrics(
@@ -336,7 +344,8 @@ end
   else
     throw(ArgumentError("Invalid 2D face axis: $edge_axis"))
   end
-  return G, Ghat
+  Jinv = det(G)
+  return G, Ghat, Jinv
 end
 
 @inline function _inverse_and_normalized_edge_metrics(
@@ -367,7 +376,8 @@ end
     throw(ArgumentError("Invalid 3D face axis: $edge_axis"))
   end
 
-  return G, Ghat
+  Jinv = det(G)
+  return G, Ghat, Jinv
 end
 
 function _fill_cell_metric_storage!(
@@ -388,12 +398,8 @@ function _fill_cell_metric_storage!(
     G = _as_smatrix(Val(N), metric_functions_cache.inverse.Jinv(t, ξηζ..., params))
     J = det(F)
 
-    cell_metric_storage.forward[I] = _metric_from_jacobian(
-      SMatrix{N,N,T,N * N}(Tuple(F)), T(J)
-    )
-    cell_metric_storage.inverse[I] = _metric_from_jacobian(
-      SMatrix{N,N,T,N * N}(Tuple(G)), T(J)
-    )
+    cell_metric_storage.forward[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(F)), T(J))
+    cell_metric_storage.inverse[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(G)), T(J))
   end
   return nothing
 end
@@ -415,18 +421,16 @@ function _fill_face_metric_storage!(
     ξηζ = Iglobal.I .- nhalo .+ 0.5
 
     for axis in 1:N
-      G, Ghat = _inverse_and_normalized_edge_metrics(Val(N), edge, axis, t, ξηζ, params)
+      G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(
+        Val(N), edge, axis, t, ξηζ, params
+      )
       F = inv(G)
       J = det(F)
 
-      face_metric_storage[axis].forward[I] = _metric_from_jacobian(
-        SMatrix{N,N,T,N * N}(Tuple(F)), T(J)
-      )
-      face_metric_storage[axis].inverse[I] = _metric_from_jacobian(
-        SMatrix{N,N,T,N * N}(Tuple(G)), T(J)
-      )
-      face_metric_storage[axis].conserved[I] = _metric_from_jacobian(
-        SMatrix{N,N,T,N * N}(Tuple(Ghat)), T(J)
+      face_metric_storage[axis].forward[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(F)), T(J))
+      face_metric_storage[axis].inverse[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(G)), T(Jinv))
+      face_metric_storage[axis].conserved[I] = ConservedMetric(
+        SMatrix{N,N,T,N * N}(Tuple(Ghat))
       )
     end
   end

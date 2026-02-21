@@ -26,15 +26,13 @@ export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 export SphericalGrid3D, SphericalBasisCurvilinearGrid3D
 export CartesianOrthogonalGrid1D,
-  CylindricalOrthogonalGrid1D,
-  SphericalOrthogonalGrid1D,
-  AxisymmetricOrthogonalGrid2D
+  CylindricalOrthogonalGrid1D, SphericalOrthogonalGrid1D, AxisymmetricOrthogonalGrid2D
 
 export ContinuousCurvilinearGrid1D, ContinuousCurvilinearGrid2D, ContinuousCurvilinearGrid3D
 
 export AbstractUnifiedGrid
 export MappedGrid, DiscreteGrid, OrthogonalGrid
-export Metric
+export Metric, ConservedMetric
 
 export CoordinateSystemTrait
 export CartesianCS, CylindricalCS, SphericalCS, AxisymmetricCS, CurvilinearCS
