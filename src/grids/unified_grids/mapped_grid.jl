@@ -144,6 +144,7 @@ function _new_mapped_grid(
   coordinate_system::CoordinateSystemTrait,
   basis::BasisTrait,
   cache_mode::Symbol,
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait,
 ) where {N}
   _check_unified_basis_trait(basis)
 
@@ -152,6 +153,7 @@ function _new_mapped_grid(
     mapping_functions,
     celldims,
     discretization_scheme,
+    conserved_metric_scheme,
     backend,
     diff_backend,
     T;
@@ -245,6 +247,7 @@ Construct a mapped unified grid from continuous coordinate mapping functions.
   - `coordinate_system`: Coordinate-system trait. Default: `CurvilinearCS()`.
   - `basis`: Basis trait. Default: `CartesianBasis()`.
   - `cache_mode`: Metric cache mode (`:eager`, `:lazy`, `:off`). Default: `:eager`.
+  - `conserved_metric_scheme`: Conserved face interpolation scheme trait (`EdgeInterpolationOrder1()`, `EdgeInterpolationOrder2()`, `EdgeInterpolationOrder3()`). Default: `EdgeInterpolationOrder3()`.
 
 # Returns
 A `MappedGrid{N,T,...}` instance with initialized coordinates and metric cache
@@ -264,6 +267,7 @@ function MappedGrid(
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
   basis::BasisTrait=CartesianBasis(),
   cache_mode::Symbol=:eager,
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
   mapping_functions = (; x)
   return _new_mapped_grid(
@@ -281,6 +285,7 @@ function MappedGrid(
     coordinate_system=coordinate_system,
     basis=basis,
     cache_mode=cache_mode,
+    conserved_metric_scheme=conserved_metric_scheme,
   )
 end
 
@@ -299,6 +304,7 @@ function MappedGrid(
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
   basis::BasisTrait=CartesianBasis(),
   cache_mode::Symbol=:eager,
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
   mapping_functions = (; x, y)
   return _new_mapped_grid(
@@ -316,6 +322,7 @@ function MappedGrid(
     coordinate_system=coordinate_system,
     basis=basis,
     cache_mode=cache_mode,
+    conserved_metric_scheme=conserved_metric_scheme,
   )
 end
 
@@ -335,6 +342,7 @@ function MappedGrid(
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
   basis::BasisTrait=CartesianBasis(),
   cache_mode::Symbol=:eager,
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
   mapping_functions = (; x, y, z)
   return _new_mapped_grid(
@@ -352,6 +360,7 @@ function MappedGrid(
     coordinate_system=coordinate_system,
     basis=basis,
     cache_mode=cache_mode,
+    conserved_metric_scheme=conserved_metric_scheme,
   )
 end
 

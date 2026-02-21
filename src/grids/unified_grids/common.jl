@@ -180,21 +180,50 @@ function _allocate_unified_coordinates(::Val{3}, iterators, backend, ::Type{T}) 
   return node_coordinates, centroid_coordinates
 end
 
-@inline _metric_cache_for_mapping(::Val{1}, mapping_functions, diff_backend) = MetricCache(
-  mapping_functions.x, diff_backend
+@inline function _metric_cache_for_mapping(
+  ::Val{1},
+  mapping_functions,
+  diff_backend,
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait,
 )
-@inline _metric_cache_for_mapping(::Val{2}, mapping_functions, diff_backend) = MetricCache(
-  mapping_functions.x, mapping_functions.y, diff_backend
+  MetricCache(
+    mapping_functions.x, diff_backend; edge_interpolation_scheme=edge_interpolation_scheme
+  )
+end
+@inline function _metric_cache_for_mapping(
+  ::Val{2},
+  mapping_functions,
+  diff_backend,
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait,
 )
-@inline _metric_cache_for_mapping(::Val{3}, mapping_functions, diff_backend) = MetricCache(
-  mapping_functions.x, mapping_functions.y, mapping_functions.z, diff_backend
+  MetricCache(
+    mapping_functions.x,
+    mapping_functions.y,
+    diff_backend;
+    edge_interpolation_scheme=edge_interpolation_scheme,
+  )
+end
+@inline function _metric_cache_for_mapping(
+  ::Val{3},
+  mapping_functions,
+  diff_backend,
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait,
 )
+  MetricCache(
+    mapping_functions.x,
+    mapping_functions.y,
+    mapping_functions.z,
+    diff_backend;
+    edge_interpolation_scheme=edge_interpolation_scheme,
+  )
+end
 
 function _build_unified_components(
   ::Val{N},
   mapping_functions,
   celldims::NTuple{N,Int},
   discretization_scheme::Symbol,
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait,
   backend,
   diff_backend,
   ::Type{T};
@@ -209,7 +238,7 @@ function _build_unified_components(
     Val(N), iterators, backend, T
   )
   metric_functions_cache = _metric_cache_for_mapping(
-    Val(N), mapping_functions, diff_backend
+    Val(N), mapping_functions, diff_backend, edge_interpolation_scheme
   )
   cell_metric_storage, face_metric_storage = _allocate_unified_metric_storage(
     Val(N), backend, T, iterators

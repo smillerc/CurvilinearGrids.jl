@@ -172,12 +172,20 @@ function _new_discrete_grid(
   basis::BasisTrait,
   interpolation::Symbol,
   cache_mode::Symbol,
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait,
 ) where {N}
   _check_unified_basis_trait(basis)
   _validate_discrete_interpolation(interpolation)
 
   components = _build_unified_components(
-    Val(N), mapping_functions, celldims, discretization_scheme, backend, diff_backend, T
+    Val(N),
+    mapping_functions,
+    celldims,
+    discretization_scheme,
+    conserved_metric_scheme,
+    backend,
+    diff_backend,
+    T,
   )
 
   caches = _new_metric_caches(
@@ -266,6 +274,7 @@ interpolation.
   - `basis`: Basis trait. Default: `CartesianBasis()`.
   - `interpolation`: Interpolation mode. Must be `:linear`.
   - `cache_mode`: Metric cache mode (`:eager`, `:lazy`, `:off`). Default: `:eager`.
+  - `conserved_metric_scheme`: Conserved face interpolation scheme trait (`EdgeInterpolationOrder1()`, `EdgeInterpolationOrder2()`, `EdgeInterpolationOrder3()`). Default: `EdgeInterpolationOrder3()`.
 
 # Returns
 A `DiscreteGrid{N,T,...}` instance with initialized coordinates and metric
@@ -283,6 +292,7 @@ function DiscreteGrid(
   basis::BasisTrait=CartesianBasis(),
   interpolation::Symbol=:linear,
   cache_mode::Symbol=:eager,
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 ) where {TX}
   _validate_discrete_interpolation(interpolation)
 
@@ -310,6 +320,7 @@ function DiscreteGrid(
     basis=basis,
     interpolation=interpolation,
     cache_mode=cache_mode,
+    conserved_metric_scheme=conserved_metric_scheme,
   )
 end
 
@@ -326,6 +337,7 @@ function DiscreteGrid(
   basis::BasisTrait=CartesianBasis(),
   interpolation::Symbol=:linear,
   cache_mode::Symbol=:eager,
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 ) where {TX}
   size(x) == size(y) ||
     throw(ArgumentError("x and y arrays must have matching dimensions."))
@@ -361,6 +373,7 @@ function DiscreteGrid(
     basis=basis,
     interpolation=interpolation,
     cache_mode=cache_mode,
+    conserved_metric_scheme=conserved_metric_scheme,
   )
 end
 
@@ -378,6 +391,7 @@ function DiscreteGrid(
   basis::BasisTrait=CartesianBasis(),
   interpolation::Symbol=:linear,
   cache_mode::Symbol=:eager,
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 ) where {TX}
   (size(x) == size(y) && size(y) == size(z)) ||
     throw(ArgumentError("x, y, and z arrays must have matching dimensions."))
@@ -417,6 +431,7 @@ function DiscreteGrid(
     basis=basis,
     interpolation=interpolation,
     cache_mode=cache_mode,
+    conserved_metric_scheme=conserved_metric_scheme,
   )
 end
 

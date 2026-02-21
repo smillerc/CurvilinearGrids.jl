@@ -63,6 +63,98 @@ using CurvilinearGrids,
   @test all(abs.(extrema(I3)) .< 1e-14)
 end
 
+@testset "Wavy MappedGrid3D Edge Scheme Runtime Comparison" begin
+  function wavy_mapping()
+    function x(t, i, j, k, p)
+      @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, xmin = p
+      xmin +
+      Δx0 * ((i - 1) + Ax * sin(pi * n * (j - 1) * Δy0) * sin(pi * n * (k - 1) * Δz0))
+    end
+
+    function y(t, i, j, k, p)
+      @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, ymin = p
+      ymin +
+      Δy0 * ((j - 1) + Ay * sin(pi * n * (k - 1) * Δz0) * sin(pi * n * (i - 1) * Δx0))
+    end
+
+    function z(t, i, j, k, p)
+      @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, zmin = p
+      zmin +
+      Δz0 * ((k - 1) + Az * sin(pi * n * (i - 1) * Δx0) * sin(pi * n * (j - 1) * Δy0))
+    end
+
+    return (x, y, z)
+  end
+
+  function wavy_params()
+    celldims = (41, 41, 41)
+    ni, nj, nk = celldims
+    Lx = Ly = Lz = 12
+
+    xmin = -Lx / 2
+    ymin = -Ly / 2
+    zmin = -Lz / 2
+
+    Δx0 = Lx / ni
+    Δy0 = Ly / nj
+    Δz0 = Lz / nk
+
+    Ax = 0.2 / Δx0
+    Ay = 0.4 / Δy0
+    Az = 0.6 / Δz0
+    n = 0.5
+
+    params = (; Ax, Ay, Az, n, Δx0, Δy0, Δz0, xmin, ymin, zmin)
+    return params, celldims
+  end
+
+  function run_wavy_case(x, y, z, params, celldims, scheme)
+    mesh = MappedGrid(
+      x, y, z, params, celldims, :meg6; backend=CPU(), conserved_metric_scheme=scheme
+    )
+    I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(
+      face_metrics(mesh), mesh.iterators.cell.domain
+    )
+    m1 = maximum(abs, I1)
+    m2 = maximum(abs, I2)
+    m3 = maximum(abs, I3)
+    return (m1=m1, m2=m2, m3=m3, m=max(m1, m2, m3))
+  end
+
+  x, y, z = wavy_mapping()
+  params, celldims = wavy_params()
+  schemes = (
+    ("EdgeInterpolationOrder1", CurvilinearGrids.GridTypes.EdgeInterpolationOrder1()),
+    ("EdgeInterpolationOrder2", CurvilinearGrids.GridTypes.EdgeInterpolationOrder2()),
+    ("EdgeInterpolationOrder3", CurvilinearGrids.GridTypes.EdgeInterpolationOrder3()),
+  )
+
+  # Warm up each scheme to avoid JIT compilation noise in runtime comparison.
+  for (_, scheme) in schemes
+    run_wavy_case(x, y, z, params, celldims, scheme)
+  end
+
+  runtimes = Float64[]
+  for (name, scheme) in schemes
+    t0 = time_ns()
+    errors = run_wavy_case(x, y, z, params, celldims, scheme)
+    elapsed_seconds = (time_ns() - t0) * 1e-9
+    push!(runtimes, elapsed_seconds)
+
+    @info "Wavy MappedGrid3D edge interpolation comparison" scheme = name max_I1 =
+      errors.m1 max_I2 = errors.m2 max_I3 = errors.m3 max_error = errors.m runtime_seconds =
+      elapsed_seconds
+
+    @test errors.m1 < 1e-14
+    @test errors.m2 < 1e-14
+    @test errors.m3 < 1e-14
+    @test elapsed_seconds > 0
+  end
+
+  @test runtimes[1] < runtimes[2]
+  @test runtimes[2] < runtimes[3]
+end
+
 @testset "Sphere Sector MappedGrid3D" begin
   function get_sector_parameters()
     celldims = (40, 40, 40)

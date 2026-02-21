@@ -41,6 +41,8 @@ export CartesianCS, CylindricalCS, SphericalCS, AxisymmetricCS, CurvilinearCS
 
 export BasisTrait
 export CartesianBasis, SphericalBasis
+export EdgeInterpolationSchemeTrait
+export EdgeInterpolationOrder1, EdgeInterpolationOrder2, EdgeInterpolationOrder3
 
 export coordinate_system, basis_trait
 export cell_metrics, face_metrics

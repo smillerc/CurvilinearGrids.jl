@@ -4,10 +4,42 @@ struct MetricCache{FM,IM,EM}
   edge::EM
 end
 
+abstract type EdgeInterpolationSchemeTrait end
+
+struct EdgeInterpolationOrder1 <: EdgeInterpolationSchemeTrait end
+struct EdgeInterpolationOrder2 <: EdgeInterpolationSchemeTrait end
+struct EdgeInterpolationOrder3 <: EdgeInterpolationSchemeTrait end
+
+@inline _edge_reconstruct(ϕᵢ, ϕᵢ₊₁, ::EdgeInterpolationOrder1) = 0.5 * (ϕᵢ + ϕᵢ₊₁)
+
+@inline function _edge_reconstruct(
+  ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ::EdgeInterpolationOrder2, Δξ::Real=1
+)
+  h = 0.5 * Δξ
+  ϕᴸᵢ₊½ = ϕᵢ + h * ∂ϕ_∂ξᵢ
+  ϕᴿᵢ₊½ = ϕᵢ₊₁ - h * ∂ϕ_∂ξᵢ₊₁
+  return 0.5 * (ϕᴸᵢ₊½ + ϕᴿᵢ₊½)
+end
+
+@inline function _edge_reconstruct(
+  ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, ::EdgeInterpolationOrder3, Δξ::Real=1
+)
+  h = 0.5 * Δξ
+  ϕᴸᵢ₊½ = ϕᵢ + h * ∂ϕ_∂ξᵢ + (Δξ^2 / 12) * ∂²ϕ_∂ξ²ᵢ
+  ϕᴿᵢ₊½ = ϕᵢ₊₁ - h * ∂ϕ_∂ξᵢ₊₁ + (Δξ^2 / 12) * ∂²ϕ_∂ξ²ᵢ₊₁
+  return 0.5 * (ϕᴸᵢ₊½ + ϕᴿᵢ₊½)
+end
+
 """
 3D metric cache
 """
-function MetricCache(x::Function, y::Function, z::Function, backend)
+function MetricCache(
+  x::Function,
+  y::Function,
+  z::Function,
+  backend;
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+)
   xξ(t, i, j, k, p) = derivative(ξ -> x(t, ξ, j, k, p), backend, i)
   xη(t, i, j, k, p) = derivative(η -> x(t, i, η, k, p), backend, j)
   xζ(t, i, j, k, p) = derivative(ζ -> x(t, i, j, ζ, p), backend, k)
@@ -163,7 +195,9 @@ function MetricCache(x::Function, y::Function, z::Function, backend)
   #   Jinv_norm=normalized_jinv,
   # )
 
-  inverse_metrics, edge_metrics = get_inverse_metric_terms(x, y, z, backend)
+  inverse_metrics, edge_metrics = get_inverse_metric_terms(
+    x, y, z, backend; edge_interpolation_scheme=edge_interpolation_scheme
+  )
 
   # edge_metrics = get_edge_functions_3d(forward_metrics, inverse_metrics, backend)
 
@@ -173,7 +207,12 @@ end
 """
 2D metric cache
 """
-function MetricCache(x::Function, y::Function, backend)
+function MetricCache(
+  x::Function,
+  y::Function,
+  backend;
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+)
   xξ(t, i, j, p) = derivative(ξ -> x(t, ξ, j, p), backend, i)
   xη(t, i, j, p) = derivative(η -> x(t, i, η, p), backend, j)
   xτ(t, i, j, p) = derivative(τ -> x(τ, i, j, p), backend, t)
@@ -282,7 +321,12 @@ function MetricCache(x::Function, y::Function, backend)
     Jinv_norm=normalized_jinv,
   )
 
-  edge_metrics = get_edge_functions_2d(forward_metrics, inverse_metrics, backend)
+  edge_metrics = get_edge_functions_2d(
+    forward_metrics,
+    inverse_metrics,
+    backend;
+    edge_interpolation_scheme=edge_interpolation_scheme,
+  )
 
   return MetricCache(forward_metrics, inverse_metrics, edge_metrics)
 end
@@ -290,7 +334,11 @@ end
 """
 1D metric cache
 """
-function MetricCache(x::Function, backend)
+function MetricCache(
+  x::Function,
+  backend;
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+)
   xξ(t, i, p) = derivative(ξ -> x(t, ξ, p), backend, i)
 
   jacobian_matrix(t, i, p) = @SMatrix [xξ(t, i, p)]
@@ -314,7 +362,12 @@ function MetricCache(x::Function, backend)
     Jinv_norm=normalized_jinv,
   )
 
-  edge_metrics = get_edge_functions_1d(forward_metrics, inverse_metrics, backend)
+  edge_metrics = get_edge_functions_1d(
+    forward_metrics,
+    inverse_metrics,
+    backend;
+    edge_interpolation_scheme=edge_interpolation_scheme,
+  )
 
   return MetricCache(forward_metrics, inverse_metrics, edge_metrics)
 end
@@ -354,117 +407,201 @@ function cell_center_derivative_1d(ϕ::F, backend) where {F}
   return (; ∂ϕ_∂ξ,)
 end
 
-function edge_functions_3d(ϕ, backend)
+edge_functions_3d(ϕ, backend) = edge_functions_3d(ϕ, backend, EdgeInterpolationOrder3())
 
-  #
-  function ξ_derivs(t, i, j, k, p)
-    value_derivative_and_second_derivative(ξ -> ϕ(t, ξ, j, k, p), backend, i)
-  end
+function edge_functions_3d(ϕ, backend, ::EdgeInterpolationOrder1)
+  ϕᵢ₊½(t, i, j, k, p) = _edge_reconstruct(
+    ϕ(t, i, j, k, p), ϕ(t, i + 1, j, k, p), EdgeInterpolationOrder1()
+  )
+  ϕⱼ₊½(t, i, j, k, p) = _edge_reconstruct(
+    ϕ(t, i, j, k, p), ϕ(t, i, j + 1, k, p), EdgeInterpolationOrder1()
+  )
+  ϕₖ₊½(t, i, j, k, p) = _edge_reconstruct(
+    ϕ(t, i, j, k, p), ϕ(t, i, j, k + 1, p), EdgeInterpolationOrder1()
+  )
+  return (; ϕᵢ₊½, ϕⱼ₊½, ϕₖ₊½)
+end
 
-  function η_derivs(t, i, j, k, p)
-    value_derivative_and_second_derivative(η -> ϕ(t, i, η, k, p), backend, j)
-  end
+function edge_functions_3d(ϕ, backend, ::EdgeInterpolationOrder2)
+  ξ_derivs(t, i, j, k, p) = value_and_derivative(ξ -> ϕ(t, ξ, j, k, p), backend, i)
+  η_derivs(t, i, j, k, p) = value_and_derivative(η -> ϕ(t, i, η, k, p), backend, j)
+  ζ_derivs(t, i, j, k, p) = value_and_derivative(ζ -> ϕ(t, i, j, ζ, p), backend, k)
 
-  function ζ_derivs(t, i, j, k, p)
-    value_derivative_and_second_derivative(ζ -> ϕ(t, i, j, ζ, p), backend, k)
+  function ϕᵢ₊½(t, i, j, k, p)
+    ϕᵢ, ∂ϕ_∂ξᵢ = ξ_derivs(t, i, j, k, p)
+    ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁ = ξ_derivs(t, i + 1, j, k, p)
+    _edge_reconstruct(ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, EdgeInterpolationOrder2())
   end
+  function ϕⱼ₊½(t, i, j, k, p)
+    ϕⱼ, ∂ϕ_∂ηⱼ = η_derivs(t, i, j, k, p)
+    ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁ = η_derivs(t, i, j + 1, k, p)
+    _edge_reconstruct(ϕⱼ, ∂ϕ_∂ηⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, EdgeInterpolationOrder2())
+  end
+  function ϕₖ₊½(t, i, j, k, p)
+    ϕₖ, ∂ϕ_∂ζₖ = ζ_derivs(t, i, j, k, p)
+    ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁ = ζ_derivs(t, i, j, k + 1, p)
+    _edge_reconstruct(ϕₖ, ∂ϕ_∂ζₖ, ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, EdgeInterpolationOrder2())
+  end
+  return (; ϕᵢ₊½, ϕⱼ₊½, ϕₖ₊½)
+end
+
+function edge_functions_3d(ϕ, backend, ::EdgeInterpolationOrder3)
+  ξ_derivs(t, i, j, k, p) = value_derivative_and_second_derivative(
+    ξ -> ϕ(t, ξ, j, k, p), backend, i
+  )
+  η_derivs(t, i, j, k, p) = value_derivative_and_second_derivative(
+    η -> ϕ(t, i, η, k, p), backend, j
+  )
+  ζ_derivs(t, i, j, k, p) = value_derivative_and_second_derivative(
+    ζ -> ϕ(t, i, j, ζ, p), backend, k
+  )
 
   function ϕᵢ₊½(t, i, j, k, p)
     ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(t, i, j, k, p)
     ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁ = ξ_derivs(t, i + 1, j, k, p)
-
-    ϕᴸᵢ₊½ = ϕᵢ + (1 / 2) * ∂ϕ_∂ξᵢ + (1 / 12) * ∂²ϕ_∂ξ²ᵢ
-    ϕᴿᵢ₊½ = ϕᵢ₊₁ - (1 / 2) * ∂ϕ_∂ξᵢ₊₁ + (1 / 12) * ∂²ϕ_∂ξ²ᵢ₊₁
-
-    return (ϕᴸᵢ₊½ + ϕᴿᵢ₊½) / 2
+    _edge_reconstruct(
+      ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, EdgeInterpolationOrder3()
+    )
   end
-
   function ϕⱼ₊½(t, i, j, k, p)
-    ϕⱼ, ∂ϕ_∂ξⱼ, ∂²ϕ_∂ξ²ⱼ = η_derivs(t, i, j, k, p)
-    ϕⱼ₊₁, ∂ϕ_∂ξⱼ₊₁, ∂²ϕ_∂ξ²ⱼ₊₁ = η_derivs(t, i, j + 1, k, p)
-
-    ϕᴸⱼ₊½ = ϕⱼ + (1 / 2) * ∂ϕ_∂ξⱼ + (1 / 12) * ∂²ϕ_∂ξ²ⱼ
-    ϕᴿⱼ₊½ = ϕⱼ₊₁ - (1 / 2) * ∂ϕ_∂ξⱼ₊₁ + (1 / 12) * ∂²ϕ_∂ξ²ⱼ₊₁
-
-    return (ϕᴸⱼ₊½ + ϕᴿⱼ₊½) / 2
+    ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ = η_derivs(t, i, j, k, p)
+    ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁ = η_derivs(t, i, j + 1, k, p)
+    _edge_reconstruct(
+      ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁, EdgeInterpolationOrder3()
+    )
   end
-
   function ϕₖ₊½(t, i, j, k, p)
-    ϕₖ, ∂ϕ_∂ξₖ, ∂²ϕ_∂ξ²ₖ = ζ_derivs(t, i, j, k, p)
-    ϕₖ₊₁, ∂ϕ_∂ξₖ₊₁, ∂²ϕ_∂ξ²ₖ₊₁ = ζ_derivs(t, i, j, k + 1, p)
-
-    ϕᴸₖ₊½ = ϕₖ + (1 / 2) * ∂ϕ_∂ξₖ + (1 / 12) * ∂²ϕ_∂ξ²ₖ
-    ϕᴿₖ₊½ = ϕₖ₊₁ - (1 / 2) * ∂ϕ_∂ξₖ₊₁ + (1 / 12) * ∂²ϕ_∂ξ²ₖ₊₁
-
-    return (ϕᴸₖ₊½ + ϕᴿₖ₊½) / 2
+    ϕₖ, ∂ϕ_∂ζₖ, ∂²ϕ_∂ζ²ₖ = ζ_derivs(t, i, j, k, p)
+    ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, ∂²ϕ_∂ζ²ₖ₊₁ = ζ_derivs(t, i, j, k + 1, p)
+    _edge_reconstruct(
+      ϕₖ, ∂ϕ_∂ζₖ, ∂²ϕ_∂ζ²ₖ, ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, ∂²ϕ_∂ζ²ₖ₊₁, EdgeInterpolationOrder3()
+    )
   end
-
   return (; ϕᵢ₊½, ϕⱼ₊½, ϕₖ₊½)
 end
 
-function edge_functions_2d(ϕ, backend)
+edge_functions_2d(ϕ, backend) = edge_functions_2d(ϕ, backend, EdgeInterpolationOrder3())
 
-  # returns val, ∂, ∂²
-  function ξ_derivs(t, i, j, p)
-    value_derivative_and_second_derivative(ξ -> ϕ(t, ξ, j, p), backend, i)
+function edge_functions_2d(ϕ, backend, ::EdgeInterpolationOrder1)
+  ϕᵢ₊½(t, i, j, p) = _edge_reconstruct(
+    ϕ(t, i, j, p), ϕ(t, i + 1, j, p), EdgeInterpolationOrder1()
+  )
+  ϕⱼ₊½(t, i, j, p) = _edge_reconstruct(
+    ϕ(t, i, j, p), ϕ(t, i, j + 1, p), EdgeInterpolationOrder1()
+  )
+  return (; ϕᵢ₊½, ϕⱼ₊½)
+end
+
+function edge_functions_2d(ϕ, backend, ::EdgeInterpolationOrder2)
+  ξ_derivs(t, i, j, p) = value_and_derivative(ξ -> ϕ(t, ξ, j, p), backend, i)
+  η_derivs(t, i, j, p) = value_and_derivative(η -> ϕ(t, i, η, p), backend, j)
+
+  function ϕᵢ₊½(t, i, j, p)
+    ϕᵢ, ∂ϕ_∂ξᵢ = ξ_derivs(t, i, j, p)
+    ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁ = ξ_derivs(t, i + 1, j, p)
+    _edge_reconstruct(ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, EdgeInterpolationOrder2())
   end
-  function η_derivs(t, i, j, p)
-    value_derivative_and_second_derivative(η -> ϕ(t, i, η, p), backend, j)
+  function ϕⱼ₊½(t, i, j, p)
+    ϕⱼ, ∂ϕ_∂ηⱼ = η_derivs(t, i, j, p)
+    ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁ = η_derivs(t, i, j + 1, p)
+    _edge_reconstruct(ϕⱼ, ∂ϕ_∂ηⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, EdgeInterpolationOrder2())
   end
+  return (; ϕᵢ₊½, ϕⱼ₊½)
+end
+
+function edge_functions_2d(ϕ, backend, ::EdgeInterpolationOrder3)
+  ξ_derivs(t, i, j, p) = value_derivative_and_second_derivative(
+    ξ -> ϕ(t, ξ, j, p), backend, i
+  )
+  η_derivs(t, i, j, p) = value_derivative_and_second_derivative(
+    η -> ϕ(t, i, η, p), backend, j
+  )
 
   function ϕᵢ₊½(t, i, j, p)
     ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(t, i, j, p)
     ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁ = ξ_derivs(t, i + 1, j, p)
-
-    ϕᴸᵢ₊½ = ϕᵢ + (1 / 2) * ∂ϕ_∂ξᵢ + (1 / 12) * ∂²ϕ_∂ξ²ᵢ
-    ϕᴿᵢ₊½ = ϕᵢ₊₁ - (1 / 2) * ∂ϕ_∂ξᵢ₊₁ + (1 / 12) * ∂²ϕ_∂ξ²ᵢ₊₁
-
-    return (ϕᴸᵢ₊½ + ϕᴿᵢ₊½) / 2
+    _edge_reconstruct(
+      ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, EdgeInterpolationOrder3()
+    )
   end
-
   function ϕⱼ₊½(t, i, j, p)
-    ϕⱼ, ∂ϕ_∂ξⱼ, ∂²ϕ_∂ξ²ⱼ = η_derivs(t, i, j, p)
-    ϕⱼ₊₁, ∂ϕ_∂ξⱼ₊₁, ∂²ϕ_∂ξ²ⱼ₊₁ = η_derivs(t, i, j + 1, p)
-
-    ϕᴸⱼ₊½ = ϕⱼ + (1 / 2) * ∂ϕ_∂ξⱼ + (1 / 12) * ∂²ϕ_∂ξ²ⱼ
-    ϕᴿⱼ₊½ = ϕⱼ₊₁ - (1 / 2) * ∂ϕ_∂ξⱼ₊₁ + (1 / 12) * ∂²ϕ_∂ξ²ⱼ₊₁
-
-    return (ϕᴸⱼ₊½ + ϕᴿⱼ₊½) / 2
+    ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ = η_derivs(t, i, j, p)
+    ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁ = η_derivs(t, i, j + 1, p)
+    _edge_reconstruct(
+      ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁, EdgeInterpolationOrder3()
+    )
   end
-
   return (; ϕᵢ₊½, ϕⱼ₊½)
 end
 
-function edge_functions_1d(ϕ, backend)
+edge_functions_1d(ϕ, backend) = edge_functions_1d(ϕ, backend, EdgeInterpolationOrder3())
 
-  # returns val, ∂, ∂²
-  ξ_derivs(t, i, p) = value_derivative_and_second_derivative(ξ -> ϕ(t, ξ, p), backend, i)
-
-  function ϕᵢ₊½(t, i, p)
-    ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(t, i, p)
-    ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁ = ξ_derivs(t, i + 1, p)
-
-    ϕᴸᵢ₊½ = ϕᵢ + (1 / 2) * ∂ϕ_∂ξᵢ + (1 / 12) * ∂²ϕ_∂ξ²ᵢ
-    ϕᴿᵢ₊½ = ϕᵢ₊₁ - (1 / 2) * ∂ϕ_∂ξᵢ₊₁ + (1 / 12) * ∂²ϕ_∂ξ²ᵢ₊₁
-
-    return (ϕᴸᵢ₊½ + ϕᴿᵢ₊½) / 2
-  end
-
+function edge_functions_1d(ϕ, backend, ::EdgeInterpolationOrder1)
+  ϕᵢ₊½(t, i, p) = _edge_reconstruct(ϕ(t, i, p), ϕ(t, i + 1, p), EdgeInterpolationOrder1())
   return (; ϕᵢ₊½)
 end
 
-function get_edge_functions_3d(forward_metrics, inverse_metrics, diff_backend)
-  ξ̂xᵢ₊½, ξ̂xⱼ₊½, ξ̂xₖ₊½ = edge_functions_3d(inverse_metrics.ξ̂x, diff_backend)
-  η̂xᵢ₊½, η̂xⱼ₊½, η̂xₖ₊½ = edge_functions_3d(inverse_metrics.η̂x, diff_backend)
-  ζ̂xᵢ₊½, ζ̂xⱼ₊½, ζ̂xₖ₊½ = edge_functions_3d(inverse_metrics.ζ̂x, diff_backend)
-  ξ̂yᵢ₊½, ξ̂yⱼ₊½, ξ̂yₖ₊½ = edge_functions_3d(inverse_metrics.ξ̂y, diff_backend)
-  η̂yᵢ₊½, η̂yⱼ₊½, η̂yₖ₊½ = edge_functions_3d(inverse_metrics.η̂y, diff_backend)
-  ζ̂yᵢ₊½, ζ̂yⱼ₊½, ζ̂yₖ₊½ = edge_functions_3d(inverse_metrics.ζ̂y, diff_backend)
-  ξ̂zᵢ₊½, ξ̂zⱼ₊½, ξ̂zₖ₊½ = edge_functions_3d(inverse_metrics.ξ̂z, diff_backend)
-  η̂zᵢ₊½, η̂zⱼ₊½, η̂zₖ₊½ = edge_functions_3d(inverse_metrics.η̂z, diff_backend)
-  ζ̂zᵢ₊½, ζ̂zⱼ₊½, ζ̂zₖ₊½ = edge_functions_3d(inverse_metrics.ζ̂z, diff_backend)
-  Jᵢ₊½, Jⱼ₊½, Jₖ₊½ = edge_functions_3d(forward_metrics.J, diff_backend)
-  Jinv_ᵢ₊½, Jinv_ⱼ₊½, Jinv_ₖ₊½ = edge_functions_3d(inverse_metrics.Jinv, diff_backend)
+function edge_functions_1d(ϕ, backend, ::EdgeInterpolationOrder2)
+  ξ_derivs(t, i, p) = value_and_derivative(ξ -> ϕ(t, ξ, p), backend, i)
+  function ϕᵢ₊½(t, i, p)
+    ϕᵢ, ∂ϕ_∂ξᵢ = ξ_derivs(t, i, p)
+    ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁ = ξ_derivs(t, i + 1, p)
+    _edge_reconstruct(ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, EdgeInterpolationOrder2())
+  end
+  return (; ϕᵢ₊½)
+end
+
+function edge_functions_1d(ϕ, backend, ::EdgeInterpolationOrder3)
+  ξ_derivs(t, i, p) = value_derivative_and_second_derivative(ξ -> ϕ(t, ξ, p), backend, i)
+  function ϕᵢ₊½(t, i, p)
+    ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(t, i, p)
+    ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁ = ξ_derivs(t, i + 1, p)
+    _edge_reconstruct(
+      ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, EdgeInterpolationOrder3()
+    )
+  end
+  return (; ϕᵢ₊½)
+end
+
+function get_edge_functions_3d(
+  forward_metrics,
+  inverse_metrics,
+  diff_backend;
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+)
+  ξ̂xᵢ₊½, ξ̂xⱼ₊½, ξ̂xₖ₊½ = edge_functions_3d(
+    inverse_metrics.ξ̂x, diff_backend, edge_interpolation_scheme
+  )
+  η̂xᵢ₊½, η̂xⱼ₊½, η̂xₖ₊½ = edge_functions_3d(
+    inverse_metrics.η̂x, diff_backend, edge_interpolation_scheme
+  )
+  ζ̂xᵢ₊½, ζ̂xⱼ₊½, ζ̂xₖ₊½ = edge_functions_3d(
+    inverse_metrics.ζ̂x, diff_backend, edge_interpolation_scheme
+  )
+  ξ̂yᵢ₊½, ξ̂yⱼ₊½, ξ̂yₖ₊½ = edge_functions_3d(
+    inverse_metrics.ξ̂y, diff_backend, edge_interpolation_scheme
+  )
+  η̂yᵢ₊½, η̂yⱼ₊½, η̂yₖ₊½ = edge_functions_3d(
+    inverse_metrics.η̂y, diff_backend, edge_interpolation_scheme
+  )
+  ζ̂yᵢ₊½, ζ̂yⱼ₊½, ζ̂yₖ₊½ = edge_functions_3d(
+    inverse_metrics.ζ̂y, diff_backend, edge_interpolation_scheme
+  )
+  ξ̂zᵢ₊½, ξ̂zⱼ₊½, ξ̂zₖ₊½ = edge_functions_3d(
+    inverse_metrics.ξ̂z, diff_backend, edge_interpolation_scheme
+  )
+  η̂zᵢ₊½, η̂zⱼ₊½, η̂zₖ₊½ = edge_functions_3d(
+    inverse_metrics.η̂z, diff_backend, edge_interpolation_scheme
+  )
+  ζ̂zᵢ₊½, ζ̂zⱼ₊½, ζ̂zₖ₊½ = edge_functions_3d(
+    inverse_metrics.ζ̂z, diff_backend, edge_interpolation_scheme
+  )
+  Jᵢ₊½, Jⱼ₊½, Jₖ₊½ = edge_functions_3d(
+    forward_metrics.J, diff_backend, edge_interpolation_scheme
+  )
+  Jinv_ᵢ₊½, Jinv_ⱼ₊½, Jinv_ₖ₊½ = edge_functions_3d(
+    inverse_metrics.Jinv, diff_backend, edge_interpolation_scheme
+  )
 
   #! format: off
   edge_funcs = (;
@@ -485,18 +622,36 @@ function get_edge_functions_3d(forward_metrics, inverse_metrics, diff_backend)
   return edge_funcs
 end
 
-function get_edge_functions_2d(forward_metrics, inverse_metrics, diff_backend)
-  Jinv_ᵢ₊½, Jinv_ⱼ₊½ = edge_functions_2d(inverse_metrics.Jinv, diff_backend)
-  norm_Jinv_ᵢ₊½, norm_Jinv_ⱼ₊½ = edge_functions_2d(inverse_metrics.Jinv_norm, diff_backend)
+function get_edge_functions_2d(
+  forward_metrics,
+  inverse_metrics,
+  diff_backend;
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+)
+  Jinv_ᵢ₊½, Jinv_ⱼ₊½ = edge_functions_2d(
+    inverse_metrics.Jinv, diff_backend, edge_interpolation_scheme
+  )
+  norm_Jinv_ᵢ₊½, norm_Jinv_ⱼ₊½ = edge_functions_2d(
+    inverse_metrics.Jinv_norm, diff_backend, edge_interpolation_scheme
+  )
 
   edge_funcs = (; Jinv_ᵢ₊½, Jinv_ⱼ₊½, norm_Jinv_ᵢ₊½, norm_Jinv_ⱼ₊½)
 
   return edge_funcs
 end
 
-function get_edge_functions_1d(forward_metrics, inverse_metrics, diff_backend)
-  Jinv_ᵢ₊½ = edge_functions_1d(inverse_metrics.Jinv, diff_backend)
-  norm_Jinv_ᵢ₊½ = edge_functions_1d(inverse_metrics.Jinv_norm, diff_backend)
+function get_edge_functions_1d(
+  forward_metrics,
+  inverse_metrics,
+  diff_backend;
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+)
+  Jinv_ᵢ₊½ = edge_functions_1d(
+    inverse_metrics.Jinv, diff_backend, edge_interpolation_scheme
+  )
+  norm_Jinv_ᵢ₊½ = edge_functions_1d(
+    inverse_metrics.Jinv_norm, diff_backend, edge_interpolation_scheme
+  )
 
   edge_funcs = (; Jinv_ᵢ₊½, norm_Jinv_ᵢ₊½)
 
@@ -506,6 +661,7 @@ end
 #-------------------------------------------------------------
 #-------------------------------------------------------------
 function get_inverse_metric_terms_prev(x, y, z, backend)
+  edge_scheme = EdgeInterpolationOrder3()
 
   #
 
@@ -560,73 +716,73 @@ function get_inverse_metric_terms_prev(x, y, z, backend)
   η̂z = get_η̂z(x, y, z, backend)
   ζ̂z = get_ζ̂z(x, y, z, backend)
 
-  ξ̂x_val_and_ξderivs = ξ_derivs(ξ̂x, backend)
-  η̂x_val_and_ξderivs = ξ_derivs(η̂x, backend)
-  ζ̂x_val_and_ξderivs = ξ_derivs(ζ̂x, backend)
-  ξ̂y_val_and_ξderivs = ξ_derivs(ξ̂y, backend)
-  η̂y_val_and_ξderivs = ξ_derivs(η̂y, backend)
-  ζ̂y_val_and_ξderivs = ξ_derivs(ζ̂y, backend)
-  ξ̂z_val_and_ξderivs = ξ_derivs(ξ̂z, backend)
-  η̂z_val_and_ξderivs = ξ_derivs(η̂z, backend)
-  ζ̂z_val_and_ξderivs = ξ_derivs(ζ̂z, backend)
+  ξ̂x_val_and_ξderivs = ξ_derivs(ξ̂x, backend, edge_scheme)
+  η̂x_val_and_ξderivs = ξ_derivs(η̂x, backend, edge_scheme)
+  ζ̂x_val_and_ξderivs = ξ_derivs(ζ̂x, backend, edge_scheme)
+  ξ̂y_val_and_ξderivs = ξ_derivs(ξ̂y, backend, edge_scheme)
+  η̂y_val_and_ξderivs = ξ_derivs(η̂y, backend, edge_scheme)
+  ζ̂y_val_and_ξderivs = ξ_derivs(ζ̂y, backend, edge_scheme)
+  ξ̂z_val_and_ξderivs = ξ_derivs(ξ̂z, backend, edge_scheme)
+  η̂z_val_and_ξderivs = ξ_derivs(η̂z, backend, edge_scheme)
+  ζ̂z_val_and_ξderivs = ξ_derivs(ζ̂z, backend, edge_scheme)
 
-  ξ̂x_val_and_ηderivs = η_derivs(ξ̂x, backend)
-  η̂x_val_and_ηderivs = η_derivs(η̂x, backend)
-  ζ̂x_val_and_ηderivs = η_derivs(ζ̂x, backend)
-  ξ̂y_val_and_ηderivs = η_derivs(ξ̂y, backend)
-  η̂y_val_and_ηderivs = η_derivs(η̂y, backend)
-  ζ̂y_val_and_ηderivs = η_derivs(ζ̂y, backend)
-  ξ̂z_val_and_ηderivs = η_derivs(ξ̂z, backend)
-  η̂z_val_and_ηderivs = η_derivs(η̂z, backend)
-  ζ̂z_val_and_ηderivs = η_derivs(ζ̂z, backend)
+  ξ̂x_val_and_ηderivs = η_derivs(ξ̂x, backend, edge_scheme)
+  η̂x_val_and_ηderivs = η_derivs(η̂x, backend, edge_scheme)
+  ζ̂x_val_and_ηderivs = η_derivs(ζ̂x, backend, edge_scheme)
+  ξ̂y_val_and_ηderivs = η_derivs(ξ̂y, backend, edge_scheme)
+  η̂y_val_and_ηderivs = η_derivs(η̂y, backend, edge_scheme)
+  ζ̂y_val_and_ηderivs = η_derivs(ζ̂y, backend, edge_scheme)
+  ξ̂z_val_and_ηderivs = η_derivs(ξ̂z, backend, edge_scheme)
+  η̂z_val_and_ηderivs = η_derivs(η̂z, backend, edge_scheme)
+  ζ̂z_val_and_ηderivs = η_derivs(ζ̂z, backend, edge_scheme)
 
-  ξ̂x_val_and_ζderivs = ζ_derivs(ξ̂x, backend)
-  η̂x_val_and_ζderivs = ζ_derivs(η̂x, backend)
-  ζ̂x_val_and_ζderivs = ζ_derivs(ζ̂x, backend)
-  ξ̂y_val_and_ζderivs = ζ_derivs(ξ̂y, backend)
-  η̂y_val_and_ζderivs = ζ_derivs(η̂y, backend)
-  ζ̂y_val_and_ζderivs = ζ_derivs(ζ̂y, backend)
-  ξ̂z_val_and_ζderivs = ζ_derivs(ξ̂z, backend)
-  η̂z_val_and_ζderivs = ζ_derivs(η̂z, backend)
-  ζ̂z_val_and_ζderivs = ζ_derivs(ζ̂z, backend)
+  ξ̂x_val_and_ζderivs = ζ_derivs(ξ̂x, backend, edge_scheme)
+  η̂x_val_and_ζderivs = ζ_derivs(η̂x, backend, edge_scheme)
+  ζ̂x_val_and_ζderivs = ζ_derivs(ζ̂x, backend, edge_scheme)
+  ξ̂y_val_and_ζderivs = ζ_derivs(ξ̂y, backend, edge_scheme)
+  η̂y_val_and_ζderivs = ζ_derivs(η̂y, backend, edge_scheme)
+  ζ̂y_val_and_ζderivs = ζ_derivs(ζ̂y, backend, edge_scheme)
+  ξ̂z_val_and_ζderivs = ζ_derivs(ξ̂z, backend, edge_scheme)
+  η̂z_val_and_ζderivs = ζ_derivs(η̂z, backend, edge_scheme)
+  ζ̂z_val_and_ζderivs = ζ_derivs(ζ̂z, backend, edge_scheme)
 
-  Jinv_val_and_ξderivs = ζ_derivs(inverse_jacobian_matrix, backend)
-  Jinv_val_and_ηderivs = ζ_derivs(inverse_jacobian_matrix, backend)
-  Jinv_val_and_ζderivs = ζ_derivs(inverse_jacobian_matrix, backend)
+  Jinv_val_and_ξderivs = ξ_derivs(inverse_jacobian_matrix, backend, edge_scheme)
+  Jinv_val_and_ηderivs = η_derivs(inverse_jacobian_matrix, backend, edge_scheme)
+  Jinv_val_and_ζderivs = ζ_derivs(inverse_jacobian_matrix, backend, edge_scheme)
 
-  ξ̂xᵢ₊½(t, i, j, k, p) = ϕ_iedge(ξ̂x_val_and_ξderivs, t, i, j, k, p)
-  η̂xᵢ₊½(t, i, j, k, p) = ϕ_iedge(η̂x_val_and_ξderivs, t, i, j, k, p)
-  ζ̂xᵢ₊½(t, i, j, k, p) = ϕ_iedge(ζ̂x_val_and_ξderivs, t, i, j, k, p)
-  ξ̂yᵢ₊½(t, i, j, k, p) = ϕ_iedge(ξ̂y_val_and_ξderivs, t, i, j, k, p)
-  η̂yᵢ₊½(t, i, j, k, p) = ϕ_iedge(η̂y_val_and_ξderivs, t, i, j, k, p)
-  ζ̂yᵢ₊½(t, i, j, k, p) = ϕ_iedge(ζ̂y_val_and_ξderivs, t, i, j, k, p)
-  ξ̂zᵢ₊½(t, i, j, k, p) = ϕ_iedge(ξ̂z_val_and_ξderivs, t, i, j, k, p)
-  η̂zᵢ₊½(t, i, j, k, p) = ϕ_iedge(η̂z_val_and_ξderivs, t, i, j, k, p)
-  ζ̂zᵢ₊½(t, i, j, k, p) = ϕ_iedge(ζ̂z_val_and_ξderivs, t, i, j, k, p)
+  ξ̂xᵢ₊½(t, i, j, k, p) = ϕ_iedge(ξ̂x_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  η̂xᵢ₊½(t, i, j, k, p) = ϕ_iedge(η̂x_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  ζ̂xᵢ₊½(t, i, j, k, p) = ϕ_iedge(ζ̂x_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  ξ̂yᵢ₊½(t, i, j, k, p) = ϕ_iedge(ξ̂y_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  η̂yᵢ₊½(t, i, j, k, p) = ϕ_iedge(η̂y_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  ζ̂yᵢ₊½(t, i, j, k, p) = ϕ_iedge(ζ̂y_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  ξ̂zᵢ₊½(t, i, j, k, p) = ϕ_iedge(ξ̂z_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  η̂zᵢ₊½(t, i, j, k, p) = ϕ_iedge(η̂z_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  ζ̂zᵢ₊½(t, i, j, k, p) = ϕ_iedge(ζ̂z_val_and_ξderivs, t, i, j, k, p, edge_scheme)
 
-  ξ̂xⱼ₊½(t, i, j, k, p) = ϕ_jedge(ξ̂x_val_and_ηderivs, t, i, j, k, p)
-  η̂xⱼ₊½(t, i, j, k, p) = ϕ_jedge(η̂x_val_and_ηderivs, t, i, j, k, p)
-  ζ̂xⱼ₊½(t, i, j, k, p) = ϕ_jedge(ζ̂x_val_and_ηderivs, t, i, j, k, p)
-  ξ̂yⱼ₊½(t, i, j, k, p) = ϕ_jedge(ξ̂y_val_and_ηderivs, t, i, j, k, p)
-  η̂yⱼ₊½(t, i, j, k, p) = ϕ_jedge(η̂y_val_and_ηderivs, t, i, j, k, p)
-  ζ̂yⱼ₊½(t, i, j, k, p) = ϕ_jedge(ζ̂y_val_and_ηderivs, t, i, j, k, p)
-  ξ̂zⱼ₊½(t, i, j, k, p) = ϕ_jedge(ξ̂z_val_and_ηderivs, t, i, j, k, p)
-  η̂zⱼ₊½(t, i, j, k, p) = ϕ_jedge(η̂z_val_and_ηderivs, t, i, j, k, p)
-  ζ̂zⱼ₊½(t, i, j, k, p) = ϕ_jedge(ζ̂z_val_and_ηderivs, t, i, j, k, p)
+  ξ̂xⱼ₊½(t, i, j, k, p) = ϕ_jedge(ξ̂x_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  η̂xⱼ₊½(t, i, j, k, p) = ϕ_jedge(η̂x_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  ζ̂xⱼ₊½(t, i, j, k, p) = ϕ_jedge(ζ̂x_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  ξ̂yⱼ₊½(t, i, j, k, p) = ϕ_jedge(ξ̂y_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  η̂yⱼ₊½(t, i, j, k, p) = ϕ_jedge(η̂y_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  ζ̂yⱼ₊½(t, i, j, k, p) = ϕ_jedge(ζ̂y_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  ξ̂zⱼ₊½(t, i, j, k, p) = ϕ_jedge(ξ̂z_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  η̂zⱼ₊½(t, i, j, k, p) = ϕ_jedge(η̂z_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  ζ̂zⱼ₊½(t, i, j, k, p) = ϕ_jedge(ζ̂z_val_and_ηderivs, t, i, j, k, p, edge_scheme)
 
-  ξ̂xₖ₊½(t, i, j, k, p) = ϕ_kedge(ξ̂x_val_and_ζderivs, t, i, j, k, p)
-  η̂xₖ₊½(t, i, j, k, p) = ϕ_kedge(η̂x_val_and_ζderivs, t, i, j, k, p)
-  ζ̂xₖ₊½(t, i, j, k, p) = ϕ_kedge(ζ̂x_val_and_ζderivs, t, i, j, k, p)
-  ξ̂yₖ₊½(t, i, j, k, p) = ϕ_kedge(ξ̂y_val_and_ζderivs, t, i, j, k, p)
-  η̂yₖ₊½(t, i, j, k, p) = ϕ_kedge(η̂y_val_and_ζderivs, t, i, j, k, p)
-  ζ̂yₖ₊½(t, i, j, k, p) = ϕ_kedge(ζ̂y_val_and_ζderivs, t, i, j, k, p)
-  ξ̂zₖ₊½(t, i, j, k, p) = ϕ_kedge(ξ̂z_val_and_ζderivs, t, i, j, k, p)
-  η̂zₖ₊½(t, i, j, k, p) = ϕ_kedge(η̂z_val_and_ζderivs, t, i, j, k, p)
-  ζ̂zₖ₊½(t, i, j, k, p) = ϕ_kedge(ζ̂z_val_and_ζderivs, t, i, j, k, p)
+  ξ̂xₖ₊½(t, i, j, k, p) = ϕ_kedge(ξ̂x_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  η̂xₖ₊½(t, i, j, k, p) = ϕ_kedge(η̂x_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  ζ̂xₖ₊½(t, i, j, k, p) = ϕ_kedge(ζ̂x_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  ξ̂yₖ₊½(t, i, j, k, p) = ϕ_kedge(ξ̂y_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  η̂yₖ₊½(t, i, j, k, p) = ϕ_kedge(η̂y_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  ζ̂yₖ₊½(t, i, j, k, p) = ϕ_kedge(ζ̂y_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  ξ̂zₖ₊½(t, i, j, k, p) = ϕ_kedge(ξ̂z_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  η̂zₖ₊½(t, i, j, k, p) = ϕ_kedge(η̂z_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  ζ̂zₖ₊½(t, i, j, k, p) = ϕ_kedge(ζ̂z_val_and_ζderivs, t, i, j, k, p, edge_scheme)
 
-  Jinvᵢ₊½(t, i, j, k, p) = ϕ_iedge(Jinv_val_and_ξderivs, t, i, j, k, p)
-  Jinvⱼ₊½(t, i, j, k, p) = ϕ_jedge(Jinv_val_and_ηderivs, t, i, j, k, p)
-  Jinvₖ₊½(t, i, j, k, p) = ϕ_kedge(Jinv_val_and_ζderivs, t, i, j, k, p)
+  Jinvᵢ₊½(t, i, j, k, p) = ϕ_iedge(Jinv_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  Jinvⱼ₊½(t, i, j, k, p) = ϕ_jedge(Jinv_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  Jinvₖ₊½(t, i, j, k, p) = ϕ_kedge(Jinv_val_and_ζderivs, t, i, j, k, p, edge_scheme)
 
   return (
     (;
@@ -680,7 +836,14 @@ function get_inverse_metric_terms_prev(x, y, z, backend)
   )
 end
 
-function get_inverse_metric_terms(x, y, z, backend)
+function get_inverse_metric_terms(
+  x,
+  y,
+  z,
+  backend;
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+)
+  edge_scheme = edge_interpolation_scheme
 
   #
 
@@ -745,32 +908,32 @@ function get_inverse_metric_terms(x, y, z, backend)
   z_η_x(t, i, j, k, p) = zη(t, i, j, k, p) * x(t, i, j, k, p)
   z_ζ_x(t, i, j, k, p) = zζ(t, i, j, k, p) * x(t, i, j, k, p)
 
-  y_η_z_ζ = ∂ϕ_∂ζ_3d(y_η_z, backend)
-  y_ζ_z_η = ∂ϕ_∂η_3d(y_ζ_z, backend)
+  y_η_z_ζ = ∂ϕ_∂ζ_3d(y_η_z, backend, edge_scheme)
+  y_ζ_z_η = ∂ϕ_∂η_3d(y_ζ_z, backend, edge_scheme)
 
-  y_ζ_z_ξ = ∂ϕ_∂ξ_3d(y_ζ_z, backend)
-  y_ξ_z_ζ = ∂ϕ_∂ζ_3d(y_ξ_z, backend)
+  y_ζ_z_ξ = ∂ϕ_∂ξ_3d(y_ζ_z, backend, edge_scheme)
+  y_ξ_z_ζ = ∂ϕ_∂ζ_3d(y_ξ_z, backend, edge_scheme)
 
-  y_ξ_z_η = ∂ϕ_∂η_3d(y_ξ_z, backend)
-  y_η_z_ξ = ∂ϕ_∂ξ_3d(y_η_z, backend)
+  y_ξ_z_η = ∂ϕ_∂η_3d(y_ξ_z, backend, edge_scheme)
+  y_η_z_ξ = ∂ϕ_∂ξ_3d(y_η_z, backend, edge_scheme)
 
-  z_η_x_ζ = ∂ϕ_∂ζ_3d(z_η_x, backend)
-  z_ζ_x_η = ∂ϕ_∂η_3d(z_ζ_x, backend)
+  z_η_x_ζ = ∂ϕ_∂ζ_3d(z_η_x, backend, edge_scheme)
+  z_ζ_x_η = ∂ϕ_∂η_3d(z_ζ_x, backend, edge_scheme)
 
-  z_ζ_x_ξ = ∂ϕ_∂ξ_3d(z_ζ_x, backend)
-  z_ξ_x_ζ = ∂ϕ_∂ζ_3d(z_ξ_x, backend)
+  z_ζ_x_ξ = ∂ϕ_∂ξ_3d(z_ζ_x, backend, edge_scheme)
+  z_ξ_x_ζ = ∂ϕ_∂ζ_3d(z_ξ_x, backend, edge_scheme)
 
-  z_ξ_x_η = ∂ϕ_∂η_3d(z_ξ_x, backend)
-  z_η_x_ξ = ∂ϕ_∂ξ_3d(z_η_x, backend)
+  z_ξ_x_η = ∂ϕ_∂η_3d(z_ξ_x, backend, edge_scheme)
+  z_η_x_ξ = ∂ϕ_∂ξ_3d(z_η_x, backend, edge_scheme)
 
-  x_η_y_ζ = ∂ϕ_∂ζ_3d(x_η_y, backend)
-  x_ζ_y_η = ∂ϕ_∂η_3d(x_ζ_y, backend)
+  x_η_y_ζ = ∂ϕ_∂ζ_3d(x_η_y, backend, edge_scheme)
+  x_ζ_y_η = ∂ϕ_∂η_3d(x_ζ_y, backend, edge_scheme)
 
-  x_ζ_y_ξ = ∂ϕ_∂ξ_3d(x_ζ_y, backend)
-  x_ξ_y_ζ = ∂ϕ_∂ζ_3d(x_ξ_y, backend)
+  x_ζ_y_ξ = ∂ϕ_∂ξ_3d(x_ζ_y, backend, edge_scheme)
+  x_ξ_y_ζ = ∂ϕ_∂ζ_3d(x_ξ_y, backend, edge_scheme)
 
-  x_ξ_y_η = ∂ϕ_∂η_3d(x_ξ_y, backend)
-  x_η_y_ξ = ∂ϕ_∂ξ_3d(x_η_y, backend)
+  x_ξ_y_η = ∂ϕ_∂η_3d(x_ξ_y, backend, edge_scheme)
+  x_η_y_ξ = ∂ϕ_∂ξ_3d(x_η_y, backend, edge_scheme)
 
   # Do NOT put eps() tolerance checks on these! It will create GCL-related errors
   ξ̂x(t, i, j, k, p) = y_η_z_ζ(t, i, j, k, p) − y_ζ_z_η(t, i, j, k, p)
@@ -783,73 +946,73 @@ function get_inverse_metric_terms(x, y, z, backend)
   η̂z(t, i, j, k, p) = x_ζ_y_ξ(t, i, j, k, p) − x_ξ_y_ζ(t, i, j, k, p)
   ζ̂z(t, i, j, k, p) = x_ξ_y_η(t, i, j, k, p) − x_η_y_ξ(t, i, j, k, p)
 
-  ξ̂x_val_and_ξderivs = ξ_derivs(ξ̂x, backend)
-  η̂x_val_and_ξderivs = ξ_derivs(η̂x, backend)
-  ζ̂x_val_and_ξderivs = ξ_derivs(ζ̂x, backend)
-  ξ̂y_val_and_ξderivs = ξ_derivs(ξ̂y, backend)
-  η̂y_val_and_ξderivs = ξ_derivs(η̂y, backend)
-  ζ̂y_val_and_ξderivs = ξ_derivs(ζ̂y, backend)
-  ξ̂z_val_and_ξderivs = ξ_derivs(ξ̂z, backend)
-  η̂z_val_and_ξderivs = ξ_derivs(η̂z, backend)
-  ζ̂z_val_and_ξderivs = ξ_derivs(ζ̂z, backend)
+  ξ̂x_val_and_ξderivs = ξ_derivs(ξ̂x, backend, edge_scheme)
+  η̂x_val_and_ξderivs = ξ_derivs(η̂x, backend, edge_scheme)
+  ζ̂x_val_and_ξderivs = ξ_derivs(ζ̂x, backend, edge_scheme)
+  ξ̂y_val_and_ξderivs = ξ_derivs(ξ̂y, backend, edge_scheme)
+  η̂y_val_and_ξderivs = ξ_derivs(η̂y, backend, edge_scheme)
+  ζ̂y_val_and_ξderivs = ξ_derivs(ζ̂y, backend, edge_scheme)
+  ξ̂z_val_and_ξderivs = ξ_derivs(ξ̂z, backend, edge_scheme)
+  η̂z_val_and_ξderivs = ξ_derivs(η̂z, backend, edge_scheme)
+  ζ̂z_val_and_ξderivs = ξ_derivs(ζ̂z, backend, edge_scheme)
 
-  ξ̂x_val_and_ηderivs = η_derivs(ξ̂x, backend)
-  η̂x_val_and_ηderivs = η_derivs(η̂x, backend)
-  ζ̂x_val_and_ηderivs = η_derivs(ζ̂x, backend)
-  ξ̂y_val_and_ηderivs = η_derivs(ξ̂y, backend)
-  η̂y_val_and_ηderivs = η_derivs(η̂y, backend)
-  ζ̂y_val_and_ηderivs = η_derivs(ζ̂y, backend)
-  ξ̂z_val_and_ηderivs = η_derivs(ξ̂z, backend)
-  η̂z_val_and_ηderivs = η_derivs(η̂z, backend)
-  ζ̂z_val_and_ηderivs = η_derivs(ζ̂z, backend)
+  ξ̂x_val_and_ηderivs = η_derivs(ξ̂x, backend, edge_scheme)
+  η̂x_val_and_ηderivs = η_derivs(η̂x, backend, edge_scheme)
+  ζ̂x_val_and_ηderivs = η_derivs(ζ̂x, backend, edge_scheme)
+  ξ̂y_val_and_ηderivs = η_derivs(ξ̂y, backend, edge_scheme)
+  η̂y_val_and_ηderivs = η_derivs(η̂y, backend, edge_scheme)
+  ζ̂y_val_and_ηderivs = η_derivs(ζ̂y, backend, edge_scheme)
+  ξ̂z_val_and_ηderivs = η_derivs(ξ̂z, backend, edge_scheme)
+  η̂z_val_and_ηderivs = η_derivs(η̂z, backend, edge_scheme)
+  ζ̂z_val_and_ηderivs = η_derivs(ζ̂z, backend, edge_scheme)
 
-  ξ̂x_val_and_ζderivs = ζ_derivs(ξ̂x, backend)
-  η̂x_val_and_ζderivs = ζ_derivs(η̂x, backend)
-  ζ̂x_val_and_ζderivs = ζ_derivs(ζ̂x, backend)
-  ξ̂y_val_and_ζderivs = ζ_derivs(ξ̂y, backend)
-  η̂y_val_and_ζderivs = ζ_derivs(η̂y, backend)
-  ζ̂y_val_and_ζderivs = ζ_derivs(ζ̂y, backend)
-  ξ̂z_val_and_ζderivs = ζ_derivs(ξ̂z, backend)
-  η̂z_val_and_ζderivs = ζ_derivs(η̂z, backend)
-  ζ̂z_val_and_ζderivs = ζ_derivs(ζ̂z, backend)
+  ξ̂x_val_and_ζderivs = ζ_derivs(ξ̂x, backend, edge_scheme)
+  η̂x_val_and_ζderivs = ζ_derivs(η̂x, backend, edge_scheme)
+  ζ̂x_val_and_ζderivs = ζ_derivs(ζ̂x, backend, edge_scheme)
+  ξ̂y_val_and_ζderivs = ζ_derivs(ξ̂y, backend, edge_scheme)
+  η̂y_val_and_ζderivs = ζ_derivs(η̂y, backend, edge_scheme)
+  ζ̂y_val_and_ζderivs = ζ_derivs(ζ̂y, backend, edge_scheme)
+  ξ̂z_val_and_ζderivs = ζ_derivs(ξ̂z, backend, edge_scheme)
+  η̂z_val_and_ζderivs = ζ_derivs(η̂z, backend, edge_scheme)
+  ζ̂z_val_and_ζderivs = ζ_derivs(ζ̂z, backend, edge_scheme)
 
-  Jinv_val_and_ξderivs = ζ_derivs(inverse_jacobian_matrix, backend)
-  Jinv_val_and_ηderivs = ζ_derivs(inverse_jacobian_matrix, backend)
-  Jinv_val_and_ζderivs = ζ_derivs(inverse_jacobian_matrix, backend)
+  Jinv_val_and_ξderivs = ξ_derivs(inverse_jacobian_matrix, backend, edge_scheme)
+  Jinv_val_and_ηderivs = η_derivs(inverse_jacobian_matrix, backend, edge_scheme)
+  Jinv_val_and_ζderivs = ζ_derivs(inverse_jacobian_matrix, backend, edge_scheme)
 
-  ξ̂xᵢ₊½(t, i, j, k, p) = ϕ_iedge(ξ̂x_val_and_ξderivs, t, i, j, k, p)
-  η̂xᵢ₊½(t, i, j, k, p) = ϕ_iedge(η̂x_val_and_ξderivs, t, i, j, k, p)
-  ζ̂xᵢ₊½(t, i, j, k, p) = ϕ_iedge(ζ̂x_val_and_ξderivs, t, i, j, k, p)
-  ξ̂yᵢ₊½(t, i, j, k, p) = ϕ_iedge(ξ̂y_val_and_ξderivs, t, i, j, k, p)
-  η̂yᵢ₊½(t, i, j, k, p) = ϕ_iedge(η̂y_val_and_ξderivs, t, i, j, k, p)
-  ζ̂yᵢ₊½(t, i, j, k, p) = ϕ_iedge(ζ̂y_val_and_ξderivs, t, i, j, k, p)
-  ξ̂zᵢ₊½(t, i, j, k, p) = ϕ_iedge(ξ̂z_val_and_ξderivs, t, i, j, k, p)
-  η̂zᵢ₊½(t, i, j, k, p) = ϕ_iedge(η̂z_val_and_ξderivs, t, i, j, k, p)
-  ζ̂zᵢ₊½(t, i, j, k, p) = ϕ_iedge(ζ̂z_val_and_ξderivs, t, i, j, k, p)
+  ξ̂xᵢ₊½(t, i, j, k, p) = ϕ_iedge(ξ̂x_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  η̂xᵢ₊½(t, i, j, k, p) = ϕ_iedge(η̂x_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  ζ̂xᵢ₊½(t, i, j, k, p) = ϕ_iedge(ζ̂x_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  ξ̂yᵢ₊½(t, i, j, k, p) = ϕ_iedge(ξ̂y_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  η̂yᵢ₊½(t, i, j, k, p) = ϕ_iedge(η̂y_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  ζ̂yᵢ₊½(t, i, j, k, p) = ϕ_iedge(ζ̂y_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  ξ̂zᵢ₊½(t, i, j, k, p) = ϕ_iedge(ξ̂z_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  η̂zᵢ₊½(t, i, j, k, p) = ϕ_iedge(η̂z_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  ζ̂zᵢ₊½(t, i, j, k, p) = ϕ_iedge(ζ̂z_val_and_ξderivs, t, i, j, k, p, edge_scheme)
 
-  ξ̂xⱼ₊½(t, i, j, k, p) = ϕ_jedge(ξ̂x_val_and_ηderivs, t, i, j, k, p)
-  η̂xⱼ₊½(t, i, j, k, p) = ϕ_jedge(η̂x_val_and_ηderivs, t, i, j, k, p)
-  ζ̂xⱼ₊½(t, i, j, k, p) = ϕ_jedge(ζ̂x_val_and_ηderivs, t, i, j, k, p)
-  ξ̂yⱼ₊½(t, i, j, k, p) = ϕ_jedge(ξ̂y_val_and_ηderivs, t, i, j, k, p)
-  η̂yⱼ₊½(t, i, j, k, p) = ϕ_jedge(η̂y_val_and_ηderivs, t, i, j, k, p)
-  ζ̂yⱼ₊½(t, i, j, k, p) = ϕ_jedge(ζ̂y_val_and_ηderivs, t, i, j, k, p)
-  ξ̂zⱼ₊½(t, i, j, k, p) = ϕ_jedge(ξ̂z_val_and_ηderivs, t, i, j, k, p)
-  η̂zⱼ₊½(t, i, j, k, p) = ϕ_jedge(η̂z_val_and_ηderivs, t, i, j, k, p)
-  ζ̂zⱼ₊½(t, i, j, k, p) = ϕ_jedge(ζ̂z_val_and_ηderivs, t, i, j, k, p)
+  ξ̂xⱼ₊½(t, i, j, k, p) = ϕ_jedge(ξ̂x_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  η̂xⱼ₊½(t, i, j, k, p) = ϕ_jedge(η̂x_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  ζ̂xⱼ₊½(t, i, j, k, p) = ϕ_jedge(ζ̂x_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  ξ̂yⱼ₊½(t, i, j, k, p) = ϕ_jedge(ξ̂y_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  η̂yⱼ₊½(t, i, j, k, p) = ϕ_jedge(η̂y_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  ζ̂yⱼ₊½(t, i, j, k, p) = ϕ_jedge(ζ̂y_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  ξ̂zⱼ₊½(t, i, j, k, p) = ϕ_jedge(ξ̂z_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  η̂zⱼ₊½(t, i, j, k, p) = ϕ_jedge(η̂z_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  ζ̂zⱼ₊½(t, i, j, k, p) = ϕ_jedge(ζ̂z_val_and_ηderivs, t, i, j, k, p, edge_scheme)
 
-  ξ̂xₖ₊½(t, i, j, k, p) = ϕ_kedge(ξ̂x_val_and_ζderivs, t, i, j, k, p)
-  η̂xₖ₊½(t, i, j, k, p) = ϕ_kedge(η̂x_val_and_ζderivs, t, i, j, k, p)
-  ζ̂xₖ₊½(t, i, j, k, p) = ϕ_kedge(ζ̂x_val_and_ζderivs, t, i, j, k, p)
-  ξ̂yₖ₊½(t, i, j, k, p) = ϕ_kedge(ξ̂y_val_and_ζderivs, t, i, j, k, p)
-  η̂yₖ₊½(t, i, j, k, p) = ϕ_kedge(η̂y_val_and_ζderivs, t, i, j, k, p)
-  ζ̂yₖ₊½(t, i, j, k, p) = ϕ_kedge(ζ̂y_val_and_ζderivs, t, i, j, k, p)
-  ξ̂zₖ₊½(t, i, j, k, p) = ϕ_kedge(ξ̂z_val_and_ζderivs, t, i, j, k, p)
-  η̂zₖ₊½(t, i, j, k, p) = ϕ_kedge(η̂z_val_and_ζderivs, t, i, j, k, p)
-  ζ̂zₖ₊½(t, i, j, k, p) = ϕ_kedge(ζ̂z_val_and_ζderivs, t, i, j, k, p)
+  ξ̂xₖ₊½(t, i, j, k, p) = ϕ_kedge(ξ̂x_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  η̂xₖ₊½(t, i, j, k, p) = ϕ_kedge(η̂x_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  ζ̂xₖ₊½(t, i, j, k, p) = ϕ_kedge(ζ̂x_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  ξ̂yₖ₊½(t, i, j, k, p) = ϕ_kedge(ξ̂y_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  η̂yₖ₊½(t, i, j, k, p) = ϕ_kedge(η̂y_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  ζ̂yₖ₊½(t, i, j, k, p) = ϕ_kedge(ζ̂y_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  ξ̂zₖ₊½(t, i, j, k, p) = ϕ_kedge(ξ̂z_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  η̂zₖ₊½(t, i, j, k, p) = ϕ_kedge(η̂z_val_and_ζderivs, t, i, j, k, p, edge_scheme)
+  ζ̂zₖ₊½(t, i, j, k, p) = ϕ_kedge(ζ̂z_val_and_ζderivs, t, i, j, k, p, edge_scheme)
 
-  Jinvᵢ₊½(t, i, j, k, p) = ϕ_iedge(Jinv_val_and_ξderivs, t, i, j, k, p)
-  Jinvⱼ₊½(t, i, j, k, p) = ϕ_jedge(Jinv_val_and_ηderivs, t, i, j, k, p)
-  Jinvₖ₊½(t, i, j, k, p) = ϕ_kedge(Jinv_val_and_ζderivs, t, i, j, k, p)
+  Jinvᵢ₊½(t, i, j, k, p) = ϕ_iedge(Jinv_val_and_ξderivs, t, i, j, k, p, edge_scheme)
+  Jinvⱼ₊½(t, i, j, k, p) = ϕ_jedge(Jinv_val_and_ηderivs, t, i, j, k, p, edge_scheme)
+  Jinvₖ₊½(t, i, j, k, p) = ϕ_kedge(Jinv_val_and_ζderivs, t, i, j, k, p, edge_scheme)
 
   return (
     (;
@@ -909,7 +1072,47 @@ end
 @inline _η_eval_3d_metriccache(η, ϕ, t, i, k, p) = ϕ(t, i, η, k, p)
 @inline _ζ_eval_3d_metriccache(ζ, ϕ, t, i, j, p) = ϕ(t, i, j, ζ, p)
 
-function ξ_derivs(ϕ, backend)
+ξ_derivs(ϕ, backend) = ξ_derivs(ϕ, backend, EdgeInterpolationOrder3())
+η_derivs(ϕ, backend) = η_derivs(ϕ, backend, EdgeInterpolationOrder3())
+ζ_derivs(ϕ, backend) = ζ_derivs(ϕ, backend, EdgeInterpolationOrder3())
+
+function ξ_derivs(ϕ, backend, ::EdgeInterpolationOrder1)
+  ϕval(t, i, j, k, p) = _ξ_eval_3d_metriccache(i, ϕ, t, j, k, p)
+  return ϕval
+end
+
+function ξ_derivs(ϕ, backend, ::EdgeInterpolationOrder2)
+  cϕ = DifferentiationInterface.Constant(ϕ)
+  prep = prepare_derivative(
+    _ξ_eval_3d_metriccache,
+    backend,
+    0.0,
+    cϕ,
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(nothing);
+    strict=Val(false),
+  )
+
+  function ϕall(t, i, j, k, p)
+    value_and_derivative(
+      _ξ_eval_3d_metriccache,
+      prep,
+      backend,
+      i,
+      cϕ,
+      DifferentiationInterface.Constant(t),
+      DifferentiationInterface.Constant(j),
+      DifferentiationInterface.Constant(k),
+      DifferentiationInterface.Constant(p),
+    )
+  end
+
+  return ϕall
+end
+
+function ξ_derivs(ϕ, backend, ::EdgeInterpolationOrder3)
   cϕ = DifferentiationInterface.Constant(ϕ)
   prep = prepare_second_derivative(
     _ξ_eval_3d_metriccache,
@@ -940,7 +1143,43 @@ function ξ_derivs(ϕ, backend)
   return ϕall
 end
 
-function η_derivs(ϕ, backend)
+function η_derivs(ϕ, backend, ::EdgeInterpolationOrder1)
+  ϕval(t, i, j, k, p) = _η_eval_3d_metriccache(j, ϕ, t, i, k, p)
+  return ϕval
+end
+
+function η_derivs(ϕ, backend, ::EdgeInterpolationOrder2)
+  cϕ = DifferentiationInterface.Constant(ϕ)
+  prep = prepare_derivative(
+    _η_eval_3d_metriccache,
+    backend,
+    0.0,
+    cϕ,
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(nothing);
+    strict=Val(false),
+  )
+
+  function ϕall(t, i, j, k, p)
+    value_and_derivative(
+      _η_eval_3d_metriccache,
+      prep,
+      backend,
+      j,
+      cϕ,
+      DifferentiationInterface.Constant(t),
+      DifferentiationInterface.Constant(i),
+      DifferentiationInterface.Constant(k),
+      DifferentiationInterface.Constant(p),
+    )
+  end
+
+  return ϕall
+end
+
+function η_derivs(ϕ, backend, ::EdgeInterpolationOrder3)
   cϕ = DifferentiationInterface.Constant(ϕ)
   prep = prepare_second_derivative(
     _η_eval_3d_metriccache,
@@ -971,7 +1210,43 @@ function η_derivs(ϕ, backend)
   return ϕall
 end
 
-function ζ_derivs(ϕ, backend)
+function ζ_derivs(ϕ, backend, ::EdgeInterpolationOrder1)
+  ϕval(t, i, j, k, p) = _ζ_eval_3d_metriccache(k, ϕ, t, i, j, p)
+  return ϕval
+end
+
+function ζ_derivs(ϕ, backend, ::EdgeInterpolationOrder2)
+  cϕ = DifferentiationInterface.Constant(ϕ)
+  prep = prepare_derivative(
+    _ζ_eval_3d_metriccache,
+    backend,
+    0.0,
+    cϕ,
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(0.0),
+    DifferentiationInterface.Constant(nothing);
+    strict=Val(false),
+  )
+
+  function ϕall(t, i, j, k, p)
+    value_and_derivative(
+      _ζ_eval_3d_metriccache,
+      prep,
+      backend,
+      k,
+      cϕ,
+      DifferentiationInterface.Constant(t),
+      DifferentiationInterface.Constant(i),
+      DifferentiationInterface.Constant(j),
+      DifferentiationInterface.Constant(p),
+    )
+  end
+
+  return ϕall
+end
+
+function ζ_derivs(ϕ, backend, ::EdgeInterpolationOrder3)
   cϕ = DifferentiationInterface.Constant(ϕ)
   prep = prepare_second_derivative(
     _ζ_eval_3d_metriccache,

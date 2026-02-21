@@ -37,6 +37,66 @@ using CurvilinearGrids
   @test_throws ArgumentError DiscreteGrid(x, :meg6; interpolation=:cubic)
 end
 
+@testset "Conserved face interpolation scheme selection" begin
+  xmap(t, ξ, η, p) = ξ + 0.15 * sin(0.3 * ξ) * cos(0.2 * η)
+  ymap(t, ξ, η, p) = η + 0.1 * cos(0.2 * ξ) * sin(0.3 * η)
+
+  g_o3 = MappedGrid(
+    xmap,
+    ymap,
+    (;),
+    (12, 12),
+    :meg6;
+    cache_mode=:eager,
+    conserved_metric_scheme=EdgeInterpolationOrder3(),
+  )
+  g_o2 = MappedGrid(
+    xmap,
+    ymap,
+    (;),
+    (12, 12),
+    :meg6;
+    cache_mode=:eager,
+    conserved_metric_scheme=EdgeInterpolationOrder2(),
+  )
+  g_o1 = MappedGrid(
+    xmap,
+    ymap,
+    (;),
+    (12, 12),
+    :meg6;
+    cache_mode=:eager,
+    conserved_metric_scheme=EdgeInterpolationOrder1(),
+  )
+
+  I = first(g_o3.iterators.cell.domain)
+  c_o3 = face_metrics(g_o3)[1].conserved[I].jacobian_matrix
+  c_o2 = face_metrics(g_o2)[1].conserved[I].jacobian_matrix
+  c_o1 = face_metrics(g_o1)[1].conserved[I].jacobian_matrix
+  @test c_o3 != c_o2
+  @test c_o3 != c_o1
+
+  nx, ny = (13, 13)
+  x = [xmap(0.0, i, j, (;)) for i in 1:nx, j in 1:ny]
+  y = [ymap(0.0, i, j, (;)) for i in 1:nx, j in 1:ny]
+  d_o2 = DiscreteGrid(
+    x,
+    y,
+    :meg6;
+    cache_mode=:eager,
+    conserved_metric_scheme=EdgeInterpolationOrder2(),
+    interpolation=:linear,
+  )
+
+  @test face_metrics(d_o2)[1].conserved[I] isa ConservedMetric{2,Float64}
+  @test_throws TypeError MappedGrid(
+    xmap, ymap, (;), (8, 8), :meg6; cache_mode=:eager, conserved_metric_scheme=:not_a_scheme
+  )
+  @test_throws TypeError MappedGrid(
+    xmap, ymap, (;), (8, 8), :meg6; cache_mode=:eager, conserved_metric_scheme=4
+  )
+end
+
 @testset "MappedGrid and independent cache refresh" begin
   xmap(t, i, p) = p.amp * i + t
   params = (amp=1.0,)
