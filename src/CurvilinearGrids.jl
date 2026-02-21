@@ -58,6 +58,10 @@ export cellvolume, cellvolumes
 
 export forward_cell_metrics, inverse_cell_metrics
 export InverseCoordinateResult, computational_coordinate
+export BlockFace, BlockInterface
+export MultiBlockMesh
+export validate_multiblock!, build_interface_caches!, invalidate_interface_caches!
+export exchange_interface!, exchange_all_interfaces!
 export invalidate_cell_metrics!, invalidate_face_metrics!
 export refresh_cell_metrics!, refresh_face_metrics!
 

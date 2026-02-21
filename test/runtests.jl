@@ -51,6 +51,9 @@ include("unit/common.jl")
   @info "Unified Grid Types"
   include("unit/test_unified_grid_types.jl")
 
+  @info "MultiBlock"
+  include("unit/test_multiblock.jl")
+
   @info "Read/Write .h5"
   include("unit/test_grid_read_write.jl")
 end
