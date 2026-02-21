@@ -4,7 +4,7 @@
   Δx = (x1 - x0) / ni
 
   x(t, ξ, p) = x0 + (ξ - 1) * Δx
-  mesh = MappedGrid(x, (;), (ni,), :meg6)
+  mesh = MappedGrid(x, (;), (ni,), 5)
 
   cm = cell_metrics(mesh)
   fm = face_metrics(mesh)
@@ -22,7 +22,7 @@ end
   ni = 40
   x0, x1 = (0.0, 20.0)
   x = collect(range(x0, x1, ni + 1))
-  mesh = DiscreteGrid(x, :meg6; halo_coords_included=true)
+  mesh = DiscreteGrid(x, 5; halo_coords_included=true)
 
   cm = cell_metrics(mesh)
   fm = face_metrics(mesh)

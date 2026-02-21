@@ -120,7 +120,7 @@ function _new_mapped_grid(
   mapping_functions,
   params::NamedTuple,
   celldims::NTuple{N,Int},
-  discretization_scheme::Symbol;
+  nhalo::Int;
   backend,
   diff_backend,
   t,
@@ -139,7 +139,7 @@ function _new_mapped_grid(
     Val(N),
     mapping_functions,
     celldims,
-    discretization_scheme,
+    nhalo,
     conserved_metric_scheme,
     backend,
     diff_backend,
@@ -214,7 +214,7 @@ function _new_mapped_grid(
 end
 
 """
-    MappedGrid(x[, y[, z]], params, celldims, discretization_scheme; kwargs...)
+    MappedGrid(x[, y[, z]], params, celldims, nhalo; kwargs...)
 
 Construct a mapped unified grid from continuous coordinate mapping functions.
 
@@ -224,7 +224,7 @@ Construct a mapped unified grid from continuous coordinate mapping functions.
   - `z`: Mapping function for the third physical coordinate (3D).
   - `params`: Mapping parameter tuple passed to mapping functions.
   - `celldims`: Cell counts in each computational dimension.
-  - `discretization_scheme`: Gradient scheme symbol (for example `:meg6`).
+  - `nhalo`: Halo width used by node/cell domains.
 
 # Keywords
   - `backend`: Storage backend. Default: `CPU()`.
@@ -248,7 +248,7 @@ function MappedGrid(
   x::Function,
   params::NamedTuple,
   celldims::NTuple{1,Int},
-  discretization_scheme::Symbol;
+  nhalo::Integer;
   backend=CPU(),
   diff_backend=AutoForwardDiff(),
   t=zero(Float64),
@@ -260,13 +260,14 @@ function MappedGrid(
   cache_mode::Symbol=:eager,
   conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
+  nhalo_value = _normalize_nhalo(nhalo)
   mapping_functions = (; x1=x)
   return _new_mapped_grid(
     Val(1),
     mapping_functions,
     params,
     celldims,
-    discretization_scheme;
+    nhalo_value;
     backend=backend,
     diff_backend=diff_backend,
     t=t,
@@ -285,7 +286,7 @@ function MappedGrid(
   y::Function,
   params::NamedTuple,
   celldims::NTuple{2,Int},
-  discretization_scheme::Symbol;
+  nhalo::Integer;
   backend=CPU(),
   diff_backend=AutoForwardDiff(),
   t=zero(Float64),
@@ -297,13 +298,14 @@ function MappedGrid(
   cache_mode::Symbol=:eager,
   conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
+  nhalo_value = _normalize_nhalo(nhalo)
   mapping_functions = (; x1=x, x2=y)
   return _new_mapped_grid(
     Val(2),
     mapping_functions,
     params,
     celldims,
-    discretization_scheme;
+    nhalo_value;
     backend=backend,
     diff_backend=diff_backend,
     t=t,
@@ -323,7 +325,7 @@ function MappedGrid(
   z::Function,
   params::NamedTuple,
   celldims::NTuple{3,Int},
-  discretization_scheme::Symbol;
+  nhalo::Integer;
   backend=CPU(),
   diff_backend=AutoForwardDiff(),
   t=zero(Float64),
@@ -335,13 +337,14 @@ function MappedGrid(
   cache_mode::Symbol=:eager,
   conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
+  nhalo_value = _normalize_nhalo(nhalo)
   mapping_functions = (; x1=x, x2=y, x3=z)
   return _new_mapped_grid(
     Val(3),
     mapping_functions,
     params,
     celldims,
-    discretization_scheme;
+    nhalo_value;
     backend=backend,
     diff_backend=diff_backend,
     t=t,

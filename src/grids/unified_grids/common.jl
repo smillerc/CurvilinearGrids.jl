@@ -82,6 +82,14 @@ function _new_metric_caches(cache_mode::Symbol, cell_data, face_data)
   )
 end
 
+@inline function _normalize_nhalo(nhalo::Integer)
+  nhalo_int = Int(nhalo)
+  if nhalo_int < 0
+    throw(ArgumentError("`nhalo` must be non-negative."))
+  end
+  return nhalo_int
+end
+
 @inline function _has_metric_storage(grid::AbstractMappedOrDiscreteGrid)
   return grid.metric_caches !== nothing
 end
@@ -257,7 +265,7 @@ function _build_unified_components(
   ::Val{N},
   mapping_functions,
   celldims::NTuple{N,Int},
-  discretization_scheme::Symbol,
+  nhalo::Int,
   edge_interpolation_scheme::EdgeInterpolationSchemeTrait,
   backend,
   diff_backend,
@@ -265,8 +273,6 @@ function _build_unified_components(
   global_cell_indices=nothing,
   build_metric_storage::Bool=true,
 ) where {N,T}
-  _, _, _, nhalo, _ = get_gradient_discretization_scheme(discretization_scheme)
-
   iterators = get_iterators(celldims, nhalo, global_cell_indices)
   node_coordinates, centroid_coordinates = _allocate_unified_coordinates(
     Val(N), iterators, backend, T

@@ -23,7 +23,7 @@
   x = get_uniform_mapping()
 
   backend = AutoForwardDiff()
-  mesh = MappedGrid(x, params, celldims, :meg6; backend=CPU(), diff_backend=backend)
+  mesh = MappedGrid(x, params, celldims, 5; backend=CPU(), diff_backend=backend)
 
   I1 = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), mesh.iterators.cell.domain)
   @test all(abs.(extrema(I1)) .< eps())

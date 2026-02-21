@@ -31,9 +31,7 @@ function perturb_coords!(mesh, x_interface, λ, k)
     xcoords[i, j] += x_pert
   end
 
-  return DiscreteGrid(
-    xcoords, ycoords, mesh.discretization_scheme_name; halo_coords_included=true
-  )
+  return DiscreteGrid(xcoords, ycoords, 5; halo_coords_included=true)
 end
 
 @testset "2D Mesh Perturbation" begin
@@ -48,7 +46,7 @@ end
   ynodes = collect(range(y0, y1, 102))
   x = [xnodes[i] for i in eachindex(xnodes), j in eachindex(ynodes)]
   y = [ynodes[j] for i in eachindex(xnodes), j in eachindex(ynodes)]
-  mesh = DiscreteGrid(x, y, :meg6_symmetric)
+  mesh = DiscreteGrid(x, y, 5)
 
   mesh = perturb_coords!(mesh, x_interface, λ, k)
 

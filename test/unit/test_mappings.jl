@@ -125,7 +125,7 @@ celldims = (100, 50, 50)
 
 x, y, z = sector_mapping(θmin, θmax, ϕmin, ϕmax, celldims);
 # backend = AutoForwardDiff()
-mesh = MappedGrid(x, y, z, (;), celldims, :meg6; backend=CPU())
+mesh = MappedGrid(x, y, z, (;), celldims, 5; backend=CPU())
 
 # gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps());
 save_vtk(mesh, "sector_ad_mesh")

@@ -68,7 +68,7 @@ end
   ni, nj = (40, 80)
   x, y, Δx, Δy = rectilinear_nodes_2d(x0, x1, y0, y1, ni, nj)
 
-  mesh = DiscreteGrid(x, y, :MEG6)
+  mesh = DiscreteGrid(x, y, 5)
   domain = mesh.iterators.cell.domain
 
   @test mesh.iterators.cell.full == CartesianIndices((50, 90))
@@ -97,7 +97,7 @@ end
   x0, x1 = (0, 2)
   y0, y1 = (1, 3)
   x, y, Δx, Δy = rectilinear_nodes_2d(x0, x1, y0, y1, ni, nj)
-  mesh = DiscreteGrid(x, y, :MEG6)
+  mesh = DiscreteGrid(x, y, 5)
   domain = mesh.iterators.cell.domain
 
   @test mesh.iterators.cell.full == CartesianIndices((50, 90))
@@ -126,7 +126,7 @@ end
   x0, x1 = (0, 2)
   y0, y1 = (1, 3)
   x, y, Δx, Δy = rectilinear_nodes_2d(x0, x1, y0, y1, ni, nj; halo_coords_included=true)
-  mesh = DiscreteGrid(x, y, :MEG6; halo_coords_included=true)
+  mesh = DiscreteGrid(x, y, 5; halo_coords_included=true)
   domain = mesh.iterators.cell.full
 
   @test mesh.iterators.cell.full == CartesianIndices((40, 80))
@@ -182,7 +182,7 @@ end
 
   ni, nj = (41, 41)
   x, y = wavy_grid(ni, nj)
-  mesh = DiscreteGrid(x, y, :MEG6)
+  mesh = DiscreteGrid(x, y, 5)
 
   domain = mesh.iterators.cell.domain
   I₁, I₂ = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), domain)
@@ -228,7 +228,7 @@ end
 
   ni, nj = (41, 41)
   x, y = wavy_grid(ni, nj)
-  mesh = DiscreteGrid(x, y, :MEG6; halo_coords_included=true)
+  mesh = DiscreteGrid(x, y, 5; halo_coords_included=true)
 
   domain = mesh.iterators.cell.domain
   I₁, I₂ = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), domain)

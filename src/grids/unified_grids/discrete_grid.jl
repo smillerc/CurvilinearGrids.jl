@@ -148,7 +148,7 @@ function _new_discrete_grid(
   mapping_functions,
   interpolants,
   celldims::NTuple{N,Int},
-  discretization_scheme::Symbol;
+  nhalo::Int;
   backend,
   diff_backend,
   t,
@@ -169,7 +169,7 @@ function _new_discrete_grid(
     Val(N),
     mapping_functions,
     celldims,
-    discretization_scheme,
+    nhalo,
     conserved_metric_scheme,
     backend,
     diff_backend,
@@ -245,7 +245,7 @@ function _new_discrete_grid(
 end
 
 """
-    DiscreteGrid(x[, y[, z]], discretization_scheme; kwargs...)
+    DiscreteGrid(x[, y[, z]], nhalo; kwargs...)
 
 Construct a discrete unified grid from coordinate arrays using linear
 interpolation.
@@ -254,7 +254,7 @@ interpolation.
   - `x`: First coordinate array.
   - `y`: Second coordinate array (2D/3D).
   - `z`: Third coordinate array (3D).
-  - `discretization_scheme`: Gradient scheme symbol (for example `:meg6`).
+  - `nhalo`: Halo width used by node/cell domains.
 
 # Keywords
   - `backend`: Storage backend. Default: `CPU()`.
@@ -277,7 +277,7 @@ cache storage.
 """
 function DiscreteGrid(
   x::AbstractVector{TX},
-  discretization_scheme::Symbol;
+  nhalo::Integer;
   backend=CPU(),
   diff_backend=AutoForwardDiff(),
   T::Type=TX,
@@ -294,8 +294,8 @@ function DiscreteGrid(
 
   number_type = isnothing(Tcore) ? T : Tcore
 
-  _, _, _, nhalo, _ = get_gradient_discretization_scheme(discretization_scheme)
-  x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo) : x
+  nhalo_value = _normalize_nhalo(nhalo)
+  x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo_value) : x
   x_nodes = number_type.(x_nodes)
 
   x_itp = _linear_interpolant(x_nodes)
@@ -306,7 +306,7 @@ function DiscreteGrid(
     (; x1=x_map),
     (; x1=x_itp),
     (length(x_nodes) - 1,),
-    discretization_scheme;
+    nhalo_value;
     backend=backend,
     diff_backend=diff_backend,
     t=zero(number_type),
@@ -324,7 +324,7 @@ end
 function DiscreteGrid(
   x::AbstractArray{TX,2},
   y::AbstractArray{TX,2},
-  discretization_scheme::Symbol;
+  nhalo::Integer;
   backend=CPU(),
   diff_backend=AutoForwardDiff(),
   T::Type=TX,
@@ -343,9 +343,9 @@ function DiscreteGrid(
 
   number_type = isnothing(Tcore) ? T : Tcore
 
-  _, _, _, nhalo, _ = get_gradient_discretization_scheme(discretization_scheme)
-  x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo) : x
-  y_nodes = halo_coords_included ? _strip_halo_nodes(y, nhalo) : y
+  nhalo_value = _normalize_nhalo(nhalo)
+  x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo_value) : x
+  y_nodes = halo_coords_included ? _strip_halo_nodes(y, nhalo_value) : y
 
   x_nodes = number_type.(x_nodes)
   y_nodes = number_type.(y_nodes)
@@ -361,7 +361,7 @@ function DiscreteGrid(
     (; x1=x_map, x2=y_map),
     (; x1=x_itp, x2=y_itp),
     Tuple(size(x_nodes) .- 1),
-    discretization_scheme;
+    nhalo_value;
     backend=backend,
     diff_backend=diff_backend,
     t=zero(number_type),
@@ -380,7 +380,7 @@ function DiscreteGrid(
   x::AbstractArray{TX,3},
   y::AbstractArray{TX,3},
   z::AbstractArray{TX,3},
-  discretization_scheme::Symbol;
+  nhalo::Integer;
   backend=CPU(),
   diff_backend=AutoForwardDiff(),
   T::Type=TX,
@@ -399,10 +399,10 @@ function DiscreteGrid(
 
   number_type = isnothing(Tcore) ? T : Tcore
 
-  _, _, _, nhalo, _ = get_gradient_discretization_scheme(discretization_scheme)
-  x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo) : x
-  y_nodes = halo_coords_included ? _strip_halo_nodes(y, nhalo) : y
-  z_nodes = halo_coords_included ? _strip_halo_nodes(z, nhalo) : z
+  nhalo_value = _normalize_nhalo(nhalo)
+  x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo_value) : x
+  y_nodes = halo_coords_included ? _strip_halo_nodes(y, nhalo_value) : y
+  z_nodes = halo_coords_included ? _strip_halo_nodes(z, nhalo_value) : z
 
   x_nodes = number_type.(x_nodes)
   y_nodes = number_type.(y_nodes)
@@ -421,7 +421,7 @@ function DiscreteGrid(
     (; x1=x_map, x2=y_map, x3=z_map),
     (; x1=x_itp, x2=y_itp, x3=z_itp),
     Tuple(size(x_nodes) .- 1),
-    discretization_scheme;
+    nhalo_value;
     backend=backend,
     diff_backend=diff_backend,
     t=zero(number_type),

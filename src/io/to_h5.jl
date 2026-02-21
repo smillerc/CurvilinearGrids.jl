@@ -343,11 +343,11 @@ end
 ### Read h5 functions
 
 """
-    read_coordinates(filename::String; discretization_scheme=:meg6)
+    read_coordinates(filename::String; discretization_scheme=:meg6, nhalo=5)
 
 Load grid information from an HDF5 file written by `write_coordinates` and reconstruct the corresponding mesh using the chosen `discretization_scheme`.
 """
-function read_coordinates(filename::String; discretization_scheme=:meg6)
+function read_coordinates(filename::String; discretization_scheme=:meg6, nhalo=5)
   grid_file = h5open(filename, "r")
   grid_type = read(grid_file, "grid_type")
   close(grid_file)
@@ -363,13 +363,13 @@ function read_coordinates(filename::String; discretization_scheme=:meg6)
     mesh = CurvilinearGrid3D(x, y, z, discretization_scheme)
   elseif grid_type == "DiscreteGrid1D"
     x = read_CurvilinearGrid1D(filename)
-    mesh = DiscreteGrid(x, discretization_scheme)
+    mesh = DiscreteGrid(x, nhalo)
   elseif grid_type == "DiscreteGrid2D"
     x, y = read_CurvilinearGrid2D(filename)
-    mesh = DiscreteGrid(x, y, discretization_scheme)
+    mesh = DiscreteGrid(x, y, nhalo)
   elseif grid_type == "DiscreteGrid3D"
     x, y, z = read_CurvilinearGrid3D(filename)
-    mesh = DiscreteGrid(x, y, z, discretization_scheme)
+    mesh = DiscreteGrid(x, y, z, nhalo)
   elseif grid_type == "UniformGrid1D"
     x = read_UniformGrid1D(filename)
     mesh = UniformGrid1D(x, discretization_scheme)

@@ -3,7 +3,7 @@ using CurvilinearGrids
 
 @testset "UnifiedGrid traits and adapters" begin
   x = collect(range(0.0, 1.0; length=8))
-  dgrid = DiscreteGrid(x, :meg6; interpolation=:linear, cache_mode=:eager)
+  dgrid = DiscreteGrid(x, 5; interpolation=:linear, cache_mode=:eager)
 
   @test dgrid isa DiscreteGrid
   @test dgrid isa DiscreteGrid{1,Float64}
@@ -25,8 +25,11 @@ using CurvilinearGrids
   @test dgrid.metric_caches.cell.valid
   @test dgrid.metric_caches.face.valid
 
-  dgrid_spherical = DiscreteGrid(x, :meg6; basis=SphericalBasis())
+  dgrid_spherical = DiscreteGrid(x, 5; basis=SphericalBasis())
   @test basis_trait(dgrid_spherical) isa SphericalBasis
+  dgrid_nhalo3 = DiscreteGrid(x, 3)
+  @test dgrid_nhalo3.nhalo == 3
+  @test_throws MethodError DiscreteGrid(x; interpolation=:linear)
 
   invalidate_cell_metrics!(dgrid)
   @test !dgrid.metric_caches.cell.valid
@@ -36,7 +39,7 @@ using CurvilinearGrids
   @test dgrid.metric_caches.cell.valid
   @test dgrid.metric_caches.face.valid
 
-  @test_throws ArgumentError DiscreteGrid(x, :meg6; interpolation=:cubic)
+  @test_throws ArgumentError DiscreteGrid(x, 5; interpolation=:cubic)
 end
 
 @testset "Conserved face interpolation scheme selection" begin
@@ -48,7 +51,7 @@ end
     ymap,
     (;),
     (12, 12),
-    :meg6;
+    5;
     cache_mode=:eager,
     conserved_metric_scheme=EdgeInterpolationOrder3(),
   )
@@ -57,7 +60,7 @@ end
     ymap,
     (;),
     (12, 12),
-    :meg6;
+    5;
     cache_mode=:eager,
     conserved_metric_scheme=EdgeInterpolationOrder2(),
   )
@@ -66,7 +69,7 @@ end
     ymap,
     (;),
     (12, 12),
-    :meg6;
+    5;
     cache_mode=:eager,
     conserved_metric_scheme=EdgeInterpolationOrder1(),
   )
@@ -84,7 +87,7 @@ end
   d_o2 = DiscreteGrid(
     x,
     y,
-    :meg6;
+    5;
     cache_mode=:eager,
     conserved_metric_scheme=EdgeInterpolationOrder2(),
     interpolation=:linear,
@@ -92,10 +95,10 @@ end
 
   @test face_metrics(d_o2)[1].conserved[I] isa ConservedMetric{2,Float64}
   @test_throws TypeError MappedGrid(
-    xmap, ymap, (;), (8, 8), :meg6; cache_mode=:eager, conserved_metric_scheme=:not_a_scheme
+    xmap, ymap, (;), (8, 8), 5; cache_mode=:eager, conserved_metric_scheme=:not_a_scheme
   )
   @test_throws TypeError MappedGrid(
-    xmap, ymap, (;), (8, 8), :meg6; cache_mode=:eager, conserved_metric_scheme=4
+    xmap, ymap, (;), (8, 8), 5; cache_mode=:eager, conserved_metric_scheme=4
   )
 end
 
@@ -103,7 +106,7 @@ end
   xmap(t, i, p) = p.amp * i + t
   params = (amp=1.0,)
 
-  mgrid = MappedGrid(xmap, params, (8,), :meg6; cache_mode=:eager)
+  mgrid = MappedGrid(xmap, params, (8,), 5; cache_mode=:eager)
   @test mgrid isa MappedGrid
   @test mgrid isa MappedGrid{1,Float64}
   @test isconcretetype(typeof(mgrid))
@@ -122,8 +125,11 @@ end
   @test mgrid.metric_caches.cell.valid
   @test mgrid.metric_caches.face.valid
 
-  mgrid_spherical = MappedGrid(xmap, params, (8,), :meg6; basis=SphericalBasis())
+  mgrid_spherical = MappedGrid(xmap, params, (8,), 5; basis=SphericalBasis())
   @test basis_trait(mgrid_spherical) isa SphericalBasis
+  mgrid_nhalo3 = MappedGrid(xmap, params, (8,), 3)
+  @test mgrid_nhalo3.nhalo == 3
+  @test_throws MethodError MappedGrid(xmap, params, (8,); cache_mode=:eager)
 
   update!(mgrid, 1.0, params)
   @test !mgrid.metric_caches.cell.valid
@@ -136,9 +142,7 @@ end
 
 @testset "Metrics can be fully disabled" begin
   xmap(t, ξ, p) = ξ + p.shift
-  mgrid = MappedGrid(
-    xmap, (; shift=1.0), (8,), :meg6; compute_metrics=false, cache_mode=:off
-  )
+  mgrid = MappedGrid(xmap, (; shift=1.0), (8,), 5; compute_metrics=false, cache_mode=:off)
 
   @test mgrid.metric_functions_cache !== nothing
   @test mgrid.metric_caches === nothing
@@ -158,7 +162,7 @@ end
   @test isfinite(cellvolume(mgrid, (1,)))
 
   x = collect(range(0.0, 1.0; length=8))
-  dgrid = DiscreteGrid(x, :meg6; compute_metrics=false, cache_mode=:off)
+  dgrid = DiscreteGrid(x, 5; compute_metrics=false, cache_mode=:off)
   @test dgrid.metric_functions_cache !== nothing
   @test dgrid.metric_caches === nothing
   @test isfinite(coord(dgrid, (1,))[1])
@@ -184,7 +188,7 @@ end
     end
   end
 
-  dgrid2d = DiscreteGrid(x, y, :meg6; cache_mode=:eager)
+  dgrid2d = DiscreteGrid(x, y, 5; cache_mode=:eager)
   fm = face_metrics(dgrid2d)
 
   I = first(dgrid2d.iterators.cell.domain)
@@ -215,7 +219,7 @@ end
 @testset "Unified cellvolume trait dispatch" begin
   x1d = collect(range(1.0, 3.0; length=8))
   cyl1d = DiscreteGrid(
-    x1d, :meg6; coordinate_system=CylindricalCS(), basis=CartesianBasis(), cache_mode=:eager
+    x1d, 5; coordinate_system=CylindricalCS(), basis=CartesianBasis(), cache_mode=:eager
   )
   I1 = first(cyl1d.iterators.cell.domain)
   J1 = cell_metrics(cyl1d).forward[I1].J
@@ -233,12 +237,7 @@ end
   end
 
   cyl2d = DiscreteGrid(
-    x2,
-    y2,
-    :MEG6;
-    coordinate_system=CylindricalCS(),
-    basis=CartesianBasis(),
-    cache_mode=:eager,
+    x2, y2, 5; coordinate_system=CylindricalCS(), basis=CartesianBasis(), cache_mode=:eager
   )
   I2 = first(cyl2d.iterators.cell.domain)
   J2 = cell_metrics(cyl2d).forward[I2].J
@@ -248,7 +247,7 @@ end
   axi_y = DiscreteGrid(
     x2,
     y2,
-    :MEG6;
+    5;
     coordinate_system=AxisymmetricCS{:y}(),
     basis=CartesianBasis(),
     cache_mode=:eager,
@@ -261,7 +260,7 @@ end
   axi_x = DiscreteGrid(
     x2,
     y2,
-    :MEG6;
+    5;
     coordinate_system=AxisymmetricCS{:x}(),
     basis=CartesianBasis(),
     cache_mode=:eager,
@@ -281,7 +280,7 @@ end
     ϕmap,
     params,
     (6, 6, 6),
-    :meg6;
+    5;
     coordinate_system=SphericalCS(),
     basis=SphericalBasis(),
     cache_mode=:eager,
@@ -292,12 +291,7 @@ end
   @test cellvolume(sph3d, I3) ≈ (c3[1]^2 * sin(c3[2])) * J3
 
   sph2d = DiscreteGrid(
-    x2,
-    y2,
-    :MEG6;
-    coordinate_system=SphericalCS(),
-    basis=SphericalBasis(),
-    cache_mode=:eager,
+    x2, y2, 5; coordinate_system=SphericalCS(), basis=SphericalBasis(), cache_mode=:eager
   )
   Is2 = first(sph2d.iterators.cell.domain)
   @test_throws ArgumentError cellvolume(sph2d, Is2)
@@ -311,7 +305,7 @@ end
   zmap(t, ξ, η, ζ, p) = 3 * ζ
 
   mgrid = MappedGrid(
-    xmap, ymap, zmap, (;), (7, 7, 7), :meg6; basis=CartesianBasis(), cache_mode=:eager
+    xmap, ymap, zmap, (;), (7, 7, 7), 5; basis=CartesianBasis(), cache_mode=:eager
   )
 
   cm = coord(mgrid, idx)
@@ -344,7 +338,7 @@ end
   z = [3.0 * k for i in 1:nx, j in 1:ny, k in 1:nz]
 
   dgrid = DiscreteGrid(
-    x, y, z, :meg6; basis=CartesianBasis(), interpolation=:linear, cache_mode=:eager
+    x, y, z, 5; basis=CartesianBasis(), interpolation=:linear, cache_mode=:eager
   )
 
   cd = coord(dgrid, idx)
@@ -377,7 +371,7 @@ end
   x1(t, ξ, η, p) = p.a11 * ξ + p.a12 * η + p.b1
   x2(t, ξ, η, p) = p.a21 * ξ + p.a22 * η + p.b2
 
-  mgrid = MappedGrid(x1, x2, params, (9, 10), :meg6; cache_mode=:off, compute_metrics=false)
+  mgrid = MappedGrid(x1, x2, params, (9, 10), 5; cache_mode=:off, compute_metrics=false)
 
   ξtrue = (3.2, 5.7)
   xphys = Tuple(coord(mgrid, ξtrue))
@@ -394,7 +388,7 @@ end
   x = [x1(0.0, i, j, params) for i in 1:10, j in 1:11]
   y = [x2(0.0, i, j, params) for i in 1:10, j in 1:11]
   dgrid = DiscreteGrid(
-    x, y, :meg6; interpolation=:linear, cache_mode=:off, compute_metrics=false
+    x, y, 5; interpolation=:linear, cache_mode=:off, compute_metrics=false
   )
   ξdiscrete = computational_coordinate(dgrid, xphys)
   @test all(abs.(Tuple(ξdiscrete) .- ξtrue) .<= 1e-10)
@@ -404,7 +398,7 @@ end
   x1n(t, ξ, η, p) = ξ + 0.35 * sin(0.8 * ξ) * cos(0.4 * η)
   x2n(t, ξ, η, p) = η + 0.3 * cos(0.6 * ξ) * sin(0.7 * η)
   nonlinear_grid = MappedGrid(
-    x1n, x2n, (;), (9, 10), :meg6; cache_mode=:off, compute_metrics=false
+    x1n, x2n, (;), (9, 10), 5; cache_mode=:off, compute_metrics=false
   )
   ξnonlinear = (7.9, 8.2)
   xnonlinear = Tuple(coord(nonlinear_grid, ξnonlinear))

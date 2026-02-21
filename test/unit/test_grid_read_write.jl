@@ -8,7 +8,7 @@ function initialize_mesh_Discrete1D()
 
   x = LinRange(ustrip.(u"cm", x0), ustrip.(u"cm", x1), Nx)
 
-  return DiscreteGrid(x, :meg6)
+  return DiscreteGrid(x, 5)
 end
 
 function initialize_mesh_Discrete2D()
@@ -26,7 +26,7 @@ function initialize_mesh_Discrete2D()
   x2d = [x[i] for i in eachindex(x), j in eachindex(y)]
   y2d = [y[j] for i in eachindex(x), j in eachindex(y)]
 
-  return DiscreteGrid(x2d, y2d, :meg6)
+  return DiscreteGrid(x2d, y2d, 5)
 end
 
 function initialize_mesh_Discrete3D()
@@ -49,7 +49,7 @@ function initialize_mesh_Discrete3D()
   y3d = [y[j] for i in eachindex(x), j in eachindex(y), k in eachindex(z)]
   z3d = [z[k] for i in eachindex(x), j in eachindex(y), k in eachindex(z)]
 
-  return DiscreteGrid(x3d, y3d, z3d, :meg6)
+  return DiscreteGrid(x3d, y3d, z3d, 5)
   #return SphericalGrid1D(x, :meg6, snap_to_axis)
 end
 

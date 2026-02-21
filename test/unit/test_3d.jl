@@ -116,7 +116,7 @@ end
   ni, nj, nk = (40, 80, 120)
 
   x, y, z, Δx, Δy, Δz = rectilinear_nodes_3d(x0, x1, y0, y1, z0, z1, ni, nj, nk)
-  mesh = DiscreteGrid(x, y, z, :meg6)
+  mesh = DiscreteGrid(x, y, z, 5)
   domain = mesh.iterators.cell.domain
 
   assert_rectilinear_metrics_3d(mesh, domain, Δx, Δy, Δz)
@@ -167,7 +167,7 @@ end
 
   ni = nj = nk = 20
   x, y, z = wavy_grid(ni, nj, nk)
-  mesh = DiscreteGrid(x, y, z, :meg6)
+  mesh = DiscreteGrid(x, y, z, 5)
 
   save_vtk(coords(mesh), "wavy3d")
 
@@ -217,7 +217,7 @@ end
 
   ni = nj = nk = 20
   x, y, z = wavy_grid(ni, nj, nk)
-  mesh = DiscreteGrid(x, y, z, :meg6; halo_coords_included=true)
+  mesh = DiscreteGrid(x, y, z, 5; halo_coords_included=true)
 
   I₁, I₂, I₃ = CurvilinearGrids.GridTypes.gcl(
     face_metrics(mesh), mesh.iterators.cell.domain
@@ -246,7 +246,7 @@ end
     (p.r0 + (ξ - 1) * p.Δr) * sin(p.θ0 + (η - 1) * p.Δθ) * sin(p.ϕ0 + (ζ - 1) * p.Δϕ)
   z(t, ξ, η, ζ, p) = (p.r0 + (ξ - 1) * p.Δr) * cos(p.θ0 + (η - 1) * p.Δθ)
 
-  mesh = MappedGrid(x, y, z, params, (ni, nj, nk), :meg6_symmetric)
+  mesh = MappedGrid(x, y, z, params, (ni, nj, nk), 5)
   save_vtk(coords(mesh), "sphere_sector_3d")
 
   I₁_passes = true

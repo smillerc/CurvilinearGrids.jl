@@ -54,7 +54,7 @@ using CurvilinearGrids,
 
   x, y, z = wavy_mapping()
   params, celldims = wavy_params()
-  mesh = MappedGrid(x, y, z, params, celldims, :meg6; backend=CPU())
+  mesh = MappedGrid(x, y, z, params, celldims, 5; backend=CPU())
   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(
     face_metrics(mesh), mesh.iterators.cell.domain
   )
@@ -110,7 +110,7 @@ end
 
   function run_wavy_case(x, y, z, params, celldims, scheme)
     mesh = MappedGrid(
-      x, y, z, params, celldims, :meg6; backend=CPU(), conserved_metric_scheme=scheme
+      x, y, z, params, celldims, 5; backend=CPU(), conserved_metric_scheme=scheme
     )
     I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(
       face_metrics(mesh), mesh.iterators.cell.domain
@@ -208,7 +208,7 @@ end
     z,
     sector_params,
     celldims,
-    :meg6;
+    5;
     backend=CPU(),
     diff_backend=backend,
     conserved_metric_scheme=CurvilinearGrids.GridTypes.EdgeInterpolationOrder1(),
@@ -266,7 +266,7 @@ end
   x, y, z = get_uniform_mapping()
 
   backend = AutoForwardDiff()
-  mesh = MappedGrid(x, y, z, params, celldims, :meg6; backend=CPU(), diff_backend=backend)
+  mesh = MappedGrid(x, y, z, params, celldims, 5; backend=CPU(), diff_backend=backend)
 
   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(
     face_metrics(mesh), mesh.iterators.cell.domain

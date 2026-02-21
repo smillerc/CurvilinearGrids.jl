@@ -72,7 +72,7 @@ end
   @unpack Lx, Ly, xmin, ymin, Δx0, Δy0, Ax, Ay, n = params
   params_2 = (; Lx, Ly, xmin, ymin, Δx0, Δy0, Ax=2Ax, Ay=0.5Ay, n)
 
-  mesh = MappedGrid(x, y, params, celldims, :meg6; backend=CPU())
+  mesh = MappedGrid(x, y, params, celldims, 5; backend=CPU())
 
   i, j = (10, 20)
   c1 = coord(mesh, (i, j))
@@ -95,7 +95,7 @@ end
   params, celldims = cylindrical_params()
   x, y = cylindrical_mapping()
 
-  mesh = MappedGrid(x, y, params, celldims, :meg6; backend=CPU())
+  mesh = MappedGrid(x, y, params, celldims, 5; backend=CPU())
   I1, I2 = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), mesh.iterators.cell.domain)
   @test all(abs.(extrema(I1)) .< 1e-14)
   @test all(abs.(extrema(I2)) .< 1e-14)
@@ -134,7 +134,7 @@ end
   x, y = get_uniform_mapping()
 
   backend = AutoForwardDiff()
-  mesh = MappedGrid(x, y, params, celldims, :meg6; backend=CPU(), diff_backend=backend)
+  mesh = MappedGrid(x, y, params, celldims, 5; backend=CPU(), diff_backend=backend)
 
   I1, I2 = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), mesh.iterators.cell.domain)
   @test all(abs.(extrema(I1)) .< eps())
@@ -179,7 +179,7 @@ end
   params, celldims = cylindrical_params()
   x, y = cylindrical_mapping()
 
-  mm = MappedGrid(x, y, params, celldims, :meg6; backend=CPU())
+  mm = MappedGrid(x, y, params, celldims, 5; backend=CPU())
 
   I1, I2 = CurvilinearGrids.GridTypes.gcl(face_metrics(mm), mm.iterators.cell.domain)
   @test all(abs.(extrema(I1)) .< 1e-14)
@@ -188,7 +188,7 @@ end
   @info "DiscreteGrid2D"
   xdom = mm.node_coordinates[1][mm.iterators.node.full]
   ydom = mm.node_coordinates[2][mm.iterators.node.full]
-  dm = DiscreteGrid(xdom, ydom, :meg6; halo_coords_included=true)
+  dm = DiscreteGrid(xdom, ydom, 5; halo_coords_included=true)
 
   I1, I2 = CurvilinearGrids.GridTypes.gcl(face_metrics(dm), dm.iterators.cell.domain)
   @test all(abs.(extrema(I1)) .< 1e-14)
