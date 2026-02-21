@@ -313,9 +313,9 @@ end
   sϕ = sin(ϕ)
   cϕ = cos(ϕ)
   return @SMatrix [
-    sθ * cϕ r * cθ * cϕ -r * sθ * sϕ
-    sθ * sϕ r * cθ * sϕ r * sθ * cϕ
-    cθ -r * sθ 0
+    sθ*cϕ r*cθ*cϕ -r*sθ*sϕ
+    sθ*sϕ r*cθ*sϕ r*sθ*cϕ
+    cθ -r*sθ 0
   ]
 end
 

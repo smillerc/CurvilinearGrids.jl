@@ -140,8 +140,8 @@ end
   sϕ = sin(ϕ)
   cϕ = cos(ϕ)
   return @SMatrix [
-    sθ * cϕ cθ * cϕ -sϕ
-    sθ * sϕ cθ * sϕ cϕ
+    sθ*cϕ cθ*cϕ -sϕ
+    sθ*sϕ cθ*sϕ cϕ
     cθ -sθ 0
   ]
 end

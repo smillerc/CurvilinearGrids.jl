@@ -15,6 +15,7 @@ using .RectilinearArrays
 
 include("grids/GridTypes.jl")
 using .GridTypes
+const MultiBlockMesh = GridTypes.MultiBlockMeshType
 export AbstractCurvilinearGrid
 export AbstractCurvilinearGrid1D
 export AbstractCurvilinearGrid2D

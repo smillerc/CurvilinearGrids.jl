@@ -61,7 +61,6 @@ export jacobian_matrix
 export forward_cell_metrics, inverse_cell_metrics
 export InverseCoordinateResult, computational_coordinate
 export BlockFace, BlockInterface
-export MultiBlockMesh
 export validate_multiblock!, build_interface_caches!, invalidate_interface_caches!
 export exchange_interface!, exchange_all_interfaces!
 export gcl
@@ -119,6 +118,15 @@ include("orthogonal_grids/orthogonal.jl")
 include("simple_constructors/simple_constructors.jl")
 include("unified_grids/unified_grids.jl")
 include("multiblock/multiblock.jl")
+
+const BlockFace = MultiBlockMeshes.BlockFace
+const BlockInterface = MultiBlockMeshes.BlockInterface
+const MultiBlockMeshType = MultiBlockMeshes.Mesh
+const validate_multiblock! = MultiBlockMeshes.validate_multiblock!
+const build_interface_caches! = MultiBlockMeshes.build_interface_caches!
+const invalidate_interface_caches! = MultiBlockMeshes.invalidate_interface_caches!
+const exchange_interface! = MultiBlockMeshes.exchange_interface!
+const exchange_all_interfaces! = MultiBlockMeshes.exchange_all_interfaces!
 # include("metric_cache.jl")
 # include("continous_grids.jl")
 
