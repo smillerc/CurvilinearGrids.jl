@@ -60,9 +60,6 @@ export radius, centroid_radius, centroid_radii
 export jacobian_matrix
 export forward_cell_metrics, inverse_cell_metrics
 export InverseCoordinateResult, computational_coordinate
-export BlockFace, BlockInterface
-export validate_multiblock!, build_interface_caches!, invalidate_interface_caches!
-export exchange_interface!, exchange_all_interfaces!
 export gcl
 
 abstract type AbstractCurvilinearGrid end
@@ -117,16 +114,6 @@ include("orthogonal_grids/orthogonal.jl")
 
 include("simple_constructors/simple_constructors.jl")
 include("unified_grids/unified_grids.jl")
-include("multiblock/multiblock.jl")
-
-const BlockFace = MultiBlockMeshes.BlockFace
-const BlockInterface = MultiBlockMeshes.BlockInterface
-const MultiBlockMeshType = MultiBlockMeshes.Mesh
-const validate_multiblock! = MultiBlockMeshes.validate_multiblock!
-const build_interface_caches! = MultiBlockMeshes.build_interface_caches!
-const invalidate_interface_caches! = MultiBlockMeshes.invalidate_interface_caches!
-const exchange_interface! = MultiBlockMeshes.exchange_interface!
-const exchange_all_interfaces! = MultiBlockMeshes.exchange_all_interfaces!
 # include("metric_cache.jl")
 # include("continous_grids.jl")
 
@@ -643,9 +630,8 @@ jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
 
 Return the forward cell metric payload at `idx` as a `Metric`.
 """
-@inline forward_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) = forward_cell_metrics(
-  mesh, idx.I
-)
+@inline forward_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) =
+  forward_cell_metrics(mesh, idx.I)
 @inline function forward_cell_metrics(
   mesh::AbstractCurvilinearGrid, idx::Tuple{Vararg{Int}}
 )
@@ -657,9 +643,8 @@ end
 
 Return the inverse cell metric payload at `idx` as a `Metric`.
 """
-@inline inverse_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) = inverse_cell_metrics(
-  mesh, idx.I
-)
+@inline inverse_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) =
+  inverse_cell_metrics(mesh, idx.I)
 @inline function inverse_cell_metrics(
   mesh::AbstractCurvilinearGrid, idx::Tuple{Vararg{Int}}
 )
