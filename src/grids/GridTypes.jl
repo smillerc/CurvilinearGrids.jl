@@ -59,6 +59,7 @@ export cellvolume, cellvolumes
 export radius, centroid_radius, centroid_radii
 export jacobian_matrix
 export forward_cell_metrics, inverse_cell_metrics
+export InverseCoordinateResult, computational_coordinate
 export gcl
 
 abstract type AbstractCurvilinearGrid end

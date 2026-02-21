@@ -371,3 +371,54 @@ end
   @test inv(Fd_continuous).jacobian_matrix ≈ Gd_continuous.jacobian_matrix
   @test inv(Fd_continuous).J ≈ Gd_continuous.J
 end
+
+@testset "Inverse mapping: physical -> computational coordinate" begin
+  params = (a11=1.3, a12=0.2, a21=-0.4, a22=1.1, b1=0.5, b2=-0.2)
+  x1(t, ξ, η, p) = p.a11 * ξ + p.a12 * η + p.b1
+  x2(t, ξ, η, p) = p.a21 * ξ + p.a22 * η + p.b2
+
+  mgrid = MappedGrid(x1, x2, params, (9, 10), :meg6; cache_mode=:off, compute_metrics=false)
+
+  ξtrue = (3.2, 5.7)
+  xphys = Tuple(coord(mgrid, ξtrue))
+  ξmapped = computational_coordinate(mgrid, xphys)
+  @test all(abs.(Tuple(ξmapped) .- ξtrue) .<= 1e-10)
+
+  result = computational_coordinate(
+    mgrid, xphys; guess=(1.0, 1.0), return_result=true, throw_on_failure=false
+  )
+  @test result isa InverseCoordinateResult{2,Float64}
+  @test result.converged
+  @test all(abs.(Tuple(result.coordinate) .- ξtrue) .<= 1e-10)
+
+  x = [x1(0.0, i, j, params) for i in 1:10, j in 1:11]
+  y = [x2(0.0, i, j, params) for i in 1:10, j in 1:11]
+  dgrid = DiscreteGrid(
+    x, y, :meg6; interpolation=:linear, cache_mode=:off, compute_metrics=false
+  )
+  ξdiscrete = computational_coordinate(dgrid, xphys)
+  @test all(abs.(Tuple(ξdiscrete) .- ξtrue) .<= 1e-10)
+
+  @test_throws ArgumentError computational_coordinate(mgrid, (-100.0, -100.0))
+
+  x1n(t, ξ, η, p) = ξ + 0.35 * sin(0.8 * ξ) * cos(0.4 * η)
+  x2n(t, ξ, η, p) = η + 0.3 * cos(0.6 * ξ) * sin(0.7 * η)
+  nonlinear_grid = MappedGrid(
+    x1n, x2n, (;), (9, 10), :meg6; cache_mode=:off, compute_metrics=false
+  )
+  ξnonlinear = (7.9, 8.2)
+  xnonlinear = Tuple(coord(nonlinear_grid, ξnonlinear))
+  @test_throws ErrorException computational_coordinate(
+    nonlinear_grid, xnonlinear; guess=(1.0, 1.0), maxiters=1, tol=1e-14
+  )
+  failure = computational_coordinate(
+    nonlinear_grid,
+    xnonlinear;
+    guess=(1.0, 1.0),
+    maxiters=1,
+    tol=1e-14,
+    throw_on_failure=false,
+    return_result=true,
+  )
+  @test !failure.converged
+end

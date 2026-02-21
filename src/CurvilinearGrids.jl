@@ -57,6 +57,7 @@ export radius, centroid_radius, centroid_radii
 export cellvolume, cellvolumes
 
 export forward_cell_metrics, inverse_cell_metrics
+export InverseCoordinateResult, computational_coordinate
 export invalidate_cell_metrics!, invalidate_face_metrics!
 export refresh_cell_metrics!, refresh_face_metrics!
 
