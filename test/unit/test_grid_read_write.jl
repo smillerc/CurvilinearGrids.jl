@@ -1,5 +1,8 @@
 using Unitful
 
+mapped2d_x(t, ξ, η, p) = ξ + p.αx * sin(η / p.Lη)
+mapped2d_y(t, ξ, η, p) = η + p.αy * cos(ξ / p.Lξ)
+
 function initialize_mesh_Discrete1D()
   x0 = 0.0u"m"
   x1 = 1.0u"m"
@@ -8,7 +11,7 @@ function initialize_mesh_Discrete1D()
 
   x = LinRange(ustrip.(u"cm", x0), ustrip.(u"cm", x1), Nx)
 
-  return DiscreteGrid(x, 5)
+  return DiscreteGrid(x, 5; compute_metrics=false, cache_mode=:off)
 end
 
 function initialize_mesh_Discrete2D()
@@ -26,7 +29,7 @@ function initialize_mesh_Discrete2D()
   x2d = [x[i] for i in eachindex(x), j in eachindex(y)]
   y2d = [y[j] for i in eachindex(x), j in eachindex(y)]
 
-  return DiscreteGrid(x2d, y2d, 5)
+  return DiscreteGrid(x2d, y2d, 5; compute_metrics=false, cache_mode=:off)
 end
 
 function initialize_mesh_Discrete3D()
@@ -49,7 +52,7 @@ function initialize_mesh_Discrete3D()
   y3d = [y[j] for i in eachindex(x), j in eachindex(y), k in eachindex(z)]
   z3d = [z[k] for i in eachindex(x), j in eachindex(y), k in eachindex(z)]
 
-  return DiscreteGrid(x3d, y3d, z3d, 5)
+  return DiscreteGrid(x3d, y3d, z3d, 5; compute_metrics=false, cache_mode=:off)
   #return SphericalGrid1D(x, :meg6, snap_to_axis)
 end
 
@@ -118,6 +121,21 @@ function initialize_mesh_Spherical1D()
   return SphericalGrid1D(x, :meg6, snap_to_axis)
 end
 
+function initialize_mesh_Mapped2D()
+  params = (; αx=0.1, αy=0.15, Lξ=20.0, Lη=16.0)
+  return MappedGrid(
+    mapped2d_x,
+    mapped2d_y,
+    params,
+    (20, 16),
+    5;
+    compute_metrics=false,
+    cache_mode=:off,
+    coordinate_system=CurvilinearCS(),
+    basis=CartesianBasis(),
+  )
+end
+
 function test_write(mesh)
   grid_fn = "$(@__DIR__)/grid.h5"
   units = u"cm"
@@ -125,12 +143,12 @@ function test_write(mesh)
   write_coordinates(mesh, grid_fn, units)
 end
 
-function test_read()
+function test_read(; kwargs...)
   grid_fn = "$(@__DIR__)/grid.h5"
 
-  mesh = read_coordinates(grid_fn)
+  mesh = read_coordinates(grid_fn; kwargs...)
 
-  rm(grid_fn)
+  rm(grid_fn; force=true)
 
   return mesh
 end
@@ -141,13 +159,13 @@ end
   mesh3D_0 = initialize_mesh_Discrete3D()
 
   test_write(mesh1D_0)
-  mesh1D = test_read()
+  mesh1D = test_read(; compute_metrics=false, cache_mode=:off)
 
   test_write(mesh2D_0)
-  mesh2D = test_read()
+  mesh2D = test_read(; compute_metrics=false, cache_mode=:off)
 
   test_write(mesh3D_0)
-  mesh3D = test_read()
+  mesh3D = test_read(; compute_metrics=false, cache_mode=:off)
 
   x1_0 = coords(mesh1D_0)
   x1 = coords(mesh1D)
@@ -260,4 +278,21 @@ end
   x1 = coords(mesh1D)
 
   @test x1_0 == x1
+end
+
+@testset "Read/Write MappedGrid to .h5" begin
+  mesh2D_0 = initialize_mesh_Mapped2D()
+
+  test_write(mesh2D_0)
+  mesh2D = test_read(; compute_metrics=false, cache_mode=:off)
+
+  x2_0, y2_0 = coords(mesh2D_0)
+  x2, y2 = coords(mesh2D)
+  @test x2_0 == x2
+  @test y2_0 == y2
+
+  ξη = (7.25, 5.5)
+  @test coord(mesh2D_0, ξη) ≈ coord(mesh2D, ξη)
+  @test typeof(coordinate_system(mesh2D)) == typeof(coordinate_system(mesh2D_0))
+  @test typeof(basis_trait(mesh2D)) == typeof(basis_trait(mesh2D_0))
 end

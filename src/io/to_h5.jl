@@ -1,9 +1,75 @@
 module H5Output
 
 using HDF5, Unitful
+using Serialization
 using ..GridTypes
 
 export write_coordinates, read_coordinates
+
+@inline function _serialize_payload(x)
+  io = IOBuffer()
+  Serialization.serialize(io, x)
+  return take!(io)
+end
+
+@inline function _deserialize_payload(data::AbstractVector{UInt8})
+  io = IOBuffer(data)
+  return Serialization.deserialize(io)
+end
+
+@inline function _coordinate_system_tag(cs::CoordinateSystemTrait)
+  if cs isa CartesianCS
+    return "CartesianCS"
+  elseif cs isa CylindricalCS
+    return "CylindricalCS"
+  elseif cs isa SphericalCS
+    return "SphericalCS"
+  elseif cs isa CurvilinearCS
+    return "CurvilinearCS"
+  elseif cs isa AxisymmetricCS{:x}
+    return "AxisymmetricCS{:x}"
+  elseif cs isa AxisymmetricCS{:y}
+    return "AxisymmetricCS{:y}"
+  end
+  throw(
+    ArgumentError("Unsupported coordinate system trait $(typeof(cs)) for serialization.")
+  )
+end
+
+@inline function _basis_trait_tag(bt::BasisTrait)
+  if bt isa CartesianBasis
+    return "CartesianBasis"
+  elseif bt isa SphericalBasis
+    return "SphericalBasis"
+  end
+  throw(ArgumentError("Unsupported basis trait $(typeof(bt)) for serialization."))
+end
+
+@inline function _coordinate_system_from_tag(tag::AbstractString)
+  if tag == "CartesianCS"
+    return CartesianCS()
+  elseif tag == "CylindricalCS"
+    return CylindricalCS()
+  elseif tag == "SphericalCS"
+    return SphericalCS()
+  elseif tag == "CurvilinearCS"
+    return CurvilinearCS()
+  elseif tag == "AxisymmetricCS{:x}"
+    return AxisymmetricCS{:x}()
+  elseif tag == "AxisymmetricCS{:y}"
+    return AxisymmetricCS{:y}()
+  end
+  throw(ArgumentError("Unsupported serialized coordinate system tag `$tag`."))
+end
+
+@inline function _basis_trait_from_tag(tag::AbstractString)
+  if tag == "CartesianBasis"
+    return CartesianBasis()
+  elseif tag == "SphericalBasis"
+    return SphericalBasis()
+  end
+  throw(ArgumentError("Unsupported serialized basis tag `$tag`."))
+end
 
 ### Write h5 functions
 
@@ -120,6 +186,99 @@ function write_coordinates(
     h5writeattr(filename, "z", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", "DiscreteGrid3D")
+  end
+end
+
+function write_coordinates(
+  mesh::MappedGrid{1}, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
+  x = coords(mesh)
+  state = mesh.state[]
+  t = state isa NamedTuple && haskey(state, :t) ? state.t : zero(eltype(mesh))
+  params = state isa NamedTuple && haskey(state, :params) ? state.params : (;)
+  celldims = collect(size(mesh.iterators.cell.domain))
+  mapping_bytes = _serialize_payload(mesh.mapping_functions)
+  params_bytes = _serialize_payload(params)
+
+  h5open(filename, "w") do file
+    h5write(filename, "x", collect(x))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
+
+    h5write(filename, "grid_type", "MappedGrid1D")
+    h5write(filename, "nhalo", mesh.nhalo)
+    h5write(filename, "time", t)
+    h5write(filename, "celldims", celldims)
+    h5write(
+      filename, "coordinate_system_trait", _coordinate_system_tag(coordinate_system(mesh))
+    )
+    h5write(filename, "basis_trait", _basis_trait_tag(basis_trait(mesh)))
+    h5write(filename, "mapping_functions_serialized", mapping_bytes)
+    h5write(filename, "mapping_params_serialized", params_bytes)
+  end
+end
+
+function write_coordinates(
+  mesh::MappedGrid{2}, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
+  x, y = coords(mesh)
+  state = mesh.state[]
+  t = state isa NamedTuple && haskey(state, :t) ? state.t : zero(eltype(mesh))
+  params = state isa NamedTuple && haskey(state, :params) ? state.params : (;)
+  celldims = collect(size(mesh.iterators.cell.domain))
+  mapping_bytes = _serialize_payload(mesh.mapping_functions)
+  params_bytes = _serialize_payload(params)
+
+  h5open(filename, "w") do file
+    h5write(filename, "x", collect(x'))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
+
+    h5write(filename, "y", collect(y'))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
+
+    h5write(filename, "grid_type", "MappedGrid2D")
+    h5write(filename, "nhalo", mesh.nhalo)
+    h5write(filename, "time", t)
+    h5write(filename, "celldims", celldims)
+    h5write(
+      filename, "coordinate_system_trait", _coordinate_system_tag(coordinate_system(mesh))
+    )
+    h5write(filename, "basis_trait", _basis_trait_tag(basis_trait(mesh)))
+    h5write(filename, "mapping_functions_serialized", mapping_bytes)
+    h5write(filename, "mapping_params_serialized", params_bytes)
+  end
+end
+
+function write_coordinates(
+  mesh::MappedGrid{3}, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
+  x, y, z = coords(mesh)
+  state = mesh.state[]
+  t = state isa NamedTuple && haskey(state, :t) ? state.t : zero(eltype(mesh))
+  params = state isa NamedTuple && haskey(state, :params) ? state.params : (;)
+  celldims = collect(size(mesh.iterators.cell.domain))
+  mapping_bytes = _serialize_payload(mesh.mapping_functions)
+  params_bytes = _serialize_payload(params)
+
+  h5open(filename, "w") do file
+    h5write(filename, "x", collect(x))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
+
+    h5write(filename, "y", collect(y))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
+
+    h5write(filename, "z", collect(z))
+    h5writeattr(filename, "z", Dict("Units" => string(units)))
+
+    h5write(filename, "grid_type", "MappedGrid3D")
+    h5write(filename, "nhalo", mesh.nhalo)
+    h5write(filename, "time", t)
+    h5write(filename, "celldims", celldims)
+    h5write(
+      filename, "coordinate_system_trait", _coordinate_system_tag(coordinate_system(mesh))
+    )
+    h5write(filename, "basis_trait", _basis_trait_tag(basis_trait(mesh)))
+    h5write(filename, "mapping_functions_serialized", mapping_bytes)
+    h5write(filename, "mapping_params_serialized", params_bytes)
   end
 end
 
@@ -343,63 +502,145 @@ end
 ### Read h5 functions
 
 """
-    read_coordinates(filename::String; discretization_scheme=:meg6, nhalo=5)
+    read_coordinates(filename::String, nhalo; compute_metrics::Bool=true, cache_mode::Symbol=:eager)
 
-Load grid information from an HDF5 file written by `write_coordinates` and reconstruct the corresponding mesh using the chosen `discretization_scheme`.
+Load grid information from an HDF5 file written by `write_coordinates` and reconstruct the corresponding mesh using the chosen number
+of halo cells `nhalo`.
 """
-function read_coordinates(filename::String; discretization_scheme=:meg6, nhalo=5)
+function read_coordinates(
+  filename::String, nhalo; compute_metrics::Bool=true, cache_mode::Symbol=:eager
+)
   grid_file = h5open(filename, "r")
   grid_type = read(grid_file, "grid_type")
   close(grid_file)
 
   if grid_type == "CurvilinearGrid1D"
     x = read_CurvilinearGrid1D(filename)
-    mesh = CurvilinearGrid1D(x, discretization_scheme)
+    mesh = CurvilinearGrid1D(x, nhalo)
   elseif grid_type == "CurvilinearGrid2D"
     x, y = read_CurvilinearGrid2D(filename)
-    mesh = CurvilinearGrid2D(x, y, discretization_scheme)
+    mesh = CurvilinearGrid2D(x, y, nhalo)
   elseif grid_type == "CurvilinearGrid3D"
     x, y, z = read_CurvilinearGrid3D(filename)
-    mesh = CurvilinearGrid3D(x, y, z, discretization_scheme)
+    mesh = CurvilinearGrid3D(x, y, z, nhalo)
+  elseif grid_type == "MappedGrid1D"
+    mapping_functions, params, celldims, t, nhalo, cs, bt = _read_MappedGrid_payload(
+      filename, Val(1)
+    )
+    mesh = MappedGrid(
+      mapping_functions.x1,
+      params,
+      celldims,
+      nhalo;
+      t=t,
+      compute_metrics=compute_metrics,
+      cache_mode=cache_mode,
+      coordinate_system=cs,
+      basis=bt,
+    )
+  elseif grid_type == "MappedGrid2D"
+    mapping_functions, params, celldims, t, nhalo, cs, bt = _read_MappedGrid_payload(
+      filename, Val(2)
+    )
+    mesh = MappedGrid(
+      mapping_functions.x1,
+      mapping_functions.x2,
+      params,
+      celldims,
+      nhalo;
+      t=t,
+      compute_metrics=compute_metrics,
+      cache_mode=cache_mode,
+      coordinate_system=cs,
+      basis=bt,
+    )
+  elseif grid_type == "MappedGrid3D"
+    mapping_functions, params, celldims, t, nhalo, cs, bt = _read_MappedGrid_payload(
+      filename, Val(3)
+    )
+    mesh = MappedGrid(
+      mapping_functions.x1,
+      mapping_functions.x2,
+      mapping_functions.x3,
+      params,
+      celldims,
+      nhalo;
+      t=t,
+      compute_metrics=compute_metrics,
+      cache_mode=cache_mode,
+      coordinate_system=cs,
+      basis=bt,
+    )
   elseif grid_type == "DiscreteGrid1D"
     x = read_CurvilinearGrid1D(filename)
-    mesh = DiscreteGrid(x, nhalo)
+    mesh = DiscreteGrid(x, nhalo; compute_metrics=compute_metrics, cache_mode=cache_mode)
   elseif grid_type == "DiscreteGrid2D"
     x, y = read_CurvilinearGrid2D(filename)
-    mesh = DiscreteGrid(x, y, nhalo)
+    mesh = DiscreteGrid(x, y, nhalo; compute_metrics=compute_metrics, cache_mode=cache_mode)
   elseif grid_type == "DiscreteGrid3D"
     x, y, z = read_CurvilinearGrid3D(filename)
-    mesh = DiscreteGrid(x, y, z, nhalo)
+    mesh = DiscreteGrid(
+      x, y, z, nhalo; compute_metrics=compute_metrics, cache_mode=cache_mode
+    )
   elseif grid_type == "UniformGrid1D"
     x = read_UniformGrid1D(filename)
-    mesh = UniformGrid1D(x, discretization_scheme)
+    mesh = UniformGrid1D(x, nhalo)
   elseif grid_type == "UniformGrid2D"
     x0, x1, y0, y1, ∂x = read_UniformGrid2D(filename)
-    mesh = UniformGrid2D((x0, y0), (x1, y1), ∂x, discretization_scheme)
+    mesh = UniformGrid2D((x0, y0), (x1, y1), ∂x, nhalo)
   elseif grid_type == "UniformGrid3D"
     x0, x1, y0, y1, z0, z1, ∂x = read_UniformGrid3D(filename)
-    mesh = UniformGrid3D((x0, y0, z0), (x1, y1, z1), ∂x, discretization_scheme)
+    mesh = UniformGrid3D((x0, y0, z0), (x1, y1, z1), ∂x, nhalo)
   elseif grid_type == "RectilinearGrid2D"
     x, y = read_RectilinearGrid2D(filename)
-    mesh = RectilinearGrid2D(x, y, discretization_scheme)
+    mesh = RectilinearGrid2D(x, y, nhalo)
   elseif grid_type == "RectilinearGrid3D"
     x, y, z = read_RectilinearGrid3D(filename)
-    mesh = RectilinearGrid3D(x, y, z, discretization_scheme)
+    mesh = RectilinearGrid3D(x, y, z, nhalo)
   elseif grid_type == "CylindricalGrid1D"
     x, snap_to_axis = read_CylindricalGrid1D(filename)
-    mesh = CylindricalGrid1D(x, discretization_scheme, snap_to_axis)
+    mesh = CylindricalGrid1D(x, nhalo, snap_to_axis)
   elseif grid_type == "AxisymmetricGrid2D"
     x, y, snap_to_axis, rotational_axis = read_AxisymmetricGrid2D(filename)
-    mesh = AxisymmetricGrid2D(x, y, discretization_scheme, snap_to_axis, rotational_axis)
+    mesh = AxisymmetricGrid2D(x, y, nhalo, snap_to_axis, rotational_axis)
   elseif grid_type == "SphericalGrid1D"
     x, snap_to_axis = read_SphericalGrid1D(filename)
-    mesh = SphericalGrid1D(x, discretization_scheme, snap_to_axis)
+    mesh = SphericalGrid1D(x, nhalo, snap_to_axis)
   elseif grid_type == "SphericalGrid3D"
     r, θ, ϕ, nhalo = read_SphericalGrid3D(filename)
     mesh = SphericalGrid3D(r, θ, ϕ, nhalo)
   end
 
   return mesh
+end
+
+function _read_MappedGrid_payload(filename::String, ::Val{N}) where {N}
+  grid_file = h5open(filename, "r")
+  mapping_bytes = read(grid_file, "mapping_functions_serialized")
+  params_bytes = read(grid_file, "mapping_params_serialized")
+  celldims = Tuple(Int.(read(grid_file, "celldims")))
+  t = read(grid_file, "time")
+  nhalo = Int(read(grid_file, "nhalo"))
+  coordinate_tag = read(grid_file, "coordinate_system_trait")
+  basis_tag = read(grid_file, "basis_trait")
+  close(grid_file)
+
+  if length(celldims) != N
+    throw(
+      ArgumentError(
+        "Serialized mapped-grid celldims length $(length(celldims)) does not match expected dimension $N.",
+      ),
+    )
+  end
+
+  mapping_functions = _deserialize_payload(Vector{UInt8}(mapping_bytes))
+  params = _deserialize_payload(Vector{UInt8}(params_bytes))
+  coordinate_system = _coordinate_system_from_tag(String(coordinate_tag))
+  basis = _basis_trait_from_tag(String(basis_tag))
+
+  return mapping_functions,
+  params, NTuple{N,Int}(celldims), t, nhalo, coordinate_system,
+  basis
 end
 
 function read_CurvilinearGrid1D(filename::String)
