@@ -60,6 +60,10 @@ export radius, centroid_radius, centroid_radii
 export jacobian_matrix
 export forward_cell_metrics, inverse_cell_metrics
 export InverseCoordinateResult, computational_coordinate
+export BlockFace, BlockInterface
+export MultiBlockMesh
+export validate_multiblock!, build_interface_caches!, invalidate_interface_caches!
+export exchange_interface!, exchange_all_interfaces!
 export gcl
 
 abstract type AbstractCurvilinearGrid end
@@ -114,6 +118,7 @@ include("orthogonal_grids/orthogonal.jl")
 
 include("simple_constructors/simple_constructors.jl")
 include("unified_grids/unified_grids.jl")
+include("multiblock/multiblock.jl")
 # include("metric_cache.jl")
 # include("continous_grids.jl")
 
