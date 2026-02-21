@@ -307,8 +307,8 @@ function DiscreteGrid(
 
   return _new_discrete_grid(
     Val(1),
-    (; x=x_map),
-    (; x=x_itp),
+    (; x1=x_map),
+    (; x1=x_itp),
     (length(x_nodes) - 1,),
     discretization_scheme;
     backend=backend,
@@ -360,8 +360,8 @@ function DiscreteGrid(
 
   return _new_discrete_grid(
     Val(2),
-    (; x=x_map, y=y_map),
-    (; x=x_itp, y=y_itp),
+    (; x1=x_map, x2=y_map),
+    (; x1=x_itp, x2=y_itp),
     Tuple(size(x_nodes) .- 1),
     discretization_scheme;
     backend=backend,
@@ -418,8 +418,8 @@ function DiscreteGrid(
 
   return _new_discrete_grid(
     Val(3),
-    (; x=x_map, y=y_map, z=z_map),
-    (; x=x_itp, y=y_itp, z=z_itp),
+    (; x1=x_map, x2=y_map, x3=z_map),
+    (; x1=x_itp, x2=y_itp, x3=z_itp),
     Tuple(size(x_nodes) .- 1),
     discretization_scheme;
     backend=backend,

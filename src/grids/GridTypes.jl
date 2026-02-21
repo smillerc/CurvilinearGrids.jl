@@ -30,8 +30,6 @@ export SphericalGrid3D, SphericalBasisCurvilinearGrid3D
 export CartesianOrthogonalGrid1D, CylindricalOrthogonalGrid1D, SphericalOrthogonalGrid1D
 export AxisymmetricOrthogonalGrid2D
 
-export ContinuousCurvilinearGrid1D, ContinuousCurvilinearGrid2D, ContinuousCurvilinearGrid3D
-
 export AbstractUnifiedGrid
 export MappedGrid, DiscreteGrid, OrthogonalGrid
 export Metric, ConservedMetric
@@ -114,7 +112,6 @@ include("curvilinear_mapped_grids/3d_spherical_basis.jl")
 include("orthogonal_grids/orthogonal.jl")
 
 include("simple_constructors/simple_constructors.jl")
-include("continuous_grids/continous_grids.jl")
 include("unified_grids/unified_grids.jl")
 # include("metric_cache.jl")
 # include("continous_grids.jl")

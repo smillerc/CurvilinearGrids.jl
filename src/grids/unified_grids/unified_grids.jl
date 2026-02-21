@@ -2,6 +2,7 @@
 # - `MappedGrid`
 # - `DiscreteGrid`
 # - `OrthogonalGrid`
+include("continuous_grids/continous_grids.jl")
 include("metrics.jl")
 include("common.jl")
 include("mapped_grid.jl")

@@ -266,7 +266,7 @@ end
 )
   ξ = _promote_real_tuple(idx)
   t, params = _state_for_eval(grid)
-  return @SVector [grid.mapping_functions.x(t, ξ..., params)]
+  return @SVector [grid.mapping_functions.x1(t, ξ..., params)]
 end
 
 @inline function _continuous_coord(
@@ -275,7 +275,7 @@ end
   ξη = _promote_real_tuple(idx)
   t, params = _state_for_eval(grid)
   return @SVector [
-    grid.mapping_functions.x(t, ξη..., params), grid.mapping_functions.y(t, ξη..., params)
+    grid.mapping_functions.x1(t, ξη..., params), grid.mapping_functions.x2(t, ξη..., params)
   ]
 end
 
@@ -285,9 +285,9 @@ end
   ξηζ = _promote_real_tuple(idx)
   t, params = _state_for_eval(grid)
   return @SVector [
-    grid.mapping_functions.x(t, ξηζ..., params),
-    grid.mapping_functions.y(t, ξηζ..., params),
-    grid.mapping_functions.z(t, ξηζ..., params),
+    grid.mapping_functions.x1(t, ξηζ..., params),
+    grid.mapping_functions.x2(t, ξηζ..., params),
+    grid.mapping_functions.x3(t, ξηζ..., params),
   ]
 end
 

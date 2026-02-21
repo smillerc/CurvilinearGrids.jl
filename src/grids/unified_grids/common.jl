@@ -187,7 +187,7 @@ end
   edge_interpolation_scheme::EdgeInterpolationSchemeTrait,
 )
   MetricCache(
-    mapping_functions.x, diff_backend; edge_interpolation_scheme=edge_interpolation_scheme
+    mapping_functions.x1, diff_backend; edge_interpolation_scheme=edge_interpolation_scheme
   )
 end
 @inline function _metric_cache_for_mapping(
@@ -197,8 +197,8 @@ end
   edge_interpolation_scheme::EdgeInterpolationSchemeTrait,
 )
   MetricCache(
-    mapping_functions.x,
-    mapping_functions.y,
+    mapping_functions.x1,
+    mapping_functions.x2,
     diff_backend;
     edge_interpolation_scheme=edge_interpolation_scheme,
   )
@@ -210,9 +210,9 @@ end
   edge_interpolation_scheme::EdgeInterpolationSchemeTrait,
 )
   MetricCache(
-    mapping_functions.x,
-    mapping_functions.y,
-    mapping_functions.z,
+    mapping_functions.x1,
+    mapping_functions.x2,
+    mapping_functions.x3,
     diff_backend;
     edge_interpolation_scheme=edge_interpolation_scheme,
   )
@@ -261,11 +261,11 @@ end
 function _compute_unified_node_coordinates!(
   node_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{1}
 )
-  x = mapping_functions.x
+  x1 = mapping_functions.x1
   @threads for I in iterators.node.full
     Iglobal = iterators.global_domain.node.full[I]
     ξ = Iglobal.I .- nhalo
-    node_coordinates[1][I] = x(t, ξ..., params)
+    node_coordinates[1][I] = x1(t, ξ..., params)
   end
   return nothing
 end
@@ -273,13 +273,13 @@ end
 function _compute_unified_node_coordinates!(
   node_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{2}
 )
-  x = mapping_functions.x
-  y = mapping_functions.y
+  x1 = mapping_functions.x1
+  x2 = mapping_functions.x2
   @threads for I in iterators.node.full
     Iglobal = iterators.global_domain.node.full[I]
     ξη = Iglobal.I .- nhalo
-    node_coordinates[1][I] = x(t, ξη..., params)
-    node_coordinates[2][I] = y(t, ξη..., params)
+    node_coordinates[1][I] = x1(t, ξη..., params)
+    node_coordinates[2][I] = x2(t, ξη..., params)
   end
   return nothing
 end
@@ -287,15 +287,15 @@ end
 function _compute_unified_node_coordinates!(
   node_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{3}
 )
-  x = mapping_functions.x
-  y = mapping_functions.y
-  z = mapping_functions.z
+  x1 = mapping_functions.x1
+  x2 = mapping_functions.x2
+  x3 = mapping_functions.x3
   @threads for I in iterators.node.full
     Iglobal = iterators.global_domain.node.full[I]
     ξηζ = Iglobal.I .- nhalo
-    node_coordinates[1][I] = x(t, ξηζ..., params)
-    node_coordinates[2][I] = y(t, ξηζ..., params)
-    node_coordinates[3][I] = z(t, ξηζ..., params)
+    node_coordinates[1][I] = x1(t, ξηζ..., params)
+    node_coordinates[2][I] = x2(t, ξηζ..., params)
+    node_coordinates[3][I] = x3(t, ξηζ..., params)
   end
   return nothing
 end
@@ -303,11 +303,11 @@ end
 function _compute_unified_centroid_coordinates!(
   centroid_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{1}
 )
-  x = mapping_functions.x
+  x1 = mapping_functions.x1
   @threads for I in iterators.cell.full
     Iglobal = iterators.global_domain.cell.full[I]
     ξ = Iglobal.I .- nhalo .+ 0.5
-    centroid_coordinates[1][I] = x(t, ξ..., params)
+    centroid_coordinates[1][I] = x1(t, ξ..., params)
   end
   return nothing
 end
@@ -315,13 +315,13 @@ end
 function _compute_unified_centroid_coordinates!(
   centroid_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{2}
 )
-  x = mapping_functions.x
-  y = mapping_functions.y
+  x1 = mapping_functions.x1
+  x2 = mapping_functions.x2
   @threads for I in iterators.cell.full
     Iglobal = iterators.global_domain.cell.full[I]
     ξη = Iglobal.I .- nhalo .+ 0.5
-    centroid_coordinates[1][I] = x(t, ξη..., params)
-    centroid_coordinates[2][I] = y(t, ξη..., params)
+    centroid_coordinates[1][I] = x1(t, ξη..., params)
+    centroid_coordinates[2][I] = x2(t, ξη..., params)
   end
   return nothing
 end
@@ -329,15 +329,15 @@ end
 function _compute_unified_centroid_coordinates!(
   centroid_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{3}
 )
-  x = mapping_functions.x
-  y = mapping_functions.y
-  z = mapping_functions.z
+  x1 = mapping_functions.x1
+  x2 = mapping_functions.x2
+  x3 = mapping_functions.x3
   @threads for I in iterators.cell.full
     Iglobal = iterators.global_domain.cell.full[I]
     ξηζ = Iglobal.I .- nhalo .+ 0.5
-    centroid_coordinates[1][I] = x(t, ξηζ..., params)
-    centroid_coordinates[2][I] = y(t, ξηζ..., params)
-    centroid_coordinates[3][I] = z(t, ξηζ..., params)
+    centroid_coordinates[1][I] = x1(t, ξηζ..., params)
+    centroid_coordinates[2][I] = x2(t, ξηζ..., params)
+    centroid_coordinates[3][I] = x3(t, ξηζ..., params)
   end
   return nothing
 end

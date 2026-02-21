@@ -14,7 +14,7 @@ and independent metric caches for cell and face data.
 # Fields
   - `node_coordinates`: Node coordinate arrays as `NTuple{N,AbstractArray}`.
   - `centroid_coordinates`: Cell-center coordinate arrays as `NTuple{N,AbstractArray}`.
-  - `mapping_functions`: Physical mapping callbacks (`x`, `y`, `z` by dimension).
+  - `mapping_functions`: Physical mapping callbacks (`x1`, `x2`, `x3` by dimension).
   - `metric_functions_cache`: Cached metric-function closures.
   - `backend`: Compute backend used for storage allocation.
   - `diff_backend`: Differentiation backend used for metric evaluation.
@@ -269,7 +269,7 @@ function MappedGrid(
   cache_mode::Symbol=:eager,
   conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
-  mapping_functions = (; x)
+  mapping_functions = (; x1=x)
   return _new_mapped_grid(
     Val(1),
     mapping_functions,
@@ -306,7 +306,7 @@ function MappedGrid(
   cache_mode::Symbol=:eager,
   conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
-  mapping_functions = (; x, y)
+  mapping_functions = (; x1=x, x2=y)
   return _new_mapped_grid(
     Val(2),
     mapping_functions,
@@ -344,7 +344,7 @@ function MappedGrid(
   cache_mode::Symbol=:eager,
   conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
-  mapping_functions = (; x, y, z)
+  mapping_functions = (; x1=x, x2=y, x3=z)
   return _new_mapped_grid(
     Val(3),
     mapping_functions,
