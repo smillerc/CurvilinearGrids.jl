@@ -16,11 +16,12 @@ using .RectilinearArrays
 include("grids/GridTypes.jl")
 using .GridTypes
 
-include("grids/multiblock/multiblock.jl")
+include("multiblock/multiblock.jl")
 using .MultiBlockMeshes: BlockFace, BlockInterface
-using .MultiBlockMeshes: validate_multiblock!, build_interface_caches!, invalidate_interface_caches!
+using .MultiBlockMeshes:
+  validate_multiblock!, build_interface_caches!, invalidate_interface_caches!
 using .MultiBlockMeshes: exchange_interface!, exchange_all_interfaces!
-const MultiBlockMesh = MultiBlockMeshes.MultiBlockMesh
+using MultiBlockMeshes: MultiBlockMesh
 
 export AbstractCurvilinearGrid
 export AbstractCurvilinearGrid1D
