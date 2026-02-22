@@ -416,3 +416,48 @@ end
   )
   @test !failure.converged
 end
+
+@testset "VTK output for unified grids" begin
+  xmap(t, ξ, η, p) = ξ + 0.1 * sin(0.25 * η)
+  ymap(t, ξ, η, p) = η + 0.05 * cos(0.2 * ξ)
+
+  mapped2d = MappedGrid(
+    xmap,
+    ymap,
+    (;),
+    (8, 7),
+    2;
+    cache_mode=:eager,
+    conserved_metric_scheme=EdgeInterpolationOrder2(),
+  )
+
+  nx, ny = (9, 8)
+  x2 = [Float64(i) for i in 1:nx, j in 1:ny]
+  y2 = [Float64(j) for i in 1:nx, j in 1:ny]
+  discrete2d = DiscreteGrid(x2, y2, 2; compute_metrics=false, cache_mode=:off)
+
+  nx3, ny3, nz3 = (5, 4, 3)
+  x3 = [Float64(i) for i in 1:nx3, j in 1:ny3, k in 1:nz3]
+  y3 = [Float64(j) for i in 1:nx3, j in 1:ny3, k in 1:nz3]
+  z3 = [Float64(k) for i in 1:nx3, j in 1:ny3, k in 1:nz3]
+  discrete3d = DiscreteGrid(x3, y3, z3, 1; compute_metrics=false, cache_mode=:off)
+
+  mktempdir() do dir
+    mapped_fn = joinpath(dir, "mapped2d")
+    save_vtk(mapped2d, mapped_fn)
+    @test any(startswith("mapped2d"), readdir(dir))
+
+    discrete_fn = joinpath(dir, "discrete2d")
+    payload2d = zeros(eltype(discrete2d), size(discrete2d.iterators.cell.full))
+    payload2d[discrete2d.iterators.cell.domain] .= 1.0
+    save_vtk(
+      discrete2d, discrete_fn; include_metrics=false, extra_cell_data=(; marker=payload2d)
+    )
+    @test any(startswith("discrete2d"), readdir(dir))
+    @test_throws ArgumentError save_vtk(discrete2d, joinpath(dir, "discrete2d_metrics"))
+
+    discrete3d_fn = joinpath(dir, "discrete3d")
+    save_vtk(discrete3d, discrete3d_fn; include_metrics=false)
+    @test any(startswith("discrete3d"), readdir(dir))
+  end
+end
