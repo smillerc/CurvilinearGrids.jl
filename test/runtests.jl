@@ -12,9 +12,9 @@ using Test
 using UnPack
 using WriteVTK
 
-const test_gpu = false
-
 include("unit/common.jl")
+
+const test_gpu = false
 
 @testset verbose = true "UnitTests" begin
   @info "1D"
@@ -50,6 +50,7 @@ include("unit/common.jl")
 
   @info "Unified Grid Types"
   include("unit/test_unified_grid_types.jl")
+  include("unit/test_unified_grid_backends.jl")
 
   @info "MultiBlock"
   include("unit/test_multiblock.jl")

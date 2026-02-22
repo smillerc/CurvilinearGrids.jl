@@ -289,87 +289,446 @@ function _build_unified_components(
   )
 end
 
-function _compute_unified_node_coordinates!(
-  node_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{1}
+@kernel function _compute_unified_nodes_1d_kernel!(
+  x, x1_map, local_domain, global_domain, nhalo::Int, t, params
 )
-  x1 = mapping_functions.x1
-  @threads for I in iterators.node.full
-    Iglobal = iterators.global_domain.node.full[I]
-    ξ = Iglobal.I .- nhalo
-    node_coordinates[1][I] = x1(t, ξ..., params)
-  end
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  ξ = Iglobal.I[1] - nhalo
+  x[I] = x1_map(t, ξ, params)
+end
+
+@kernel function _compute_unified_nodes_2d_kernel!(
+  x, y, x1_map, x2_map, local_domain, global_domain, nhalo::Int, t, params
+)
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  ξ = Iglobal.I[1] - nhalo
+  η = Iglobal.I[2] - nhalo
+  x[I] = x1_map(t, ξ, η, params)
+  y[I] = x2_map(t, ξ, η, params)
+end
+
+@kernel function _compute_unified_nodes_3d_kernel!(
+  x, y, z, x1_map, x2_map, x3_map, local_domain, global_domain, nhalo::Int, t, params
+)
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  ξ = Iglobal.I[1] - nhalo
+  η = Iglobal.I[2] - nhalo
+  ζ = Iglobal.I[3] - nhalo
+  x[I] = x1_map(t, ξ, η, ζ, params)
+  y[I] = x2_map(t, ξ, η, ζ, params)
+  z[I] = x3_map(t, ξ, η, ζ, params)
+end
+
+@kernel function _compute_unified_centroids_1d_kernel!(
+  x, x1_map, local_domain, global_domain, nhalo::Int, t, params
+)
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  half = one(eltype(x)) / 2
+  ξ = Iglobal.I[1] - nhalo + half
+  x[I] = x1_map(t, ξ, params)
+end
+
+@kernel function _compute_unified_centroids_2d_kernel!(
+  x, y, x1_map, x2_map, local_domain, global_domain, nhalo::Int, t, params
+)
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  half = one(eltype(x)) / 2
+  ξ = Iglobal.I[1] - nhalo + half
+  η = Iglobal.I[2] - nhalo + half
+  x[I] = x1_map(t, ξ, η, params)
+  y[I] = x2_map(t, ξ, η, params)
+end
+
+@kernel function _compute_unified_centroids_3d_kernel!(
+  x, y, z, x1_map, x2_map, x3_map, local_domain, global_domain, nhalo::Int, t, params
+)
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  half = one(eltype(x)) / 2
+  ξ = Iglobal.I[1] - nhalo + half
+  η = Iglobal.I[2] - nhalo + half
+  ζ = Iglobal.I[3] - nhalo + half
+  x[I] = x1_map(t, ξ, η, ζ, params)
+  y[I] = x2_map(t, ξ, η, ζ, params)
+  z[I] = x3_map(t, ξ, η, ζ, params)
+end
+
+function _compute_unified_node_coordinates!(
+  node_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{N}, backend
+) where {N}
+  _compute_unified_node_coordinates!(
+    backend, node_coordinates, mapping_functions, iterators, nhalo, t, params, Val(N)
+  )
+end
+
+function _compute_unified_node_coordinates!(
+  backend::KernelAbstractions.CPU,
+  node_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{1},
+)
+  local_domain = iterators.node.full
+  global_domain = iterators.global_domain.node.full
+  _compute_unified_nodes_1d_kernel!(backend)(
+    node_coordinates[1],
+    mapping_functions.x1,
+    local_domain,
+    global_domain,
+    nhalo,
+    t,
+    params;
+    ndrange=size(local_domain),
+  )
+  KernelAbstractions.synchronize(backend)
   return nothing
 end
 
 function _compute_unified_node_coordinates!(
-  node_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{2}
+  backend::KernelAbstractions.CPU,
+  node_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{2},
 )
-  x1 = mapping_functions.x1
-  x2 = mapping_functions.x2
-  @threads for I in iterators.node.full
-    Iglobal = iterators.global_domain.node.full[I]
-    ξη = Iglobal.I .- nhalo
-    node_coordinates[1][I] = x1(t, ξη..., params)
-    node_coordinates[2][I] = x2(t, ξη..., params)
-  end
+  local_domain = iterators.node.full
+  global_domain = iterators.global_domain.node.full
+  _compute_unified_nodes_2d_kernel!(backend)(
+    node_coordinates[1],
+    node_coordinates[2],
+    mapping_functions.x1,
+    mapping_functions.x2,
+    local_domain,
+    global_domain,
+    nhalo,
+    t,
+    params;
+    ndrange=size(local_domain),
+  )
+  KernelAbstractions.synchronize(backend)
   return nothing
 end
 
 function _compute_unified_node_coordinates!(
-  node_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{3}
+  backend::KernelAbstractions.CPU,
+  node_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{3},
 )
-  x1 = mapping_functions.x1
-  x2 = mapping_functions.x2
-  x3 = mapping_functions.x3
-  @threads for I in iterators.node.full
-    Iglobal = iterators.global_domain.node.full[I]
-    ξηζ = Iglobal.I .- nhalo
-    node_coordinates[1][I] = x1(t, ξηζ..., params)
-    node_coordinates[2][I] = x2(t, ξηζ..., params)
-    node_coordinates[3][I] = x3(t, ξηζ..., params)
+  local_domain = iterators.node.full
+  global_domain = iterators.global_domain.node.full
+  _compute_unified_nodes_3d_kernel!(backend)(
+    node_coordinates[1],
+    node_coordinates[2],
+    node_coordinates[3],
+    mapping_functions.x1,
+    mapping_functions.x2,
+    mapping_functions.x3,
+    local_domain,
+    global_domain,
+    nhalo,
+    t,
+    params;
+    ndrange=size(local_domain),
+  )
+  KernelAbstractions.synchronize(backend)
+  return nothing
+end
+
+function _compute_unified_node_coordinates!(
+  backend::KernelAbstractions.Backend,
+  node_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{1},
+)
+  local_domain = iterators.node.full
+  global_domain = iterators.global_domain.node.full
+  T = eltype(node_coordinates[1])
+  x_h = Array{T}(undef, size(node_coordinates[1]))
+
+  @inbounds for I in local_domain
+    Iglobal = global_domain[I]
+    ξ = T(Iglobal.I[1] - nhalo)
+    x_h[I] = mapping_functions.x1(t, ξ, params)
   end
+
+  copyto!(node_coordinates[1], x_h)
+  return nothing
+end
+
+function _compute_unified_node_coordinates!(
+  backend::KernelAbstractions.Backend,
+  node_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{2},
+)
+  local_domain = iterators.node.full
+  global_domain = iterators.global_domain.node.full
+  T = eltype(node_coordinates[1])
+  x_h = Array{T}(undef, size(node_coordinates[1]))
+  y_h = Array{T}(undef, size(node_coordinates[2]))
+
+  @inbounds for I in local_domain
+    Iglobal = global_domain[I]
+    ξ = T(Iglobal.I[1] - nhalo)
+    η = T(Iglobal.I[2] - nhalo)
+    x_h[I] = mapping_functions.x1(t, ξ, η, params)
+    y_h[I] = mapping_functions.x2(t, ξ, η, params)
+  end
+
+  copyto!(node_coordinates[1], x_h)
+  copyto!(node_coordinates[2], y_h)
+  return nothing
+end
+
+function _compute_unified_node_coordinates!(
+  backend::KernelAbstractions.Backend,
+  node_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{3},
+)
+  local_domain = iterators.node.full
+  global_domain = iterators.global_domain.node.full
+  T = eltype(node_coordinates[1])
+  x_h = Array{T}(undef, size(node_coordinates[1]))
+  y_h = Array{T}(undef, size(node_coordinates[2]))
+  z_h = Array{T}(undef, size(node_coordinates[3]))
+
+  @inbounds for I in local_domain
+    Iglobal = global_domain[I]
+    ξ = T(Iglobal.I[1] - nhalo)
+    η = T(Iglobal.I[2] - nhalo)
+    ζ = T(Iglobal.I[3] - nhalo)
+    x_h[I] = mapping_functions.x1(t, ξ, η, ζ, params)
+    y_h[I] = mapping_functions.x2(t, ξ, η, ζ, params)
+    z_h[I] = mapping_functions.x3(t, ξ, η, ζ, params)
+  end
+
+  copyto!(node_coordinates[1], x_h)
+  copyto!(node_coordinates[2], y_h)
+  copyto!(node_coordinates[3], z_h)
   return nothing
 end
 
 function _compute_unified_centroid_coordinates!(
-  centroid_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{1}
+  centroid_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{N},
+  backend,
+) where {N}
+  _compute_unified_centroid_coordinates!(
+    backend, centroid_coordinates, mapping_functions, iterators, nhalo, t, params, Val(N)
+  )
+end
+
+function _compute_unified_centroid_coordinates!(
+  backend::KernelAbstractions.CPU,
+  centroid_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{1},
 )
-  x1 = mapping_functions.x1
-  @threads for I in iterators.cell.full
-    Iglobal = iterators.global_domain.cell.full[I]
-    ξ = Iglobal.I .- nhalo .+ 0.5
-    centroid_coordinates[1][I] = x1(t, ξ..., params)
-  end
+  local_domain = iterators.cell.full
+  global_domain = iterators.global_domain.cell.full
+  _compute_unified_centroids_1d_kernel!(backend)(
+    centroid_coordinates[1],
+    mapping_functions.x1,
+    local_domain,
+    global_domain,
+    nhalo,
+    t,
+    params;
+    ndrange=size(local_domain),
+  )
+  KernelAbstractions.synchronize(backend)
   return nothing
 end
 
 function _compute_unified_centroid_coordinates!(
-  centroid_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{2}
+  backend::KernelAbstractions.CPU,
+  centroid_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{2},
 )
-  x1 = mapping_functions.x1
-  x2 = mapping_functions.x2
-  @threads for I in iterators.cell.full
-    Iglobal = iterators.global_domain.cell.full[I]
-    ξη = Iglobal.I .- nhalo .+ 0.5
-    centroid_coordinates[1][I] = x1(t, ξη..., params)
-    centroid_coordinates[2][I] = x2(t, ξη..., params)
-  end
+  local_domain = iterators.cell.full
+  global_domain = iterators.global_domain.cell.full
+  _compute_unified_centroids_2d_kernel!(backend)(
+    centroid_coordinates[1],
+    centroid_coordinates[2],
+    mapping_functions.x1,
+    mapping_functions.x2,
+    local_domain,
+    global_domain,
+    nhalo,
+    t,
+    params;
+    ndrange=size(local_domain),
+  )
+  KernelAbstractions.synchronize(backend)
   return nothing
 end
 
 function _compute_unified_centroid_coordinates!(
-  centroid_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{3}
+  backend::KernelAbstractions.CPU,
+  centroid_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{3},
 )
-  x1 = mapping_functions.x1
-  x2 = mapping_functions.x2
-  x3 = mapping_functions.x3
-  @threads for I in iterators.cell.full
-    Iglobal = iterators.global_domain.cell.full[I]
-    ξηζ = Iglobal.I .- nhalo .+ 0.5
-    centroid_coordinates[1][I] = x1(t, ξηζ..., params)
-    centroid_coordinates[2][I] = x2(t, ξηζ..., params)
-    centroid_coordinates[3][I] = x3(t, ξηζ..., params)
+  local_domain = iterators.cell.full
+  global_domain = iterators.global_domain.cell.full
+  _compute_unified_centroids_3d_kernel!(backend)(
+    centroid_coordinates[1],
+    centroid_coordinates[2],
+    centroid_coordinates[3],
+    mapping_functions.x1,
+    mapping_functions.x2,
+    mapping_functions.x3,
+    local_domain,
+    global_domain,
+    nhalo,
+    t,
+    params;
+    ndrange=size(local_domain),
+  )
+  KernelAbstractions.synchronize(backend)
+  return nothing
+end
+
+function _compute_unified_centroid_coordinates!(
+  backend::KernelAbstractions.Backend,
+  centroid_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{1},
+)
+  local_domain = iterators.cell.full
+  global_domain = iterators.global_domain.cell.full
+  T = eltype(centroid_coordinates[1])
+  half = T(0.5)
+  x_h = Array{T}(undef, size(centroid_coordinates[1]))
+
+  @inbounds for I in local_domain
+    Iglobal = global_domain[I]
+    ξ = T(Iglobal.I[1] - nhalo) + half
+    x_h[I] = mapping_functions.x1(t, ξ, params)
   end
+
+  copyto!(centroid_coordinates[1], x_h)
+  return nothing
+end
+
+function _compute_unified_centroid_coordinates!(
+  backend::KernelAbstractions.Backend,
+  centroid_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{2},
+)
+  local_domain = iterators.cell.full
+  global_domain = iterators.global_domain.cell.full
+  T = eltype(centroid_coordinates[1])
+  half = T(0.5)
+  x_h = Array{T}(undef, size(centroid_coordinates[1]))
+  y_h = Array{T}(undef, size(centroid_coordinates[2]))
+
+  @inbounds for I in local_domain
+    Iglobal = global_domain[I]
+    ξ = T(Iglobal.I[1] - nhalo) + half
+    η = T(Iglobal.I[2] - nhalo) + half
+    x_h[I] = mapping_functions.x1(t, ξ, η, params)
+    y_h[I] = mapping_functions.x2(t, ξ, η, params)
+  end
+
+  copyto!(centroid_coordinates[1], x_h)
+  copyto!(centroid_coordinates[2], y_h)
+  return nothing
+end
+
+function _compute_unified_centroid_coordinates!(
+  backend::KernelAbstractions.Backend,
+  centroid_coordinates,
+  mapping_functions,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{3},
+)
+  local_domain = iterators.cell.full
+  global_domain = iterators.global_domain.cell.full
+  T = eltype(centroid_coordinates[1])
+  half = T(0.5)
+  x_h = Array{T}(undef, size(centroid_coordinates[1]))
+  y_h = Array{T}(undef, size(centroid_coordinates[2]))
+  z_h = Array{T}(undef, size(centroid_coordinates[3]))
+
+  @inbounds for I in local_domain
+    Iglobal = global_domain[I]
+    ξ = T(Iglobal.I[1] - nhalo) + half
+    η = T(Iglobal.I[2] - nhalo) + half
+    ζ = T(Iglobal.I[3] - nhalo) + half
+    x_h[I] = mapping_functions.x1(t, ξ, η, ζ, params)
+    y_h[I] = mapping_functions.x2(t, ξ, η, ζ, params)
+    z_h[I] = mapping_functions.x3(t, ξ, η, ζ, params)
+  end
+
+  copyto!(centroid_coordinates[1], x_h)
+  copyto!(centroid_coordinates[2], y_h)
+  copyto!(centroid_coordinates[3], z_h)
   return nothing
 end
 
@@ -440,6 +799,179 @@ end
   return G, Ghat, Jinv
 end
 
+@kernel function _fill_cell_metric_storage_1d_kernel!(
+  forward, inverse, jacobian, inverse_jacobian, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+) where {T}
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  half = T(0.5)
+  ξ = Iglobal.I[1] - nhalo + half
+
+  F = _as_smatrix(Val(1), jacobian(t, ξ, params))
+  G = _as_smatrix(Val(1), inverse_jacobian(t, ξ, params))
+  J = det(F)
+  Jinv = det(G)
+
+  forward[I] = Metric(SMatrix{1,1,T,1}(Tuple(F)), T(J))
+  inverse[I] = Metric(SMatrix{1,1,T,1}(Tuple(G)), T(Jinv))
+end
+
+@kernel function _fill_cell_metric_storage_2d_kernel!(
+  forward, inverse, jacobian, inverse_jacobian, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+) where {T}
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  half = T(0.5)
+  ξ = Iglobal.I[1] - nhalo + half
+  η = Iglobal.I[2] - nhalo + half
+
+  F = _as_smatrix(Val(2), jacobian(t, ξ, η, params))
+  G = _as_smatrix(Val(2), inverse_jacobian(t, ξ, η, params))
+  J = det(F)
+  Jinv = det(G)
+
+  forward[I] = Metric(SMatrix{2,2,T,4}(Tuple(F)), T(J))
+  inverse[I] = Metric(SMatrix{2,2,T,4}(Tuple(G)), T(Jinv))
+end
+
+@kernel function _fill_cell_metric_storage_3d_kernel!(
+  forward, inverse, jacobian, inverse_jacobian, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+) where {T}
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  half = T(0.5)
+  ξ = Iglobal.I[1] - nhalo + half
+  η = Iglobal.I[2] - nhalo + half
+  ζ = Iglobal.I[3] - nhalo + half
+
+  F = _as_smatrix(Val(3), jacobian(t, ξ, η, ζ, params))
+  G = _as_smatrix(Val(3), inverse_jacobian(t, ξ, η, ζ, params))
+  J = det(F)
+  Jinv = det(G)
+
+  forward[I] = Metric(SMatrix{3,3,T,9}(Tuple(F)), T(J))
+  inverse[I] = Metric(SMatrix{3,3,T,9}(Tuple(G)), T(Jinv))
+end
+
+@kernel function _fill_face_metric_storage_1d_axis1_kernel!(
+  forward, inverse, conserved, edge, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+) where {T}
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  half = T(0.5)
+  ξ = Iglobal.I[1] - nhalo + half
+
+  G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(Val(1), edge, 1, t, (ξ,), params)
+  F = inv(G)
+  J = det(F)
+
+  forward[I] = Metric(SMatrix{1,1,T,1}(Tuple(F)), T(J))
+  inverse[I] = Metric(SMatrix{1,1,T,1}(Tuple(G)), T(Jinv))
+  conserved[I] = ConservedMetric(SMatrix{1,1,T,1}(Tuple(Ghat)))
+end
+
+@kernel function _fill_face_metric_storage_2d_axis1_kernel!(
+  forward, inverse, conserved, edge, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+) where {T}
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  half = T(0.5)
+  ξ = Iglobal.I[1] - nhalo + half
+  η = Iglobal.I[2] - nhalo + half
+
+  G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(Val(2), edge, 1, t, (ξ, η), params)
+  F = inv(G)
+  J = det(F)
+
+  forward[I] = Metric(SMatrix{2,2,T,4}(Tuple(F)), T(J))
+  inverse[I] = Metric(SMatrix{2,2,T,4}(Tuple(G)), T(Jinv))
+  conserved[I] = ConservedMetric(SMatrix{2,2,T,4}(Tuple(Ghat)))
+end
+
+@kernel function _fill_face_metric_storage_2d_axis2_kernel!(
+  forward, inverse, conserved, edge, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+) where {T}
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  half = T(0.5)
+  ξ = Iglobal.I[1] - nhalo + half
+  η = Iglobal.I[2] - nhalo + half
+
+  G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(Val(2), edge, 2, t, (ξ, η), params)
+  F = inv(G)
+  J = det(F)
+
+  forward[I] = Metric(SMatrix{2,2,T,4}(Tuple(F)), T(J))
+  inverse[I] = Metric(SMatrix{2,2,T,4}(Tuple(G)), T(Jinv))
+  conserved[I] = ConservedMetric(SMatrix{2,2,T,4}(Tuple(Ghat)))
+end
+
+@kernel function _fill_face_metric_storage_3d_axis1_kernel!(
+  forward, inverse, conserved, edge, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+) where {T}
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  half = T(0.5)
+  ξ = Iglobal.I[1] - nhalo + half
+  η = Iglobal.I[2] - nhalo + half
+  ζ = Iglobal.I[3] - nhalo + half
+
+  G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(Val(3), edge, 1, t, (ξ, η, ζ), params)
+  F = inv(G)
+  J = det(F)
+
+  forward[I] = Metric(SMatrix{3,3,T,9}(Tuple(F)), T(J))
+  inverse[I] = Metric(SMatrix{3,3,T,9}(Tuple(G)), T(Jinv))
+  conserved[I] = ConservedMetric(SMatrix{3,3,T,9}(Tuple(Ghat)))
+end
+
+@kernel function _fill_face_metric_storage_3d_axis2_kernel!(
+  forward, inverse, conserved, edge, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+) where {T}
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  half = T(0.5)
+  ξ = Iglobal.I[1] - nhalo + half
+  η = Iglobal.I[2] - nhalo + half
+  ζ = Iglobal.I[3] - nhalo + half
+
+  G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(Val(3), edge, 2, t, (ξ, η, ζ), params)
+  F = inv(G)
+  J = det(F)
+
+  forward[I] = Metric(SMatrix{3,3,T,9}(Tuple(F)), T(J))
+  inverse[I] = Metric(SMatrix{3,3,T,9}(Tuple(G)), T(Jinv))
+  conserved[I] = ConservedMetric(SMatrix{3,3,T,9}(Tuple(Ghat)))
+end
+
+@kernel function _fill_face_metric_storage_3d_axis3_kernel!(
+  forward, inverse, conserved, edge, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+) where {T}
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  Iglobal = global_domain[I]
+  half = T(0.5)
+  ξ = Iglobal.I[1] - nhalo + half
+  η = Iglobal.I[2] - nhalo + half
+  ζ = Iglobal.I[3] - nhalo + half
+
+  G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(Val(3), edge, 3, t, (ξ, η, ζ), params)
+  F = inv(G)
+  J = det(F)
+
+  forward[I] = Metric(SMatrix{3,3,T,9}(Tuple(F)), T(J))
+  inverse[I] = Metric(SMatrix{3,3,T,9}(Tuple(G)), T(Jinv))
+  conserved[I] = ConservedMetric(SMatrix{3,3,T,9}(Tuple(Ghat)))
+end
+
 function _fill_cell_metric_storage!(
   cell_metric_storage,
   metric_functions_cache,
@@ -449,18 +981,117 @@ function _fill_cell_metric_storage!(
   params,
   ::Val{N},
   ::Type{T},
+  backend,
 ) where {N,T}
-  @threads for I in iterators.cell.full
-    Iglobal = iterators.global_domain.cell.full[I]
-    ξηζ = Iglobal.I .- nhalo .+ 0.5
+  _fill_cell_metric_storage!(
+    backend,
+    cell_metric_storage,
+    metric_functions_cache,
+    iterators,
+    nhalo,
+    t,
+    params,
+    Val(N),
+    T,
+  )
+end
+
+function _fill_cell_metric_storage!(
+  backend::KernelAbstractions.Backend,
+  cell_metric_storage,
+  metric_functions_cache,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{N},
+  ::Type{T},
+) where {N,T}
+  local_domain = iterators.cell.full
+  global_domain = iterators.global_domain.cell.full
+
+  forward_h = Array{eltype(cell_metric_storage.forward)}(undef, size(cell_metric_storage.forward))
+  inverse_h = Array{eltype(cell_metric_storage.inverse)}(undef, size(cell_metric_storage.inverse))
+  half = T(0.5)
+
+  @inbounds for I in local_domain
+    Iglobal = global_domain[I]
+    ξηζ = ntuple(d -> T(Iglobal.I[d] - nhalo) + half, N)
 
     F = _as_smatrix(Val(N), metric_functions_cache.forward.jacobian(t, ξηζ..., params))
     G = _as_smatrix(Val(N), metric_functions_cache.inverse.Jinv(t, ξηζ..., params))
     J = det(F)
+    Jinv = det(G)
 
-    cell_metric_storage.forward[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(F)), T(J))
-    cell_metric_storage.inverse[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(G)), T(J))
+    forward_h[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(F)), T(J))
+    inverse_h[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(G)), T(Jinv))
   end
+
+  copyto!(cell_metric_storage.forward, forward_h)
+  copyto!(cell_metric_storage.inverse, inverse_h)
+  return nothing
+end
+
+function _fill_cell_metric_storage!(
+  backend::KernelAbstractions.CPU,
+  cell_metric_storage,
+  metric_functions_cache,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{N},
+  ::Type{T},
+) where {N,T}
+  local_domain = iterators.cell.full
+  global_domain = iterators.global_domain.cell.full
+
+  if N == 1
+    _fill_cell_metric_storage_1d_kernel!(backend)(
+      cell_metric_storage.forward,
+      cell_metric_storage.inverse,
+      metric_functions_cache.forward.jacobian,
+      metric_functions_cache.inverse.Jinv,
+      local_domain,
+      global_domain,
+      nhalo,
+      t,
+      params,
+      T;
+      ndrange=size(local_domain),
+    )
+  elseif N == 2
+    _fill_cell_metric_storage_2d_kernel!(backend)(
+      cell_metric_storage.forward,
+      cell_metric_storage.inverse,
+      metric_functions_cache.forward.jacobian,
+      metric_functions_cache.inverse.Jinv,
+      local_domain,
+      global_domain,
+      nhalo,
+      t,
+      params,
+      T;
+      ndrange=size(local_domain),
+    )
+  elseif N == 3
+    _fill_cell_metric_storage_3d_kernel!(backend)(
+      cell_metric_storage.forward,
+      cell_metric_storage.inverse,
+      metric_functions_cache.forward.jacobian,
+      metric_functions_cache.inverse.Jinv,
+      local_domain,
+      global_domain,
+      nhalo,
+      t,
+      params,
+      T;
+      ndrange=size(local_domain),
+    )
+  else
+    throw(ArgumentError("Unsupported metric dimension N=$N"))
+  end
+  KernelAbstractions.synchronize(backend)
   return nothing
 end
 
@@ -473,27 +1104,169 @@ function _fill_face_metric_storage!(
   params,
   ::Val{N},
   ::Type{T},
+  backend,
 ) where {N,T}
+  _fill_face_metric_storage!(
+    backend,
+    face_metric_storage,
+    metric_functions_cache,
+    iterators,
+    nhalo,
+    t,
+    params,
+    Val(N),
+    T,
+  )
+  return nothing
+end
+
+function _fill_face_metric_storage!(
+  backend::KernelAbstractions.Backend,
+  face_metric_storage,
+  metric_functions_cache,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{N},
+  ::Type{T},
+) where {N,T}
+  local_domain = iterators.cell.full
+  global_domain = iterators.global_domain.cell.full
   edge = metric_functions_cache.edge
+  half = T(0.5)
 
-  @threads for I in iterators.cell.full
-    Iglobal = iterators.global_domain.cell.full[I]
-    ξηζ = Iglobal.I .- nhalo .+ 0.5
+  for axis in 1:N
+    forward_h = Array{eltype(face_metric_storage[axis].forward)}(
+      undef, size(face_metric_storage[axis].forward)
+    )
+    inverse_h = Array{eltype(face_metric_storage[axis].inverse)}(
+      undef, size(face_metric_storage[axis].inverse)
+    )
+    conserved_h = Array{eltype(face_metric_storage[axis].conserved)}(
+      undef, size(face_metric_storage[axis].conserved)
+    )
 
-    for axis in 1:N
-      G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(
-        Val(N), edge, axis, t, ξηζ, params
-      )
+    @inbounds for I in local_domain
+      Iglobal = global_domain[I]
+      ξηζ = ntuple(d -> T(Iglobal.I[d] - nhalo) + half, N)
+
+      G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(Val(N), edge, axis, t, ξηζ, params)
       F = inv(G)
       J = det(F)
 
-      face_metric_storage[axis].forward[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(F)), T(J))
-      face_metric_storage[axis].inverse[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(G)), T(Jinv))
-      face_metric_storage[axis].conserved[I] = ConservedMetric(
-        SMatrix{N,N,T,N * N}(Tuple(Ghat))
-      )
+      forward_h[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(F)), T(J))
+      inverse_h[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(G)), T(Jinv))
+      conserved_h[I] = ConservedMetric(SMatrix{N,N,T,N * N}(Tuple(Ghat)))
     end
+
+    copyto!(face_metric_storage[axis].forward, forward_h)
+    copyto!(face_metric_storage[axis].inverse, inverse_h)
+    copyto!(face_metric_storage[axis].conserved, conserved_h)
   end
+  return nothing
+end
+
+function _fill_face_metric_storage!(
+  backend::KernelAbstractions.CPU,
+  face_metric_storage,
+  metric_functions_cache,
+  iterators,
+  nhalo::Int,
+  t,
+  params,
+  ::Val{N},
+  ::Type{T},
+) where {N,T}
+  local_domain = iterators.cell.full
+  global_domain = iterators.global_domain.cell.full
+  edge = metric_functions_cache.edge
+
+  if N == 1
+    _fill_face_metric_storage_1d_axis1_kernel!(backend)(
+      face_metric_storage[1].forward,
+      face_metric_storage[1].inverse,
+      face_metric_storage[1].conserved,
+      edge,
+      local_domain,
+      global_domain,
+      nhalo,
+      t,
+      params,
+      T;
+      ndrange=size(local_domain),
+    )
+  elseif N == 2
+    _fill_face_metric_storage_2d_axis1_kernel!(backend)(
+      face_metric_storage[1].forward,
+      face_metric_storage[1].inverse,
+      face_metric_storage[1].conserved,
+      edge,
+      local_domain,
+      global_domain,
+      nhalo,
+      t,
+      params,
+      T;
+      ndrange=size(local_domain),
+    )
+    _fill_face_metric_storage_2d_axis2_kernel!(backend)(
+      face_metric_storage[2].forward,
+      face_metric_storage[2].inverse,
+      face_metric_storage[2].conserved,
+      edge,
+      local_domain,
+      global_domain,
+      nhalo,
+      t,
+      params,
+      T;
+      ndrange=size(local_domain),
+    )
+  elseif N == 3
+    _fill_face_metric_storage_3d_axis1_kernel!(backend)(
+      face_metric_storage[1].forward,
+      face_metric_storage[1].inverse,
+      face_metric_storage[1].conserved,
+      edge,
+      local_domain,
+      global_domain,
+      nhalo,
+      t,
+      params,
+      T;
+      ndrange=size(local_domain),
+    )
+    _fill_face_metric_storage_3d_axis2_kernel!(backend)(
+      face_metric_storage[2].forward,
+      face_metric_storage[2].inverse,
+      face_metric_storage[2].conserved,
+      edge,
+      local_domain,
+      global_domain,
+      nhalo,
+      t,
+      params,
+      T;
+      ndrange=size(local_domain),
+    )
+    _fill_face_metric_storage_3d_axis3_kernel!(backend)(
+      face_metric_storage[3].forward,
+      face_metric_storage[3].inverse,
+      face_metric_storage[3].conserved,
+      edge,
+      local_domain,
+      global_domain,
+      nhalo,
+      t,
+      params,
+      T;
+      ndrange=size(local_domain),
+    )
+  else
+    throw(ArgumentError("Unsupported face metric dimension N=$N"))
+  end
+  KernelAbstractions.synchronize(backend)
   return nothing
 end
 

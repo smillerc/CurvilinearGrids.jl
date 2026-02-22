@@ -21,7 +21,7 @@ using .MultiBlockMeshes: BlockFace, BlockInterface
 using .MultiBlockMeshes:
   validate_multiblock!, build_interface_caches!, invalidate_interface_caches!
 using .MultiBlockMeshes: exchange_interface!, exchange_all_interfaces!
-using MultiBlockMeshes: MultiBlockMesh
+using .MultiBlockMeshes: MultiBlockMesh
 
 export AbstractCurvilinearGrid
 export AbstractCurvilinearGrid1D

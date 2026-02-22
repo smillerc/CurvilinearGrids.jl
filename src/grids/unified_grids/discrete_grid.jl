@@ -186,18 +186,17 @@ function _recompute_discrete_cell_metrics!(
     return nothing
   end
   cell_storage, _ = _ensure_metric_storage!(grid, Val(N), T)
-  @threads for I in grid.iterators.cell.full
-    Iglobal = grid.iterators.global_domain.cell.full[I]
-    ξηζ = Iglobal.I .- grid.nhalo .+ 0.5
-    F = _as_smatrix(Val(N), grid.metric_functions_cache.forward.jacobian(t, ξηζ..., params))
-    G = inv(F)
-    J = det(F)
-    Jinv = det(G)
-
-    cell_storage.forward[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(F)), T(J))
-    cell_storage.inverse[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(G)), T(Jinv))
-  end
-
+  _fill_cell_metric_storage!(
+    cell_storage,
+    grid.metric_functions_cache,
+    grid.iterators,
+    grid.nhalo,
+    t,
+    params,
+    Val(N),
+    T,
+    grid.backend,
+  )
   return nothing
 end
 
@@ -219,6 +218,7 @@ function _recompute_discrete_face_metrics!(
     params,
     Val(N),
     T,
+    grid.backend,
   )
 
   return nothing
@@ -337,6 +337,7 @@ function _new_discrete_grid(
     t,
     params,
     Val(N),
+    grid.backend,
   )
   _compute_unified_centroid_coordinates!(
     grid.centroid_coordinates,
@@ -346,6 +347,7 @@ function _new_discrete_grid(
     t,
     params,
     Val(N),
+    grid.backend,
   )
 
   if !disable_metrics && requested_mode === :eager
@@ -573,6 +575,7 @@ function update!(grid::DiscreteGrid{N}, t::Real, params::NamedTuple) where {N}
     t,
     params,
     Val(N),
+    grid.backend,
   )
   _compute_unified_centroid_coordinates!(
     grid.centroid_coordinates,
@@ -582,6 +585,7 @@ function update!(grid::DiscreteGrid{N}, t::Real, params::NamedTuple) where {N}
     t,
     params,
     Val(N),
+    grid.backend,
   )
 
   grid.state[] = (; t, params)

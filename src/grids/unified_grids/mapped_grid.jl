@@ -61,6 +61,7 @@ function _recompute_mapped_cell_metrics!(
     params,
     Val(N),
     T,
+    grid.backend,
   )
 
   return nothing
@@ -84,6 +85,7 @@ function _recompute_mapped_face_metrics!(
     params,
     Val(N),
     T,
+    grid.backend,
   )
 
   return nothing
@@ -194,6 +196,7 @@ function _new_mapped_grid(
     t,
     params,
     Val(N),
+    grid.backend,
   )
   _compute_unified_centroid_coordinates!(
     grid.centroid_coordinates,
@@ -203,6 +206,7 @@ function _new_mapped_grid(
     t,
     params,
     Val(N),
+    grid.backend,
   )
 
   if !disable_metrics && requested_mode === :eager
@@ -383,6 +387,7 @@ function update!(grid::MappedGrid{N}, t::Real, params::NamedTuple) where {N}
     t,
     params,
     Val(N),
+    grid.backend,
   )
   _compute_unified_centroid_coordinates!(
     grid.centroid_coordinates,
@@ -392,6 +397,7 @@ function update!(grid::MappedGrid{N}, t::Real, params::NamedTuple) where {N}
     t,
     params,
     Val(N),
+    grid.backend,
   )
 
   grid.state[] = (; t, params)
