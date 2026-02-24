@@ -63,6 +63,7 @@ export metrics_with_jacobian
 export cell_metrics, face_metrics, cell_indices
 export radius, centroid_radius, centroid_radii
 export cellvolume, cellvolumes
+export face_area, outward_face_normal
 
 export forward_cell_metrics, inverse_cell_metrics
 export InverseCoordinateResult, computational_coordinate

@@ -62,99 +62,6 @@ end
   return CartesianIndex(full)
 end
 
-@inline function _normalize_surface_metric_source(metric_source::Symbol)
-  s = Symbol(lowercase(String(metric_source)))
-  if s in (:mapping, :analytic)
-    return :mapping
-  elseif s in (:discrete, :discretized, :cached)
-    return :discretized
-  end
-  throw(
-    ArgumentError(
-      "Unsupported `metric_source=$metric_source`. Supported values are `:mapping` and `:discretized`.",
-    ),
-  )
-end
-
-@inline function _require_surface_metric_functions(grid::Union{MappedGrid,DiscreteGrid})
-  if grid.metric_functions_cache === nothing
-    throw(ArgumentError("`SurfaceGrid(metric_source=:mapping)` requires metric functions."))
-  end
-  return nothing
-end
-
-@inline function _state_for_surface_eval(grid::Union{MappedGrid,DiscreteGrid})
-  state = grid.state[]
-  if !(state isa NamedTuple && haskey(state, :t) && haskey(state, :params))
-    throw(ArgumentError("Grid state is missing `(t, params)` and cannot be evaluated."))
-  end
-  return state.t, state.params
-end
-
-@inline function _boundary_face_computational_coordinate(
-  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}},
-  Icell::CartesianIndex{N},
-  axis::Int,
-  side::Symbol,
-) where {N,T}
-  Iglobal = grid.iterators.global_domain.cell.full[Icell]
-  half = T(0.5)
-  base = ntuple(d -> T(Iglobal.I[d] - grid.nhalo) + half, N)
-  offset = side === :hi ? half : -half
-  return ntuple(d -> d == axis ? base[d] + offset : base[d], N)
-end
-
-@inline function _mapped_coord_from_mapping(
-  grid::Union{MappedGrid{1,T},DiscreteGrid{1,T}}, ξ::NTuple{1,<:Real}, t, params
-) where {T}
-  return SVector{1,T}(T(grid.mapping_functions.x1(t, ξ..., params)))
-end
-
-@inline function _mapped_coord_from_mapping(
-  grid::Union{MappedGrid{2,T},DiscreteGrid{2,T}}, ξη::NTuple{2,<:Real}, t, params
-) where {T}
-  return SVector{2,T}(
-    T(grid.mapping_functions.x1(t, ξη..., params)),
-    T(grid.mapping_functions.x2(t, ξη..., params)),
-  )
-end
-
-@inline function _mapped_coord_from_mapping(
-  grid::Union{MappedGrid{3,T},DiscreteGrid{3,T}}, ξηζ::NTuple{3,<:Real}, t, params
-) where {T}
-  return SVector{3,T}(
-    T(grid.mapping_functions.x1(t, ξηζ..., params)),
-    T(grid.mapping_functions.x2(t, ξηζ..., params)),
-    T(grid.mapping_functions.x3(t, ξηζ..., params)),
-  )
-end
-
-@inline function _mapping_forward_jacobian(
-  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, ξηζ::NTuple{N,<:Real}, t, params
-) where {N,T}
-  _require_surface_metric_functions(grid)
-  Fraw = grid.metric_functions_cache.forward.jacobian(t, ξηζ..., params)
-  return SMatrix{N,N,T,N * N}(Tuple(Fraw))
-end
-
-@inline function _face_index_for_discretized_metric(
-  face_axis_storage, Icell::CartesianIndex{N}, axis::Int, side::Symbol
-) where {N}
-  if side === :hi
-    return Icell
-  end
-  Iref = CartesianIndex(ntuple(d -> d == axis ? Icell.I[d] - 1 : Icell.I[d], N))
-  return checkbounds(Bool, face_axis_storage.conserved, Iref) ? Iref : Icell
-end
-
-@inline function _discretized_forward_jacobian(
-  face_axis_storage, Icell::CartesianIndex{N}, axis::Int, side::Symbol, ::Type{T}
-) where {N,T}
-  Iref = _face_index_for_discretized_metric(face_axis_storage, Icell, axis, side)
-  Fraw = face_axis_storage.forward[Iref].jacobian_matrix
-  return SMatrix{N,N,T,N * N}(Tuple(Fraw))
-end
-
 @inline function _coord_to_cartesian(::CoordinateSystemTrait, q::SVector{N,T}) where {N,T}
   return q
 end
@@ -327,7 +234,7 @@ struct SurfaceGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,NC,FC,FN,FA}
 end
 
 """
-    SurfaceGrid(grid::Union{MappedGrid,DiscreteGrid}, boundary::Symbol, outward_normal=true; metric_source=:mapping)
+    SurfaceGrid(grid::Union{MappedGrid,DiscreteGrid}, boundary::Symbol, outward_normal=true)
 
 Extract a boundary surface from a 2D/3D mapped or discrete unified grid.
 
@@ -336,11 +243,6 @@ Extract a boundary surface from a 2D/3D mapped or discrete unified grid.
   - `boundary`: Boundary selector `:{i,j,k}{lo,hi}` (for example `:ilo`, `:jhi`, `:klo`).
   - `outward_normal`: If `true`, normals point outward; if `false`, inward.
 
-# Keywords
-  - `metric_source`:
-    - `:mapping`: compute face area-vectors from mapping Jacobians and coordinate-system transforms.
-    - `:discretized`: use cached conserved face metrics (`face_metrics`) from the selected discretization.
-
 # Returns
 `SurfaceGrid` containing boundary geometry, unit normals, and face areas.
 """
@@ -348,14 +250,11 @@ function SurfaceGrid(
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}},
   boundary::Symbol,
   outward_normal::Bool=true,
-  ;
-  metric_source::Symbol=:mapping,
 ) where {N,T}
   if N != 2 && N != 3
     throw(ArgumentError("`SurfaceGrid` is only supported for 2D and 3D unified grids."))
   end
 
-  metric_mode = _normalize_surface_metric_source(metric_source)
   axis, side = _boundary_axis_side(Val(N), boundary)
   node_ranges = Tuple(grid.iterators.node.domain.indices)
   cell_ranges = Tuple(grid.iterators.cell.domain.indices)
@@ -370,13 +269,7 @@ function SurfaceGrid(
   node_arrays = ntuple(d -> Array(grid.node_coordinates[d]), N)
   cs = coordinate_system(grid)
   bt = basis_trait(grid)
-  t, params = _state_for_surface_eval(grid)
-
-  face_cache = if metric_mode === :discretized
-    face_metrics(grid; refresh=true)
-  else
-    nothing
-  end
+  loc = GridTypes._face_location_symbol(axis, side, Val(N))
 
   node_coordinates = ntuple(_ -> Array{T}(undef, node_dims...), N)
   face_centers = ntuple(_ -> Array{T}(undef, cell_dims...), N)
@@ -396,22 +289,11 @@ function SurfaceGrid(
   for (Ilocal, Itang) in
       zip(CartesianIndices(cell_dims), CartesianIndices(tangential_cell_ranges))
     Icell = _build_surface_index(Itang.I, axis, cell_axis_idx, Val(N))
-    ξηζ_face = _boundary_face_computational_coordinate(grid, Icell, axis, side)
-    qcenter = _mapped_coord_from_mapping(grid, ξηζ_face, t, params)
-    center = _coord_to_cartesian(cs, qcenter)
-
-    Fqξ = if metric_mode === :mapping
-      _mapping_forward_jacobian(grid, ξηζ_face, t, params)
-    elseif metric_mode === :discretized
-      _discretized_forward_jacobian(face_cache[axis], Icell, axis, side, T)
-    else
-      throw(ArgumentError("Unsupported `metric_source=$metric_source`."))
-    end
-    Jxξ = _cartesian_forward_jacobian(cs, qcenter, Fqξ)
-    area_vec = _area_vector_from_covariant(Jxξ, axis)
-    sign = _surface_orientation_sign(side, outward_normal, T)
-    normal, area = _normal_and_area(area_vec * sign)
-    area *= _surface_area_scale(cs, qcenter)
+    geom = GridTypes._face_geometry(grid, Icell.I, loc)
+    center = geom.cartesian_coordinate
+    normal_out = geom.normal
+    normal = outward_normal ? normal_out : -normal_out
+    area = geom.area
 
     for d in 1:N
       face_centers[d][Ilocal] = center[d]
@@ -448,18 +330,14 @@ end
       grid::Union{MappedGrid,DiscreteGrid},
       boundary::Symbol;
       outward_normal=true,
-      metric_source=:mapping,
     )
 
 Construct a `SurfaceGrid` from a unified mapped/discrete grid boundary.
 """
 function extract_surface_mesh(
-  grid::Union{MappedGrid,DiscreteGrid},
-  boundary::Symbol;
-  outward_normal::Bool=true,
-  metric_source::Symbol=:mapping,
+  grid::Union{MappedGrid,DiscreteGrid}, boundary::Symbol; outward_normal::Bool=true
 )
-  return SurfaceGrid(grid, boundary, outward_normal; metric_source=metric_source)
+  return SurfaceGrid(grid, boundary, outward_normal)
 end
 
 """
@@ -545,7 +423,7 @@ function save_vtk(surface::SurfaceGrid{2}, fn="surface")
   @info "Writing to $fn.vti"
   vtk_grid(fn, (x, y)) do vtk
     vtk["face_area", VTKCellData()] = area
-    vtk["face_normal", VTKCellData(), component_names = ["x1", "x2"]] = (nx, ny)
+    vtk["face_normal", VTKCellData(), component_names=["x1", "x2"]] = (nx, ny)
   end
   return nothing
 end
@@ -573,7 +451,7 @@ function save_vtk(surface::SurfaceGrid{3}, fn="surface")
   @info "Writing to $fn.vti"
   vtk_grid(fn, points) do vtk
     vtk["face_area", VTKCellData()] = surface.face_areas
-    vtk["face_normal", VTKCellData(), component_names = ["x1", "x2", "x3"]] = (
+    vtk["face_normal", VTKCellData(), component_names=["x1", "x2", "x3"]] = (
       surface.face_normals[1], surface.face_normals[2], surface.face_normals[3]
     )
   end

@@ -656,6 +656,302 @@ end
 
 cellvolume(grid::OrthogonalGrid, idx) = cellvolume(grid.legacy, idx)
 
+@inline function _face_loc_axis_side(::Val{N}, loc::Symbol) where {N}
+  l = Symbol(lowercase(String(loc)))
+  axis, side = if l in (:ilo, :imin, :xlo, :xmin)
+    (1, :lo)
+  elseif l in (:ihi, :imax, :xhi, :xmax)
+    (1, :hi)
+  elseif l in (:jlo, :jmin, :ylo, :ymin)
+    (2, :lo)
+  elseif l in (:jhi, :jmax, :yhi, :ymax)
+    (2, :hi)
+  elseif l in (:klo, :kmin, :zlo, :zmin)
+    (3, :lo)
+  elseif l in (:khi, :kmax, :zhi, :zmax)
+    (3, :hi)
+  else
+    throw(
+      ArgumentError(
+        "Unsupported face location `$loc`. Expected one of `:ilo/:ihi`, `:jlo/:jhi`, or `:klo/:khi`.",
+      ),
+    )
+  end
+  if axis > N
+    throw(
+      ArgumentError(
+        "Face location `$loc` maps to axis $axis, which is invalid for $N-D grid."
+      ),
+    )
+  end
+  return axis, side
+end
+
+@inline function _face_location_symbol(axis::Int, side::Symbol, ::Val{N}) where {N}
+  if axis == 1
+    return side === :lo ? :ilo : :ihi
+  elseif axis == 2 && N >= 2
+    return side === :lo ? :jlo : :jhi
+  elseif axis == 3 && N >= 3
+    return side === :lo ? :klo : :khi
+  end
+  throw(ArgumentError("Invalid axis/side combination `(axis=$axis, side=$side)` for N=$N."))
+end
+
+@inline function _face_evaluation_coordinate(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}},
+  Icell::CartesianIndex{N},
+  axis::Int,
+  side::Symbol,
+) where {N,T}
+  Iglobal = grid.iterators.global_domain.cell.full[Icell]
+  half = T(0.5)
+  base = ntuple(d -> T(Iglobal.I[d] - grid.nhalo) + half, N)
+  offset = side === :hi ? half : -half
+  return ntuple(d -> d == axis ? base[d] + offset : base[d], N)
+end
+
+@inline function _face_mapped_coordinate(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}},
+  Icell::CartesianIndex{N},
+  axis::Int,
+  side::Symbol,
+) where {N,T}
+  ξηζ_face = _face_evaluation_coordinate(grid, Icell, axis, side)
+  q = _continuous_coord(grid, ξηζ_face)
+  return SVector{N,T}(ntuple(d -> T(q[d]), N))
+end
+
+@inline function _face_forward_jacobian(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}},
+  Icell::CartesianIndex{N},
+  axis::Int,
+  side::Symbol,
+) where {N,T}
+  _require_metric_functions(grid, "face_area")
+  ξηζ_face = _face_evaluation_coordinate(grid, Icell, axis, side)
+  t, params = _state_for_eval(grid)
+  Fraw = grid.metric_functions_cache.forward.jacobian(t, ξηζ_face..., params)
+  return SMatrix{N,N,T,N * N}(Tuple(Fraw))
+end
+
+@inline function _face_coord_to_cartesian(
+  ::CoordinateSystemTrait, q::SVector{N,T}
+) where {N,T}
+  return q
+end
+
+@inline function _face_coord_to_cartesian(::CartesianCS, q::SVector{N,T}) where {N,T}
+  return q
+end
+
+@inline function _face_coord_to_cartesian(::CurvilinearCS, q::SVector{N,T}) where {N,T}
+  return q
+end
+
+@inline function _face_coord_to_cartesian(::AxisymmetricCS, q::SVector{2,T}) where {T}
+  return q
+end
+
+@inline function _face_coord_to_cartesian(::CylindricalCS, q::SVector{2,T}) where {T}
+  return q
+end
+
+@inline function _face_coord_to_cartesian(::SphericalCS, q::SVector{3,T}) where {T}
+  r, θ, ϕ = q
+  sθ = sin(θ)
+  cθ = cos(θ)
+  sϕ = sin(ϕ)
+  cϕ = cos(ϕ)
+  return SVector{3,T}(r * sθ * cϕ, r * sθ * sϕ, r * cθ)
+end
+
+@inline function _face_coord_to_cartesian_jacobian(
+  ::CoordinateSystemTrait, q::SVector{N,T}
+) where {N,T}
+  return one(SMatrix{N,N,T})
+end
+
+@inline function _face_coord_to_cartesian_jacobian(
+  ::CartesianCS, q::SVector{N,T}
+) where {N,T}
+  return one(SMatrix{N,N,T})
+end
+
+@inline function _face_coord_to_cartesian_jacobian(
+  ::CurvilinearCS, q::SVector{N,T}
+) where {N,T}
+  return one(SMatrix{N,N,T})
+end
+
+@inline function _face_coord_to_cartesian_jacobian(
+  ::AxisymmetricCS, q::SVector{2,T}
+) where {T}
+  return one(SMatrix{2,2,T})
+end
+
+@inline function _face_coord_to_cartesian_jacobian(
+  ::CylindricalCS, q::SVector{2,T}
+) where {T}
+  return one(SMatrix{2,2,T})
+end
+
+@inline function _face_coord_to_cartesian_jacobian(::SphericalCS, q::SVector{3,T}) where {T}
+  r, θ, ϕ = q
+  sθ = sin(θ)
+  cθ = cos(θ)
+  sϕ = sin(ϕ)
+  cϕ = cos(ϕ)
+  return SMatrix{3,3,T,9}(
+    sθ * cϕ,
+    sθ * sϕ,
+    cθ,
+    r * cθ * cϕ,
+    r * cθ * sϕ,
+    -r * sθ,
+    -r * sθ * sϕ,
+    r * sθ * cϕ,
+    zero(T),
+  )
+end
+
+@inline function _face_area_vector_from_jacobian(
+  jacobian::SMatrix{2,2,T,4}, axis::Int
+) where {T}
+  if axis == 1
+    return SVector{2,T}(jacobian[2, 2], -jacobian[1, 2])
+  elseif axis == 2
+    return SVector{2,T}(-jacobian[2, 1], jacobian[1, 1])
+  end
+  throw(ArgumentError("Invalid 2D face axis: $axis"))
+end
+
+@inline function _face_area_vector_from_jacobian(
+  jacobian::SMatrix{3,3,T,9}, axis::Int
+) where {T}
+  aξ = SVector{3,T}(jacobian[1, 1], jacobian[2, 1], jacobian[3, 1])
+  aη = SVector{3,T}(jacobian[1, 2], jacobian[2, 2], jacobian[3, 2])
+  aζ = SVector{3,T}(jacobian[1, 3], jacobian[2, 3], jacobian[3, 3])
+  if axis == 1
+    return cross(aη, aζ)
+  elseif axis == 2
+    return cross(aζ, aξ)
+  elseif axis == 3
+    return cross(aξ, aη)
+  end
+  throw(ArgumentError("Invalid 3D face axis: $axis"))
+end
+
+@inline _face_area_scale(::CoordinateSystemTrait, q::SVector{N,T}) where {N,T} = one(T)
+@inline _face_area_scale(::CurvilinearCS, q::SVector{N,T}) where {N,T} = one(T)
+@inline _face_area_scale(::CartesianCS, q::SVector{N,T}) where {N,T} = one(T)
+@inline _face_area_scale(::SphericalCS, q::SVector{N,T}) where {N,T} = one(T)
+
+@inline _face_rotational_radius(::CylindricalCS, q::SVector{2,T}) where {T} = q[1]
+@inline _face_rotational_radius(::AxisymmetricCS{:x}, q::SVector{2,T}) where {T} = q[2]
+@inline _face_rotational_radius(::AxisymmetricCS{:y}, q::SVector{2,T}) where {T} = q[1]
+function _face_rotational_radius(::AxisymmetricCS{Axis}, ::SVector{2,T}) where {Axis,T}
+  throw(
+    ArgumentError(
+      "Unsupported axisymmetric axis `:$Axis`. Supported values are `:x` and `:y`."
+    ),
+  )
+end
+
+@inline function _face_area_scale(
+  cs::Union{CylindricalCS,AxisymmetricCS}, q::SVector{2,T}
+) where {T}
+  return T(2π) * abs(_face_rotational_radius(cs, q))
+end
+
+@inline _face_outward_sign(side::Symbol, ::Type{T}) where {T} =
+  side === :hi ? one(T) : -one(T)
+
+@inline function _face_geometry(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::NTuple{N,Int}, loc::Symbol
+) where {N,T}
+  if N != 2 && N != 3
+    throw(
+      ArgumentError(
+        "`face_area` and `outward_face_normal` are only supported for 2D and 3D unified grids.",
+      ),
+    )
+  end
+  axis, side = _face_loc_axis_side(Val(N), loc)
+  Icell = CartesianIndex(idx)
+  q = _face_mapped_coordinate(grid, Icell, axis, side)
+
+  Fq = _face_forward_jacobian(grid, Icell, axis, side)
+
+  cs = coordinate_system(grid)
+  A = _face_coord_to_cartesian_jacobian(cs, q)
+  Jx = SMatrix{N,N,T,N * N}(Tuple(A * Fq))
+  area_vec_plus = _face_area_vector_from_jacobian(Jx, axis)
+  outward_vec = area_vec_plus * _face_outward_sign(side, T)
+  base_area = norm(outward_vec)
+  normal = base_area > zero(T) ? outward_vec / base_area : zero(SVector{N,T})
+  area = base_area * _face_area_scale(cs, q)
+  x = _face_coord_to_cartesian(cs, q)
+
+  return (; normal=normal, area=area, cartesian_coordinate=x, mapped_coordinate=q)
+end
+
+"""
+    face_area(grid::Union{MappedGrid,DiscreteGrid}, idx, loc::Symbol)
+
+Return the physical area (3D) or boundary measure (2D) of the face at cell index
+`idx` and face selector `loc`.
+
+# Arguments
+  - `grid`: Mapped or discrete unified grid.
+  - `idx`: Cell index as `CartesianIndex` or `NTuple{N,Int}`.
+  - `loc`: Face selector symbol (for example `:ilo`, `:ihi`, `:jlo`, `:jhi`, `:klo`, `:khi`).
+
+"""
+@inline function face_area(
+  grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex, loc::Symbol
+)
+  face_area(grid, idx.I, loc)
+end
+@inline function face_area(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::NTuple{N,Int}, loc::Symbol
+) where {N,T}
+  geom = _face_geometry(grid, idx, loc)
+  return geom.area
+end
+
+"""
+    outward_face_normal(grid::Union{MappedGrid,DiscreteGrid}, idx, loc::Symbol)
+
+Return the outward Cartesian unit normal vector for the face at cell index `idx`
+and face selector `loc`.
+
+# Arguments
+  - `grid`: Mapped or discrete unified grid.
+  - `idx`: Cell index as `CartesianIndex` or `NTuple{N,Int}`.
+  - `loc`: Face selector symbol (for example `:ilo`, `:ihi`, `:jlo`, `:jhi`, `:klo`, `:khi`).
+
+"""
+@inline function outward_face_normal(
+  grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex, loc::Symbol
+)
+  outward_face_normal(grid, idx.I, loc)
+end
+@inline function outward_face_normal(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::NTuple{N,Int}, loc::Symbol
+) where {N,T}
+  geom = _face_geometry(grid, idx, loc)
+  return geom.normal
+end
+
+function face_area(::OrthogonalGrid, idx, loc::Symbol)
+  throw(ArgumentError("`face_area` is undefined for `OrthogonalGrid`."))
+end
+
+function outward_face_normal(::OrthogonalGrid, idx, loc::Symbol)
+  throw(ArgumentError("`outward_face_normal` is undefined for `OrthogonalGrid`."))
+end
+
 @inline function _jacobian_volume_factor(
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::NTuple{N,Int}
 ) where {N,T}

@@ -21,31 +21,11 @@ using CurvilinearGrids
 
   @test_throws ArgumentError SurfaceGrid(mapped2, :bad_boundary)
   @test_throws ArgumentError SurfaceGrid(mapped2, :klo)
-  @test_throws ArgumentError SurfaceGrid(mapped2, :ilo; metric_source=:nope)
-  @test_throws ArgumentError SurfaceGrid(mapped2, :ilo; metric_source=:discretized)
   @test_throws ArgumentError CurvilinearGrids._build_surface_index((1,), 1, 1, Val(3))
 
   x1(t, ξ, p) = ξ
   mapped1 = MappedGrid(x1, (;), (8,), 2; compute_metrics=false, cache_mode=:off)
   @test_throws ArgumentError SurfaceGrid(mapped1, :ilo)
-end
-
-@testset "SurfaceGrid mapping vs discretized metric source" begin
-  x2(t, ξ, η, p) = ξ
-  y2(t, ξ, η, p) = η
-  mapped2 = MappedGrid(x2, y2, (;), (8, 9), 2; cache_mode=:eager)
-
-  sm = SurfaceGrid(mapped2, :ilo, true; metric_source=:mapping)
-  sd = SurfaceGrid(mapped2, :ilo, true; metric_source=:discretized)
-  sa = SurfaceGrid(mapped2, :ilo, true; metric_source=:analytic)
-  sc = SurfaceGrid(mapped2, :ilo, true; metric_source=:cached)
-
-  @test maximum(abs.(sm.face_areas .- sd.face_areas)) ≤ 1e-12
-  @test maximum(abs.(sm.face_normals[1] .- sd.face_normals[1])) ≤ 1e-12
-  @test maximum(abs.(sm.face_normals[2] .- sd.face_normals[2])) ≤ 1e-12
-
-  @test maximum(abs.(sm.face_areas .- sa.face_areas)) ≤ 1e-12
-  @test maximum(abs.(sd.face_areas .- sc.face_areas)) ≤ 1e-12
 end
 
 @testset "SurfaceGrid mapped 2D geometry and orientation" begin
@@ -119,6 +99,36 @@ end
   @test sdeg3.face_normals[3][Id] == 0.0
 end
 
+@testset "Unified face area and outward normal API" begin
+  x3(t, ξ, η, ζ, p) = ξ
+  y3(t, ξ, η, ζ, p) = η
+  z3(t, ξ, η, ζ, p) = ζ
+  mapped3 = MappedGrid(
+    x3, y3, z3, (;), (6, 7, 8), 2; compute_metrics=false, cache_mode=:off
+  )
+  cell_ranges = Tuple(mapped3.iterators.cell.domain.indices)
+  i0 = first(cell_ranges[1])
+  j0 = first(cell_ranges[2])
+  k0 = first(cell_ranges[3])
+  k1 = last(cell_ranges[3])
+  idx_lo = (i0, j0, k0)
+  idx_hi = (i0, j0, k1)
+
+  area_lo = face_area(mapped3, idx_lo, :klo)
+  area_hi = face_area(mapped3, idx_hi, :khi)
+  normal_lo = outward_face_normal(mapped3, idx_lo, :klo)
+  normal_hi = outward_face_normal(mapped3, idx_hi, :khi)
+
+  @test area_lo ≈ 1.0 atol = 1e-12
+  @test area_hi ≈ 1.0 atol = 1e-12
+  @test normal_lo[1] ≈ 0.0 atol = 1e-12
+  @test normal_lo[2] ≈ 0.0 atol = 1e-12
+  @test normal_lo[3] ≈ -1.0 atol = 1e-12
+  @test normal_hi[1] ≈ 0.0 atol = 1e-12
+  @test normal_hi[2] ≈ 0.0 atol = 1e-12
+  @test normal_hi[3] ≈ 1.0 atol = 1e-12
+end
+
 @testset "SurfaceGrid axisymmetric rotated area" begin
   params = (; r0=2.0, dr=0.2, z0=-1.0, dz=0.4)
   rmap(t, ξ, η, p) = p.r0 + p.dr * ξ
@@ -135,8 +145,7 @@ end
     cache_mode=:eager,
   )
 
-  map_surface = SurfaceGrid(axisym, :ihi, true; metric_source=:mapping)
-  discrete_surface = SurfaceGrid(axisym, :ihi, true; metric_source=:discretized)
+  map_surface = SurfaceGrid(axisym, :ihi, true)
 
   @test all(
     I -> begin
@@ -150,7 +159,14 @@ end
   I = first(CartesianIndices(map_surface.face_areas))
   @test map_surface.face_normals[1][I] ≈ 1.0 atol = 1e-12
   @test map_surface.face_normals[2][I] ≈ 0.0 atol = 1e-12
-  @test maximum(abs.(map_surface.face_areas .- discrete_surface.face_areas)) ≤ 1e-12
+
+  cell_ranges = Tuple(axisym.iterators.cell.domain.indices)
+  idx_api = (last(cell_ranges[1]), first(cell_ranges[2]))
+  area_api = face_area(axisym, idx_api, :ihi)
+  normal_api = outward_face_normal(axisym, idx_api, :ihi)
+  @test area_api ≈ map_surface.face_areas[I] atol = 1e-12
+  @test normal_api[1] ≈ map_surface.face_normals[1][I] atol = 1e-12
+  @test normal_api[2] ≈ map_surface.face_normals[2][I] atol = 1e-12
 end
 
 @testset "SurfaceGrid spherical-basis sector geometry" begin
@@ -171,8 +187,7 @@ end
     cache_mode=:eager,
   )
 
-  map_surface = SurfaceGrid(spherical, :ihi, true; metric_source=:mapping)
-  discrete_surface = SurfaceGrid(spherical, :ihi, true; metric_source=:discretized)
+  map_surface = SurfaceGrid(spherical, :ihi, true)
 
   @test all(
     I -> begin
@@ -203,13 +218,15 @@ end
     CartesianIndices(map_surface.face_areas),
   )
 
-  @test maximum(abs.(map_surface.face_areas .- discrete_surface.face_areas)) ≤ 1e-12
-  @test maximum(abs.(map_surface.face_normals[1] .- discrete_surface.face_normals[1])) ≤
-    1e-12
-  @test maximum(abs.(map_surface.face_normals[2] .- discrete_surface.face_normals[2])) ≤
-    1e-12
-  @test maximum(abs.(map_surface.face_normals[3] .- discrete_surface.face_normals[3])) ≤
-    1e-12
+  cell_ranges = Tuple(spherical.iterators.cell.domain.indices)
+  idx_api = (last(cell_ranges[1]), first(cell_ranges[2]), first(cell_ranges[3]))
+  Iapi = first(CartesianIndices(map_surface.face_areas))
+  area_api = face_area(spherical, idx_api, :ihi)
+  normal_api = outward_face_normal(spherical, idx_api, :ihi)
+  @test area_api ≈ map_surface.face_areas[Iapi] atol = 1e-12
+  @test normal_api[1] ≈ map_surface.face_normals[1][Iapi] atol = 1e-12
+  @test normal_api[2] ≈ map_surface.face_normals[2][Iapi] atol = 1e-12
+  @test normal_api[3] ≈ map_surface.face_normals[3][Iapi] atol = 1e-12
 
   cart_pts = CurvilinearGrids._surface_vtk_points(map_surface)
   Inode = first(CartesianIndices(cart_pts))

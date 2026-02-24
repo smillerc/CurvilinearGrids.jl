@@ -56,6 +56,7 @@ export update!
 export coord, coords, coords!, cellsize, cellsize_withhalo
 export centroid, centroids, cartesian_centroid
 export cellvolume, cellvolumes
+export face_area, outward_face_normal
 export radius, centroid_radius, centroid_radii
 export jacobian_matrix
 export forward_cell_metrics, inverse_cell_metrics
