@@ -9,18 +9,7 @@ end
 @inline function _coord_to_cartesian(::CoordinateSystemTrait, q::SVector{N,T}) where {N,T}
   return q
 end
-@inline function _coord_to_cartesian(::CartesianCS, q::SVector{N,T}) where {N,T}
-  return q
-end
-@inline function _coord_to_cartesian(::CurvilinearCS, q::SVector{N,T}) where {N,T}
-  return q
-end
-@inline function _coord_to_cartesian(::CylindricalCS, q::SVector{N,T}) where {N,T}
-  return q
-end
-@inline function _coord_to_cartesian(::AxisymmetricCS, q::SVector{N,T}) where {N,T}
-  return q
-end
+
 @inline function _coord_to_cartesian(::SphericalCS, q::SVector{3,T}) where {T}
   r, theta, phi = q
   st = sin(theta)
@@ -31,18 +20,6 @@ end
 end
 
 @inline function _cartesian_to_coord(::CoordinateSystemTrait, x::SVector{N,T}) where {N,T}
-  return x
-end
-@inline function _cartesian_to_coord(::CartesianCS, x::SVector{N,T}) where {N,T}
-  return x
-end
-@inline function _cartesian_to_coord(::CurvilinearCS, x::SVector{N,T}) where {N,T}
-  return x
-end
-@inline function _cartesian_to_coord(::CylindricalCS, x::SVector{N,T}) where {N,T}
-  return x
-end
-@inline function _cartesian_to_coord(::AxisymmetricCS, x::SVector{N,T}) where {N,T}
   return x
 end
 @inline function _cartesian_to_coord(::SphericalCS, x::SVector{3,T}) where {T}
