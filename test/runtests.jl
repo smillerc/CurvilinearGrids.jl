@@ -56,6 +56,9 @@ const test_gpu = false
   @info "MultiBlock"
   include("unit/test_multiblock.jl")
 
+  @info "Remapping"
+  include("unit/test_remapping_schemes.jl")
+
   @info "Read/Write .h5"
   include("unit/test_grid_read_write.jl")
 end
