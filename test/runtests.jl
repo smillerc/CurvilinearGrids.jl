@@ -51,6 +51,7 @@ const test_gpu = false
   @info "Unified Grid Types"
   include("unit/test_unified_grid_types.jl")
   include("unit/test_unified_grid_backends.jl")
+  include("unit/test_surface_grid.jl")
 
   @info "MultiBlock"
   include("unit/test_multiblock.jl")
