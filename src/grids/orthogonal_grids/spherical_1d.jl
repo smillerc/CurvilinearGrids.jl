@@ -1,14 +1,9 @@
-const SphericalOrthogonalGrid1D = OrthogonalGrid{
-  1,T,SphericalCS,NC,CC,CV,I,DL,FA
-} where {T,NC,CC,CV,I,DL,FA}
-
 function SphericalOrthogonalGrid1D(
   _r::AbstractVector{T}, nhalo::Int, backend; halo_coords_included=false
 ) where {T<:Real}
   r, limits, iters, nodedims, celldims = _prepare_1d_coordinates(
     _r, nhalo, halo_coords_included
   )
-  coords_have_halo = true
 
   node_coordinates = (KernelAbstractions.zeros(backend, T, nodedims...),)
   centroid_coordinates = (KernelAbstractions.zeros(backend, T, celldims...),)
@@ -18,13 +13,13 @@ function SphericalOrthogonalGrid1D(
   _populate_1d_nodes!(node_coordinates[1], r, iters)
 
   compute_spherical_1d_centroids!(
-    centroid_coordinates, node_coordinates, iters, backend, coords_have_halo
+    centroid_coordinates, node_coordinates, iters, backend, halo_coords_included
   )
   compute_spherical_1d_volumes!(
-    cell_volumes, node_coordinates, iters, backend, coords_have_halo
+    cell_volumes, node_coordinates, iters, backend, halo_coords_included
   )
   compute_spherical_1d_face_areas!(
-    face_areas, node_coordinates, iters, backend, coords_have_halo, nhalo
+    face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo
   )
 
   return OrthogonalGrid{
@@ -55,11 +50,11 @@ function compute_spherical_1d_face_areas!(
   face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo
 )
   domain = iters.cell.domain
-  if halo_coords_included && nhalo > 0
+  if nhalo == 0
+    i₊½_domain = domain
+  elseif halo_coords_included
     offset = nhalo
     i₊½_domain = expand_upper(expand_lower(domain, 1, offset), 1, offset - 1)
-  elseif halo_coords_included
-    i₊½_domain = domain
   else
     offset = 1
     i₊½_domain = expand_lower(domain, 1, offset)

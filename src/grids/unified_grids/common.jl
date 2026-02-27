@@ -785,7 +785,16 @@ end
 end
 
 @kernel function _fill_cell_metric_storage_1d_kernel!(
-  forward, inverse, jacobian, inverse_jacobian, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+  forward,
+  inverse,
+  jacobian,
+  inverse_jacobian,
+  local_domain,
+  global_domain,
+  nhalo::Int,
+  t,
+  params,
+  ::Type{T},
 ) where {T}
   idx = @index(Global, Linear)
   I = local_domain[idx]
@@ -803,7 +812,16 @@ end
 end
 
 @kernel function _fill_cell_metric_storage_2d_kernel!(
-  forward, inverse, jacobian, inverse_jacobian, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+  forward,
+  inverse,
+  jacobian,
+  inverse_jacobian,
+  local_domain,
+  global_domain,
+  nhalo::Int,
+  t,
+  params,
+  ::Type{T},
 ) where {T}
   idx = @index(Global, Linear)
   I = local_domain[idx]
@@ -822,7 +840,16 @@ end
 end
 
 @kernel function _fill_cell_metric_storage_3d_kernel!(
-  forward, inverse, jacobian, inverse_jacobian, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+  forward,
+  inverse,
+  jacobian,
+  inverse_jacobian,
+  local_domain,
+  global_domain,
+  nhalo::Int,
+  t,
+  params,
+  ::Type{T},
 ) where {T}
   idx = @index(Global, Linear)
   I = local_domain[idx]
@@ -842,7 +869,16 @@ end
 end
 
 @kernel function _fill_face_metric_storage_1d_axis1_kernel!(
-  forward, inverse, conserved, edge, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+  forward,
+  inverse,
+  conserved,
+  edge,
+  local_domain,
+  global_domain,
+  nhalo::Int,
+  t,
+  params,
+  ::Type{T},
 ) where {T}
   idx = @index(Global, Linear)
   I = local_domain[idx]
@@ -860,7 +896,16 @@ end
 end
 
 @kernel function _fill_face_metric_storage_2d_axis1_kernel!(
-  forward, inverse, conserved, edge, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+  forward,
+  inverse,
+  conserved,
+  edge,
+  local_domain,
+  global_domain,
+  nhalo::Int,
+  t,
+  params,
+  ::Type{T},
 ) where {T}
   idx = @index(Global, Linear)
   I = local_domain[idx]
@@ -879,7 +924,16 @@ end
 end
 
 @kernel function _fill_face_metric_storage_2d_axis2_kernel!(
-  forward, inverse, conserved, edge, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+  forward,
+  inverse,
+  conserved,
+  edge,
+  local_domain,
+  global_domain,
+  nhalo::Int,
+  t,
+  params,
+  ::Type{T},
 ) where {T}
   idx = @index(Global, Linear)
   I = local_domain[idx]
@@ -898,7 +952,16 @@ end
 end
 
 @kernel function _fill_face_metric_storage_3d_axis1_kernel!(
-  forward, inverse, conserved, edge, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+  forward,
+  inverse,
+  conserved,
+  edge,
+  local_domain,
+  global_domain,
+  nhalo::Int,
+  t,
+  params,
+  ::Type{T},
 ) where {T}
   idx = @index(Global, Linear)
   I = local_domain[idx]
@@ -908,7 +971,9 @@ end
   η = Iglobal.I[2] - nhalo + half
   ζ = Iglobal.I[3] - nhalo + half
 
-  G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(Val(3), edge, 1, t, (ξ, η, ζ), params)
+  G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(
+    Val(3), edge, 1, t, (ξ, η, ζ), params
+  )
   F = inv(G)
   J = det(F)
 
@@ -918,7 +983,16 @@ end
 end
 
 @kernel function _fill_face_metric_storage_3d_axis2_kernel!(
-  forward, inverse, conserved, edge, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+  forward,
+  inverse,
+  conserved,
+  edge,
+  local_domain,
+  global_domain,
+  nhalo::Int,
+  t,
+  params,
+  ::Type{T},
 ) where {T}
   idx = @index(Global, Linear)
   I = local_domain[idx]
@@ -928,7 +1002,9 @@ end
   η = Iglobal.I[2] - nhalo + half
   ζ = Iglobal.I[3] - nhalo + half
 
-  G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(Val(3), edge, 2, t, (ξ, η, ζ), params)
+  G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(
+    Val(3), edge, 2, t, (ξ, η, ζ), params
+  )
   F = inv(G)
   J = det(F)
 
@@ -938,7 +1014,16 @@ end
 end
 
 @kernel function _fill_face_metric_storage_3d_axis3_kernel!(
-  forward, inverse, conserved, edge, local_domain, global_domain, nhalo::Int, t, params, ::Type{T}
+  forward,
+  inverse,
+  conserved,
+  edge,
+  local_domain,
+  global_domain,
+  nhalo::Int,
+  t,
+  params,
+  ::Type{T},
 ) where {T}
   idx = @index(Global, Linear)
   I = local_domain[idx]
@@ -948,7 +1033,9 @@ end
   η = Iglobal.I[2] - nhalo + half
   ζ = Iglobal.I[3] - nhalo + half
 
-  G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(Val(3), edge, 3, t, (ξ, η, ζ), params)
+  G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(
+    Val(3), edge, 3, t, (ξ, η, ζ), params
+  )
   F = inv(G)
   J = det(F)
 
@@ -995,8 +1082,12 @@ function _fill_cell_metric_storage!(
   local_domain = iterators.cell.full
   global_domain = iterators.global_domain.cell.full
 
-  forward_h = Array{eltype(cell_metric_storage.forward)}(undef, size(cell_metric_storage.forward))
-  inverse_h = Array{eltype(cell_metric_storage.inverse)}(undef, size(cell_metric_storage.inverse))
+  forward_h = Array{eltype(cell_metric_storage.forward)}(
+    undef, size(cell_metric_storage.forward)
+  )
+  inverse_h = Array{eltype(cell_metric_storage.inverse)}(
+    undef, size(cell_metric_storage.inverse)
+  )
   half = T(0.5)
 
   @inbounds for I in local_domain
@@ -1136,7 +1227,9 @@ function _fill_face_metric_storage!(
       Iglobal = global_domain[I]
       ξηζ = ntuple(d -> T(Iglobal.I[d] - nhalo) + half, N)
 
-      G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(Val(N), edge, axis, t, ξηζ, params)
+      G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(
+        Val(N), edge, axis, t, ξηζ, params
+      )
       F = inv(G)
       J = det(F)
 
@@ -1259,10 +1352,15 @@ end
 # Legacy trait inference
 #
 
-_coordinate_system_from_legacy(::CartesianOrthogonalGrid1D) = CartesianCS()
-_coordinate_system_from_legacy(::CylindricalOrthogonalGrid1D) = CylindricalCS()
-_coordinate_system_from_legacy(::SphericalOrthogonalGrid1D) = SphericalCS()
-_coordinate_system_from_legacy(::SphericalGrid3D) = SphericalCS()
+function _coordinate_system_from_legacy(::OrthogonalGrid{D,T,CartesianCS}) where {D,T}
+  CartesianCS()
+end
+function _coordinate_system_from_legacy(::OrthogonalGrid{D,T,CylindricalCS}) where {D,T}
+  CylindricalCS()
+end
+function _coordinate_system_from_legacy(::OrthogonalGrid{D,T,SphericalCS}) where {D,T}
+  SphericalCS()
+end
 _coordinate_system_from_legacy(::SphericalGrid1D) = SphericalCS()
 _coordinate_system_from_legacy(::CylindricalGrid1D) = CylindricalCS()
 _coordinate_system_from_legacy(::SphericalBasisCurvilinearGrid3D) = SphericalCS()
@@ -1275,7 +1373,9 @@ function _coordinate_system_from_legacy(mesh::AxisymmetricGrid2D)
   end
 end
 
-_coordinate_system_from_legacy(::AxisymmetricOrthogonalGrid2D) = AxisymmetricCS{:y}()
+function _coordinate_system_from_legacy(::OrthogonalGrid{2,T,AxisymmetricCS{:y}}) where {T}
+  AxisymmetricCS{:y}()
+end
 _coordinate_system_from_legacy(::AbstractCurvilinearGrid) = CurvilinearCS()
 
 _basis_trait_from_legacy(::SphericalBasisCurvilinearGrid3D) = SphericalBasis()

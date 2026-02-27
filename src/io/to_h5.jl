@@ -352,8 +352,10 @@ function write_coordinates(
 end
 
 function write_coordinates(
-  mesh::SphericalGrid3D, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
-) where {N,A}
+  mesh::OrthogonalGrid{3,T,SphericalCS},
+  filename::String,
+  units::Unitful.FreeUnits{N,Unitful.𝐋,A},
+) where {N,A,T}
   r, θ, ϕ = coords(mesh)
   mesh_type = String(nameof(typeof(mesh)))
 

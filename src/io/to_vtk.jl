@@ -286,11 +286,13 @@ function save_vtk(
 end
 
 """
-    save_vtk(mesh::SphericalGrid3D, fn=\"mesh\"; extra_cell_data=nothing)
+    save_vtk(mesh::OrthogonalGrid{3,<:Any,SphericalCS}, fn=\"mesh\"; extra_cell_data=nothing)
 
 Write a spherical grid to VTK, optionally including additional `extra_cell_data` arrays.
 """
-function save_vtk(mesh::SphericalGrid3D, fn="mesh"; extra_cell_data=nothing)
+function save_vtk(
+  mesh::OrthogonalGrid{3,T,SphericalCS}, fn="mesh"; extra_cell_data=nothing
+) where {T}
   @info "Writing to $fn.vti"
 
   x, y, z = cartesian_coordinates(mesh)

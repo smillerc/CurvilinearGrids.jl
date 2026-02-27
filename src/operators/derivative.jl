@@ -8,8 +8,8 @@
 Return the physical derivative of the scalar field `A` at cell `I` along the `axis` direction. The derivative is computed from face-averaged values and effective distances derived from neighboring face areas and the local cell volume.
 """
 function cell_center_derivative(
-  mesh::SphericalGrid3D, A::AbstractArray{T,3}, I::CartesianIndex{3}, axis::Int
-) where {T}
+  mesh::OrthogonalGrid{3,S,SphericalCS}, A::AbstractArray{T,3}, I::CartesianIndex{3}, axis::Int
+) where {S,T}
   I₊ = CartesianDomains.shift(I, axis, +1)
   I₋ = CartesianDomains.shift(I, axis, -1)
 
@@ -38,8 +38,8 @@ function cell_center_derivative(
 end
 
 function cell_center_coordinate_derivative(
-  mesh::SphericalGrid3D, A::AbstractArray{T,3}, I::CartesianIndex{3}, axis::Int
-) where {T}
+  mesh::OrthogonalGrid{3,S,SphericalCS}, A::AbstractArray{T,3}, I::CartesianIndex{3}, axis::Int
+) where {S,T}
   I₊ = CartesianDomains.shift(I, axis, +1)
   I₋ = CartesianDomains.shift(I, axis, -1)
 
@@ -68,8 +68,8 @@ end
 Compute the derivative of `A` at the edge between cell `I` and its neighbor in `axis` by averaging the adjacent cell-centered derivatives. Useful for constructing edge-centered gradients and fluxes.
 """
 function edge_derivative(
-  mesh::SphericalGrid3D, A::AbstractArray{T,3}, I::CartesianIndex{3}, axis::Int
-) where {T}
+  mesh::OrthogonalGrid{3,S,SphericalCS}, A::AbstractArray{T,3}, I::CartesianIndex{3}, axis::Int
+) where {S,T}
 
   #
   ∂Aᵢ = cell_center_derivative(mesh, A, I, axis)

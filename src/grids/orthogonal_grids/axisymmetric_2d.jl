@@ -1,7 +1,3 @@
-const AxisymmetricOrthogonalGrid2D = OrthogonalGrid{
-  2,T,AxisymmetricCS{:y},NC,CC,CV,I,DL,FA
-} where {T,NC,CC,CV,I,DL,FA}
-
 function AxisymmetricOrthogonalGrid2D(
   _r::AbstractVector{T},
   _z::AbstractVector{T},
@@ -12,7 +8,6 @@ function AxisymmetricOrthogonalGrid2D(
   coords, limits, iters, nodedims, celldims = _prepare_nd_coordinates(
     (_r, _z), nhalo, halo_coords_included
   )
-  coords_have_halo = true
 
   node_coordinates = (
     KernelAbstractions.zeros(backend, T, nodedims[1]),
@@ -31,13 +26,13 @@ function AxisymmetricOrthogonalGrid2D(
   _populate_2d_nodes!(node_coordinates, coords, iters)
 
   compute_axisymmetric_centroids!(
-    centroid_coordinates, node_coordinates, iters, backend, coords_have_halo
+    centroid_coordinates, node_coordinates, iters, backend, halo_coords_included
   )
   compute_axisymmetric_volumes!(
-    cell_volumes, node_coordinates, iters, backend, coords_have_halo
+    cell_volumes, node_coordinates, iters, backend, halo_coords_included
   )
   compute_axisymmetric_face_areas!(
-    face_areas, node_coordinates, iters, backend, coords_have_halo, nhalo
+    face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo
   )
 
   return OrthogonalGrid{
@@ -87,13 +82,13 @@ function compute_axisymmetric_face_areas!(
   face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo
 )
   domain = iters.cell.domain
-  if halo_coords_included && nhalo > 0
+  if nhalo == 0
+    i₊½_domain = domain
+    j₊½_domain = domain
+  elseif halo_coords_included
     offset = +nhalo
     i₊½_domain = expand_upper(expand_lower(domain, 1, offset), 1, offset - 1)
     j₊½_domain = expand_upper(expand_lower(domain, 2, offset), 2, offset - 1)
-  elseif halo_coords_included
-    i₊½_domain = domain
-    j₊½_domain = domain
   else
     offset = +1
     i₊½_domain = expand_lower(domain, 1, offset)

@@ -4,7 +4,9 @@
 # --------------------------------------------------------------------
 
 # ∇×A at the cell center (physical components)
-function cell_center_curl(mesh::SphericalGrid3D, (A_r, A_θ, A_ϕ), I::CartesianIndex{3})
+function cell_center_curl(
+  mesh::OrthogonalGrid{3,S,SphericalCS}, (A_r, A_θ, A_ϕ), I::CartesianIndex{3}
+) where {S}
   @inbounds begin
     dAr_dθ = cell_center_derivative(mesh, A_r, I, 2)
     dAr_dϕ = cell_center_derivative(mesh, A_r, I, 3)
@@ -83,11 +85,11 @@ end
 
 # ∇×A at the edge center = average of adjacent cell-center curls
 function edge_curl(
-  mesh::SphericalGrid3D,
+  mesh::OrthogonalGrid{3,S,SphericalCS},
   (A_r_edge, A_θ_edge, A_ϕ_edge)::NTuple{3,AbstractArray{T,3}},
   I::CartesianIndex{3},
   edge_axis::Int,
-) where {T}
+) where {S,T}
   I₊ = CartesianDomains.shift(I, edge_axis, +1)
 
   curl_L = cell_center_curl(mesh, (A_r_edge, A_θ_edge, A_ϕ_edge), I)

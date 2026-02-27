@@ -1,7 +1,3 @@
-const SphericalGrid3D = OrthogonalGrid{
-  3,T,SphericalCS,NC,CC,CV,I,DL,FA
-} where {T,NC,CC,CV,I,DL,FA}
-
 function SphericalGrid3D(
   _r::AbstractVector{T},
   _θ::AbstractVector{T},
@@ -91,7 +87,7 @@ function SphericalGrid3D(
   return mesh
 end
 
-function update!(mesh::SphericalGrid3D)
+function update!(mesh::OrthogonalGrid{3,T,SphericalCS}) where {T}
   backend = KernelAbstractions.get_backend(mesh.node_coordinates[1])
   halo_coords_included = true
 
@@ -286,7 +282,7 @@ end
   V[I] = T(1 / 3) * Δr³ * Δμ * Δϕ
 end
 
-function face_location(mesh::SphericalGrid3D, I::CartesianIndex{3}, axis)
+function face_location(mesh::OrthogonalGrid{3,T,SphericalCS}, I::CartesianIndex{3}, axis) where {T}
   i, j, k = I.I
   if axis == 1
     return @SVector [

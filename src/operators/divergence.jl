@@ -9,8 +9,10 @@
 Evaluate ∇⋅A at the cell center `I` for a vector field with physical components `(A_r, A_θ, A_ϕ)`. The divergence is formed from face-averaged fluxes scaled by the appropriate face areas and normalized by the cell volume.
 """
 function cell_center_divergence(
-  mesh::SphericalGrid3D, (A_r, A_θ, A_ϕ)::NTuple{3,AbstractArray{T,3}}, I::CartesianIndex{3}
-) where {T}
+  mesh::OrthogonalGrid{3,S,SphericalCS},
+  (A_r, A_θ, A_ϕ)::NTuple{3,AbstractArray{T,3}},
+  I::CartesianIndex{3},
+) where {S,T}
   V = cell_volume(mesh, I)
 
   # convenience neighbor indices
@@ -74,11 +76,11 @@ end
 Return the edge-centered divergence by averaging the cell-centered divergences on either side of the edge aligned with `edge_axis`.
 """
 function edge_divergence(
-  mesh::SphericalGrid3D,
+  mesh::OrthogonalGrid{3,S,SphericalCS},
   (A_r, A_θ, A_ϕ)::NTuple{3,AbstractArray{T,3}},
   I::CartesianIndex{3},
   edge_axis::Int,
-) where {T}
+) where {S,T}
   I₊ = CartesianDomains.shift(I, edge_axis, +1)
 
   div_L = cell_center_divergence(mesh, (A_r, A_θ, A_ϕ), I)
