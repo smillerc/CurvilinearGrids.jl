@@ -18,6 +18,7 @@ Return the coordinate-system trait associated with a unified grid.
 Coordinate-system trait instance (for example `CurvilinearCS()` or `SphericalCS()`).
 """
 coordinate_system(grid::AbstractUnifiedGrid) = coordinate_system(typeof(grid))
+coordinate_system(grid::AbstractOrthogonalGrid) = coordinate_system(typeof(grid))
 
 """
     basis_trait(grid::Union{MappedGrid,DiscreteGrid})
@@ -31,23 +32,26 @@ Return the basis trait associated with a mapped or discrete unified grid.
 Basis trait instance (`CartesianBasis()` or `SphericalBasis()`).
 """
 basis_trait(grid::Union{MappedGrid,DiscreteGrid}) = basis_trait(typeof(grid))
-function basis_trait(::OrthogonalGrid)
-  throw(ArgumentError("`basis_trait` is undefined for `OrthogonalGrid`."))
+function basis_trait(::AbstractOrthogonalGrid)
+  throw(ArgumentError("`basis_trait` is undefined for `AbstractOrthogonalGrid`."))
 end
 
 coordinate_system(::Type{<:MappedGrid{N,T,CS}}) where {N,T,CS} = CS()
 coordinate_system(::Type{<:DiscreteGrid{N,T,CS}}) where {N,T,CS} = CS()
-coordinate_system(::Type{<:OrthogonalGrid{N,T,L,CS}}) where {N,T,L,CS} = CS()
+coordinate_system(::Type{<:OrthogonalGrid{N,T,CS}}) where {N,T,CS} = CS()
 
 basis_trait(::Type{<:MappedGrid{N,T,CS,BT}}) where {N,T,CS,BT} = BT()
 basis_trait(::Type{<:DiscreteGrid{N,T,CS,BT}}) where {N,T,CS,BT} = BT()
-function basis_trait(::Type{<:OrthogonalGrid})
-  throw(ArgumentError("`basis_trait` is undefined for `OrthogonalGrid`."))
+function basis_trait(::Type{<:AbstractOrthogonalGrid})
+  throw(ArgumentError("`basis_trait` is undefined for `AbstractOrthogonalGrid`."))
 end
 
 Base.eltype(::MappedGrid{N,T}) where {N,T} = T
 Base.eltype(::DiscreteGrid{N,T}) where {N,T} = T
 Base.eltype(::OrthogonalGrid{N,T}) where {N,T} = T
+
+# Backward-compatible identity constructor for orthogonal grids.
+OrthogonalGrid(grid::OrthogonalGrid) = grid
 
 """
     invalidate_cell_metrics!(grid::AbstractMappedOrDiscreteGrid)
@@ -173,19 +177,17 @@ function face_metrics(grid::AbstractMappedOrDiscreteGrid; refresh::Bool=false)
   return grid.metric_caches.face.data
 end
 
-function cell_metrics(::OrthogonalGrid; refresh::Bool=false)
-  throw(ArgumentError("`cell_metrics` is undefined for `OrthogonalGrid`."))
+function cell_metrics(::AbstractOrthogonalGrid; refresh::Bool=false)
+  throw(ArgumentError("`cell_metrics` is undefined for `AbstractOrthogonalGrid`."))
 end
 
-function face_metrics(::OrthogonalGrid; refresh::Bool=false)
-  throw(ArgumentError("`face_metrics` is undefined for `OrthogonalGrid`."))
+function face_metrics(::AbstractOrthogonalGrid; refresh::Bool=false)
+  throw(ArgumentError("`face_metrics` is undefined for `AbstractOrthogonalGrid`."))
 end
 
 #
 # Geometry API
 #
-
-legacy_grid(grid::OrthogonalGrid) = grid.legacy
 
 function coords(grid::Union{MappedGrid{1},DiscreteGrid{1}})
   @views grid.node_coordinates[1][grid.iterators.node.domain]
@@ -206,7 +208,59 @@ function coords(grid::Union{MappedGrid{3},DiscreteGrid{3}})
   )
 end
 
-coords(grid::OrthogonalGrid) = coords(grid.legacy)
+function coords(grid::OrthogonalGrid{1})
+  @views grid.node_coordinates[1][grid.iterators.node.domain.indices[1]]
+end
+function coords(grid::OrthogonalGrid{2})
+  @views (
+    grid.node_coordinates[1][grid.iterators.node.domain.indices[1]],
+    grid.node_coordinates[2][grid.iterators.node.domain.indices[2]],
+  )
+end
+function coords(grid::OrthogonalGrid{3})
+  @views (
+    grid.node_coordinates[1][grid.iterators.node.domain.indices[1]],
+    grid.node_coordinates[2][grid.iterators.node.domain.indices[2]],
+    grid.node_coordinates[3][grid.iterators.node.domain.indices[3]],
+  )
+end
+
+"""
+    cartesian_coordinates(grid::AbstractOrthogonalGrid)
+
+Return orthogonal-grid node coordinates in Cartesian form.
+
+For coordinate systems already stored in Cartesian-like form, this returns
+`coords(grid)` unchanged. For spherical 3D grids, this converts `(r, θ, ϕ)` to
+`(x, y, z)`.
+"""
+@inline function cartesian_coordinates(grid::AbstractOrthogonalGrid)
+  _cartesian_coordinates(coordinate_system(grid), coords(grid))
+end
+
+@inline _cartesian_coordinates(::CoordinateSystemTrait, q) = q
+@inline _cartesian_coordinates(::CartesianCS, q) = q
+@inline _cartesian_coordinates(::CurvilinearCS, q) = q
+@inline _cartesian_coordinates(::AxisymmetricCS, q) = q
+@inline _cartesian_coordinates(::CylindricalCS, q) = q
+
+@inline function _cartesian_coordinates(
+  ::SphericalCS, q::NTuple{3, <:AbstractVector{T}}
+) where {T}
+  r, θ, ϕ = q
+  R = reshape(r, :, 1, 1)
+  sinθ = reshape(sin.(θ), 1, :, 1)
+  cosθ = reshape(cos.(θ), 1, :, 1)
+  sinϕ = reshape(sin.(ϕ), 1, 1, :)
+  cosϕ = reshape(cos.(ϕ), 1, 1, :)
+  oneϕ = reshape(one.(ϕ), 1, 1, :)
+
+  x = R .* sinθ .* cosϕ
+  y = R .* sinθ .* sinϕ
+  z = R .* cosθ .* oneϕ
+
+  return x, y, z
+end
 
 function coord(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int})
   @SVector [grid.node_coordinates[1][i]]
@@ -222,7 +276,15 @@ function coord(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{3,I
   ]
 end
 
-coord(grid::OrthogonalGrid, idx) = coord(grid.legacy, idx)
+function coord(grid::OrthogonalGrid{1}, (i,)::NTuple{1,Int})
+  @SVector [grid.node_coordinates[1][i]]
+end
+function coord(grid::OrthogonalGrid{2}, (i, j)::NTuple{2,Int})
+  @SVector [grid.node_coordinates[1][i], grid.node_coordinates[2][j]]
+end
+function coord(grid::OrthogonalGrid{3}, (i, j, k)::NTuple{3,Int})
+  @SVector [grid.node_coordinates[1][i], grid.node_coordinates[2][j], grid.node_coordinates[3][k]]
+end
 
 function centroids(grid::Union{MappedGrid{1},DiscreteGrid{1}})
   @views grid.centroid_coordinates[1][grid.iterators.cell.domain]
@@ -243,7 +305,22 @@ function centroids(grid::Union{MappedGrid{3},DiscreteGrid{3}})
   )
 end
 
-centroids(grid::OrthogonalGrid) = centroids(grid.legacy)
+function centroids(grid::OrthogonalGrid{1})
+  @views grid.centroid_coordinates[1][grid.iterators.cell.domain.indices[1]]
+end
+function centroids(grid::OrthogonalGrid{2})
+  @views (
+    grid.centroid_coordinates[1][grid.iterators.cell.domain.indices[1]],
+    grid.centroid_coordinates[2][grid.iterators.cell.domain.indices[2]],
+  )
+end
+function centroids(grid::OrthogonalGrid{3})
+  @views (
+    grid.centroid_coordinates[1][grid.iterators.cell.domain.indices[1]],
+    grid.centroid_coordinates[2][grid.iterators.cell.domain.indices[2]],
+    grid.centroid_coordinates[3][grid.iterators.cell.domain.indices[3]],
+  )
+end
 
 function centroid(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int})
   @SVector [grid.centroid_coordinates[1][i]]
@@ -259,7 +336,19 @@ function centroid(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{
   ]
 end
 
-centroid(grid::OrthogonalGrid, idx) = centroid(grid.legacy, idx)
+function centroid(grid::OrthogonalGrid{1}, (i,)::NTuple{1,Int})
+  @SVector [grid.centroid_coordinates[1][i]]
+end
+function centroid(grid::OrthogonalGrid{2}, (i, j)::NTuple{2,Int})
+  @SVector [grid.centroid_coordinates[1][i], grid.centroid_coordinates[2][j]]
+end
+function centroid(grid::OrthogonalGrid{3}, (i, j, k)::NTuple{3,Int})
+  @SVector [
+    grid.centroid_coordinates[1][i],
+    grid.centroid_coordinates[2][j],
+    grid.centroid_coordinates[3][k],
+  ]
+end
 
 @inline _promote_real_tuple(idx::Tuple{Vararg{Real,N}}) where {N} = promote(idx...)
 
@@ -543,8 +632,8 @@ when `return_result=true`.
   return return_result ? result : result.coordinate
 end
 
-function computational_coordinate(grid::OrthogonalGrid, x_phys; kwargs...)
-  throw(ArgumentError("`computational_coordinate` is undefined for `OrthogonalGrid`."))
+function computational_coordinate(grid::AbstractOrthogonalGrid, x_phys; kwargs...)
+  throw(ArgumentError("`computational_coordinate` is undefined for `AbstractOrthogonalGrid`."))
 end
 
 @inline function _cell_forward_metric_at(grid::AbstractMappedOrDiscreteGrid, idx)
@@ -568,7 +657,7 @@ end
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::Tuple{Vararg{Real,N}}
 ) where {N,T}
   G = _continuous_inverse_jacobian(grid, idx)
-  return Metric(G, det(G))
+  return Metric(G, inv(det(G)))
 end
 
 """
@@ -623,12 +712,12 @@ end
   _cell_inverse_metric_at(grid, idx)
 end
 
-function forward_cell_metrics(::OrthogonalGrid, idx)
-  throw(ArgumentError("`forward_cell_metrics` is undefined for `OrthogonalGrid`."))
+function forward_cell_metrics(::AbstractOrthogonalGrid, idx)
+  throw(ArgumentError("`forward_cell_metrics` is undefined for `AbstractOrthogonalGrid`."))
 end
 
-function inverse_cell_metrics(::OrthogonalGrid, idx)
-  throw(ArgumentError("`inverse_cell_metrics` is undefined for `OrthogonalGrid`."))
+function inverse_cell_metrics(::AbstractOrthogonalGrid, idx)
+  throw(ArgumentError("`inverse_cell_metrics` is undefined for `AbstractOrthogonalGrid`."))
 end
 
 """
@@ -654,7 +743,16 @@ function cellvolume(
   _cellvolume_dispatch(CS(), BT(), grid, _promote_real_tuple(idx))
 end
 
-cellvolume(grid::OrthogonalGrid, idx) = cellvolume(grid.legacy, idx)
+function cellvolume(grid::AbstractOrthogonalGrid, idx::CartesianIndex)
+  cellvolume(grid, idx.I)
+end
+function cellvolume(grid::OrthogonalGrid{N}, idx::NTuple{N,Int}) where {N}
+  grid.cell_volumes[idx...]
+end
+function cellvolume(grid::OrthogonalGrid{N}, idx::Tuple{Vararg{Real,N}}) where {N}
+  idx_int = ntuple(i -> Int(round(idx[i])), N)
+  cellvolume(grid, idx_int)
+end
 
 @inline function _face_loc_axis_side(::Val{N}, loc::Symbol) where {N}
   l = Symbol(lowercase(String(loc)))
@@ -944,12 +1042,12 @@ end
   return geom.normal
 end
 
-function face_area(::OrthogonalGrid, idx, loc::Symbol)
-  throw(ArgumentError("`face_area` is undefined for `OrthogonalGrid`."))
+function face_area(::AbstractOrthogonalGrid, idx, loc::Symbol)
+  throw(ArgumentError("`face_area` is undefined for `AbstractOrthogonalGrid`."))
 end
 
-function outward_face_normal(::OrthogonalGrid, idx, loc::Symbol)
-  throw(ArgumentError("`outward_face_normal` is undefined for `OrthogonalGrid`."))
+function outward_face_normal(::AbstractOrthogonalGrid, idx, loc::Symbol)
+  throw(ArgumentError("`outward_face_normal` is undefined for `AbstractOrthogonalGrid`."))
 end
 
 @inline function _jacobian_volume_factor(
@@ -1171,13 +1269,15 @@ function cellvolumes(grid::Union{MappedGrid,DiscreteGrid})
   return volumes
 end
 
-cellvolumes(grid::OrthogonalGrid) = cellvolumes(grid.legacy)
+function cellvolumes(grid::OrthogonalGrid)
+  @views grid.cell_volumes[grid.iterators.cell.domain]
+end
 
 cellsize(grid::Union{MappedGrid,DiscreteGrid}) = size(grid.iterators.cell.domain)
-cellsize(grid::OrthogonalGrid) = cellsize(grid.legacy)
+cellsize(grid::OrthogonalGrid) = size(grid.iterators.cell.domain)
 
 cellsize_withhalo(grid::Union{MappedGrid,DiscreteGrid}) = size(grid.iterators.cell.full)
-cellsize_withhalo(grid::OrthogonalGrid) = cellsize_withhalo(grid.legacy)
+cellsize_withhalo(grid::OrthogonalGrid) = size(grid.iterators.cell.full)
 
 """
     jacobian_matrix(grid, idx)

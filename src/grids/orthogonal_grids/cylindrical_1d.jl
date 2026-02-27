@@ -1,12 +1,6 @@
-struct CylindricalOrthogonalGrid1D{NC,CC,CV,I,DL,FA} <: AbstractCurvilinearGrid1D
-  node_coordinates::NC
-  centroid_coordinates::CC
-  cell_volumes::CV
-  iterators::I
-  domain_limits::DL
-  face_areas::FA
-  nhalo::Int
-end
+const CylindricalOrthogonalGrid1D = OrthogonalGrid{
+  1,T,CylindricalCS,NC,CC,CV,I,DL,FA
+} where {T,NC,CC,CV,I,DL,FA}
 
 function CylindricalOrthogonalGrid1D(
   _r::AbstractVector{T}, nhalo::Int, backend; halo_coords_included=false
@@ -14,27 +8,36 @@ function CylindricalOrthogonalGrid1D(
   r, limits, iters, nodedims, celldims = _prepare_1d_coordinates(
     _r, nhalo, halo_coords_included
   )
+  coords_have_halo = true
 
-  node_coordinates = (; r=KernelAbstractions.zeros(backend, T, nodedims...))
-  centroid_coordinates = (; r=KernelAbstractions.zeros(backend, T, celldims...))
+  node_coordinates = (KernelAbstractions.zeros(backend, T, nodedims...),)
+  centroid_coordinates = (KernelAbstractions.zeros(backend, T, celldims...),)
   cell_volumes = KernelAbstractions.zeros(backend, T, celldims...)
-  face_areas = (; i₊½=KernelAbstractions.zeros(backend, T, celldims...))
+  face_areas = (KernelAbstractions.zeros(backend, T, celldims...),)
 
-  _populate_1d_nodes!(node_coordinates.r, r, iters, halo_coords_included)
+  _populate_1d_nodes!(node_coordinates[1], r, iters)
 
   compute_cylindrical_centroids!(
-    centroid_coordinates, node_coordinates, iters, backend, halo_coords_included
+    centroid_coordinates, node_coordinates, iters, backend, coords_have_halo
   )
   compute_cylindrical_volumes!(
-    cell_volumes, node_coordinates, iters, backend, halo_coords_included
+    cell_volumes, node_coordinates, iters, backend, coords_have_halo
   )
   compute_cylindrical_face_areas!(
-    face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo
+    face_areas, node_coordinates, iters, backend, coords_have_halo, nhalo
   )
 
-  return CylindricalOrthogonalGrid1D(
-    node_coordinates, centroid_coordinates, cell_volumes, iters, limits, face_areas, nhalo
-  )
+  return OrthogonalGrid{
+    1,
+    T,
+    CylindricalCS,
+    typeof(node_coordinates),
+    typeof(centroid_coordinates),
+    typeof(cell_volumes),
+    typeof(iters),
+    typeof(limits),
+    typeof(face_areas),
+  }(node_coordinates, centroid_coordinates, cell_volumes, iters, limits, face_areas, nhalo)
 end
 
 function compute_cylindrical_centroids!(
@@ -43,7 +46,7 @@ function compute_cylindrical_centroids!(
   domain = halo_coords_included ? iters.cell.full : iters.cell.domain
 
   _compute_cylindrical_centroids!(backend)(
-    centroids.r, node_coordinates.r, domain; ndrange=size(domain)
+    centroids[1], node_coordinates[1], domain; ndrange=size(domain)
   )
   return nothing
 end
@@ -52,16 +55,18 @@ function compute_cylindrical_face_areas!(
   face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo
 )
   domain = iters.cell.domain
-  if halo_coords_included
+  if halo_coords_included && nhalo > 0
     offset = nhalo
     i₊½_domain = expand_upper(expand_lower(domain, 1, offset), 1, offset - 1)
+  elseif halo_coords_included
+    i₊½_domain = domain
   else
     offset = 1
     i₊½_domain = expand_lower(domain, 1, offset)
   end
 
   _compute_cylindrical_face_areas!(backend)(
-    face_areas.i₊½, node_coordinates.r, i₊½_domain; ndrange=size(i₊½_domain)
+    face_areas[1], node_coordinates[1], i₊½_domain; ndrange=size(i₊½_domain)
   )
   return nothing
 end
@@ -72,7 +77,7 @@ function compute_cylindrical_volumes!(
   domain = halo_coords_included ? iters.cell.full : iters.cell.domain
 
   _compute_cylindrical_volumes!(backend)(
-    volumes, node_coordinates.r, domain; ndrange=size(domain)
+    volumes, node_coordinates[1], domain; ndrange=size(domain)
   )
   return nothing
 end

@@ -21,8 +21,8 @@ function cell_center_curl(mesh::SphericalGrid3D, (A_r, A_θ, A_ϕ), I::Cartesian
     Iθ₊ = CartesianDomains.shift(I, 2, +1)
     Iθ₋ = CartesianDomains.shift(I, 2, -1)
 
-    θ₊ = mesh.centroid_coordinates.θ[Iθ₊.I[2]]
-    θ₋ = mesh.centroid_coordinates.θ[Iθ₋.I[2]]
+    θ₊ = mesh.centroid_coordinates[2][Iθ₊.I[2]]
+    θ₋ = mesh.centroid_coordinates[2][Iθ₋.I[2]]
 
     Aϕ_sinθ₊ = A_ϕ[Iθ₊] * sin(θ₊)
     Aϕ_sinθ₋ = A_ϕ[Iθ₋] * sin(θ₋)
@@ -40,8 +40,8 @@ function cell_center_curl(mesh::SphericalGrid3D, (A_r, A_θ, A_ϕ), I::Cartesian
     Ir₊ = CartesianDomains.shift(I, 1, +1)
     Ir₋ = CartesianDomains.shift(I, 1, -1)
 
-    r₊ = mesh.centroid_coordinates.r[Ir₊.I[1]]
-    r₋ = mesh.centroid_coordinates.r[Ir₋.I[1]]
+    r₊ = mesh.centroid_coordinates[1][Ir₊.I[1]]
+    r₋ = mesh.centroid_coordinates[1][Ir₋.I[1]]
 
     A_face_r₊ = face_area_p(mesh, I, 1)
     A_face_r₋ = face_area_m(mesh, I, 1)
@@ -65,8 +65,8 @@ function cell_center_curl(mesh::SphericalGrid3D, (A_r, A_θ, A_ϕ), I::Cartesian
     # 3. Assemble spherical curl using physical derivatives
     # ============================================================
     (i, j, k) = I.I
-    r = mesh.centroid_coordinates.r[i]
-    θ = mesh.centroid_coordinates.θ[j]
+    r = mesh.centroid_coordinates[1][i]
+    θ = mesh.centroid_coordinates[2][j]
     sinθ = sin(θ)
 
     curl_r = (1 / (r * sinθ)) * (dAϕsinθ_dθ - dAθ_dϕ)

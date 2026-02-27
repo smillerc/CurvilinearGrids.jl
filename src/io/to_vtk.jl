@@ -293,9 +293,7 @@ Write a spherical grid to VTK, optionally including additional `extra_cell_data`
 function save_vtk(mesh::SphericalGrid3D, fn="mesh"; extra_cell_data=nothing)
   @info "Writing to $fn.vti"
 
-  x = @view mesh.cartesian_node_coordinates.x[mesh.iterators.node.domain]
-  y = @view mesh.cartesian_node_coordinates.y[mesh.iterators.node.domain]
-  z = @view mesh.cartesian_node_coordinates.z[mesh.iterators.node.domain]
+  x, y, z = cartesian_coordinates(mesh)
 
   domain = mesh.iterators.cell.domain
 
@@ -310,9 +308,9 @@ function save_vtk(mesh::SphericalGrid3D, fn="mesh"; extra_cell_data=nothing)
       [idx.I[3] for idx in indices],
     )
 
-    vtk["face_area_i₊½", VTKCellData()] = mesh.face_areas.i₊½[domain]
-    vtk["face_area_j₊½", VTKCellData()] = mesh.face_areas.j₊½[domain]
-    vtk["face_area_k₊½", VTKCellData()] = mesh.face_areas.k₊½[domain]
+    vtk["face_area_i₊½", VTKCellData()] = mesh.face_areas[1][domain]
+    vtk["face_area_j₊½", VTKCellData()] = mesh.face_areas[2][domain]
+    vtk["face_area_k₊½", VTKCellData()] = mesh.face_areas[3][domain]
     if !isnothing(extra_cell_data)
       for (key, value) in pairs(extra_cell_data)
         vtk[String(key), VTKCellData()] = value[domain]

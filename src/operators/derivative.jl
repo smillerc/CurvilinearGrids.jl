@@ -30,7 +30,7 @@ function cell_center_derivative(
 
   if axis == 3 # ϕ
     j = I.I[2]
-    θ = mesh.centroid_coordinates.θ[j]
+    θ = mesh.centroid_coordinates[2][j]
     ∂A = ∂A / sin(θ)
   end
 

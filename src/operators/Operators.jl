@@ -22,24 +22,12 @@ include("gradient.jl")
   @inbounds mesh.cell_volumes[I]
 
 @inline function face_area_p(mesh::SphericalGrid3D, I::CartesianIndex{3}, axis::Int)
-  @inbounds if axis == 1
-    return mesh.face_areas.i₊½[I]
-  elseif axis == 2
-    return mesh.face_areas.j₊½[I]
-  else
-    return mesh.face_areas.k₊½[I]
-  end
+  @inbounds return mesh.face_areas[axis][I]
 end
 
 @inline function face_area_m(mesh::SphericalGrid3D, I::CartesianIndex{3}, axis::Int)
   I₋ = CartesianDomains.shift(I, axis, -1)
-  @inbounds if axis == 1
-    return mesh.face_areas.i₊½[I₋]  # i-1/2
-  elseif axis == 2
-    return mesh.face_areas.j₊½[I₋]  # j-1/2
-  else
-    return mesh.face_areas.k₊½[I₋]  # k-1/2
-  end
+  @inbounds return mesh.face_areas[axis][I₋]  # d-1/2
 end
 
 @inline function face_val(A, I₁::CartesianIndex{3}, I₂::CartesianIndex{3})

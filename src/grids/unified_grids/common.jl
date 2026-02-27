@@ -16,21 +16,6 @@ Base abstract type for unified grids that own mapping/metric caches.
 abstract type AbstractMappedOrDiscreteGrid <: AbstractUnifiedGrid end
 
 #
-# Traits
-#
-
-abstract type CoordinateSystemTrait end
-struct CartesianCS <: CoordinateSystemTrait end
-struct CylindricalCS <: CoordinateSystemTrait end
-struct SphericalCS <: CoordinateSystemTrait end
-struct AxisymmetricCS{Axis} <: CoordinateSystemTrait end
-struct CurvilinearCS <: CoordinateSystemTrait end
-
-abstract type BasisTrait end
-struct CartesianBasis <: BasisTrait end
-struct SphericalBasis <: BasisTrait end
-
-#
 # Independent metric caches
 #
 
@@ -814,7 +799,7 @@ end
   Jinv = det(G)
 
   forward[I] = Metric(SMatrix{1,1,T,1}(Tuple(F)), T(J))
-  inverse[I] = Metric(SMatrix{1,1,T,1}(Tuple(G)), T(Jinv))
+  inverse[I] = Metric(SMatrix{1,1,T,1}(Tuple(G)), T(J))
 end
 
 @kernel function _fill_cell_metric_storage_2d_kernel!(
@@ -833,7 +818,7 @@ end
   Jinv = det(G)
 
   forward[I] = Metric(SMatrix{2,2,T,4}(Tuple(F)), T(J))
-  inverse[I] = Metric(SMatrix{2,2,T,4}(Tuple(G)), T(Jinv))
+  inverse[I] = Metric(SMatrix{2,2,T,4}(Tuple(G)), T(J))
 end
 
 @kernel function _fill_cell_metric_storage_3d_kernel!(
@@ -853,7 +838,7 @@ end
   Jinv = det(G)
 
   forward[I] = Metric(SMatrix{3,3,T,9}(Tuple(F)), T(J))
-  inverse[I] = Metric(SMatrix{3,3,T,9}(Tuple(G)), T(Jinv))
+  inverse[I] = Metric(SMatrix{3,3,T,9}(Tuple(G)), T(J))
 end
 
 @kernel function _fill_face_metric_storage_1d_axis1_kernel!(
@@ -870,7 +855,7 @@ end
   J = det(F)
 
   forward[I] = Metric(SMatrix{1,1,T,1}(Tuple(F)), T(J))
-  inverse[I] = Metric(SMatrix{1,1,T,1}(Tuple(G)), T(Jinv))
+  inverse[I] = Metric(SMatrix{1,1,T,1}(Tuple(G)), T(J))
   conserved[I] = ConservedMetric(SMatrix{1,1,T,1}(Tuple(Ghat)))
 end
 
@@ -889,7 +874,7 @@ end
   J = det(F)
 
   forward[I] = Metric(SMatrix{2,2,T,4}(Tuple(F)), T(J))
-  inverse[I] = Metric(SMatrix{2,2,T,4}(Tuple(G)), T(Jinv))
+  inverse[I] = Metric(SMatrix{2,2,T,4}(Tuple(G)), T(J))
   conserved[I] = ConservedMetric(SMatrix{2,2,T,4}(Tuple(Ghat)))
 end
 
@@ -908,7 +893,7 @@ end
   J = det(F)
 
   forward[I] = Metric(SMatrix{2,2,T,4}(Tuple(F)), T(J))
-  inverse[I] = Metric(SMatrix{2,2,T,4}(Tuple(G)), T(Jinv))
+  inverse[I] = Metric(SMatrix{2,2,T,4}(Tuple(G)), T(J))
   conserved[I] = ConservedMetric(SMatrix{2,2,T,4}(Tuple(Ghat)))
 end
 
@@ -928,7 +913,7 @@ end
   J = det(F)
 
   forward[I] = Metric(SMatrix{3,3,T,9}(Tuple(F)), T(J))
-  inverse[I] = Metric(SMatrix{3,3,T,9}(Tuple(G)), T(Jinv))
+  inverse[I] = Metric(SMatrix{3,3,T,9}(Tuple(G)), T(J))
   conserved[I] = ConservedMetric(SMatrix{3,3,T,9}(Tuple(Ghat)))
 end
 
@@ -948,7 +933,7 @@ end
   J = det(F)
 
   forward[I] = Metric(SMatrix{3,3,T,9}(Tuple(F)), T(J))
-  inverse[I] = Metric(SMatrix{3,3,T,9}(Tuple(G)), T(Jinv))
+  inverse[I] = Metric(SMatrix{3,3,T,9}(Tuple(G)), T(J))
   conserved[I] = ConservedMetric(SMatrix{3,3,T,9}(Tuple(Ghat)))
 end
 
@@ -968,7 +953,7 @@ end
   J = det(F)
 
   forward[I] = Metric(SMatrix{3,3,T,9}(Tuple(F)), T(J))
-  inverse[I] = Metric(SMatrix{3,3,T,9}(Tuple(G)), T(Jinv))
+  inverse[I] = Metric(SMatrix{3,3,T,9}(Tuple(G)), T(J))
   conserved[I] = ConservedMetric(SMatrix{3,3,T,9}(Tuple(Ghat)))
 end
 
@@ -1024,7 +1009,7 @@ function _fill_cell_metric_storage!(
     Jinv = det(G)
 
     forward_h[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(F)), T(J))
-    inverse_h[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(G)), T(Jinv))
+    inverse_h[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(G)), T(J))
   end
 
   copyto!(cell_metric_storage.forward, forward_h)
@@ -1156,7 +1141,7 @@ function _fill_face_metric_storage!(
       J = det(F)
 
       forward_h[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(F)), T(J))
-      inverse_h[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(G)), T(Jinv))
+      inverse_h[I] = Metric(SMatrix{N,N,T,N * N}(Tuple(G)), T(J))
       conserved_h[I] = ConservedMetric(SMatrix{N,N,T,N * N}(Tuple(Ghat)))
     end
 

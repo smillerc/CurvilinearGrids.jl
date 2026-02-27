@@ -1,12 +1,6 @@
-struct AxisymmetricOrthogonalGrid2D{NC,CC,CV,I,DL,FA} <: AbstractCurvilinearGrid2D
-  node_coordinates::NC
-  centroid_coordinates::CC
-  cell_volumes::CV
-  iterators::I
-  domain_limits::DL
-  face_areas::FA
-  nhalo::Int
-end
+const AxisymmetricOrthogonalGrid2D = OrthogonalGrid{
+  2,T,AxisymmetricCS{:y},NC,CC,CV,I,DL,FA
+} where {T,NC,CC,CV,I,DL,FA}
 
 function AxisymmetricOrthogonalGrid2D(
   _r::AbstractVector{T},
@@ -18,47 +12,56 @@ function AxisymmetricOrthogonalGrid2D(
   coords, limits, iters, nodedims, celldims = _prepare_nd_coordinates(
     (_r, _z), nhalo, halo_coords_included
   )
+  coords_have_halo = true
 
-  node_coordinates = (;
-    r=KernelAbstractions.zeros(backend, T, nodedims[1]),
-    z=KernelAbstractions.zeros(backend, T, nodedims[2]),
+  node_coordinates = (
+    KernelAbstractions.zeros(backend, T, nodedims[1]),
+    KernelAbstractions.zeros(backend, T, nodedims[2]),
   )
-  centroid_coordinates = (;
-    r=KernelAbstractions.zeros(backend, T, celldims[1]),
-    z=KernelAbstractions.zeros(backend, T, celldims[2]),
+  centroid_coordinates = (
+    KernelAbstractions.zeros(backend, T, celldims[1]),
+    KernelAbstractions.zeros(backend, T, celldims[2]),
   )
   cell_volumes = KernelAbstractions.zeros(backend, T, celldims...)
-  face_areas = (;
-    i₊½=KernelAbstractions.zeros(backend, T, celldims...),
-    j₊½=KernelAbstractions.zeros(backend, T, celldims...),
+  face_areas = (
+    KernelAbstractions.zeros(backend, T, celldims...),
+    KernelAbstractions.zeros(backend, T, celldims...),
   )
 
-  _populate_2d_nodes!(node_coordinates, coords, iters, halo_coords_included)
+  _populate_2d_nodes!(node_coordinates, coords, iters)
 
   compute_axisymmetric_centroids!(
-    centroid_coordinates, node_coordinates, iters, backend, halo_coords_included
+    centroid_coordinates, node_coordinates, iters, backend, coords_have_halo
   )
   compute_axisymmetric_volumes!(
-    cell_volumes, node_coordinates, iters, backend, halo_coords_included
+    cell_volumes, node_coordinates, iters, backend, coords_have_halo
   )
   compute_axisymmetric_face_areas!(
-    face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo
+    face_areas, node_coordinates, iters, backend, coords_have_halo, nhalo
   )
 
-  return AxisymmetricOrthogonalGrid2D(
-    node_coordinates, centroid_coordinates, cell_volumes, iters, limits, face_areas, nhalo
-  )
+  return OrthogonalGrid{
+    2,
+    T,
+    AxisymmetricCS{:y},
+    typeof(node_coordinates),
+    typeof(centroid_coordinates),
+    typeof(cell_volumes),
+    typeof(iters),
+    typeof(limits),
+    typeof(face_areas),
+  }(node_coordinates, centroid_coordinates, cell_volumes, iters, limits, face_areas, nhalo)
 end
 
-function _populate_2d_nodes!(storage, coords, iters, halo_coords_included)
+function _populate_2d_nodes!(storage, coords, iters)
   r, z = coords
-  if halo_coords_included
-    copy!(storage.r, r)
-    copy!(storage.z, z)
+  if length(r) == length(storage[1]) && length(z) == length(storage[2])
+    copy!(storage[1], r)
+    copy!(storage[2], z)
   else
     @views begin
-      copy!(storage.r[iters.node.domain.indices[1]], r)
-      copy!(storage.z[iters.node.domain.indices[2]], z)
+      copy!(storage[1][iters.node.domain.indices[1]], r)
+      copy!(storage[2][iters.node.domain.indices[2]], z)
     end
   end
   return nothing
@@ -70,10 +73,10 @@ function compute_axisymmetric_centroids!(
   domain = halo_coords_included ? iters.cell.full : iters.cell.domain
 
   _compute_axisymmetric_centroids!(backend)(
-    centroids.r,
-    centroids.z,
-    node_coordinates.r,
-    node_coordinates.z,
+    centroids[1],
+    centroids[2],
+    node_coordinates[1],
+    node_coordinates[2],
     domain;
     ndrange=size(domain),
   )
@@ -84,10 +87,13 @@ function compute_axisymmetric_face_areas!(
   face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo
 )
   domain = iters.cell.domain
-  if halo_coords_included
+  if halo_coords_included && nhalo > 0
     offset = +nhalo
     i₊½_domain = expand_upper(expand_lower(domain, 1, offset), 1, offset - 1)
     j₊½_domain = expand_upper(expand_lower(domain, 2, offset), 2, offset - 1)
+  elseif halo_coords_included
+    i₊½_domain = domain
+    j₊½_domain = domain
   else
     offset = +1
     i₊½_domain = expand_lower(domain, 1, offset)
@@ -95,15 +101,15 @@ function compute_axisymmetric_face_areas!(
   end
 
   _compute_axisymmetric_radial_face_areas!(backend)(
-    face_areas.i₊½,
-    node_coordinates.r,
-    node_coordinates.z,
+    face_areas[1],
+    node_coordinates[1],
+    node_coordinates[2],
     i₊½_domain;
     ndrange=size(i₊½_domain),
   )
 
   _compute_axisymmetric_axial_face_areas!(backend)(
-    face_areas.j₊½, node_coordinates.r, j₊½_domain; ndrange=size(j₊½_domain)
+    face_areas[2], node_coordinates[1], j₊½_domain; ndrange=size(j₊½_domain)
   )
   return nothing
 end
@@ -114,7 +120,7 @@ function compute_axisymmetric_volumes!(
   domain = halo_coords_included ? iters.cell.full : iters.cell.domain
 
   _compute_axisymmetric_volumes!(backend)(
-    volumes, node_coordinates.r, node_coordinates.z, domain; ndrange=size(domain)
+    volumes, node_coordinates[1], node_coordinates[2], domain; ndrange=size(domain)
   )
   return nothing
 end

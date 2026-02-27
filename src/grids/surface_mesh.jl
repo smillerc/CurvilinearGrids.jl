@@ -405,7 +405,7 @@ end
 Write a 2D boundary `SurfaceGrid` (1D line) to VTK with only node coordinates,
 face normals, and face areas.
 """
-function save_vtk(surface::SurfaceGrid{2}, fn="surface")
+function VTKOutput.save_vtk(surface::SurfaceGrid{2}, fn="surface")
   x_line, y_line = surface.node_coordinates
   npoints = length(x_line)
   x = Array{eltype(x_line)}(undef, npoints, 2)
@@ -446,7 +446,7 @@ end
 Write a 3D boundary `SurfaceGrid` (2D surface) to VTK with only node
 coordinates, face normals, and face areas.
 """
-function save_vtk(surface::SurfaceGrid{3}, fn="surface")
+function VTKOutput.save_vtk(surface::SurfaceGrid{3}, fn="surface")
   points = _surface_vtk_points(surface)
   @info "Writing to $fn.vti"
   vtk_grid(fn, points) do vtk

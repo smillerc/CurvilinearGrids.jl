@@ -508,6 +508,12 @@ Load grid information from an HDF5 file written by `write_coordinates` and recon
 of halo cells `nhalo`.
 """
 function read_coordinates(
+  filename::String; compute_metrics::Bool=true, cache_mode::Symbol=:eager
+)
+  read_coordinates(filename, 0; compute_metrics=compute_metrics, cache_mode=cache_mode)
+end
+
+function read_coordinates(
   filename::String, nhalo; compute_metrics::Bool=true, cache_mode::Symbol=:eager
 )
   grid_file = h5open(filename, "r")
@@ -599,13 +605,13 @@ function read_coordinates(
     mesh = RectilinearGrid3D(x, y, z, nhalo)
   elseif grid_type == "CylindricalGrid1D"
     x, snap_to_axis = read_CylindricalGrid1D(filename)
-    mesh = CylindricalGrid1D(x, nhalo, snap_to_axis)
+    mesh = CylindricalGrid1D(x, :meg6, snap_to_axis)
   elseif grid_type == "AxisymmetricGrid2D"
     x, y, snap_to_axis, rotational_axis = read_AxisymmetricGrid2D(filename)
-    mesh = AxisymmetricGrid2D(x, y, nhalo, snap_to_axis, rotational_axis)
+    mesh = AxisymmetricGrid2D(x, y, :meg6, snap_to_axis, rotational_axis)
   elseif grid_type == "SphericalGrid1D"
     x, snap_to_axis = read_SphericalGrid1D(filename)
-    mesh = SphericalGrid1D(x, nhalo, snap_to_axis)
+    mesh = SphericalGrid1D(x, :meg6, snap_to_axis)
   elseif grid_type == "SphericalGrid3D"
     r, θ, ϕ, nhalo = read_SphericalGrid3D(filename)
     mesh = SphericalGrid3D(r, θ, ϕ, nhalo)

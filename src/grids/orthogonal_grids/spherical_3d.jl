@@ -1,14 +1,6 @@
-
-struct SphericalGrid3D{NC,CNC,CC,CV,I,DL,FA} <: AbstractCurvilinearGrid3D
-  node_coordinates::NC
-  cartesian_node_coordinates::CNC
-  centroid_coordinates::CC
-  cell_volumes::CV
-  iterators::I
-  domain_limits::DL
-  face_areas::FA
-  nhalo::Int
-end
+const SphericalGrid3D = OrthogonalGrid{
+  3,T,SphericalCS,NC,CC,CV,I,DL,FA
+} where {T,NC,CC,CV,I,DL,FA}
 
 function SphericalGrid3D(
   _r::AbstractVector{T},
@@ -40,49 +32,52 @@ function SphericalGrid3D(
   celldims = size(domain_iterators.cell.full)
   nodedims = size(domain_iterators.node.full)
 
-  spherical_node_coords = (;
-    r=KernelAbstractions.zeros(backend, T, nodedims[1]),
-    θ=KernelAbstractions.zeros(backend, T, nodedims[2]),
-    ϕ=KernelAbstractions.zeros(backend, T, nodedims[3]),
+  spherical_node_coords = (
+    KernelAbstractions.zeros(backend, T, nodedims[1]),
+    KernelAbstractions.zeros(backend, T, nodedims[2]),
+    KernelAbstractions.zeros(backend, T, nodedims[3]),
   )
 
   if halo_coords_included
     @views begin
-      copy!(spherical_node_coords.r, r)
-      copy!(spherical_node_coords.θ, θ)
-      copy!(spherical_node_coords.ϕ, ϕ)
+      copy!(spherical_node_coords[1], r)
+      copy!(spherical_node_coords[2], θ)
+      copy!(spherical_node_coords[3], ϕ)
     end
   else
     @views begin
-      copy!(spherical_node_coords.r[domain_iterators.node.domain.indices[1]], r)
-      copy!(spherical_node_coords.θ[domain_iterators.node.domain.indices[2]], θ)
-      copy!(spherical_node_coords.ϕ[domain_iterators.node.domain.indices[3]], ϕ)
+      copy!(spherical_node_coords[1][domain_iterators.node.domain.indices[1]], r)
+      copy!(spherical_node_coords[2][domain_iterators.node.domain.indices[2]], θ)
+      copy!(spherical_node_coords[3][domain_iterators.node.domain.indices[3]], ϕ)
     end
   end
 
-  cartesian_node_coords = (;
-    x=KernelAbstractions.zeros(backend, T, nodedims),
-    y=KernelAbstractions.zeros(backend, T, nodedims),
-    z=KernelAbstractions.zeros(backend, T, nodedims),
-  )
-
-  spherical_centroid_coords = (;
-    r=KernelAbstractions.zeros(backend, T, celldims[1]),
-    θ=KernelAbstractions.zeros(backend, T, celldims[2]),
-    ϕ=KernelAbstractions.zeros(backend, T, celldims[3]),
+  spherical_centroid_coords = (
+    KernelAbstractions.zeros(backend, T, celldims[1]),
+    KernelAbstractions.zeros(backend, T, celldims[2]),
+    KernelAbstractions.zeros(backend, T, celldims[3]),
   )
 
   cell_volumes = KernelAbstractions.zeros(backend, T, celldims)
 
-  face_areas = (;
-    i₊½=KernelAbstractions.zeros(backend, T, celldims),
-    j₊½=KernelAbstractions.zeros(backend, T, celldims),
-    k₊½=KernelAbstractions.zeros(backend, T, celldims),
+  face_areas = (
+    KernelAbstractions.zeros(backend, T, celldims),
+    KernelAbstractions.zeros(backend, T, celldims),
+    KernelAbstractions.zeros(backend, T, celldims),
   )
 
-  mesh = SphericalGrid3D(
+  mesh = OrthogonalGrid{
+    3,
+    T,
+    SphericalCS,
+    typeof(spherical_node_coords),
+    typeof(spherical_centroid_coords),
+    typeof(cell_volumes),
+    typeof(domain_iterators),
+    typeof(limits),
+    typeof(face_areas),
+  }(
     spherical_node_coords,
-    cartesian_node_coords,
     spherical_centroid_coords,
     cell_volumes,
     domain_iterators,
@@ -97,16 +92,9 @@ function SphericalGrid3D(
 end
 
 function update!(mesh::SphericalGrid3D)
-  backend = KernelAbstractions.get_backend(mesh.node_coordinates.r)
+  backend = KernelAbstractions.get_backend(mesh.node_coordinates[1])
   halo_coords_included = true
 
-  compute_xyz_coords!(
-    mesh.cartesian_node_coordinates,
-    mesh.node_coordinates,
-    mesh.iterators,
-    backend,
-    halo_coords_included,
-  )
   compute_centroids!(
     mesh.centroid_coordinates,
     mesh.node_coordinates,
@@ -140,12 +128,12 @@ function compute_centroids!(
 
   kern = _compute_centroids!(backend)
   kern(
-    centroids.r,
-    centroids.θ,
-    centroids.ϕ,
-    node_coordinates.r,
-    node_coordinates.θ,
-    node_coordinates.ϕ,
+    centroids[1],
+    centroids[2],
+    centroids[3],
+    node_coordinates[1],
+    node_coordinates[2],
+    node_coordinates[3],
     domain;
     ndrange=size(domain),
   )
@@ -156,11 +144,15 @@ function compute_face_areas!(
   face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo
 )
   domain = iters.cell.domain
-  if halo_coords_included
+  if halo_coords_included && nhalo > 0
     offset = +nhalo
     i₊½_domain = expand_upper(expand_lower(domain, 1, offset), 1, offset - 1)
     j₊½_domain = expand_upper(expand_lower(domain, 2, offset), 2, offset - 1)
     k₊½_domain = expand_upper(expand_lower(domain, 3, offset), 3, offset - 1)
+  elseif halo_coords_included
+    i₊½_domain = domain
+    j₊½_domain = domain
+    k₊½_domain = domain
   else
     offset = +1
     i₊½_domain = expand_lower(domain, 1, offset)
@@ -173,28 +165,28 @@ function compute_face_areas!(
   phi_kernel = _compute_phi_face_areas!(backend)
 
   r_kernel(
-    face_areas.i₊½,
-    node_coordinates.r,
-    node_coordinates.θ,
-    node_coordinates.ϕ,
+    face_areas[1],
+    node_coordinates[1],
+    node_coordinates[2],
+    node_coordinates[3],
     i₊½_domain;
     ndrange=size(i₊½_domain),
   )
 
   theta_kernel(
-    face_areas.j₊½,
-    node_coordinates.r,
-    node_coordinates.θ,
-    node_coordinates.ϕ,
+    face_areas[2],
+    node_coordinates[1],
+    node_coordinates[2],
+    node_coordinates[3],
     j₊½_domain;
     ndrange=size(j₊½_domain),
   )
 
   phi_kernel(
-    face_areas.k₊½,
-    node_coordinates.r,
-    node_coordinates.θ,
-    node_coordinates.ϕ,
+    face_areas[3],
+    node_coordinates[1],
+    node_coordinates[2],
+    node_coordinates[3],
     k₊½_domain;
     ndrange=size(k₊½_domain),
   )
@@ -211,32 +203,9 @@ function compute_volumes!(volumes, node_coordinates, iters, backend, halo_coords
   kern = _compute_volumes!(backend)
   kern(
     volumes,
-    node_coordinates.r,
-    node_coordinates.θ,
-    node_coordinates.ϕ,
-    domain;
-    ndrange=size(domain),
-  )
-  return nothing
-end
-
-function compute_xyz_coords!(
-  xyz_coordinates, node_coordinates, iters, backend, halo_coords_included
-)
-  if halo_coords_included
-    domain = iters.node.full
-  else
-    domain = iters.node.domain
-  end
-
-  kern = _compute_xyz_coords!(backend)
-  kern(
-    xyz_coordinates.x,
-    xyz_coordinates.y,
-    xyz_coordinates.z,
-    node_coordinates.r,
-    node_coordinates.θ,
-    node_coordinates.ϕ,
+    node_coordinates[1],
+    node_coordinates[2],
+    node_coordinates[3],
     domain;
     ndrange=size(domain),
   )
@@ -317,39 +286,25 @@ end
   V[I] = T(1 / 3) * Δr³ * Δμ * Δϕ
 end
 
-@kernel function _compute_xyz_coords!(x, y, z, r, θ, ϕ, domain)
-  idx = @index(Global, Linear)
-  I = domain[idx]
-  i, j, k = I.I
-
-  rr = r[i]
-  th = θ[j]
-  ph = ϕ[k]
-
-  x[I] = rr * sin(th) * cos(ph)
-  y[I] = rr * sin(th) * sin(ph)
-  z[I] = rr * cos(th)
-end
-
 function face_location(mesh::SphericalGrid3D, I::CartesianIndex{3}, axis)
   i, j, k = I.I
   if axis == 1
     return @SVector [
-      mesh.centroid_coordinates.r[i + 1],
-      mesh.node_coordinates.θ[j],
-      mesh.centroid_coordinates.ϕ[k],
+      mesh.centroid_coordinates[1][i + 1],
+      mesh.node_coordinates[2][j],
+      mesh.centroid_coordinates[3][k],
     ]
   elseif axis == 2
     return @SVector [
-      mesh.centroid_coordinates.r[i],
-      mesh.node_coordinates.θ[j + 1],
-      mesh.centroid_coordinates.ϕ[k],
+      mesh.centroid_coordinates[1][i],
+      mesh.node_coordinates[2][j + 1],
+      mesh.centroid_coordinates[3][k],
     ]
   else
     return @SVector [
-      mesh.centroid_coordinates.r[i],
-      mesh.centroid_coordinates.θ[j],
-      mesh.node_coordinates.ϕ[k + 1],
+      mesh.centroid_coordinates[1][i],
+      mesh.centroid_coordinates[2][j],
+      mesh.node_coordinates[3][k + 1],
     ]
   end
 end

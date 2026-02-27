@@ -165,7 +165,6 @@ end
 
 function Adapt.adapt_structure(to, grid::SphericalGrid3D)
   node_coordinates = Adapt.adapt_structure(to, grid.node_coordinates)
-  cartesian_node_coordinates = Adapt.adapt_structure(to, grid.cartesian_node_coordinates)
   centroid_coordinates = Adapt.adapt_structure(to, grid.centroid_coordinates)
   cell_volumes = Adapt.adapt_structure(to, grid.cell_volumes)
   face_areas = Adapt.adapt_structure(to, grid.face_areas)
@@ -192,7 +191,6 @@ function Adapt.adapt_structure(to, grid::SphericalGrid3D)
 
   return SphericalGrid3D(
     node_coordinates,
-    cartesian_node_coordinates,
     centroid_coordinates,
     cell_volumes,
     grid.iterators,
