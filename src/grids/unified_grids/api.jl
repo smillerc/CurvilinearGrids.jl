@@ -684,6 +684,175 @@ function cellvolume(
   _cellvolume_dispatch(CS(), BT(), grid, _promote_real_tuple(idx))
 end
 
+"""
+    cell_jacobian(grid, idx)
+
+Return the geometric Jacobian factor used by diffusion operators at cell index
+`idx`.
+"""
+@inline function cell_jacobian(
+  grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex
+)
+  cell_jacobian(grid, idx.I)
+end
+@inline function cell_jacobian(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::NTuple{N,Int}
+) where {N,T}
+  abs(forward_cell_metrics(grid, idx).J)
+end
+
+@inline function _orth_cell_coord(grid::OrthogonalGrid{N}, dim::Int, idx::NTuple{N,Int}) where {N}
+  grid.centroid_coordinates[dim][idx[dim]]
+end
+@inline function _orth_face_coord(grid::OrthogonalGrid{N}, dim::Int, idx::NTuple{N,Int}) where {N}
+  grid.node_coordinates[dim][idx[dim]]
+end
+
+@inline function _axisymmetric_radial_dim(::AxisymmetricCS{:y}, ::Val{2})
+  1
+end
+@inline function _axisymmetric_radial_dim(::AxisymmetricCS{:x}, ::Val{2})
+  2
+end
+function _axisymmetric_radial_dim(::AxisymmetricCS{Axis}, ::Val{2}) where {Axis}
+  throw(
+    ArgumentError(
+      "Unsupported axisymmetric axis `:$Axis`. Supported values are `:x` and `:y`.",
+    ),
+  )
+end
+
+@inline function cell_jacobian(grid::AbstractOrthogonalGrid, idx::CartesianIndex)
+  cell_jacobian(grid, idx.I)
+end
+@inline function cell_jacobian(
+  grid::OrthogonalGrid{N,T,CartesianCS}, idx::NTuple{N,Int}
+) where {N,T}
+  one(T)
+end
+@inline function cell_jacobian(
+  grid::OrthogonalGrid{1,T,CylindricalCS}, idx::NTuple{1,Int}
+) where {T}
+  _orth_cell_coord(grid, 1, idx)
+end
+@inline function cell_jacobian(
+  grid::OrthogonalGrid{2,T,AxisymmetricCS{Axis}}, idx::NTuple{2,Int}
+) where {T,Axis}
+  ridx = _axisymmetric_radial_dim(AxisymmetricCS{Axis}(), Val(2))
+  _orth_cell_coord(grid, ridx, idx)
+end
+@inline function cell_jacobian(
+  grid::OrthogonalGrid{1,T,SphericalCS}, idx::NTuple{1,Int}
+) where {T}
+  r = _orth_cell_coord(grid, 1, idx)
+  r^2
+end
+@inline function cell_jacobian(
+  grid::OrthogonalGrid{3,T,SphericalCS}, idx::NTuple{3,Int}
+) where {T}
+  r = _orth_cell_coord(grid, 1, idx)
+  θ = _orth_cell_coord(grid, 2, idx)
+  r^2 * sin(θ)
+end
+function cell_jacobian(grid::AbstractOrthogonalGrid, idx::NTuple{N,Int}) where {N}
+  throw(
+    ArgumentError(
+      "`cell_jacobian` is undefined for $(typeof(grid)) with $(N)-D integer indices.",
+    ),
+  )
+end
+
+"""
+    face_metric_coefficient(grid, dim, idx)
+
+Return the axis-aligned face coefficient `J g^{dd}` used by diffusion operators
+for face axis `dim` at face index `idx`.
+"""
+@inline function face_metric_coefficient(
+  grid::Union{MappedGrid,DiscreteGrid}, dim::Int, idx::CartesianIndex
+)
+  face_metric_coefficient(grid, dim, idx.I)
+end
+@inline function face_metric_coefficient(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, dim::Int, idx::NTuple{N,Int}
+) where {N,T}
+  1 <= dim <= N ||
+    throw(ArgumentError("face axis dim=$dim is invalid for $N-D unified grid"))
+  fm = face_metrics(grid)[dim]
+  J = abs(fm.forward[idx...].J)
+  G = fm.inverse[idx...].jacobian_matrix
+  gdd = zero(T)
+  @inbounds for m in 1:N
+    gdd += G[dim, m]^2
+  end
+  return J * gdd
+end
+
+@inline function face_metric_coefficient(
+  grid::AbstractOrthogonalGrid, dim::Int, idx::CartesianIndex
+)
+  face_metric_coefficient(grid, dim, idx.I)
+end
+@inline function face_metric_coefficient(
+  grid::OrthogonalGrid{N,T,CartesianCS}, dim::Int, idx::NTuple{N,Int}
+) where {N,T}
+  1 <= dim <= N ||
+    throw(ArgumentError("face axis dim=$dim is invalid for $N-D orthogonal grid"))
+  one(T)
+end
+@inline function face_metric_coefficient(
+  grid::OrthogonalGrid{1,T,CylindricalCS}, dim::Int, idx::NTuple{1,Int}
+) where {T}
+  dim == 1 || throw(ArgumentError("face axis dim=$dim is invalid for 1-D cylindrical grid"))
+  _orth_face_coord(grid, 1, idx)
+end
+@inline function face_metric_coefficient(
+  grid::OrthogonalGrid{2,T,AxisymmetricCS{Axis}}, dim::Int, idx::NTuple{2,Int}
+) where {T,Axis}
+  1 <= dim <= 2 ||
+    throw(ArgumentError("face axis dim=$dim is invalid for 2-D axisymmetric grid"))
+  ridx = _axisymmetric_radial_dim(AxisymmetricCS{Axis}(), Val(2))
+  if dim == ridx
+    return _orth_face_coord(grid, ridx, idx)
+  end
+  return _orth_cell_coord(grid, ridx, idx)
+end
+@inline function face_metric_coefficient(
+  grid::OrthogonalGrid{1,T,SphericalCS}, dim::Int, idx::NTuple{1,Int}
+) where {T}
+  dim == 1 || throw(ArgumentError("face axis dim=$dim is invalid for 1-D spherical grid"))
+  r = _orth_face_coord(grid, 1, idx)
+  r^2
+end
+@inline function face_metric_coefficient(
+  grid::OrthogonalGrid{3,T,SphericalCS}, dim::Int, idx::NTuple{3,Int}
+) where {T}
+  1 <= dim <= 3 ||
+    throw(ArgumentError("face axis dim=$dim is invalid for 3-D spherical grid"))
+  if dim == 1
+    r = _orth_face_coord(grid, 1, idx)
+    θ = _orth_cell_coord(grid, 2, idx)
+    return r^2 * sin(θ)
+  elseif dim == 2
+    θ = _orth_face_coord(grid, 2, idx)
+    return sin(θ)
+  end
+  θ = _orth_cell_coord(grid, 2, idx)
+  s = sin(θ)
+  abs(s) > sqrt(eps(T)) ||
+    throw(DomainError(θ, "Spherical phi coefficient undefined at sin(theta)=0"))
+  return inv(s)
+end
+function face_metric_coefficient(
+  grid::AbstractOrthogonalGrid, dim::Int, idx::NTuple{N,Int}
+) where {N}
+  throw(
+    ArgumentError(
+      "`face_metric_coefficient` is undefined for $(typeof(grid)) with $(N)-D integer indices.",
+    ),
+  )
+end
+
 @inline function _face_loc_axis_side(::Val{N}, loc::Symbol) where {N}
   l = Symbol(lowercase(String(loc)))
   axis, side = if l in (:ilo, :imin, :xlo, :xmin)
@@ -972,8 +1141,25 @@ end
   return geom.normal
 end
 
-function face_area(::AbstractOrthogonalGrid, idx, loc::Symbol)
-  throw(ArgumentError("`face_area` is undefined for `AbstractOrthogonalGrid`."))
+@inline function face_area(grid::AbstractOrthogonalGrid, dim::Int, idx::CartesianIndex)
+  face_area(grid, dim, idx.I)
+end
+@inline function face_area(
+  grid::OrthogonalGrid{N}, dim::Int, idx::NTuple{N,Int}
+) where {N}
+  1 <= dim <= N ||
+    throw(ArgumentError("face axis dim=$dim is invalid for $N-D orthogonal grid"))
+  grid.face_areas[dim][idx...]
+end
+
+@inline function face_area(grid::AbstractOrthogonalGrid, idx::CartesianIndex, loc::Symbol)
+  face_area(grid, idx.I, loc)
+end
+@inline function face_area(grid::OrthogonalGrid{N}, idx::NTuple{N,Int}, loc::Symbol) where {N}
+  axis, side = _face_loc_axis_side(Val(N), loc)
+  ioff = side === :hi ? 1 : 0
+  i = ntuple(d -> (d == axis ? idx[d] + ioff : idx[d]), N)
+  face_area(grid, axis, i)
 end
 
 function outward_face_normal(::AbstractOrthogonalGrid, idx, loc::Symbol)
