@@ -328,9 +328,9 @@ end
   @test Gm_discrete isa Metric{3,Float64}
   @test Gm_continuous isa Metric{3,Float64}
   @test inv(Fm_discrete).jacobian_matrix ≈ Gm_discrete.jacobian_matrix
-  @test inv(Fm_discrete).J ≈ Gm_discrete.J
+  @test inv(Fm_discrete).J ≈ inv(Gm_discrete.J)
   @test inv(Fm_continuous).jacobian_matrix ≈ Gm_continuous.jacobian_matrix
-  @test inv(Fm_continuous).J ≈ Gm_continuous.J
+  @test inv(Fm_continuous).J ≈ inv(Gm_continuous.J)
 
   nx, ny, nz = (8, 8, 8)
   x = [Float64(i) for i in 1:nx, j in 1:ny, k in 1:nz]
@@ -361,9 +361,9 @@ end
   @test Gd_discrete isa Metric{3,Float64}
   @test Gd_continuous isa Metric{3,Float64}
   @test inv(Fd_discrete).jacobian_matrix ≈ Gd_discrete.jacobian_matrix
-  @test inv(Fd_discrete).J ≈ Gd_discrete.J
+  @test inv(Fd_discrete).J ≈ inv(Gd_discrete.J)
   @test inv(Fd_continuous).jacobian_matrix ≈ Gd_continuous.jacobian_matrix
-  @test inv(Fd_continuous).J ≈ Gd_continuous.J
+  @test inv(Fd_continuous).J ≈ inv(Gd_continuous.J)
 end
 
 @testset "Inverse mapping: physical -> computational coordinate" begin
