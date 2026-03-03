@@ -7,9 +7,8 @@ abstract type AbstractOrthogonalGrid <: AbstractCurvilinearGrid end
 Unified concrete storage for orthogonal finite-volume grids across all supported
 coordinate systems and dimensions.
 """
-struct OrthogonalGrid{
-  N,T,CS<:CoordinateSystemTrait,NC,CC,CV,I,DL,FA
-} <: AbstractOrthogonalGrid
+struct OrthogonalGrid{N,T,CS<:CoordinateSystemTrait,NC,CC,CV,I,DL,FA} <:
+       AbstractOrthogonalGrid
   node_coordinates::NC
   centroid_coordinates::CC
   cell_volumes::CV

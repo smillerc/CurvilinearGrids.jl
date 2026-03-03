@@ -45,7 +45,9 @@ function AxisymmetricOrthogonalGrid2D(
     typeof(iters),
     typeof(limits),
     typeof(face_areas),
-  }(node_coordinates, centroid_coordinates, cell_volumes, iters, limits, face_areas, nhalo)
+  }(
+    node_coordinates, centroid_coordinates, cell_volumes, iters, limits, face_areas, nhalo
+  )
 end
 
 function _populate_2d_nodes!(storage, coords, iters)

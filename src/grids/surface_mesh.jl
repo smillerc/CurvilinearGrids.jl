@@ -423,7 +423,7 @@ function VTKOutput.save_vtk(surface::SurfaceGrid{2}, fn="surface")
   @info "Writing to $fn.vti"
   vtk_grid(fn, (x, y)) do vtk
     vtk["face_area", VTKCellData()] = area
-    vtk["face_normal", VTKCellData(), component_names=["x1", "x2"]] = (nx, ny)
+    vtk["face_normal", VTKCellData(), component_names = ["x1", "x2"]] = (nx, ny)
   end
   return nothing
 end
@@ -451,7 +451,7 @@ function VTKOutput.save_vtk(surface::SurfaceGrid{3}, fn="surface")
   @info "Writing to $fn.vti"
   vtk_grid(fn, points) do vtk
     vtk["face_area", VTKCellData()] = surface.face_areas
-    vtk["face_normal", VTKCellData(), component_names=["x1", "x2", "x3"]] = (
+    vtk["face_normal", VTKCellData(), component_names = ["x1", "x2", "x3"]] = (
       surface.face_normals[1], surface.face_normals[2], surface.face_normals[3]
     )
   end

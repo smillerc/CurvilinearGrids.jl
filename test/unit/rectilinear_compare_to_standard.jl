@@ -536,9 +536,9 @@ end
 
   mesh_rect = RectilinearGrid3D((x0, y0, z0), (x1, y1, z1), (ni, nj, nk), :MEG6)
 
-  x = x0:((x1-x0)/ni):x1
-  y = y0:((y1-y0)/nj):y1
-  z = z0:((z1-z0)/nk):z1
+  x = x0:((x1 - x0) / ni):x1
+  y = y0:((y1 - y0) / nj):y1
+  z = z0:((z1 - z0) / nk):z1
   nii = length(x)
   njj = length(y)
   nkk = length(z)
@@ -546,8 +546,8 @@ end
   y3d = zeros(Float64, nii, njj, nkk)
   z3d = zeros(Float64, nii, njj, nkk)
   @inbounds for k in 1:nkk
-      for j in 1:njj
-          for i in 1:nii
+    for j in 1:njj
+      for i in 1:nii
         x3d[i, j, k] = x[i]
         y3d[i, j, k] = y[j]
         z3d[i, j, k] = z[k]

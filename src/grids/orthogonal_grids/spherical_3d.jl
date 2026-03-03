@@ -282,7 +282,9 @@ end
   V[I] = T(1 / 3) * Δr³ * Δμ * Δϕ
 end
 
-function face_location(mesh::OrthogonalGrid{3,T,SphericalCS}, I::CartesianIndex{3}, axis) where {T}
+function face_location(
+  mesh::OrthogonalGrid{3,T,SphericalCS}, I::CartesianIndex{3}, axis
+) where {T}
   i, j, k = I.I
   if axis == 1
     return @SVector [

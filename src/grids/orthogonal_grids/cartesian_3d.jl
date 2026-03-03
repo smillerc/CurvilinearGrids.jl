@@ -32,9 +32,7 @@ function CartesianOrthogonalGrid3D(
   compute_cartesian_3d_centroids!(
     centroid_coordinates, node_coordinates, iters, backend, true
   )
-  compute_cartesian_3d_volumes!(
-    cell_volumes, node_coordinates, iters, backend, true
-  )
+  compute_cartesian_3d_volumes!(cell_volumes, node_coordinates, iters, backend, true)
   compute_cartesian_3d_face_areas!(
     face_areas, node_coordinates, iters, backend, true, nhalo
   )
@@ -49,14 +47,16 @@ function CartesianOrthogonalGrid3D(
     typeof(iters),
     typeof(limits),
     typeof(face_areas),
-  }(node_coordinates, centroid_coordinates, cell_volumes, iters, limits, face_areas, nhalo)
+  }(
+    node_coordinates, centroid_coordinates, cell_volumes, iters, limits, face_areas, nhalo
+  )
 end
 
 function _populate_3d_nodes!(storage, coords, iters)
   x, y, z = coords
   if length(x) == length(storage[1]) &&
-     length(y) == length(storage[2]) &&
-     length(z) == length(storage[3])
+    length(y) == length(storage[2]) &&
+    length(z) == length(storage[3])
     copy!(storage[1], x)
     copy!(storage[2], y)
     copy!(storage[3], z)
@@ -108,13 +108,25 @@ function compute_cartesian_3d_face_areas!(
   end
 
   _compute_cartesian_3d_face_areas_i!(backend)(
-    face_areas[1], node_coordinates[2], node_coordinates[3], i₊½_domain; ndrange=size(i₊½_domain)
+    face_areas[1],
+    node_coordinates[2],
+    node_coordinates[3],
+    i₊½_domain;
+    ndrange=size(i₊½_domain),
   )
   _compute_cartesian_3d_face_areas_j!(backend)(
-    face_areas[2], node_coordinates[1], node_coordinates[3], j₊½_domain; ndrange=size(j₊½_domain)
+    face_areas[2],
+    node_coordinates[1],
+    node_coordinates[3],
+    j₊½_domain;
+    ndrange=size(j₊½_domain),
   )
   _compute_cartesian_3d_face_areas_k!(backend)(
-    face_areas[3], node_coordinates[1], node_coordinates[2], k₊½_domain; ndrange=size(k₊½_domain)
+    face_areas[3],
+    node_coordinates[1],
+    node_coordinates[2],
+    k₊½_domain;
+    ndrange=size(k₊½_domain),
   )
   return nothing
 end
@@ -134,7 +146,9 @@ function compute_cartesian_3d_volumes!(
   return nothing
 end
 
-@kernel function _compute_cartesian_3d_centroids!(xc, yc, zc, xnode, ynode, znode, cell_domain)
+@kernel function _compute_cartesian_3d_centroids!(
+  xc, yc, zc, xnode, ynode, znode, cell_domain
+)
   idx = @index(Global, Linear)
   I = cell_domain[idx]
   i, j, k = I.I

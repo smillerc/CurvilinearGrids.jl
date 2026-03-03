@@ -121,7 +121,7 @@ function check_corners(C0, C1, D0, D1, rtol=1e-6)
 
   for (name1, name2, p1, p2) in corners
     dist = norm(p1 .- p2)
-    if !all(isapprox.(p1, p2, rtol=rtol))
+    if !all(isapprox.(p1, p2; rtol=rtol))
       @warn "Corner mismatch between $name1 and $name2: distance = $dist"
       return false
     end

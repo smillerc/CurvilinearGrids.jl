@@ -47,8 +47,9 @@ Construct a metric payload from a Jacobian matrix.
 end
 
 @inline Base.getindex(metric::Metric, i::Int, j::Int) = metric.jacobian_matrix[i, j]
-@inline Base.getindex(metric::ConservedMetric, i::Int, j::Int) =
-  metric.jacobian_matrix[i, j]
+@inline Base.getindex(metric::ConservedMetric, i::Int, j::Int) = metric.jacobian_matrix[
+  i, j
+]
 @inline function Base.inv(metric::Metric{N,T,M}) where {N,T,M<:StaticMatrix{N,N,T}}
   jinv = inv(metric.jacobian_matrix)
   Metric(jinv, det(jinv))

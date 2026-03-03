@@ -227,7 +227,7 @@ end
 @inline _cartesian_coordinates(::CylindricalCS, q) = q
 
 @inline function _cartesian_coordinates(
-  ::SphericalCS, q::NTuple{3, <:AbstractVector{T}}
+  ::SphericalCS, q::NTuple{3,<:AbstractVector{T}}
 ) where {T}
   r, θ, ϕ = q
   R = reshape(r, :, 1, 1)
@@ -574,7 +574,9 @@ when `return_result=true`.
 end
 
 function computational_coordinate(grid::AbstractOrthogonalGrid, x_phys; kwargs...)
-  throw(ArgumentError("`computational_coordinate` is undefined for `AbstractOrthogonalGrid`."))
+  throw(
+    ArgumentError("`computational_coordinate` is undefined for `AbstractOrthogonalGrid`.")
+  )
 end
 
 @inline function _cell_forward_metric_at(grid::AbstractMappedOrDiscreteGrid, idx)
@@ -690,9 +692,7 @@ end
 Return the geometric Jacobian factor used by diffusion operators at cell index
 `idx`.
 """
-@inline function cell_jacobian(
-  grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex
-)
+@inline function cell_jacobian(grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex)
   cell_jacobian(grid, idx.I)
 end
 @inline function cell_jacobian(
@@ -701,10 +701,14 @@ end
   abs(forward_cell_metrics(grid, idx).J)
 end
 
-@inline function _orth_cell_coord(grid::OrthogonalGrid{N}, dim::Int, idx::NTuple{N,Int}) where {N}
+@inline function _orth_cell_coord(
+  grid::OrthogonalGrid{N}, dim::Int, idx::NTuple{N,Int}
+) where {N}
   grid.centroid_coordinates[dim][idx[dim]]
 end
-@inline function _orth_face_coord(grid::OrthogonalGrid{N}, dim::Int, idx::NTuple{N,Int}) where {N}
+@inline function _orth_face_coord(
+  grid::OrthogonalGrid{N}, dim::Int, idx::NTuple{N,Int}
+) where {N}
   grid.node_coordinates[dim][idx[dim]]
 end
 
@@ -717,7 +721,7 @@ end
 function _axisymmetric_radial_dim(::AxisymmetricCS{Axis}, ::Val{2}) where {Axis}
   throw(
     ArgumentError(
-      "Unsupported axisymmetric axis `:$Axis`. Supported values are `:x` and `:y`.",
+      "Unsupported axisymmetric axis `:$Axis`. Supported values are `:x` and `:y`."
     ),
   )
 end
@@ -757,7 +761,7 @@ end
 function cell_jacobian(grid::AbstractOrthogonalGrid, idx::NTuple{N,Int}) where {N}
   throw(
     ArgumentError(
-      "`cell_jacobian` is undefined for $(typeof(grid)) with $(N)-D integer indices.",
+      "`cell_jacobian` is undefined for $(typeof(grid)) with $(N)-D integer indices."
     ),
   )
 end
@@ -1144,9 +1148,7 @@ end
 @inline function face_area(grid::AbstractOrthogonalGrid, dim::Int, idx::CartesianIndex)
   face_area(grid, dim, idx.I)
 end
-@inline function face_area(
-  grid::OrthogonalGrid{N}, dim::Int, idx::NTuple{N,Int}
-) where {N}
+@inline function face_area(grid::OrthogonalGrid{N}, dim::Int, idx::NTuple{N,Int}) where {N}
   1 <= dim <= N ||
     throw(ArgumentError("face axis dim=$dim is invalid for $N-D orthogonal grid"))
   grid.face_areas[dim][idx...]
@@ -1155,7 +1157,9 @@ end
 @inline function face_area(grid::AbstractOrthogonalGrid, idx::CartesianIndex, loc::Symbol)
   face_area(grid, idx.I, loc)
 end
-@inline function face_area(grid::OrthogonalGrid{N}, idx::NTuple{N,Int}, loc::Symbol) where {N}
+@inline function face_area(
+  grid::OrthogonalGrid{N}, idx::NTuple{N,Int}, loc::Symbol
+) where {N}
   axis, side = _face_loc_axis_side(Val(N), loc)
   ioff = side === :hi ? 1 : 0
   i = ntuple(d -> (d == axis ? idx[d] + ioff : idx[d]), N)

@@ -18,8 +18,7 @@ include("gradient.jl")
 # Geometry helpers
 # --------------------------------------------------------------------
 
-@inline cell_volume(mesh::OrthogonalGrid{3,T,SphericalCS}, I::CartesianIndex{3}) where {T} =
-  @inbounds mesh.cell_volumes[I]
+@inline cell_volume(mesh::OrthogonalGrid{3,T,SphericalCS}, I::CartesianIndex{3}) where {T} = @inbounds mesh.cell_volumes[I]
 
 @inline function face_area_p(
   mesh::OrthogonalGrid{3,T,SphericalCS}, I::CartesianIndex{3}, axis::Int

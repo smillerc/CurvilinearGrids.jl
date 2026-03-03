@@ -543,8 +543,9 @@ end
 # Velocity Functions
 # ------------------------------------------------------------------
 
-@inline grid_velocities(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0) =
-  (0.0, 0.0, 0.0)
+@inline grid_velocities(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t::Real=0) = (
+  0.0, 0.0, 0.0
+)
 # @inline centroid_velocities(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t) = (0.0, 0.0, 0.0)
 # @inline node_velocities(m::CurvilinearGrid3D, (i, j, k)::NTuple{3,Real}, t) = (0.0, 0.0, 0.0)
 
@@ -563,41 +564,38 @@ end
   y = coords.y
   z = coords.z
 
-  centroids.x[didx] =
-    0.125(
-      x[i, j, k] +
-      x[i + 1, j, k] +
-      x[i + 1, j + 1, k] +
-      x[i, j + 1, k] +
-      x[i, j, k + 1] +
-      x[i + 1, j, k + 1] +
-      x[i + 1, j + 1, k + 1] +
-      x[i, j + 1, k + 1]
-    )
+  centroids.x[didx] = 0.125(
+    x[i, j, k] +
+    x[i + 1, j, k] +
+    x[i + 1, j + 1, k] +
+    x[i, j + 1, k] +
+    x[i, j, k + 1] +
+    x[i + 1, j, k + 1] +
+    x[i + 1, j + 1, k + 1] +
+    x[i, j + 1, k + 1]
+  )
 
-  centroids.y[didx] =
-    0.125(
-      y[i, j, k] +
-      y[i + 1, j, k] +
-      y[i + 1, j + 1, k] +
-      y[i, j + 1, k] +
-      y[i, j, k + 1] +
-      y[i + 1, j, k + 1] +
-      y[i + 1, j + 1, k + 1] +
-      y[i, j + 1, k + 1]
-    )
+  centroids.y[didx] = 0.125(
+    y[i, j, k] +
+    y[i + 1, j, k] +
+    y[i + 1, j + 1, k] +
+    y[i, j + 1, k] +
+    y[i, j, k + 1] +
+    y[i + 1, j, k + 1] +
+    y[i + 1, j + 1, k + 1] +
+    y[i, j + 1, k + 1]
+  )
 
-  centroids.z[didx] =
-    0.125(
-      z[i, j, k] +
-      z[i + 1, j, k] +
-      z[i + 1, j + 1, k] +
-      z[i, j + 1, k] +
-      z[i, j, k + 1] +
-      z[i + 1, j, k + 1] +
-      z[i + 1, j + 1, k + 1] +
-      z[i, j + 1, k + 1]
-    )
+  centroids.z[didx] = 0.125(
+    z[i, j, k] +
+    z[i + 1, j, k] +
+    z[i + 1, j + 1, k] +
+    z[i, j + 1, k] +
+    z[i, j, k + 1] +
+    z[i + 1, j, k + 1] +
+    z[i + 1, j + 1, k + 1] +
+    z[i, j + 1, k + 1]
+  )
 end
 
 function _check_valid_metrics(mesh::AbstractCurvilinearGrid3D)

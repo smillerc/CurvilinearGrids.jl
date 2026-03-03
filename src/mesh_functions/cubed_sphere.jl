@@ -293,7 +293,7 @@ for (k, v) in mesh.shell
     dom = size(v.cartesian.x) .- 1
     indices = CartesianIndices(dom)
 
-    vtk["index", VTKCellData(), component_names=["i", "j", "k"]] = (
+    vtk["index", VTKCellData(), component_names = ["i", "j", "k"]] = (
       [idx.I[1] for idx in indices],
       [idx.I[2] for idx in indices],
       [idx.I[3] for idx in indices],
@@ -305,7 +305,7 @@ end
   dom = size(mesh.core.cartesian.x) .- 1
   indices = CartesianIndices(dom)
 
-  vtk["index", VTKCellData(), component_names=["i", "j", "k"]] = (
+  vtk["index", VTKCellData(), component_names = ["i", "j", "k"]] = (
     [idx.I[1] for idx in indices],
     [idx.I[2] for idx in indices],
     [idx.I[3] for idx in indices],

@@ -28,9 +28,7 @@ function CartesianOrthogonalGrid2D(
   compute_cartesian_2d_centroids!(
     centroid_coordinates, node_coordinates, iters, backend, true
   )
-  compute_cartesian_2d_volumes!(
-    cell_volumes, node_coordinates, iters, backend, true
-  )
+  compute_cartesian_2d_volumes!(cell_volumes, node_coordinates, iters, backend, true)
   compute_cartesian_2d_face_areas!(
     face_areas, node_coordinates, iters, backend, true, nhalo
   )
@@ -45,7 +43,9 @@ function CartesianOrthogonalGrid2D(
     typeof(iters),
     typeof(limits),
     typeof(face_areas),
-  }(node_coordinates, centroid_coordinates, cell_volumes, iters, limits, face_areas, nhalo)
+  }(
+    node_coordinates, centroid_coordinates, cell_volumes, iters, limits, face_areas, nhalo
+  )
 end
 
 function _populate_cartesian_2d_nodes!(storage, coords, iters)

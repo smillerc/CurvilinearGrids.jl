@@ -562,8 +562,9 @@ jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
 
 Return the forward cell metric payload at `idx` as a `Metric`.
 """
-@inline forward_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) =
-  forward_cell_metrics(mesh, idx.I)
+@inline forward_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) = forward_cell_metrics(
+  mesh, idx.I
+)
 @inline function forward_cell_metrics(
   mesh::AbstractCurvilinearGrid, idx::Tuple{Vararg{Int}}
 )
@@ -575,8 +576,9 @@ end
 
 Return the inverse cell metric payload at `idx` as a `Metric`.
 """
-@inline inverse_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) =
-  inverse_cell_metrics(mesh, idx.I)
+@inline inverse_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) = inverse_cell_metrics(
+  mesh, idx.I
+)
 @inline function inverse_cell_metrics(
   mesh::AbstractCurvilinearGrid, idx::Tuple{Vararg{Int}}
 )
