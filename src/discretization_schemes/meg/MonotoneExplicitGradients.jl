@@ -12,11 +12,16 @@ function Adapt.adapt_structure(
 
   #
   return MonotoneExplicitGradientScheme{N,Nothing,DS}(
-    nothing, scheme.nhalo, scheme.derivative_scheme, scheme.use_symmetric_conservative_metric_scheme
+    nothing,
+    scheme.nhalo,
+    scheme.derivative_scheme,
+    scheme.use_symmetric_conservative_metric_scheme,
   )
 end
 
-function Adapt.adapt_structure(to, scheme::MonotoneExplicitGradientScheme{N,C,DS}) where {N,C,DS}
+function Adapt.adapt_structure(
+  to, scheme::MonotoneExplicitGradientScheme{N,C,DS}
+) where {N,C,DS}
 
   #
   cache = (;
@@ -28,7 +33,10 @@ function Adapt.adapt_structure(to, scheme::MonotoneExplicitGradientScheme{N,C,DS
     inner_deriv_2=Adapt.adapt_structure(to, scheme.cache.inner_deriv_2),
   )
   return MonotoneExplicitGradientScheme{N,typeof(cache),DS}(
-    cache, scheme.nhalo, scheme.derivative_scheme, scheme.use_symmetric_conservative_metric_scheme
+    cache,
+    scheme.nhalo,
+    scheme.derivative_scheme,
+    scheme.use_symmetric_conservative_metric_scheme,
   )
 end
 

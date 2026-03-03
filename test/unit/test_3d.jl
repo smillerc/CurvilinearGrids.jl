@@ -14,95 +14,123 @@
 #   nothing
 # end
 
-@testset "3D Rectangular Mesh Metrics, Conserved Metrics, GCL" begin
-  x0, x1 = (0.0, 2.0)
-  y0, y1 = (1, 3)
-  z0, z1 = (-1, 2)
-  ni, nj, nk = (40, 80, 120)
+function rectilinear_nodes_3d(
+  x0, x1, y0, y1, z0, z1, ni, nj, nk; halo_coords_included=false
+)
+  Δx = (x1 - x0) / ni
+  Δy = (y1 - y0) / nj
+  Δz = (z1 - z0) / nk
 
-  mesh = RectilinearGrid3D((x0, y0, z0), (x1, y1, z1), (ni, nj, nk), :meg6)
-  domain = mesh.iterators.cell.domain
+  if halo_coords_included
+    xnodes = collect(range(x0 + Δx; step=Δx, length=ni + 1))
+    ynodes = collect(range(y0 + Δy; step=Δy, length=nj + 1))
+    znodes = collect(range(z0 + Δz; step=Δz, length=nk + 1))
+  else
+    xnodes = collect(range(x0, x1; length=ni + 1))
+    ynodes = collect(range(y0, y1; length=nj + 1))
+    znodes = collect(range(z0, z1; length=nk + 1))
+  end
 
-  cell_volume = 0.05 * 0.025 * 0.025
+  x = [xnodes[i] for i in eachindex(xnodes), j in eachindex(ynodes), k in eachindex(znodes)]
+  y = [ynodes[j] for i in eachindex(xnodes), j in eachindex(ynodes), k in eachindex(znodes)]
+  z = [znodes[k] for i in eachindex(xnodes), j in eachindex(ynodes), k in eachindex(znodes)]
+  return x, y, z, Δx, Δy, Δz
+end
 
-  @test all(mesh.cell_center_metrics.J[domain] .≈ cell_volume)
+function assert_rectilinear_metrics_3d(mesh, domain, Δx, Δy, Δz)
+  cm = cell_metrics(mesh)
+  fm = face_metrics(mesh)
 
-  @test all(mesh.cell_center_metrics.x₁.ξ[domain] .≈ 0.05)
-  @test all(mesh.cell_center_metrics.x₂.ξ[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₃.ξ[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₁.η[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₂.η[domain] .≈ 0.025)
-  @test all(mesh.cell_center_metrics.x₃.η[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₁.ζ[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₂.ζ[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.x₃.ζ[domain] .≈ 0.025)
+  J = Δx * Δy * Δz
+  ξx = inv(Δx)
+  ηy = inv(Δy)
+  ζz = inv(Δz)
+  ξ̂x = J * ξx
+  η̂y = J * ηy
+  ζ̂z = J * ζz
 
-  @test all(mesh.cell_center_metrics.ξ̂.x₁[domain] .≈ 0.000625)
-  @test all(mesh.cell_center_metrics.ξ̂.x₂[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.ξ̂.x₃[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η̂.x₁[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η̂.x₂[domain] .≈ 0.00125)
-  @test all(mesh.cell_center_metrics.η̂.x₃[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.ζ̂.x₁[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.ζ̂.x₂[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.ζ̂.x₃[domain] .≈ 0.00125)
+  @test all(cm.forward[idx].J ≈ J for idx in domain)
+  @test all(cm.forward[idx][1, 1] ≈ Δx for idx in domain)
+  @test all(cm.forward[idx][2, 2] ≈ Δy for idx in domain)
+  @test all(cm.forward[idx][3, 3] ≈ Δz for idx in domain)
+  @test all(cm.forward[idx][1, 2] ≈ 0.0 for idx in domain)
+  @test all(cm.forward[idx][1, 3] ≈ 0.0 for idx in domain)
+  @test all(cm.forward[idx][2, 1] ≈ 0.0 for idx in domain)
+  @test all(cm.forward[idx][2, 3] ≈ 0.0 for idx in domain)
+  @test all(cm.forward[idx][3, 1] ≈ 0.0 for idx in domain)
+  @test all(cm.forward[idx][3, 2] ≈ 0.0 for idx in domain)
 
-  @test all(mesh.cell_center_metrics.ξ.x₁[domain] .≈ 20.0)
-  @test all(mesh.cell_center_metrics.ξ.x₂[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.ξ.x₃[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η.x₁[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η.x₂[domain] .≈ 40.0)
-  @test all(mesh.cell_center_metrics.η.x₃[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.ζ.x₁[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.ζ.x₂[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.ζ.x₃[domain] .≈ 40.0)
-  @test all(mesh.cell_center_metrics.ξ.t[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.η.t[domain] .≈ 0.0)
-  @test all(mesh.cell_center_metrics.ζ.t[domain] .≈ 0.0)
+  @test all(cm.inverse[idx][1, 1] ≈ ξx for idx in domain)
+  @test all(cm.inverse[idx][2, 2] ≈ ηy for idx in domain)
+  @test all(cm.inverse[idx][3, 3] ≈ ζz for idx in domain)
+  @test all(cm.inverse[idx][1, 2] ≈ 0.0 for idx in domain)
+  @test all(cm.inverse[idx][1, 3] ≈ 0.0 for idx in domain)
+  @test all(cm.inverse[idx][2, 1] ≈ 0.0 for idx in domain)
+  @test all(cm.inverse[idx][2, 3] ≈ 0.0 for idx in domain)
+  @test all(cm.inverse[idx][3, 1] ≈ 0.0 for idx in domain)
+  @test all(cm.inverse[idx][3, 2] ≈ 0.0 for idx in domain)
 
   iaxis, jaxis, kaxis = (1, 2, 3)
   i₊½_domain = expand(domain, iaxis, -1)
   j₊½_domain = expand(domain, jaxis, -1)
   k₊½_domain = expand(domain, kaxis, -1)
 
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain] .≈ 0.000625)
-  @test all(mesh.edge_metrics.j₊½.ξ̂.x₁[j₊½_domain] .≈ 0.000625)
-  @test all(mesh.edge_metrics.k₊½.ξ̂.x₁[k₊½_domain] .≈ 0.000625)
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x₂[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.ξ̂.x₂[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.ξ̂.x₂[k₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x₃[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.ξ̂.x₃[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.ξ̂.x₃[k₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.x₁[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η̂.x₁[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.η̂.x₁[k₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.x₂[i₊½_domain] .≈ 0.00125)
-  @test all(mesh.edge_metrics.j₊½.η̂.x₂[j₊½_domain] .≈ 0.00125)
-  @test all(mesh.edge_metrics.k₊½.η̂.x₂[k₊½_domain] .≈ 0.00125)
-  @test all(mesh.edge_metrics.i₊½.η̂.x₃[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η̂.x₃[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.η̂.x₃[k₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.ζ̂.x₁[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.ζ̂.x₁[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.ζ̂.x₁[k₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.ζ̂.x₂[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.ζ̂.x₂[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.ζ̂.x₂[k₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.ζ̂.x₃[i₊½_domain] .≈ 0.00125)
-  @test all(mesh.edge_metrics.j₊½.ζ̂.x₃[j₊½_domain] .≈ 0.00125)
-  @test all(mesh.edge_metrics.k₊½.ζ̂.x₃[k₊½_domain] .≈ 0.00125)
-  @test all(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.ξ̂.t[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.ξ̂.t[k₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.η̂.t[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.η̂.t[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.η̂.t[k₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.i₊½.ζ̂.t[i₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.j₊½.ζ̂.t[j₊½_domain] .≈ 0.0)
-  @test all(mesh.edge_metrics.k₊½.ζ̂.t[k₊½_domain] .≈ 0.0)
+  @test all(fm[1].forward[idx].J ≈ J for idx in i₊½_domain)
+  @test all(fm[2].forward[idx].J ≈ J for idx in j₊½_domain)
+  @test all(fm[3].forward[idx].J ≈ J for idx in k₊½_domain)
+  @test all(fm[1].forward[idx][1, 1] ≈ Δx for idx in i₊½_domain)
+  @test all(fm[2].forward[idx][1, 1] ≈ Δx for idx in j₊½_domain)
+  @test all(fm[3].forward[idx][1, 1] ≈ Δx for idx in k₊½_domain)
+  @test all(fm[1].forward[idx][2, 2] ≈ Δy for idx in i₊½_domain)
+  @test all(fm[2].forward[idx][2, 2] ≈ Δy for idx in j₊½_domain)
+  @test all(fm[3].forward[idx][2, 2] ≈ Δy for idx in k₊½_domain)
+  @test all(fm[1].forward[idx][3, 3] ≈ Δz for idx in i₊½_domain)
+  @test all(fm[2].forward[idx][3, 3] ≈ Δz for idx in j₊½_domain)
+  @test all(fm[3].forward[idx][3, 3] ≈ Δz for idx in k₊½_domain)
 
-  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
+  @test all(fm[1].inverse[idx][1, 1] ≈ ξx for idx in i₊½_domain)
+  @test all(fm[2].inverse[idx][1, 1] ≈ ξx for idx in j₊½_domain)
+  @test all(fm[3].inverse[idx][1, 1] ≈ ξx for idx in k₊½_domain)
+  @test all(fm[1].inverse[idx][2, 2] ≈ ηy for idx in i₊½_domain)
+  @test all(fm[2].inverse[idx][2, 2] ≈ ηy for idx in j₊½_domain)
+  @test all(fm[3].inverse[idx][2, 2] ≈ ηy for idx in k₊½_domain)
+  @test all(fm[1].inverse[idx][3, 3] ≈ ζz for idx in i₊½_domain)
+  @test all(fm[2].inverse[idx][3, 3] ≈ ζz for idx in j₊½_domain)
+  @test all(fm[3].inverse[idx][3, 3] ≈ ζz for idx in k₊½_domain)
+
+  @test all(fm[1].conserved[idx][1, 1] ≈ ξ̂x for idx in i₊½_domain)
+  @test all(fm[2].conserved[idx][1, 1] ≈ ξ̂x for idx in j₊½_domain)
+  @test all(fm[3].conserved[idx][1, 1] ≈ ξ̂x for idx in k₊½_domain)
+  @test all(fm[1].conserved[idx][2, 2] ≈ η̂y for idx in i₊½_domain)
+  @test all(fm[2].conserved[idx][2, 2] ≈ η̂y for idx in j₊½_domain)
+  @test all(fm[3].conserved[idx][2, 2] ≈ η̂y for idx in k₊½_domain)
+  @test all(fm[1].conserved[idx][3, 3] ≈ ζ̂z for idx in i₊½_domain)
+  @test all(fm[2].conserved[idx][3, 3] ≈ ζ̂z for idx in j₊½_domain)
+  @test all(fm[3].conserved[idx][3, 3] ≈ ζ̂z for idx in k₊½_domain)
+end
+
+@testset "3D Rectangular Mesh Metrics, Conserved Metrics, GCL" begin
+  x0, x1 = (0.0, 2.0)
+  y0, y1 = (1, 3)
+  z0, z1 = (-1, 2)
+  ni, nj, nk = (40, 80, 120)
+
+  x, y, z, Δx, Δy, Δz = rectilinear_nodes_3d(x0, x1, y0, y1, z0, z1, ni, nj, nk)
+  mesh = DiscreteGrid(x, y, z, 5)
+  domain = mesh.iterators.cell.domain
+
+  assert_rectilinear_metrics_3d(mesh, domain, Δx, Δy, Δz)
+
+  I₁, I₂, I₃ = CurvilinearGrids.GridTypes.gcl(
+    face_metrics(mesh), mesh.iterators.cell.domain
+  )
+  domain = mesh.iterators.cell.domain
+  gcl_identities = (
+    all(abs.(I₁[domain]) .< eps()),
+    all(abs.(I₂[domain]) .< eps()),
+    all(abs.(I₃[domain]) .< eps()),
+  )
+  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]), maximum(abs, I₃[domain]))
   @test all(gcl_identities)
 end
 
@@ -137,19 +165,22 @@ end
     return (x, y, z)
   end
 
-  ξ = 1
-  η = 2
-  ζ = 3
-
   ni = nj = nk = 20
   x, y, z = wavy_grid(ni, nj, nk)
-  mesh = CurvilinearGrid3D(x, y, z, :meg6)
+  mesh = DiscreteGrid(x, y, z, 5)
 
-  surf = extract_surface_mesh(mesh, :khi)
-  save_vtk(mesh, "wavy3d")
-  save_vtk(surf, "khi_surf")
+  save_vtk(coords(mesh), "wavy3d")
 
-  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, 5e-13)
+  I₁, I₂, I₃ = CurvilinearGrids.GridTypes.gcl(
+    face_metrics(mesh), mesh.iterators.cell.domain
+  )
+  domain = mesh.iterators.cell.domain
+  gcl_identities = (
+    all(abs.(I₁[domain]) .< 5e-13),
+    all(abs.(I₂[domain]) .< 5e-13),
+    all(abs.(I₃[domain]) .< 5e-13),
+  )
+  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]), maximum(abs, I₃[domain]))
   @test all(gcl_identities)
 end
 
@@ -186,9 +217,18 @@ end
 
   ni = nj = nk = 20
   x, y, z = wavy_grid(ni, nj, nk)
-  mesh = CurvilinearGrid3D(x, y, z, :meg6; halo_coords_included=true)
+  mesh = DiscreteGrid(x, y, z, 5; halo_coords_included=true)
 
-  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
+  I₁, I₂, I₃ = CurvilinearGrids.GridTypes.gcl(
+    face_metrics(mesh), mesh.iterators.cell.domain
+  )
+  domain = mesh.iterators.cell.domain
+  gcl_identities = (
+    all(abs.(I₁[domain]) .< eps()),
+    all(abs.(I₂[domain]) .< eps()),
+    all(abs.(I₃[domain]) .< eps()),
+  )
+  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]), maximum(abs, I₃[domain]))
   @test all(gcl_identities)
 end
 
@@ -198,15 +238,31 @@ end
   (ϕ0, ϕ1) = deg2rad.((45, 360 - 45))
 
   ni, nj, nk = (20, 20, 20)
-  mesh = rthetaphi_grid((r0, θ0, ϕ0), (r1, θ1, ϕ1), (ni, nj, nk), :meg6_symmetric)
-  # mesh = rthetaphi_grid((r0, θ0, ϕ0), (r1, θ1, ϕ1), (ni, nj, nk), :meg6)
-  save_vtk(mesh, "sphere_sector_3d")
+  params = (; r0, θ0, ϕ0, Δr=(r1 - r0) / ni, Δθ=(θ1 - θ0) / nj, Δϕ=(ϕ1 - ϕ0) / nk)
+
+  x(t, ξ, η, ζ, p) =
+    (p.r0 + (ξ - 1) * p.Δr) * sin(p.θ0 + (η - 1) * p.Δθ) * cos(p.ϕ0 + (ζ - 1) * p.Δϕ)
+  y(t, ξ, η, ζ, p) =
+    (p.r0 + (ξ - 1) * p.Δr) * sin(p.θ0 + (η - 1) * p.Δθ) * sin(p.ϕ0 + (ζ - 1) * p.Δϕ)
+  z(t, ξ, η, ζ, p) = (p.r0 + (ξ - 1) * p.Δr) * cos(p.θ0 + (η - 1) * p.Δθ)
+
+  mesh = MappedGrid(x, y, z, params, (ni, nj, nk), 5)
+  save_vtk(coords(mesh), "sphere_sector_3d")
 
   I₁_passes = true
   I₂_passes = true
   I₃_passes = true
 
-  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, 5e-13)
+  I₁, I₂, I₃ = CurvilinearGrids.GridTypes.gcl(
+    face_metrics(mesh), mesh.iterators.cell.domain
+  )
+  domain = mesh.iterators.cell.domain
+  gcl_identities = (
+    all(abs.(I₁[domain]) .< 5e-13),
+    all(abs.(I₂[domain]) .< 5e-13),
+    all(abs.(I₃[domain]) .< 5e-13),
+  )
+  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]), maximum(abs, I₃[domain]))
   # @show gcl_identities, max_vals
   @test all(gcl_identities)
 

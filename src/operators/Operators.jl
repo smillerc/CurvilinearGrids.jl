@@ -18,28 +18,19 @@ include("gradient.jl")
 # Geometry helpers
 # --------------------------------------------------------------------
 
-@inline cell_volume(mesh::SphericalGrid3D, I::CartesianIndex{3}) =
-  @inbounds mesh.cell_volumes[I]
+@inline cell_volume(mesh::OrthogonalGrid{3,T,SphericalCS}, I::CartesianIndex{3}) where {T} = @inbounds mesh.cell_volumes[I]
 
-@inline function face_area_p(mesh::SphericalGrid3D, I::CartesianIndex{3}, axis::Int)
-  @inbounds if axis == 1
-    return mesh.face_areas.i₊½[I]
-  elseif axis == 2
-    return mesh.face_areas.j₊½[I]
-  else
-    return mesh.face_areas.k₊½[I]
-  end
+@inline function face_area_p(
+  mesh::OrthogonalGrid{3,T,SphericalCS}, I::CartesianIndex{3}, axis::Int
+) where {T}
+  @inbounds return mesh.face_areas[axis][I]
 end
 
-@inline function face_area_m(mesh::SphericalGrid3D, I::CartesianIndex{3}, axis::Int)
+@inline function face_area_m(
+  mesh::OrthogonalGrid{3,T,SphericalCS}, I::CartesianIndex{3}, axis::Int
+) where {T}
   I₋ = CartesianDomains.shift(I, axis, -1)
-  @inbounds if axis == 1
-    return mesh.face_areas.i₊½[I₋]  # i-1/2
-  elseif axis == 2
-    return mesh.face_areas.j₊½[I₋]  # j-1/2
-  else
-    return mesh.face_areas.k₊½[I₋]  # k-1/2
-  end
+  @inbounds return mesh.face_areas[axis][I₋]  # d-1/2
 end
 
 @inline function face_val(A, I₁::CartesianIndex{3}, I₂::CartesianIndex{3})
@@ -47,7 +38,9 @@ end
 end
 
 # Effective physical spacing at edge between I and I+ê_axis
-@inline function Δx_eff_edge(mesh::SphericalGrid3D, I::CartesianIndex{3}, axis::Int)
+@inline function Δx_eff_edge(
+  mesh::OrthogonalGrid{3,T,SphericalCS}, I::CartesianIndex{3}, axis::Int
+) where {T}
   I₊ = CartesianDomains.shift(I, axis, +1)
   V_L = cell_volume(mesh, I)
   V_R = cell_volume(mesh, I₊)
@@ -55,14 +48,18 @@ end
   return (V_L + V_R) / A_n
 end
 
-function edge_on_lo_boundary(mesh::SphericalGrid3D, cell_idx::CartesianIndex{3}, axis::Int)
+function edge_on_lo_boundary(
+  mesh::OrthogonalGrid{3,T,SphericalCS}, cell_idx::CartesianIndex{3}, axis::Int
+) where {T}
   # since we're using cell indexing, the i+1/2 edge on the lo boundary needs the -1
   lo = first(mesh.iterators.cell.domain.indices[axis]) - 1
   on_bc = cell_idx.I[axis] == lo
   return on_bc
 end
 
-function edge_on_hi_boundary(mesh::SphericalGrid3D, cell_idx::CartesianIndex{3}, axis::Int)
+function edge_on_hi_boundary(
+  mesh::OrthogonalGrid{3,T,SphericalCS}, cell_idx::CartesianIndex{3}, axis::Int
+) where {T}
   hi = mesh.iterators.cell.domain.indices[axis] |> last
   on_bc = cell_idx.I[axis] == hi
   return on_bc

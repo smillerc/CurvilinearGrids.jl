@@ -1,5 +1,4 @@
-
-@testset "Uniform ContinuousCurvilinearGrid1D" begin
+@testset "Uniform MappedGrid1D" begin
   function get_uniform_mapping()
     function x(t, i, p)
       @unpack xmin, Δx = p
@@ -14,7 +13,6 @@
     xmin, xmax = (0.0, 2.0)
 
     ni, = celldims
-
     Δx = (xmax - xmin) / ni
 
     params = (; xmin, Δx)
@@ -25,23 +23,23 @@
   x = get_uniform_mapping()
 
   backend = AutoForwardDiff()
-  mesh = ContinuousCurvilinearGrid1D(x, params, celldims, :meg6, CPU(), backend)
+  mesh = MappedGrid(x, params, celldims, 5; backend=CPU(), diff_backend=backend)
 
-  I1 = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, mesh.iterators.cell.domain)
+  I1 = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), mesh.iterators.cell.domain)
   @test all(abs.(extrema(I1)) .< eps())
 
+  cm = cell_metrics(mesh)
   cell_volume = 0.05
 
-  @test all(mesh.cell_center_metrics.J .≈ cell_volume)
-  @test all(mesh.cell_center_metrics.x₁.ξ .≈ 0.05)
-  @test all(mesh.cell_center_metrics.ξ̂.x₁ .≈ 1.0)
-  @test all(mesh.cell_center_metrics.ξ.x₁ .≈ 20.0)
-  @test all(mesh.cell_center_metrics.ξ.t .≈ 0.0)
+  @test all([m.J for m in cm.forward] .≈ cell_volume)
+  @test all([m[1, 1] for m in cm.forward] .≈ 0.05)
+  @test all([m[1, 1] for m in cm.inverse] .≈ 20.0)
+  @test all([m[1, 1] * m.J for m in cm.inverse] .≈ 1.0)
 
-  iaxis, jaxis, kaxis = (1, 2, 3)
+  iaxis = 1
   domain = mesh.iterators.cell.domain
   i₊½_domain = expand(domain, iaxis, -1)
+  fm = face_metrics(mesh)
 
-  @test all(mesh.edge_metrics.i₊½.ξ̂.x₁[i₊½_domain] .≈ 1.0)
-  @test all(mesh.edge_metrics.i₊½.ξ̂.t[i₊½_domain] .≈ 0.0)
+  @test all([m[1, 1] for m in fm[1].conserved[i₊½_domain]] .≈ 1.0)
 end

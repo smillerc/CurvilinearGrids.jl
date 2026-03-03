@@ -16,10 +16,13 @@ using ..DiscretizationSchemes
 using ..MetricDiscretizationSchemes
 using ..RectilinearArrays
 
+include("traits.jl")
+
 export AbstractCurvilinearGrid
 export AbstractCurvilinearGrid1D
 export AbstractCurvilinearGrid2D
 export AbstractCurvilinearGrid3D
+export AbstractOrthogonalGrid
 export CurvilinearGrid1D, CurvilinearGrid2D, CurvilinearGrid3D
 export RectilinearGrid2D, RectilinearGrid3D
 export UniformGrid1D, UniformGrid2D, UniformGrid3D
@@ -27,10 +30,29 @@ export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 
 export SphericalGrid3D, SphericalBasisCurvilinearGrid3D
-export CartesianOrthogonalGrid1D, CylindricalOrthogonalGrid1D, SphericalOrthogonalGrid1D
+export CartesianOrthogonalGrid1D,
+  CartesianOrthogonalGrid2D,
+  CartesianOrthogonalGrid3D,
+  CylindricalOrthogonalGrid1D,
+  SphericalOrthogonalGrid1D
 export AxisymmetricOrthogonalGrid2D
 
-export ContinuousCurvilinearGrid1D, ContinuousCurvilinearGrid2D, ContinuousCurvilinearGrid3D
+export AbstractUnifiedGrid
+export MappedGrid, DiscreteGrid, OrthogonalGrid
+export Metric, ConservedMetric
+
+export CoordinateSystemTrait
+export CartesianCS, CylindricalCS, SphericalCS, AxisymmetricCS, CurvilinearCS
+
+export BasisTrait
+export CartesianBasis, SphericalBasis
+export EdgeInterpolationSchemeTrait
+export EdgeInterpolationOrder1, EdgeInterpolationOrder2, EdgeInterpolationOrder3
+
+export coordinate_system, basis_trait
+export cell_metrics, face_metrics
+export invalidate_cell_metrics!, invalidate_face_metrics!
+export refresh_cell_metrics!, refresh_face_metrics!
 
 export rectilinear_grid,
   rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid
@@ -38,12 +60,15 @@ export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
 
 export update!
 
-export coord, coords, coords!, cellsize, cellsize_withhalo
+export coord, coords, cartesian_coordinates, coords!, cellsize, cellsize_withhalo
 export centroid, centroids, cartesian_centroid
 export cellvolume, cellvolumes
+export face_area, outward_face_normal
+export cell_jacobian, face_metric_coefficient
 export radius, centroid_radius, centroid_radii
 export jacobian_matrix
 export forward_cell_metrics, inverse_cell_metrics
+export InverseCoordinateResult, computational_coordinate
 export gcl
 
 abstract type AbstractCurvilinearGrid end
@@ -97,7 +122,7 @@ include("curvilinear_mapped_grids/3d_spherical_basis.jl")
 include("orthogonal_grids/orthogonal.jl")
 
 include("simple_constructors/simple_constructors.jl")
-include("continuous_grids/continous_grids.jl")
+include("unified_grids/unified_grids.jl")
 # include("metric_cache.jl")
 # include("continous_grids.jl")
 
@@ -129,12 +154,7 @@ end
 Base.eltype(mesh::AbstractCurvilinearGrid1D) = eltype(mesh.node_coordinates.x)
 Base.eltype(mesh::AbstractCurvilinearGrid2D) = eltype(mesh.node_coordinates.x)
 Base.eltype(mesh::AbstractCurvilinearGrid3D) = eltype(mesh.node_coordinates.x)
-Base.eltype(mesh::SphericalGrid3D) = eltype(mesh.node_coordinates.r)
-
-Base.eltype(mesh::CartesianOrthogonalGrid1D) = eltype(mesh.node_coordinates.x)
-Base.eltype(mesh::CylindricalOrthogonalGrid1D) = eltype(mesh.node_coordinates.r)
-Base.eltype(mesh::SphericalOrthogonalGrid1D) = eltype(mesh.node_coordinates.r)
-Base.eltype(mesh::AxisymmetricOrthogonalGrid2D) = eltype(mesh.node_coordinates.r)
+Base.eltype(mesh::OrthogonalGrid) = eltype(mesh.node_coordinates[1])
 
 function Base.eltype(mesh::SphericalBasisCurvilinearGrid3D)
   eltype(mesh.cartesian_node_coordinates.x)
@@ -187,30 +207,22 @@ end
   )
 end
 
-@inline function coords(mesh::CartesianOrthogonalGrid1D)
-  return @views mesh.node_coordinates.x[mesh.iterators.node.domain]
+@inline function coords(mesh::OrthogonalGrid{1})
+  return @views mesh.node_coordinates[1][mesh.iterators.node.domain.indices[1]]
 end
 
-@inline function coords(mesh::CylindricalOrthogonalGrid1D)
-  return @views mesh.node_coordinates.r[mesh.iterators.node.domain]
-end
-
-@inline function coords(mesh::SphericalOrthogonalGrid1D)
-  return @views mesh.node_coordinates.r[mesh.iterators.node.domain]
-end
-
-@inline function coords(mesh::AxisymmetricOrthogonalGrid2D)
+@inline function coords(mesh::OrthogonalGrid{2})
   return @views (
-    mesh.node_coordinates.r[mesh.iterators.node.domain.indices[1]],
-    mesh.node_coordinates.z[mesh.iterators.node.domain.indices[2]],
+    mesh.node_coordinates[1][mesh.iterators.node.domain.indices[1]],
+    mesh.node_coordinates[2][mesh.iterators.node.domain.indices[2]],
   )
 end
 
-@inline function coords(mesh::SphericalGrid3D)
+@inline function coords(mesh::OrthogonalGrid{3})
   return @views (
-    mesh.node_coordinates.r[mesh.iterators.node.domain.indices[1]],
-    mesh.node_coordinates.θ[mesh.iterators.node.domain.indices[2]],
-    mesh.node_coordinates.ϕ[mesh.iterators.node.domain.indices[3]],
+    mesh.node_coordinates[1][mesh.iterators.node.domain.indices[1]],
+    mesh.node_coordinates[2][mesh.iterators.node.domain.indices[2]],
+    mesh.node_coordinates[3][mesh.iterators.node.domain.indices[3]],
   )
 end
 
@@ -247,30 +259,22 @@ end
   )
 end
 
-@inline function centroids(mesh::CartesianOrthogonalGrid1D)
-  return @views mesh.centroid_coordinates.x[mesh.iterators.cell.domain]
+@inline function centroids(mesh::OrthogonalGrid{1})
+  return @views mesh.centroid_coordinates[1][mesh.iterators.cell.domain.indices[1]]
 end
 
-@inline function centroids(mesh::CylindricalOrthogonalGrid1D)
-  return @views mesh.centroid_coordinates.r[mesh.iterators.cell.domain]
-end
-
-@inline function centroids(mesh::SphericalOrthogonalGrid1D)
-  return @views mesh.centroid_coordinates.r[mesh.iterators.cell.domain]
-end
-
-@inline function centroids(mesh::AxisymmetricOrthogonalGrid2D)
+@inline function centroids(mesh::OrthogonalGrid{2})
   return @views (
-    mesh.centroid_coordinates.r[mesh.iterators.cell.domain.indices[1]],
-    mesh.centroid_coordinates.z[mesh.iterators.cell.domain.indices[2]],
+    mesh.centroid_coordinates[1][mesh.iterators.cell.domain.indices[1]],
+    mesh.centroid_coordinates[2][mesh.iterators.cell.domain.indices[2]],
   )
 end
 
-@inline function centroids(mesh::SphericalGrid3D)
+@inline function centroids(mesh::OrthogonalGrid{3})
   return @views (
-    mesh.centroid_coordinates.r[mesh.iterators.cell.domain.indices[1]],
-    mesh.centroid_coordinates.θ[mesh.iterators.cell.domain.indices[2]],
-    mesh.centroid_coordinates.ϕ[mesh.iterators.cell.domain.indices[3]],
+    mesh.centroid_coordinates[1][mesh.iterators.cell.domain.indices[1]],
+    mesh.centroid_coordinates[2][mesh.iterators.cell.domain.indices[2]],
+    mesh.centroid_coordinates[3][mesh.iterators.cell.domain.indices[3]],
   )
 end
 
@@ -315,20 +319,18 @@ end
   ]
 end
 
-function coord(mesh::CartesianOrthogonalGrid1D, (i,)::NTuple{1,Int})
-  @SVector [mesh.node_coordinates.x[i]]
+@inline function coord(mesh::OrthogonalGrid{1}, (i,)::NTuple{1,Int})
+  @SVector [mesh.node_coordinates[1][i]]
 end
 
-function coord(mesh::CylindricalOrthogonalGrid1D, (i,)::NTuple{1,Int})
-  @SVector [mesh.node_coordinates.r[i]]
+@inline function coord(mesh::OrthogonalGrid{2}, (i, j)::NTuple{2,Int})
+  @SVector [mesh.node_coordinates[1][i], mesh.node_coordinates[2][j]]
 end
 
-function coord(mesh::SphericalOrthogonalGrid1D, (i,)::NTuple{1,Int})
-  @SVector [mesh.node_coordinates.r[i]]
-end
-
-function coord(mesh::AxisymmetricOrthogonalGrid2D, (i, j)::NTuple{2,Int})
-  @SVector [mesh.node_coordinates.r[i], mesh.node_coordinates.z[j]]
+@inline function coord(mesh::OrthogonalGrid{3}, (i, j, k)::NTuple{3,Int})
+  @SVector [
+    mesh.node_coordinates[1][i], mesh.node_coordinates[2][j], mesh.node_coordinates[3][k]
+  ]
 end
 
 """
@@ -410,6 +412,10 @@ function cellvolume(mesh, ijk::NTuple{N,Int}) where {N}
   return mesh.cell_center_metrics.J[ijk...]
 end
 
+function cellvolume(mesh::OrthogonalGrid{N}, ijk::NTuple{N,Int}) where {N}
+  return mesh.cell_volumes[ijk...]
+end
+
 """
     cellvolume(mesh::CylindricalGrid1D, (i,)::NTuple{1,Int})
 
@@ -441,58 +447,6 @@ function cellvolume(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2,Int})
   r = centroid_radius(mesh, (i, j))
   J = mesh.cell_center_metrics.J[i, j]
   return r * J * 2π
-end
-
-"""
-    cellvolume(mesh::CartesianOrthogonalGrid1D, (i,)::NTuple{1,Int})
-
-Get the volume of the cell at a given index for an orthogonal Cartesian line grid.
-"""
-function cellvolume(mesh::CartesianOrthogonalGrid1D, (i,)::NTuple{1,Int})
-  return mesh.cell_volumes[i]
-end
-
-function cellvolume(mesh::CartesianOrthogonalGrid1D, CI::CartesianIndex{1})
-  return mesh.cell_volumes[CI]
-end
-
-"""
-    cellvolume(mesh::CylindricalOrthogonalGrid1D, (i,)::NTuple{1,Int})
-
-Get the true cylindrical cell volume assuming unit height.
-"""
-function cellvolume(mesh::CylindricalOrthogonalGrid1D, (i,)::NTuple{1,Int})
-  return mesh.cell_volumes[i]
-end
-
-function cellvolume(mesh::CylindricalOrthogonalGrid1D, CI::CartesianIndex{1})
-  return mesh.cell_volumes[CI]
-end
-
-"""
-    cellvolume(mesh::SphericalOrthogonalGrid1D, (i,)::NTuple{1,Int})
-
-Get the true spherical shell volume.
-"""
-function cellvolume(mesh::SphericalOrthogonalGrid1D, (i,)::NTuple{1,Int})
-  return mesh.cell_volumes[i]
-end
-
-function cellvolume(mesh::SphericalOrthogonalGrid1D, CI::CartesianIndex{1})
-  return mesh.cell_volumes[CI]
-end
-
-"""
-    cellvolume(mesh::AxisymmetricOrthogonalGrid2D, (i, j)::NTuple{2,Int})
-
-Get the axisymmetric (RZ) rotated cell volume.
-"""
-function cellvolume(mesh::AxisymmetricOrthogonalGrid2D, (i, j)::NTuple{2,Int})
-  return mesh.cell_volumes[i, j]
-end
-
-function cellvolume(mesh::AxisymmetricOrthogonalGrid2D, CI::CartesianIndex{2})
-  return mesh.cell_volumes[CI]
 end
 
 """
@@ -549,11 +503,19 @@ end
   ]
 end
 
-@inline function centroid(mesh::SphericalGrid3D, (i, j, k)::NTuple{3,Int})
+@inline function centroid(mesh::OrthogonalGrid{1}, (i,)::NTuple{1,Int})
+  @SVector [mesh.centroid_coordinates[1][i]]
+end
+
+@inline function centroid(mesh::OrthogonalGrid{2}, (i, j)::NTuple{2,Int})
+  @SVector [mesh.centroid_coordinates[1][i], mesh.centroid_coordinates[2][j]]
+end
+
+@inline function centroid(mesh::OrthogonalGrid{3}, (i, j, k)::NTuple{3,Int})
   @SVector [
-    mesh.centroid_coordinates.r[i],
-    mesh.centroid_coordinates.θ[j],
-    mesh.centroid_coordinates.ϕ[k],
+    mesh.centroid_coordinates[1][i],
+    mesh.centroid_coordinates[2][j],
+    mesh.centroid_coordinates[3][k],
   ]
 end
 
@@ -565,10 +527,12 @@ end
   ]
 end
 
-@inline function cartesian_centroid(mesh::SphericalGrid3D, (i, j, k)::NTuple{3,Int})
-  r = mesh.centroid_coordinates.r[i]
-  θ = mesh.centroid_coordinates.θ[j]
-  ϕ = mesh.centroid_coordinates.ϕ[k]
+@inline function cartesian_centroid(
+  mesh::OrthogonalGrid{3,T,SphericalCS}, (i, j, k)::NTuple{3,Int}
+) where {T}
+  r = mesh.centroid_coordinates[1][i]
+  θ = mesh.centroid_coordinates[2][j]
+  ϕ = mesh.centroid_coordinates[3][k]
 
   @SVector [r * sin(θ) * cos(ϕ), r * sin(θ) * sin(ϕ), r * cos(θ)]
 end
@@ -583,22 +547,6 @@ end
   @SVector [r * sin(θ) * cos(ϕ), r * sin(θ) * sin(ϕ), r * cos(θ)]
 end
 
-@inline function centroid(mesh::CartesianOrthogonalGrid1D, (i,)::NTuple{1,Int})
-  @SVector [mesh.centroid_coordinates.x[i]]
-end
-
-@inline function centroid(mesh::CylindricalOrthogonalGrid1D, (i,)::NTuple{1,Int})
-  @SVector [mesh.centroid_coordinates.r[i]]
-end
-
-@inline function centroid(mesh::SphericalOrthogonalGrid1D, (i,)::NTuple{1,Int})
-  @SVector [mesh.centroid_coordinates.r[i]]
-end
-
-@inline function centroid(mesh::AxisymmetricOrthogonalGrid2D, (i, j)::NTuple{2,Int})
-  @SVector [mesh.centroid_coordinates.r[i], mesh.centroid_coordinates.z[j]]
-end
-
 """
     jacobian_matrix(mesh, CI::CartesianIndex)
 
@@ -608,6 +556,34 @@ metrics this way will not be conservative, e.g. observe the geometric
 conservation law.
 """
 jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
+
+"""
+    forward_cell_metrics(mesh, idx)
+
+Return the forward cell metric payload at `idx` as a `Metric`.
+"""
+@inline forward_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) = forward_cell_metrics(
+  mesh, idx.I
+)
+@inline function forward_cell_metrics(
+  mesh::AbstractCurvilinearGrid, idx::Tuple{Vararg{Int}}
+)
+  Metric(jacobian_matrix(mesh, idx))
+end
+
+"""
+    inverse_cell_metrics(mesh, idx)
+
+Return the inverse cell metric payload at `idx` as a `Metric`.
+"""
+@inline inverse_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) = inverse_cell_metrics(
+  mesh, idx.I
+)
+@inline function inverse_cell_metrics(
+  mesh::AbstractCurvilinearGrid, idx::Tuple{Vararg{Int}}
+)
+  inv(forward_cell_metrics(mesh, idx))
+end
 
 function get_gradient_discretization_scheme(discretization_scheme_name)
   scheme_name = Symbol(uppercase("$discretization_scheme_name"))

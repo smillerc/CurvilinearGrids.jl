@@ -11,7 +11,10 @@
 
   domain = mesh.iterators.cell.domain
 
-  gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps())
+  domain = mesh.iterators.cell.domain
+  I₁, I₂ = CurvilinearGrids.GridTypes.gcl(mesh.edge_metrics, domain)
+  gcl_identities = (all(abs.(I₁[domain]) .< eps()), all(abs.(I₂[domain]) .< eps()))
+  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]))
   @test all(gcl_identities)
 
   @test centroid_radius(mesh, domain[1, 1]) == 0.2

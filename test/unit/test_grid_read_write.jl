@@ -1,6 +1,9 @@
 using Unitful
 
-function initialize_mesh_Curvilinear1D()
+mapped2d_x(t, ξ, η, p) = ξ + p.αx * sin(η / p.Lη)
+mapped2d_y(t, ξ, η, p) = η + p.αy * cos(ξ / p.Lξ)
+
+function initialize_mesh_Discrete1D()
   x0 = 0.0u"m"
   x1 = 1.0u"m"
 
@@ -8,10 +11,10 @@ function initialize_mesh_Curvilinear1D()
 
   x = LinRange(ustrip.(u"cm", x0), ustrip.(u"cm", x1), Nx)
 
-  return CurvilinearGrid1D(x, :meg6)
+  return DiscreteGrid(x, 5; compute_metrics=false, cache_mode=:off)
 end
 
-function initialize_mesh_Curvilinear2D()
+function initialize_mesh_Discrete2D()
   x0 = 0.0u"m"
   x1 = 1.0u"m"
   y0 = 0.0u"m"
@@ -23,10 +26,13 @@ function initialize_mesh_Curvilinear2D()
   x = LinRange(ustrip.(u"cm", x0), ustrip.(u"cm", x1), Nx)
   y = LinRange(ustrip.(u"cm", y0), ustrip.(u"cm", y1), Ny)
 
-  return CurvilinearGrid2D(x, y, :meg6)
+  x2d = [x[i] for i in eachindex(x), j in eachindex(y)]
+  y2d = [y[j] for i in eachindex(x), j in eachindex(y)]
+
+  return DiscreteGrid(x2d, y2d, 5; compute_metrics=false, cache_mode=:off)
 end
 
-function initialize_mesh_Curvilinear3D()
+function initialize_mesh_Discrete3D()
   x0 = 0.0u"m"
   x1 = 1.0u"m"
   y0 = 0.0u"m"
@@ -37,102 +43,37 @@ function initialize_mesh_Curvilinear3D()
   Nx = 50
   Ny = 50
   Nz = 50
-  ∂x = 100 / 51
 
   x = LinRange(ustrip.(u"cm", x0), ustrip.(u"cm", x1), Nx)
   y = LinRange(ustrip.(u"cm", y0), ustrip.(u"cm", y1), Ny)
   z = LinRange(ustrip.(u"cm", z0), ustrip.(u"cm", z1), Nz)
 
-  snap_to_axis = true
-  rotational_axis = :y
+  x3d = [x[i] for i in eachindex(x), j in eachindex(y), k in eachindex(z)]
+  y3d = [y[j] for i in eachindex(x), j in eachindex(y), k in eachindex(z)]
+  z3d = [z[k] for i in eachindex(x), j in eachindex(y), k in eachindex(z)]
 
-  #=
-  return UniformGrid3D(
-    (ustrip.(u"cm", x0), ustrip.(u"cm", y0), ustrip.(u"cm", z0)),
-    (ustrip.(u"cm", x1), ustrip.(u"cm", y1), ustrip.(u"cm", z1)),
-    ∂x,
-    :meg6,
-  )
-    =#
-  return CurvilinearGrid3D(x, y, z, :meg6)
+  return DiscreteGrid(x3d, y3d, z3d, 5; compute_metrics=false, cache_mode=:off)
   #return SphericalGrid1D(x, :meg6, snap_to_axis)
 end
 
 function initialize_mesh_Uniform1D()
-  x0 = 0.0u"m"
-  x1 = 1.0u"m"
-
-  Nx = 50
-
-  return UniformGrid1D((ustrip.(u"cm", x0), ustrip.(u"cm", x1)), Nx, :meg6)
+  return initialize_mesh_Discrete1D()
 end
 
 function initialize_mesh_Uniform2D()
-  x0 = 0.0u"m"
-  x1 = 1.0u"m"
-  y0 = 0.0u"m"
-  y1 = 0.5u"m"
-
-  ∂x = 100 / 51
-
-  return UniformGrid2D(
-    (ustrip.(u"cm", x0), ustrip.(u"cm", y0)),
-    (ustrip.(u"cm", x1), ustrip.(u"cm", y1)),
-    ∂x,
-    :meg6,
-  )
+  return initialize_mesh_Discrete2D()
 end
 
 function initialize_mesh_Uniform3D()
-  x0 = 0.0u"m"
-  x1 = 1.0u"m"
-  y0 = 0.0u"m"
-  y1 = 0.5u"m"
-  z0 = 0.0u"m"
-  z1 = 2.0u"m"
-
-  ∂x = 100 / 51
-
-  return UniformGrid3D(
-    (ustrip.(u"cm", x0), ustrip.(u"cm", y0), ustrip.(u"cm", z0)),
-    (ustrip.(u"cm", x1), ustrip.(u"cm", y1), ustrip.(u"cm", z1)),
-    ∂x,
-    :meg6,
-  )
+  return initialize_mesh_Discrete3D()
 end
 
 function initialize_mesh_Rectilinear2D()
-  x0 = 0.0u"m"
-  x1 = 1.0u"m"
-  y0 = 0.0u"m"
-  y1 = 0.5u"m"
-
-  Nx = 50
-  Ny = 50
-
-  x = LinRange(ustrip.(u"cm", x0), ustrip.(u"cm", x1), Nx)
-  y = LinRange(ustrip.(u"cm", y0), ustrip.(u"cm", y1), Ny)
-
-  return RectilinearGrid2D(x, y, :meg6)
+  return initialize_mesh_Discrete2D()
 end
 
 function initialize_mesh_Rectilinear3D()
-  x0 = 0.0u"m"
-  x1 = 1.0u"m"
-  y0 = 0.0u"m"
-  y1 = 0.5u"m"
-  z0 = 0.0u"m"
-  z1 = 2.0u"m"
-
-  Nx = 50
-  Ny = 50
-  Nz = 50
-
-  x = LinRange(ustrip.(u"cm", x0), ustrip.(u"cm", x1), Nx)
-  y = LinRange(ustrip.(u"cm", y0), ustrip.(u"cm", y1), Ny)
-  z = LinRange(ustrip.(u"cm", z0), ustrip.(u"cm", z1), Nz)
-
-  return RectilinearGrid3D(x, y, z, :meg6)
+  return initialize_mesh_Discrete3D()
 end
 
 function initialize_mesh_Cylindrical1D()
@@ -180,6 +121,21 @@ function initialize_mesh_Spherical1D()
   return SphericalGrid1D(x, :meg6, snap_to_axis)
 end
 
+function initialize_mesh_Mapped2D()
+  params = (; αx=0.1, αy=0.15, Lξ=20.0, Lη=16.0)
+  return MappedGrid(
+    mapped2d_x,
+    mapped2d_y,
+    params,
+    (20, 16),
+    5;
+    compute_metrics=false,
+    cache_mode=:off,
+    coordinate_system=CurvilinearCS(),
+    basis=CartesianBasis(),
+  )
+end
+
 function test_write(mesh)
   grid_fn = "$(@__DIR__)/grid.h5"
   units = u"cm"
@@ -187,29 +143,29 @@ function test_write(mesh)
   write_coordinates(mesh, grid_fn, units)
 end
 
-function test_read()
+function test_read(; kwargs...)
   grid_fn = "$(@__DIR__)/grid.h5"
 
-  mesh = read_coordinates(grid_fn)
+  mesh = read_coordinates(grid_fn; kwargs...)
 
-  rm(grid_fn)
+  rm(grid_fn; force=true)
 
   return mesh
 end
 
-@testset "Read/Write CurvilinearGrid to .h5" begin
-  mesh1D_0 = initialize_mesh_Curvilinear1D()
-  mesh2D_0 = initialize_mesh_Curvilinear2D()
-  mesh3D_0 = initialize_mesh_Curvilinear3D()
+@testset "Read/Write DiscreteGrid to .h5" begin
+  mesh1D_0 = initialize_mesh_Discrete1D()
+  mesh2D_0 = initialize_mesh_Discrete2D()
+  mesh3D_0 = initialize_mesh_Discrete3D()
 
   test_write(mesh1D_0)
-  mesh1D = test_read()
+  mesh1D = test_read(; compute_metrics=false, cache_mode=:off)
 
   test_write(mesh2D_0)
-  mesh2D = test_read()
+  mesh2D = test_read(; compute_metrics=false, cache_mode=:off)
 
   test_write(mesh3D_0)
-  mesh3D = test_read()
+  mesh3D = test_read(; compute_metrics=false, cache_mode=:off)
 
   x1_0 = coords(mesh1D_0)
   x1 = coords(mesh1D)
@@ -322,4 +278,21 @@ end
   x1 = coords(mesh1D)
 
   @test x1_0 == x1
+end
+
+@testset "Read/Write MappedGrid to .h5" begin
+  mesh2D_0 = initialize_mesh_Mapped2D()
+
+  test_write(mesh2D_0)
+  mesh2D = test_read(; compute_metrics=false, cache_mode=:off)
+
+  x2_0, y2_0 = coords(mesh2D_0)
+  x2, y2 = coords(mesh2D)
+  @test x2_0 == x2
+  @test y2_0 == y2
+
+  ξη = (7.25, 5.5)
+  @test coord(mesh2D_0, ξη) ≈ coord(mesh2D, ξη)
+  @test typeof(coordinate_system(mesh2D)) == typeof(coordinate_system(mesh2D_0))
+  @test typeof(basis_trait(mesh2D)) == typeof(basis_trait(mesh2D_0))
 end
