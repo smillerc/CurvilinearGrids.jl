@@ -6,107 +6,166 @@
 
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.07508/status.svg)](https://doi.org/10.21105/joss.07508)
 
-`CurvilinearGrids.jl` is a Julia package that provides utilities for working with non-uniform curvilinear grids. The core function takes a grid and transforms it from $(x,y,z) \rightarrow (\xi,\eta,\zeta)$, where the transformed grid contains elements of unit length in each dimension. A common example of this is to use a body-fit mesh, e.g. a mesh around a wing, and transform it so that it becomes a uniform grid in $(\xi,\eta,\zeta)$. Then standard finite-difference stencils can be used on the uniform transformed grid. Below is an example of a cylindrical mesh in $(x,y)$ coordinates and the corresponding logical grid in $(\xi,\eta)$.
+`CurvilinearGrids.jl` is a Julia package for curvilinear structured grids, metric evaluation, and geometry-aware finite-difference workflows.
+
+The package now exposes a unified API centered on:
+- `MappedGrid`: grid defined from continuous mapping functions.
+- `DiscreteGrid`: grid defined from coordinate arrays (with linear interpolation in computational space).
+- `OrthogonalGrid`: wrapper around orthogonal legacy grids with unified geometry access.
 
 ![Alt text](docs/image.png)
 
-`CurvilinearGrids.jl` defines `CurvilinearGrid1D`, `CurvilinearGrid2D`, and `CurvilinearGrid3D` types. To construct these, you need to provide the discrete coordinates for the mesh. 
-
 ## Installation
-`CurvilinearGrids` is a registered Julia package, so installation follows the typical procedure:
+
 ```julia
-using Pkg; Pkg.add("CurvilinearGrids"); using CurvilinearGrids
+using Pkg
+Pkg.add("CurvilinearGrids")
+using CurvilinearGrids
 ```
 
-### Example Grid Construction
+## Quick Start (MappedGrid)
+
 ```julia
 using CurvilinearGrids
 
-"""Create a spherical grid as a function of (r,θ,ϕ)"""
-function sphere_grid(nr, ntheta, nphi)
-  r0, r1 = (1, 3) # min/max radius
-  (θ0, θ1) = deg2rad.((35, 180 - 35)) # min/max polar angle
-  (ϕ0, ϕ1) = deg2rad.((45, 360 - 45)) # min/max azimuthal angle
+x(t, ξ, η, p) = ξ + 0.15 * sin(0.3 * ξ) * cos(0.2 * η)
+y(t, ξ, η, p) = η + 0.10 * cos(0.2 * ξ) * sin(0.3 * η)
 
-  # Linear spacing in each dimension
-  # Sometimes (ξ, η, ζ) is used instead of (i, j, k), depending on preference
-  r(ξ) = r0 + (r1 - r0) * ((ξ - 1) / (nr - 1))
-  θ(η) = θ0 + (θ1 - θ0) * ((η - 1) / (ntheta - 1))
-  ϕ(ζ) = ϕ0 + (ϕ1 - ϕ0) * ((ζ - 1) / (nphi - 1))
+grid = MappedGrid(x, y, (;), (64, 64), 5; cache_mode=:lazy)
 
-  x = zeros(nr, ntheta, nphi)
-  y = zeros(nr, ntheta, nphi)
-  z = zeros(nr, ntheta, nphi)
-  # simple spherical to cartesian mapping
-  for idx in CartesianIndices(x)
-    i,j,k = idx.I
-    x[idx] = r(i) * sin(θ(j)) * cos(ϕ(k))
-    y[idx] = r(i) * sin(θ(j)) * sin(ϕ(k))
-    z[idx] = r(i) * cos(θ(j))
-  end
+I = first(grid.iterators.cell.domain)
 
-  return (x, y, z)
-end
-
-ni, nj, nk = (5, 9, 11) # number of nodes/vertices in each dimension
-nhalo = 4 # halo cells needed for stencils (can be set to 0)
-
-# Obtain the x, y, and z coordinate functions
-x, y, z = sphere_grid(ni, nj, nk)
-
-# Create the mesh
-scheme = :meg6_symmetric # the symmetric scheme is more robust but more costly than :meg6
-mesh = CurvilinearGrid3D(x, y, z, scheme)
+pt = coord(grid, I)
+ctr = centroid(grid, I)
+cm = cell_metrics(grid)             # computed on first call in :lazy mode
+fm = face_metrics(grid)
+J = jacobian_matrix(grid, I)
+V = cellvolume(grid, I)
 ```
-## Exported Functions
 
-The API is still a work-in-progress, but for the moment, these functions are exported:
+## Unified Grid API
 
-Here `idx` can be a `Tuple` or `CartesianIndex`, and mesh is an `AbstractCurvilinearGrid`. **Important:** The indices provided to these functions are aware of halo regions, so the functions do the offsets for you. Halo cells, or halo regions, are an additional layer of cells around the boundary of the mesh that do not contain geometric information. Halo cells are used to apply boundary conditions in a simple manner and to exchange data between domains (in a domain-decomposed setting, e.g. using MPI). This is by design, since fields attached to the mesh, like density or pressure for example, _will_ have halo regions, and loops through these fields typically have pre-defined limits that constrain the loop to only work in the non-halo cells. If you don't use halo cells, just set `nhalo=0` in the constructors.
+### Constructors
 
-The index can be a `Tuple`, scalar `Integer`, or `CartesianIndex`.
-- `coord(mesh, idx)`: Get the $(x,y,z)$ coordinates at index `idx`. This can be 1, 2, or 3D.
-- `centroid(mesh, idx)`:  Get the $(x,y,z)$ coordinates of the cell centroid at cell index `idx`. This can be 1, 2, or 3D.
-
-These functions are primarily used to get the complete set of coordinates for plotting or post-processing. These do _not_ use halo regions, since there geometry is ill-defined here.
-- `coords(mesh)` Get the: array of coordinates for the entire mesh (typically for writing to a .vtk for example)
-- `centroids(mesh)` Get the: array of centroid coordinates for the entire mesh (typically for writing to a `.vtk` file)
-
-## Constructors
-
-General purpuse constructors for 1D/2D/3D grids. These need a vector/matrix/array of vertex coordinates and the number of halo cells to pad by.
-- `CurvilinearGrid1D(x::AbstractVector{T}, scheme::Symbol)`
-- `CurvilinearGrid2D(x::AbstractMatrix{T}, y::AbstractMatrix{T}, scheme::Symbol)`
-- `CurvilinearGrid3D(x::AbstractArray{T,3}, y::AbstractArray{T,3}, z::AbstractArray{T,3}, scheme::Symbol)`
-
-The `scheme` is currently limited to the following:
-- `:meg6` : See Chandravamsi et. al (https://doi.org/10.1016/j.compfluid.2023.105859)
-- `:meg6_symmetric` : For the `meg6` scheme with grid metrics computed via a symemtric scheme - See Nonmura et. al (https://doi.org/10.1016/j.compfluid.2014.09.025)
-
-A few convienence constructors have been added to make it simpler to generate certain types of grids. Use the `?` in the REPL to see the useage.
-
-- `rectilinear_grid`: A rectilinear grid in 1D/2D/3D
-- `rectilinear_cylindrical_grid`: A rectilinear grid with cylindrical symmetry
-- `rectilinear_spherical_grid`: A rectilinear grid with spherical symmetry
-- `axisymmetric_rectilinear_grid`: A rectilinear grid with axisymmetry about a given axis
-
-- `rtheta_grid`: Provide (r,θ) coordinates to generate a polar mesh
-- `axisymmetric_rtheta_grid`: Provide (r,θ) coordinates to generate a polar mesh with axisymmetry
-- `rthetaphi_grid`: : Provide (r,θ,ϕ) coordinates to generate a polar mesh
-
-# Grid Metrics
-
-Grid metrics are required for curvilinear grids. These are stored as members of the `CurvilinearGrid` types. There are three primary grid metric types: 1. forward metrics $(x_\xi, y_\xi, ...)$, 2. inverse metrics $(\xi_x, \eta_y, ...)$, and 3. normalized inverse metrics $(\hat{\xi}_x, \hat{\eta}_y, ...)$. The subscript denotes a partial derivative, so $\xi_x = \partial \xi / \partial x$. The inverse and normalized inverse metrics are computing using conservative schemes that satisfy the Geometric Conservation Law [(Thomas & Lombard 1979)](https://doi.org/10.2514/3.61273). Metrics are interpolated from cell-center to edge interfaces using the same discretization scheme that computed the derivatives (this is essential for adherance to the GCL). The metrics are `StructArrays` that include the Jacobian `J`, metrics $\xi_i, \eta_i, \zeta_i$ for $i=_{x1}, _{x2}, _{x3}$. For a 3D mesh, for example:
 ```julia
-julia> keys(pairs(mesh.edge_metrics))
-(:i₊½, :j₊½, :k₊½)
-
-julia> keys(pairs(mesh.edge_metrics.i₊½))
-(:ξ̂, :η̂, :ζ̂, :ξ, :η, :ζ)
-
-julia> keys(pairs(mesh.cell_center_metrics))
-(:J, :ξ, :η, :ζ, :ξ̂, :η̂, :ζ̂, :x₁, :x₂, :x₃)
+MappedGrid(x1[, x2[, x3]], params::NamedTuple, celldims, nhalo; kwargs...)
+DiscreteGrid(x[, y[, z]], nhalo; kwargs...)
+OrthogonalGrid(...; coordinate_system=..., kwargs...)
 ```
+
+Useful keyword arguments for `MappedGrid` and `DiscreteGrid`:
+- `cache_mode`: `:eager`, `:lazy`, or `:off`.
+- `compute_metrics`: `true`/`false`.
+- `coordinate_system`: `CurvilinearCS()`, `CartesianCS()`, `CylindricalCS()`, `SphericalCS()`, `AxisymmetricCS{:x|:y}()`.
+- `basis`: `CartesianBasis()` or `SphericalBasis()`.
+- `conserved_metric_scheme`: `EdgeInterpolationOrder1()`, `EdgeInterpolationOrder2()`, `EdgeInterpolationOrder3()`.
+
+### Core geometry and metric calls
+
+- `coord(grid, idx)` / `coords(grid)`
+- `centroid(grid, idx)` / `centroids(grid)`
+- `cellvolume(grid, idx)` / `cellvolumes(grid)`
+- `jacobian_matrix(grid, idx)`
+- `forward_cell_metrics(grid, idx)` / `inverse_cell_metrics(grid, idx)`
+- `cell_metrics(grid; refresh=false)` / `face_metrics(grid; refresh=false)`
+- `update!(grid, t, params)` for mapped/discrete time/parameter updates
+
+For `MappedGrid` and `DiscreteGrid`, `idx` can be:
+- discrete index tuples or `CartesianIndex` for all geometry/metric calls, and
+- real-valued computational coordinates for `coord`, `jacobian_matrix`, `forward_cell_metrics`, `inverse_cell_metrics`, and `cellvolume` (for example `coord(grid, (5.25, 7.5))`).
+
+## Metric Cache Controls
+
+`MappedGrid` and `DiscreteGrid` store cell and face metric caches independently.
+
+```julia
+invalidate_cell_metrics!(grid)
+invalidate_face_metrics!(grid)
+
+refresh_cell_metrics!(grid)
+refresh_face_metrics!(grid)
+```
+
+Disable metric storage entirely:
+
+```julia
+grid = MappedGrid(x, y, (;), (32, 32), 5; compute_metrics=false, cache_mode=:off)
+
+# Cached metrics are unavailable:
+# cell_metrics(grid)  # throws ArgumentError
+
+# Continuous/discrete forward and inverse metrics still work:
+F = forward_cell_metrics(grid, (8.2, 9.7))
+G = inverse_cell_metrics(grid, (8.2, 9.7))
+```
+
+## Inverse Mapping (`x -> ξ`)
+
+`computational_coordinate` solves the inverse map for mapped/discrete unified grids.
+
+```julia
+ξ_true = (12.5, 7.25)
+x_phys = Tuple(coord(grid, ξ_true))
+
+ξ = computational_coordinate(grid, x_phys)
+
+result = computational_coordinate(
+  grid,
+  x_phys;
+  guess=(1.0, 1.0),
+  return_result=true,
+  throw_on_failure=false,
+)
+```
+
+`return_result=true` returns `InverseCoordinateResult` with:
+- `coordinate`
+- `converged`
+- `iterations`
+- `residual_norm`
+
+## Multi-Block Interfaces
+
+`MultiBlockMesh` connects multiple `MappedGrid`/`DiscreteGrid` blocks with strict 1-to-1 interfaces.
+
+```julia
+using CurvilinearGrids
+
+b1 = DiscreteGrid(x1, y1, 2)
+b2 = DiscreteGrid(x2, y2, 2)
+
+interfaces = ((b1, :ihi) => (b2, :ilo),)
+mb = MultiBlockMesh((b1, b2), interfaces; tolerance=1e-12)
+
+exchange_interface!(mb, 1, [field_b1, field_b2]; field_kind=:scalar)
+exchange_all_interfaces!(mb, [field_b1, field_b2]; field_kind=:vector)
+
+ξ_right = computational_coordinate(mb, 1, (6.5, 4.25); from=:left)
+```
+
+Supported `field_kind` values:
+- `:scalar`
+- `:vector`
+- `:tensor`
+
+## I/O
+
+HDF5 read/write supports both legacy and unified grids:
+- `write_coordinates(grid, filename, units)`
+- `read_coordinates(filename, nhalo; compute_metrics=true, cache_mode=:eager)`
+
+VTK output:
+- `save_vtk(filename, grid)`
+
+## Legacy API
+
+Legacy grid types and constructors are still exported, including:
+- `CurvilinearGrid1D`, `CurvilinearGrid2D`, `CurvilinearGrid3D`
+- `rectilinear_grid`, `rtheta_grid`, `rthetaphi_grid`
+- orthogonal legacy types (`CartesianOrthogonalGrid1D`, `CylindricalOrthogonalGrid1D`, `SphericalOrthogonalGrid1D`, `AxisymmetricOrthogonalGrid2D`)
+
+New development should prefer the unified grid API (`MappedGrid`, `DiscreteGrid`, `OrthogonalGrid`) and multiblock API (`MultiBlockMesh`, `BlockInterface`, exchange/cache helpers).
+
 
 ## Jacobian matrices of transformation
 
