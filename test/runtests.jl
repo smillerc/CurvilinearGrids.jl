@@ -56,6 +56,9 @@ const test_gpu = false
   @info "MultiBlock"
   include("unit/test_multiblock.jl")
 
+  @info "Makie Extension"
+  include("unit/test_makie_ext.jl")
+
   @info "Remapping"
   include("unit/test_remapping_schemes.jl")
 

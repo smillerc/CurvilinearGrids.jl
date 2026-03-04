@@ -18,6 +18,22 @@ struct OrthogonalGrid{N,T,CS<:CoordinateSystemTrait,NC,CC,CV,I,DL,FA} <:
   nhalo::Int
 end
 
+# Dispatch migration guide (legacy -> unified orthogonal dispatch):
+#   Old: f(g::CylindricalOrthogonalGrid1D)
+#   New: f(g::OrthogonalGrid{1,<:Any,CylindricalCS})
+#
+#   Old: f(g::SphericalOrthogonalGrid1D)
+#   New: f(g::OrthogonalGrid{1,<:Any,SphericalCS})
+#
+#   Old: f(g::AxisymmetricOrthogonalGrid2D)
+#   New: f(g::OrthogonalGrid{2,<:Any,AxisymmetricCS{:y}})
+#
+#   Old: f(g::SphericalGrid3D)  # orthogonal spherical constructor return type
+#   New: f(g::OrthogonalGrid{3,<:Any,SphericalCS})
+#
+# Prefer dispatching on `AbstractOrthogonalGrid` when the implementation is
+# coordinate-system agnostic.
+
 include("cartesian_1d.jl")
 include("cartesian_2d.jl")
 include("cartesian_3d.jl")

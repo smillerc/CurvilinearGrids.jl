@@ -508,19 +508,16 @@ end
 
 @inline _to_cartesian(q::Tuple, ::CurvilinearGrids.CoordinateSystemTrait) = q
 
-@inline _coordinate_system_trait(grid::CurvilinearGrids.AbstractUnifiedGrid) = CurvilinearGrids.coordinate_system(
-  grid
+@inline function _coordinate_system_trait(
+  grid::Union{CurvilinearGrids.AbstractUnifiedGrid,CurvilinearGrids.AbstractOrthogonalGrid},
 )
+  return CurvilinearGrids.coordinate_system(grid)
+end
 
+# Legacy mapped curvilinear grids that do not carry unified coordinate-system traits.
 @inline _coordinate_system_trait(::CurvilinearGrids.CylindricalGrid1D) = CurvilinearGrids.CylindricalCS()
-@inline _coordinate_system_trait(::CurvilinearGrids.CylindricalOrthogonalGrid1D) = CurvilinearGrids.CylindricalCS()
 @inline _coordinate_system_trait(::CurvilinearGrids.SphericalGrid1D) = CurvilinearGrids.SphericalCS()
-@inline _coordinate_system_trait(::CurvilinearGrids.SphericalGrid3D) = CurvilinearGrids.SphericalCS()
-@inline _coordinate_system_trait(::CurvilinearGrids.SphericalOrthogonalGrid1D) = CurvilinearGrids.SphericalCS()
 @inline _coordinate_system_trait(::CurvilinearGrids.SphericalBasisCurvilinearGrid3D) = CurvilinearGrids.CartesianCS()
-@inline _coordinate_system_trait(::CurvilinearGrids.AxisymmetricOrthogonalGrid2D) = CurvilinearGrids.AxisymmetricCS{
-  :y
-}()
 
 @inline function _coordinate_system_trait(grid::CurvilinearGrids.AxisymmetricGrid2D)
   return if grid.rotational_axis === :x
@@ -530,7 +527,7 @@ end
   end
 end
 
-@inline _coordinate_system_trait(::CurvilinearGrids.AbstractCurvilinearGrid) = CurvilinearGrids.CartesianCS()
+@inline _coordinate_system_trait(::CurvilinearGrids.AbstractCurvilinearGrid) = CurvilinearGrids.CurvilinearCS()
 
 function _resolve_block_colors(n::Int, colors)
   if colors === nothing

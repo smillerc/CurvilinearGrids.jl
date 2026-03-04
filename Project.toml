@@ -1,6 +1,6 @@
 name = "CurvilinearGrids"
 uuid = "58b19789-dd19-4aa2-839c-c763a7b10301"
-version = "0.12.0"
+version = "0.12.1"
 authors = ["Sam Miller <smil@lle.rochester.edu> and contributors"]
 
 [deps]
@@ -66,7 +66,8 @@ julia = "1.10, 1.11, 1.12"
 [extras]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["BenchmarkTools", "Test"]
+test = ["BenchmarkTools", "Makie", "Test"]
