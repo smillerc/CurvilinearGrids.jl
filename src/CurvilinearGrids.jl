@@ -42,6 +42,7 @@ export CartesianOrthogonalGrid1D,
   CartesianOrthogonalGrid3D,
   CylindricalOrthogonalGrid1D,
   SphericalOrthogonalGrid1D,
+  SphericalOrthogonalGrid2D,
   AxisymmetricOrthogonalGrid2D
 
 export AbstractUnifiedGrid

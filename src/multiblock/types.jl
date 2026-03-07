@@ -255,7 +255,7 @@ end
 Construct a multi-block mesh and optionally validate/build interface caches.
 
 # Arguments
-  - `blocks`: Collection of `MappedGrid`/`DiscreteGrid` blocks.
+  - `blocks`: Collection of `MappedGrid`/`DiscreteGrid`/`OrthogonalGrid` blocks.
   - `interfaces`: Tuple of interface declarations, either:
     - `BlockInterface{N}` entries, or
     - mesh references using `(mesh, :face_symbol) => (mesh, :face_symbol)`.
@@ -275,17 +275,21 @@ function MultiBlockMesh(
   isempty(block_tuple) && throw(ArgumentError("`blocks` cannot be empty."))
 
   first_block = first(block_tuple)
-  if !(first_block isa AbstractMappedOrDiscreteGrid)
-    throw(ArgumentError("`blocks` must contain only `MappedGrid` and `DiscreteGrid`."))
+  if !(first_block isa AbstractMappedOrDiscreteGrid || first_block isa AbstractOrthogonalGrid)
+    throw(
+      ArgumentError(
+        "`blocks` must contain only `MappedGrid`, `DiscreteGrid`, or `OrthogonalGrid`.",
+      ),
+    )
   end
   N = ndims(first_block.iterators.cell.full)
   T = eltype(first_block)
 
   for (i, block) in enumerate(block_tuple)
-    if !(block isa AbstractMappedOrDiscreteGrid)
+    if !(block isa AbstractMappedOrDiscreteGrid || block isa AbstractOrthogonalGrid)
       throw(
         ArgumentError(
-          "Block $i has unsupported type $(typeof(block)); expected `MappedGrid` or `DiscreteGrid`.",
+          "Block $i has unsupported type $(typeof(block)); expected `MappedGrid`, `DiscreteGrid`, or `OrthogonalGrid`.",
         ),
       )
     end
@@ -327,4 +331,8 @@ end
 
 @inline function _grid_state_token(grid::AbstractMappedOrDiscreteGrid)
   return UInt(hash(grid.state[]))
+end
+
+@inline function _grid_state_token(grid::AbstractOrthogonalGrid)
+  return UInt(hash(grid.node_coordinates))
 end

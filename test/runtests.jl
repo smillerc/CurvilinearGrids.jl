@@ -31,8 +31,8 @@ const test_gpu = false
   @info "2D Axisymmetric"
   include("unit/test_2d_axisymmetric.jl")
 
-  # @info "Orthogonal reduced grids"
-  # include("unit/test_orthogonal_grids.jl")
+  @info "Orthogonal reduced grids"
+  include("unit/test_orthogonal_grids.jl")
 
   @info "Perturb example"
   include("unit/perturb_mesh.jl")

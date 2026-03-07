@@ -294,7 +294,9 @@ end
     x2, y2, 5; coordinate_system=SphericalCS(), basis=SphericalBasis(), cache_mode=:eager
   )
   Is2 = first(sph2d.iterators.cell.domain)
-  @test_throws ArgumentError cellvolume(sph2d, Is2)
+  Js2 = cell_metrics(sph2d).forward[Is2].J
+  cs2 = centroid(sph2d, Is2)
+  @test cellvolume(sph2d, Is2) ≈ (cs2[1]^2 * sin(cs2[2])) * Js2
 end
 
 @testset "Mixed Real/Int tuple indexing" begin
