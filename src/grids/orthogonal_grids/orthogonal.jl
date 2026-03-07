@@ -40,6 +40,7 @@ include("cartesian_3d.jl")
 include("cylindrical_1d.jl")
 include("spherical_1d.jl")
 include("axisymmetric_2d.jl")
+include("spherical_2d.jl")
 include("spherical_3d.jl")
 include("pad_with_halo.jl")
 

@@ -45,6 +45,19 @@
     @test isapprox(grid.face_areas[2][domain], [3π 3π])
   end
 
+  @testset "Spherical (r, θ) 2D" begin
+    r = [1.0, 2.0]
+    θ = [0.0, π / 3, 2π / 3]
+    grid = SphericalOrthogonalGrid2D(r, θ, 0, backend)
+
+    domain = grid.iterators.cell.domain
+    @test isapprox(grid.centroid_coordinates[1][domain.indices[1][1]], 45 / 28; atol=1e-12)
+    @test grid.centroid_coordinates[2][domain.indices[2]] ≈ [acos(3 / 4), π / 2]
+    @test isapprox(grid.cell_volumes[domain], [7π / 3 14π / 3])
+    @test isapprox(grid.face_areas[1][domain], [4π 8π])
+    @test isapprox(grid.face_areas[2][domain], [3π * sqrt(3) / 2 3π * sqrt(3) / 2])
+  end
+
   @testset "Cartesian Coordinate Conversion" begin
     g_cart = CartesianOrthogonalGrid1D([0.0, 1.0, 2.0], 0, backend)
     @test cartesian_coordinates(g_cart) == coords(g_cart)
@@ -69,5 +82,12 @@
     @test isapprox(x[2, 1, 2], 0.0; atol=1e-12)
     @test isapprox(y[2, 1, 1], 0.0; atol=1e-12)
     @test isapprox(z[1, 1, 1], 0.0; atol=1e-12)
+
+    g_sph2 = SphericalOrthogonalGrid2D([1.0, 2.0], [0.0, π / 2], 0, backend)
+    x2, z2 = cartesian_coordinates(g_sph2)
+    @test size(x2) == (2, 2)
+    @test size(z2) == (2, 2)
+    @test isapprox(x2[2, 2], 2.0; atol=1e-12)
+    @test isapprox(z2[2, 1], 2.0; atol=1e-12)
   end
 end

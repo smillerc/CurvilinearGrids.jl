@@ -227,6 +227,18 @@ end
 @inline _cartesian_coordinates(::CylindricalCS, q) = q
 
 @inline function _cartesian_coordinates(
+  ::SphericalCS, q::NTuple{2,<:AbstractVector{T}}
+) where {T}
+  r, θ = q
+  R = reshape(r, :, 1)
+  sinθ = reshape(sin.(θ), 1, :)
+  cosθ = reshape(cos.(θ), 1, :)
+  x = R .* sinθ
+  z = R .* cosθ
+  return x, z
+end
+
+@inline function _cartesian_coordinates(
   ::SphericalCS, q::NTuple{3,<:AbstractVector{T}}
 ) where {T}
   r, θ, ϕ = q
@@ -752,6 +764,13 @@ end
   r^2
 end
 @inline function cell_jacobian(
+  grid::OrthogonalGrid{2,T,SphericalCS}, idx::NTuple{2,Int}
+) where {T}
+  r = _orth_cell_coord(grid, 1, idx)
+  θ = _orth_cell_coord(grid, 2, idx)
+  r^2 * sin(θ)
+end
+@inline function cell_jacobian(
   grid::OrthogonalGrid{3,T,SphericalCS}, idx::NTuple{3,Int}
 ) where {T}
   r = _orth_cell_coord(grid, 1, idx)
@@ -827,6 +846,19 @@ end
   dim == 1 || throw(ArgumentError("face axis dim=$dim is invalid for 1-D spherical grid"))
   r = _orth_face_coord(grid, 1, idx)
   r^2
+end
+@inline function face_metric_coefficient(
+  grid::OrthogonalGrid{2,T,SphericalCS}, dim::Int, idx::NTuple{2,Int}
+) where {T}
+  1 <= dim <= 2 ||
+    throw(ArgumentError("face axis dim=$dim is invalid for 2-D spherical grid"))
+  if dim == 1
+    r = _orth_face_coord(grid, 1, idx)
+    θ = _orth_cell_coord(grid, 2, idx)
+    return r^2 * sin(θ)
+  end
+  θ = _orth_face_coord(grid, 2, idx)
+  return sin(θ)
 end
 @inline function face_metric_coefficient(
   grid::OrthogonalGrid{3,T,SphericalCS}, dim::Int, idx::NTuple{3,Int}
@@ -1339,18 +1371,24 @@ end
 end
 
 function _cellvolume_dispatch(
-  ::SphericalCS, ::SphericalBasis, ::AbstractMappedOrDiscreteGrid, idx::NTuple{2,Int}
+  ::SphericalCS, ::SphericalBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{2,Int}
 )
-  throw(ArgumentError("Spherical cellvolume dispatch is not implemented for 2D grids."))
+  c = centroid(grid, idx)
+  r = c[1]
+  θ = c[2]
+  return (r^2 * sin(θ)) * _jacobian_volume_factor(grid, idx)
 end
 
 function _cellvolume_dispatch(
   ::SphericalCS,
   ::SphericalBasis,
-  ::AbstractMappedOrDiscreteGrid,
+  grid::AbstractMappedOrDiscreteGrid,
   idx::Tuple{Vararg{Real,2}},
 )
-  throw(ArgumentError("Spherical cellvolume dispatch is not implemented for 2D grids."))
+  c = _continuous_coord(grid, idx)
+  r = c[1]
+  θ = c[2]
+  return (r^2 * sin(θ)) * _jacobian_volume_factor(grid, idx)
 end
 
 function _cellvolume_dispatch(
