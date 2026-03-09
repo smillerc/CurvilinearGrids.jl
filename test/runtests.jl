@@ -15,6 +15,7 @@ using WriteVTK
 include("unit/common.jl")
 
 const test_gpu = false
+const QUICK_TESTS = "--quick" in ARGS
 
 @testset verbose = true "UnitTests" begin
   @info "1D"
@@ -37,9 +38,13 @@ const test_gpu = false
   @info "Perturb example"
   include("unit/perturb_mesh.jl")
 
-  @info "3D"
-  include("unit/test_3d.jl")
-  include("unit/test_3d_continuous.jl")
+  if QUICK_TESTS
+    @info "Skipping long 3D grid tests (--quick)"
+  else
+    @info "3D"
+    include("unit/test_3d.jl")
+    include("unit/test_3d_continuous.jl")
+  end
 
   @info "Wall"
   include("unit/test_wall.jl")
@@ -50,6 +55,7 @@ const test_gpu = false
 
   @info "Unified Grid Types"
   include("unit/test_unified_grid_types.jl")
+  include("unit/test_basis_transfer_api.jl")
   include("unit/test_unified_grid_backends.jl")
   include("unit/test_surface_grid.jl")
 

@@ -9,7 +9,7 @@ using StaticArrays
 import ..GridTypes: AbstractMappedOrDiscreteGrid, AbstractOrthogonalGrid
 import ..GridTypes: CoordinateSystemTrait, CartesianCS, CurvilinearCS, SphericalCS
 import ..GridTypes: BasisTrait, CartesianBasis, SphericalBasis
-import ..GridTypes: coordinate_system, basis_trait
+import ..GridTypes: coordinate_system, basis_trait, basis_transfer_matrix
 import ..GridTypes: coord, centroid, forward_cell_metrics
 import ..GridTypes: computational_coordinate
 

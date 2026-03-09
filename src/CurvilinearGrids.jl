@@ -56,7 +56,7 @@ export BasisTrait
 export CartesianBasis, SphericalBasis
 export EdgeInterpolationSchemeTrait
 export EdgeInterpolationOrder1, EdgeInterpolationOrder2, EdgeInterpolationOrder3
-export coordinate_system, basis_trait
+export coordinate_system, basis_trait, basis_transfer_matrix
 
 export rectilinear_grid,
   rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid

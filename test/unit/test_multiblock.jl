@@ -170,39 +170,43 @@ end
   @test transferred.coordinate ≈ ξ_right
 end
 
-@testset "MultiBlock 3D mapped vector transfer: Cartesian <-> Spherical basis" begin
-  g_cart, g_sph, iface = _abutting_mapped_3d_cartesian_spherical_setup()
-  mb = MultiBlockMesh((g_cart, g_sph), (iface,); tolerance=1e-10)
+if QUICK_TESTS
+  @info "Skipping 3D multiblock mapped vector transfer (--quick)"
+else
+  @testset "MultiBlock 3D mapped vector transfer: Cartesian <-> Spherical basis" begin
+    g_cart, g_sph, iface = _abutting_mapped_3d_cartesian_spherical_setup()
+    mb = MultiBlockMesh((g_cart, g_sph), (iface,); tolerance=1e-10)
 
-  v_cart = fill((@SVector [0.0, 0.0, 0.0]), size(g_cart.iterators.cell.full))
-  v_sph = fill((@SVector [0.0, 0.0, 0.0]), size(g_sph.iterators.cell.full))
+    v_cart = fill((@SVector [0.0, 0.0, 0.0]), size(g_cart.iterators.cell.full))
+    v_sph = fill((@SVector [0.0, 0.0, 0.0]), size(g_sph.iterators.cell.full))
 
-  i_cart_interior = last(g_cart.iterators.cell.domain.indices[1])
-  i_sph_interior = first(g_sph.iterators.cell.domain.indices[1])
-  i_sph_ghost = i_sph_interior - 1
+    i_cart_interior = last(g_cart.iterators.cell.domain.indices[1])
+    i_sph_interior = first(g_sph.iterators.cell.domain.indices[1])
+    i_sph_ghost = i_sph_interior - 1
 
-  donor_vec = @SVector [1.3, -0.7, 2.1]
-  for j in g_cart.iterators.cell.domain.indices[2],
-    k in g_cart.iterators.cell.domain.indices[3]
+    donor_vec = @SVector [1.3, -0.7, 2.1]
+    for j in g_cart.iterators.cell.domain.indices[2],
+      k in g_cart.iterators.cell.domain.indices[3]
 
-    v_cart[i_cart_interior, j, k] = donor_vec
-  end
+      v_cart[i_cart_interior, j, k] = donor_vec
+    end
 
-  exchange_interface!(mb, 1, [v_cart, v_sph]; field_kind=:vector, direction=:left_to_right)
+    exchange_interface!(mb, 1, [v_cart, v_sph]; field_kind=:vector, direction=:left_to_right)
 
-  for j in g_cart.iterators.cell.domain.indices[2],
-    k in g_cart.iterators.cell.domain.indices[3]
+    for j in g_cart.iterators.cell.domain.indices[2],
+      k in g_cart.iterators.cell.domain.indices[3]
 
-    transferred_components_sph = v_sph[i_sph_ghost, j, k]
-    q_sph = centroid(g_sph, (i_sph_interior, j, k))
-    Q = _spherical_basis_to_cartesian_matrix(q_sph)
-    transferred_cart = Q * transferred_components_sph
+      transferred_components_sph = v_sph[i_sph_ghost, j, k]
+      q_sph = centroid(g_sph, (i_sph_interior, j, k))
+      Q = _spherical_basis_to_cartesian_matrix(q_sph)
+      transferred_cart = Q * transferred_components_sph
 
-    mag_donor = norm(donor_vec)
-    mag_transferred = norm(transferred_cart)
-    @test isapprox(mag_transferred, mag_donor; rtol=1e-12, atol=1e-12)
+      mag_donor = norm(donor_vec)
+      mag_transferred = norm(transferred_cart)
+      @test isapprox(mag_transferred, mag_donor; rtol=1e-12, atol=1e-12)
 
-    cos_angle = dot(transferred_cart, donor_vec) / (mag_transferred * mag_donor)
-    @test isapprox(cos_angle, 1.0; atol=1e-12)
+      cos_angle = dot(transferred_cart, donor_vec) / (mag_transferred * mag_donor)
+      @test isapprox(cos_angle, 1.0; atol=1.0e-12)
+    end
   end
 end

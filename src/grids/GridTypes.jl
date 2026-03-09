@@ -50,7 +50,7 @@ export CartesianBasis, SphericalBasis
 export EdgeInterpolationSchemeTrait
 export EdgeInterpolationOrder1, EdgeInterpolationOrder2, EdgeInterpolationOrder3
 
-export coordinate_system, basis_trait
+export coordinate_system, basis_trait, basis_transfer_matrix
 export cell_metrics, face_metrics
 export invalidate_cell_metrics!, invalidate_face_metrics!
 export refresh_cell_metrics!, refresh_face_metrics!
