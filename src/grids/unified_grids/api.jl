@@ -56,6 +56,16 @@ For mapped and discrete grids, the transfer uses the grid's
 `coordinate_system(grid)` and `basis_trait(grid)`. For orthogonal grids, the
 transfer is implied by the coordinate system because `basis_trait` is undefined.
 
+Supported public cases in the current API are:
+- identity transfer for Cartesian-basis mapped/discrete grids,
+- spherical-basis transfer for 2-D and 3-D spherical mapped/discrete grids,
+- identity transfer for orthogonal Cartesian, 1-D cylindrical, 1-D spherical,
+  and 2-D axisymmetric meridional grids,
+- spherical transfer for 2-D and 3-D orthogonal spherical grids.
+
+Unsupported basis/coordinate-system combinations throw `ArgumentError` rather
+than silently falling back.
+
 # Arguments
   - `grid`: Unified grid instance.
   - `from_q`: Native physical coordinates at the donor location.
@@ -63,10 +73,37 @@ transfer is implied by the coordinate system because `basis_trait` is undefined.
 
 # Returns
 Static square matrix `R_(to<-from)` such that `v_to = R_(to<-from) * v_from`.
+
+See also [`face_coordinate`](@ref), [`centroid`](@ref), and the four-argument
+`basis_transfer_matrix(from_grid, from_q, to_grid, to_q)` overload for
+inter-grid transfers.
 """
 function basis_transfer_matrix end
 
 @inline function basis_transfer_matrix(
+  from_grid::Union{AbstractUnifiedGrid,AbstractOrthogonalGrid},
+  from_q::Tuple{Vararg{Real,N}},
+  to_grid::Union{AbstractUnifiedGrid,AbstractOrthogonalGrid},
+  to_q::Tuple{Vararg{Real,N}},
+) where {N}
+  basis_transfer_matrix(from_grid, SVector{N}(from_q), to_grid, SVector{N}(to_q))
+end
+
+@inline function basis_transfer_matrix(
+  from_grid::Union{AbstractUnifiedGrid,AbstractOrthogonalGrid},
+  from_q::SVector{N,T1},
+  to_grid::Union{AbstractUnifiedGrid,AbstractOrthogonalGrid},
+  to_q::SVector{N,T2},
+) where {N,T1,T2}
+  T = promote_type(T1, T2)
+  from_qT = SVector{N,T}(from_q)
+  to_qT = SVector{N,T}(to_q)
+  Qfrom = _grid_basis_to_cartesian_matrix(from_grid, from_qT, Val(N), T)
+  Qto = _grid_basis_to_cartesian_matrix(to_grid, to_qT, Val(N), T)
+  return SMatrix{N,N,T,N * N}(transpose(Qto) * Qfrom)
+end
+
+@inline function basis_transfer_matrix(
   grid::Union{MappedGrid{N},DiscreteGrid{N}},
   from_q::Tuple{Vararg{Real,N}},
   to_q::Tuple{Vararg{Real,N}},
@@ -79,12 +116,7 @@ end
   from_q::SVector{N,T1},
   to_q::SVector{N,T2},
 ) where {N,T1,T2}
-  T = promote_type(T1, T2)
-  from_qT = SVector{N,T}(from_q)
-  to_qT = SVector{N,T}(to_q)
-  return _basis_transfer_matrix(
-    coordinate_system(grid), basis_trait(grid), from_qT, to_qT, Val(N), T
-  )
+  return basis_transfer_matrix(grid, from_q, grid, to_q)
 end
 
 @inline function basis_transfer_matrix(
@@ -100,20 +132,31 @@ end
   from_q::SVector{N,T1},
   to_q::SVector{N,T2},
 ) where {N,T1,T2}
-  T = promote_type(T1, T2)
-  from_qT = SVector{N,T}(from_q)
-  to_qT = SVector{N,T}(to_q)
-  return _orthogonal_basis_transfer_matrix(coordinate_system(grid), from_qT, to_qT, Val(N), T)
+  return basis_transfer_matrix(grid, from_q, grid, to_q)
 end
 
 @inline _identity_basis_transfer(::Val{N}, ::Type{T}) where {N,T} = one(SMatrix{N,N,T})
 
-@inline function _basis_transfer_matrix(
-  cs::CoordinateSystemTrait, ::CartesianBasis, from_q::SVector{N,T}, to_q::SVector{N,T}, ::Val{N}, ::Type{T}
+@inline function _grid_basis_to_cartesian_matrix(
+  grid::Union{MappedGrid{N},DiscreteGrid{N}},
+  q::SVector{N,T},
+  ::Val{N},
+  ::Type{T},
+) where {N,T}
+  return _mapped_basis_to_cartesian_matrix(coordinate_system(grid), basis_trait(grid), q, Val(N), T)
+end
+
+@inline function _grid_basis_to_cartesian_matrix(
+  grid::OrthogonalGrid{N}, q::SVector{N,T}, ::Val{N}, ::Type{T}
+) where {N,T}
+  return _orthogonal_basis_to_cartesian_matrix(coordinate_system(grid), q, Val(N), T)
+end
+
+@inline function _mapped_basis_to_cartesian_matrix(
+  cs::CoordinateSystemTrait, ::CartesianBasis, q::SVector{N,T}, ::Val{N}, ::Type{T}
 ) where {N,T}
   _ = cs
-  _ = from_q
-  _ = to_q
+  _ = q
   return _identity_basis_transfer(Val(N), T)
 end
 
@@ -141,42 +184,22 @@ end
   ]
 end
 
-@inline function _basis_transfer_matrix(
-  ::SphericalCS,
-  ::SphericalBasis,
-  from_q::SVector{2,T},
-  to_q::SVector{2,T},
-  ::Val{2},
-  ::Type{T},
+@inline function _mapped_basis_to_cartesian_matrix(
+  ::SphericalCS, ::SphericalBasis, q::SVector{2,T}, ::Val{2}, ::Type{T}
 ) where {T}
-  Qfrom = _basis_to_cartesian_matrix(SphericalCS(), Val(2), from_q, T)
-  Qto = _basis_to_cartesian_matrix(SphericalCS(), Val(2), to_q, T)
-  return SMatrix{2,2,T,4}(transpose(Qto) * Qfrom)
+  return _basis_to_cartesian_matrix(SphericalCS(), Val(2), q, T)
 end
 
-@inline function _basis_transfer_matrix(
-  ::SphericalCS,
-  ::SphericalBasis,
-  from_q::SVector{3,T},
-  to_q::SVector{3,T},
-  ::Val{3},
-  ::Type{T},
+@inline function _mapped_basis_to_cartesian_matrix(
+  ::SphericalCS, ::SphericalBasis, q::SVector{3,T}, ::Val{3}, ::Type{T}
 ) where {T}
-  Qfrom = _basis_to_cartesian_matrix(SphericalCS(), Val(3), from_q, T)
-  Qto = _basis_to_cartesian_matrix(SphericalCS(), Val(3), to_q, T)
-  return SMatrix{3,3,T,9}(transpose(Qto) * Qfrom)
+  return _basis_to_cartesian_matrix(SphericalCS(), Val(3), q, T)
 end
 
-@inline function _basis_transfer_matrix(
-  cs::CoordinateSystemTrait,
-  bt::SphericalBasis,
-  from_q::SVector{N,T},
-  to_q::SVector{N,T},
-  ::Val{N},
-  ::Type{T},
+@inline function _mapped_basis_to_cartesian_matrix(
+  cs::CoordinateSystemTrait, bt::SphericalBasis, q::SVector{N,T}, ::Val{N}, ::Type{T}
 ) where {N,T}
-  _ = from_q
-  _ = to_q
+  _ = q
   throw(
     ArgumentError(
       "Unsupported public basis transfer for $(typeof(bt)) with coordinate system $(typeof(cs)) and N=$N.",
@@ -184,63 +207,57 @@ end
   )
 end
 
-@inline function _orthogonal_basis_transfer_matrix(
-  ::CartesianCS, from_q::SVector{N,T}, to_q::SVector{N,T}, ::Val{N}, ::Type{T}
+@inline function _orthogonal_basis_to_cartesian_matrix(
+  ::CartesianCS, q::SVector{N,T}, ::Val{N}, ::Type{T}
 ) where {N,T}
-  _ = from_q
-  _ = to_q
+  _ = q
   return _identity_basis_transfer(Val(N), T)
 end
 
-@inline function _orthogonal_basis_transfer_matrix(
-  ::CurvilinearCS, from_q::SVector{N,T}, to_q::SVector{N,T}, ::Val{N}, ::Type{T}
+@inline function _orthogonal_basis_to_cartesian_matrix(
+  ::CurvilinearCS, q::SVector{N,T}, ::Val{N}, ::Type{T}
 ) where {N,T}
-  _ = from_q
-  _ = to_q
+  _ = q
   return _identity_basis_transfer(Val(N), T)
 end
 
-@inline function _orthogonal_basis_transfer_matrix(
-  ::AxisymmetricCS, from_q::SVector{2,T}, to_q::SVector{2,T}, ::Val{2}, ::Type{T}
+@inline function _orthogonal_basis_to_cartesian_matrix(
+  ::AxisymmetricCS, q::SVector{2,T}, ::Val{2}, ::Type{T}
 ) where {T}
-  _ = from_q
-  _ = to_q
+  _ = q
   return _identity_basis_transfer(Val(2), T)
 end
 
-@inline function _orthogonal_basis_transfer_matrix(
-  ::CylindricalCS, from_q::SVector{1,T}, to_q::SVector{1,T}, ::Val{1}, ::Type{T}
+@inline function _orthogonal_basis_to_cartesian_matrix(
+  ::CylindricalCS, q::SVector{1,T}, ::Val{1}, ::Type{T}
 ) where {T}
-  _ = from_q
-  _ = to_q
+  _ = q
   return _identity_basis_transfer(Val(1), T)
 end
 
-@inline function _orthogonal_basis_transfer_matrix(
-  ::SphericalCS, from_q::SVector{1,T}, to_q::SVector{1,T}, ::Val{1}, ::Type{T}
+@inline function _orthogonal_basis_to_cartesian_matrix(
+  ::SphericalCS, q::SVector{1,T}, ::Val{1}, ::Type{T}
 ) where {T}
-  _ = from_q
-  _ = to_q
+  _ = q
   return _identity_basis_transfer(Val(1), T)
 end
 
-@inline function _orthogonal_basis_transfer_matrix(
-  ::SphericalCS, from_q::SVector{2,T}, to_q::SVector{2,T}, ::Val{2}, ::Type{T}
+@inline function _orthogonal_basis_to_cartesian_matrix(
+  ::SphericalCS, q::SVector{2,T}, ::Val{2}, ::Type{T}
 ) where {T}
-  return _basis_transfer_matrix(SphericalCS(), SphericalBasis(), from_q, to_q, Val(2), T)
+  return _basis_to_cartesian_matrix(SphericalCS(), Val(2), q, T)
 end
 
-@inline function _orthogonal_basis_transfer_matrix(
-  ::SphericalCS, from_q::SVector{3,T}, to_q::SVector{3,T}, ::Val{3}, ::Type{T}
+@inline function _orthogonal_basis_to_cartesian_matrix(
+  ::SphericalCS, q::SVector{3,T}, ::Val{3}, ::Type{T}
 ) where {T}
-  return _basis_transfer_matrix(SphericalCS(), SphericalBasis(), from_q, to_q, Val(3), T)
+  return _basis_to_cartesian_matrix(SphericalCS(), Val(3), q, T)
 end
 
-@inline function _orthogonal_basis_transfer_matrix(
-  cs::CoordinateSystemTrait, from_q::SVector{N,T}, to_q::SVector{N,T}, ::Val{N}, ::Type{T}
+@inline function _orthogonal_basis_to_cartesian_matrix(
+  cs::CoordinateSystemTrait, q::SVector{N,T}, ::Val{N}, ::Type{T}
 ) where {N,T}
-  _ = from_q
-  _ = to_q
+  _ = q
   throw(
     ArgumentError(
       "Unsupported public basis transfer for orthogonal grid coordinate system $(typeof(cs)) and N=$N.",
@@ -390,6 +407,27 @@ end
 # Geometry API
 #
 
+"""
+    FaceFluxGeometry{N,T}
+
+Solver-facing face geometry for mapped or discrete grids.
+
+# Fields
+  - `coordinate`: Native physical coordinate of the face center.
+  - `metric_vector`: Outward-oriented active conserved face metric vector in the
+    grid's physical basis. This is the solver-facing face metric `S^alpha`,
+    obtained from the active row of
+    `face_metrics(grid)[axis].conserved[idx].jacobian_matrix`.
+  - `area`: Magnitude of `metric_vector`.
+  - `normal`: `metric_vector / area` when `area > 0`, otherwise the zero vector.
+"""
+struct FaceFluxGeometry{N,T}
+  coordinate::SVector{N,T}
+  metric_vector::SVector{N,T}
+  area::T
+  normal::SVector{N,T}
+end
+
 function coords(grid::Union{MappedGrid{1},DiscreteGrid{1}})
   @views grid.node_coordinates[1][grid.iterators.node.domain]
 end
@@ -472,6 +510,21 @@ function coord(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{3,I
   ]
 end
 
+"""
+    centroids(grid)
+
+Return views of the cell-center coordinates over the non-halo interior domain.
+
+The returned coordinates are expressed in the grid's native physical coordinate
+system:
+- Cartesian-like grids return Cartesian components,
+- orthogonal spherical grids return `(r, θ)` or `(r, θ, ϕ)`,
+- axisymmetric grids return their native meridional coordinates.
+
+For `MappedGrid` and `DiscreteGrid`, the values come from the centroid cache.
+For `OrthogonalGrid`, the corresponding methods are defined in
+`GridTypes.jl` and follow the same native-coordinate convention.
+"""
 function centroids(grid::Union{MappedGrid{1},DiscreteGrid{1}})
   @views grid.centroid_coordinates[1][grid.iterators.cell.domain]
 end
@@ -491,6 +544,18 @@ function centroids(grid::Union{MappedGrid{3},DiscreteGrid{3}})
   )
 end
 
+"""
+    centroid(grid, idx)
+
+Return the native physical coordinate of the cell center at `idx`.
+
+For mapped/discrete grids, `idx` is an integer cell index. Orthogonal-grid
+methods are also available and return `SVector`s assembled from the native
+centroid coordinate arrays.
+
+See also [`centroids`](@ref), [`face_coordinate`](@ref), and
+[`basis_transfer_matrix`](@ref).
+"""
 function centroid(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int})
   @SVector [grid.centroid_coordinates[1][i]]
 end
@@ -905,6 +970,10 @@ end
 
 Return the geometric Jacobian factor used by diffusion operators at cell index
 `idx`.
+
+For mapped/discrete grids this is `abs(forward_cell_metrics(grid, idx).J)`.
+For orthogonal grids it is the reduced volumetric measure associated with the
+coordinate family, for example `r`, `r^2`, or `r^2 sin(θ)`.
 """
 @inline function cell_jacobian(grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex)
   cell_jacobian(grid, idx.I)
@@ -992,6 +1061,10 @@ end
 
 Return the axis-aligned face coefficient `J g^{dd}` used by diffusion operators
 for face axis `dim` at face index `idx`.
+
+For orthogonal grids this is the scalar coefficient that belongs with the face
+measure in the native coordinate system. For mapped/discrete grids this is
+computed from the cached forward and inverse face metrics.
 """
 @inline function face_metric_coefficient(
   grid::Union{MappedGrid,DiscreteGrid}, dim::Int, idx::CartesianIndex
@@ -1133,6 +1206,48 @@ end
   throw(ArgumentError("Invalid axis/side combination `(axis=$axis, side=$side)` for N=$N."))
 end
 
+"""
+    face_coordinate(grid, idx, loc)
+
+Return the native physical coordinate at the face center selected by `loc` for
+cell index `idx`.
+
+For orthogonal grids, the coordinate on the active face axis comes from the
+node location while tangential coordinates remain cell-centered. For
+mapped/discrete grids, the coordinate is evaluated from the underlying mapping
+at the face midpoint in computational space.
+
+# Arguments
+  - `grid`: Unified grid instance.
+  - `idx`: Cell index as `CartesianIndex` or `NTuple{N,Int}`.
+  - `loc`: Face selector symbol (for example `:ilo`, `:ihi`, `:jlo`, `:jhi`,
+    `:klo`, `:khi`).
+
+# Returns
+An `SVector` giving the face-center coordinate in the grid's physical
+coordinate system.
+"""
+@inline function face_coordinate(grid::AbstractUnifiedGrid, idx::CartesianIndex, loc::Symbol)
+  face_coordinate(grid, idx.I, loc)
+end
+
+@inline function face_coordinate(
+  grid::OrthogonalGrid{N,T}, idx::NTuple{N,Int}, loc::Symbol
+) where {N,T}
+  axis, side = _face_loc_axis_side(Val(N), loc)
+  face_idx = ntuple(d -> d == axis ? idx[d] + (side === :hi ? 1 : 0) : idx[d], N)
+  return SVector{N,T}(
+    ntuple(d -> d == axis ? _orth_face_coord(grid, d, face_idx) : _orth_cell_coord(grid, d, idx), N)
+  )
+end
+
+@inline function face_coordinate(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::NTuple{N,Int}, loc::Symbol
+) where {N,T}
+  axis, side = _face_loc_axis_side(Val(N), loc)
+  return _face_mapped_coordinate(grid, CartesianIndex(idx), axis, side)
+end
+
 @inline function _face_evaluation_coordinate(
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}},
   Icell::CartesianIndex{N},
@@ -1192,6 +1307,11 @@ end
   return q
 end
 
+@inline function _face_coord_to_cartesian(::SphericalCS, q::SVector{2,T}) where {T}
+  r, θ = q
+  return SVector{2,T}(r * sin(θ), r * cos(θ))
+end
+
 @inline function _face_coord_to_cartesian(::SphericalCS, q::SVector{3,T}) where {T}
   r, θ, ϕ = q
   sθ = sin(θ)
@@ -1229,6 +1349,13 @@ end
   ::CylindricalCS, q::SVector{2,T}
 ) where {T}
   return one(SMatrix{2,2,T})
+end
+
+@inline function _face_coord_to_cartesian_jacobian(::SphericalCS, q::SVector{2,T}) where {T}
+  r, θ = q
+  sθ = sin(θ)
+  cθ = cos(θ)
+  return SMatrix{2,2,T,4}(sθ, r * cθ, cθ, -r * sθ)
 end
 
 @inline function _face_coord_to_cartesian_jacobian(::SphericalCS, q::SVector{3,T}) where {T}
@@ -1331,6 +1458,59 @@ end
   return (; normal=normal, area=area, cartesian_coordinate=x, mapped_coordinate=q)
 end
 
+@inline function _face_flux_cache_index(idx::NTuple{N,Int}, axis::Int, side::Symbol) where {N}
+  return ntuple(d -> d == axis ? idx[d] + (side === :hi ? 0 : -1) : idx[d], N)
+end
+
+"""
+    face_flux_geometry(grid::Union{MappedGrid,DiscreteGrid}, idx, loc)
+
+Return the solver-facing face geometry for the face selected by `loc` at cell
+index `idx`.
+
+The returned metric vector and normal are expressed in the grid's physical
+basis, not in Cartesian embedding coordinates.
+
+For a face on computational axis `alpha`, the returned `metric_vector` is the
+outward-oriented active conserved row of
+`face_metrics(grid)[alpha].conserved[idx].jacobian_matrix`. This is the
+canonical face metric vector `S^alpha` consumed by inviscid flux assembly.
+
+`face_flux_geometry` is intentionally unavailable for `OrthogonalGrid`; those
+paths should use [`cellvolume`](@ref), [`face_area`](@ref),
+[`face_coordinate`](@ref), and [`basis_transfer_matrix`](@ref) directly.
+"""
+@inline function face_flux_geometry(
+  grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex, loc::Symbol
+)
+  face_flux_geometry(grid, idx.I, loc)
+end
+
+@inline function face_flux_geometry(
+  grid::Union{MappedGrid{N},DiscreteGrid{N}}, idx::NTuple{N,Int}, loc::Symbol
+) where {N}
+  axis, side = _face_loc_axis_side(Val(N), loc)
+  face_idx = _face_flux_cache_index(idx, axis, side)
+  q = face_coordinate(grid, idx, loc)
+  Ghat = face_metrics(grid)[axis].conserved[face_idx...].jacobian_matrix
+  T = promote_type(eltype(q), eltype(Ghat))
+  metric_row = SVector{N,T}(ntuple(j -> Ghat[axis, j], N))
+  metric_vector = (side === :hi ? one(T) : -one(T)) * metric_row
+  area = norm(metric_vector)
+  normal = area > zero(T) ? metric_vector / area : zero(metric_vector)
+  return FaceFluxGeometry{N,T}(SVector{N,T}(q), metric_vector, area, normal)
+end
+
+function face_flux_geometry(::AbstractOrthogonalGrid, idx, loc::Symbol)
+  _ = idx
+  _ = loc
+  throw(
+    ArgumentError(
+      "`face_flux_geometry` is undefined for `AbstractOrthogonalGrid`; use `cellvolume`, `face_area`, `face_coordinate`, and `basis_transfer_matrix` instead.",
+    ),
+  )
+end
+
 """
     face_area(grid::Union{MappedGrid,DiscreteGrid}, idx, loc::Symbol)
 
@@ -1360,6 +1540,10 @@ end
 
 Return the outward Cartesian unit normal vector for the face at cell index `idx`
 and face selector `loc`.
+
+This is the embedded boundary or surface normal. It is distinct from
+`face_flux_geometry(...).normal`, which is the solver-facing flux normal in the
+grid's physical basis.
 
 # Arguments
   - `grid`: Mapped or discrete unified grid.

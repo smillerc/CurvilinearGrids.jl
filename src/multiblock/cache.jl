@@ -116,6 +116,5 @@ end
   ::Val{N},
   ::Type{T},
 ) where {N,T}
-  _ = receiver
-  return basis_transfer_matrix(donor, q_donor, q_receiver)
+  return basis_transfer_matrix(donor, q_donor, receiver, q_receiver)
 end

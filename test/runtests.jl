@@ -62,8 +62,12 @@ const QUICK_TESTS = "--quick" in ARGS
   @info "MultiBlock"
   include("unit/test_multiblock.jl")
 
-  @info "Makie Extension"
-  include("unit/test_makie_ext.jl")
+  if !isnothing(Base.find_package("Makie"))
+    @info "Makie Extension"
+    include("unit/test_makie_ext.jl")
+  else
+    @info "Skipping Makie extension tests (Makie not available in test env)"
+  end
 
   @info "Remapping"
   include("unit/test_remapping_schemes.jl")

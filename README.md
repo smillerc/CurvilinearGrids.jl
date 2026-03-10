@@ -13,6 +13,15 @@ The package now exposes a unified API centered on:
 - `DiscreteGrid`: grid defined from coordinate arrays (with linear interpolation in computational space).
 - `OrthogonalGrid`: wrapper around orthogonal legacy grids with unified geometry access.
 
+For solver code, the package also exposes a small geometry/basis layer that is
+intended to be the public source of truth for metric and basis metadata:
+- `centroid` / `centroids`
+- `face_coordinate`
+- `basis_transfer_matrix`
+- `cell_jacobian`
+- `face_metric_coefficient`
+- `face_flux_geometry` for mapped/discrete grids
+
 ![Alt text](docs/image.png)
 
 ## Installation
@@ -64,15 +73,74 @@ Useful keyword arguments for `MappedGrid` and `DiscreteGrid`:
 
 - `coord(grid, idx)` / `coords(grid)`
 - `centroid(grid, idx)` / `centroids(grid)`
+- `face_coordinate(grid, idx, loc)`
 - `cellvolume(grid, idx)` / `cellvolumes(grid)`
+- `cell_jacobian(grid, idx)`
+- `face_metric_coefficient(grid, dim, idx)`
 - `jacobian_matrix(grid, idx)`
 - `forward_cell_metrics(grid, idx)` / `inverse_cell_metrics(grid, idx)`
+- `basis_transfer_matrix(grid, from_q, to_q)`
+- `basis_transfer_matrix(from_grid, from_q, to_grid, to_q)`
 - `cell_metrics(grid; refresh=false)` / `face_metrics(grid; refresh=false)`
+- `face_flux_geometry(grid, idx, loc)` for mapped/discrete grids
 - `update!(grid, t, params)` for mapped/discrete time/parameter updates
 
 For `MappedGrid` and `DiscreteGrid`, `idx` can be:
 - discrete index tuples or `CartesianIndex` for all geometry/metric calls, and
 - real-valued computational coordinates for `coord`, `jacobian_matrix`, `forward_cell_metrics`, `inverse_cell_metrics`, and `cellvolume` (for example `coord(grid, (5.25, 7.5))`).
+
+## Solver-Facing Geometry and Basis API
+
+The unified solver-facing split is:
+
+- `OrthogonalGrid`:
+  - use `cellvolume`, `face_area`, `cell_jacobian`, `face_metric_coefficient`,
+    `centroid`, `face_coordinate`, and `basis_transfer_matrix`
+  - there is no conserved face-metric cache and `face_flux_geometry` is not defined
+- `MappedGrid` / `DiscreteGrid`:
+  - use `cellvolume`, `centroid`, `face_coordinate`, `basis_transfer_matrix`,
+    and `face_flux_geometry`
+  - `face_metrics(grid)` remains the canonical low-level metric payload
+
+`basis_transfer_matrix` returns the local basis change
+`R_(to<-from)` for vector components stored in native physical coordinates.
+Supported public cases currently include:
+
+- identity transfer for Cartesian-basis mapped/discrete grids
+- spherical transfer for 2-D and 3-D spherical-basis mapped/discrete grids
+- identity transfer for orthogonal Cartesian, 1-D cylindrical, 1-D spherical,
+  and 2-D axisymmetric meridional grids
+- spherical transfer for orthogonal 2-D and 3-D spherical grids
+
+Unsupported coordinate-system and basis combinations throw `ArgumentError`.
+
+For mapped/discrete grids, `face_flux_geometry(grid, idx, loc)` exposes the
+solver-facing face metric bundle:
+
+```julia
+geom = face_flux_geometry(grid, (i, j), :ihi)
+
+geom.coordinate      # native physical face-center coordinate
+geom.metric_vector   # active conserved face metric vector S^alpha
+geom.area            # norm(metric_vector)
+geom.normal          # metric_vector / area in the grid's physical basis
+```
+
+The mapped-grid contract is:
+- `geom.metric_vector` is the outward-oriented active row of
+  `face_metrics(grid)[axis].conserved[idx].jacobian_matrix`
+- `geom.normal` is a solver-facing physical-basis normal
+- `outward_face_normal(grid, idx, loc)` remains the embedded Cartesian surface
+  normal API, which is distinct from `geom.normal`
+
+On orthogonal grids, the corresponding face coordinate can still be queried
+directly:
+
+```julia
+q_cell = centroid(grid, (i, j))
+q_face = face_coordinate(grid, (i, j), :ihi)
+R = basis_transfer_matrix(grid, q_cell, q_face)
+```
 
 ## Metric Cache Controls
 
@@ -147,6 +215,10 @@ Supported `field_kind` values:
 - `:scalar`
 - `:vector`
 - `:tensor`
+
+Multiblock vector/tensor exchange now uses the same public
+`basis_transfer_matrix` API, so solver code and interface exchange rely on a
+single basis-change contract.
 
 ## I/O
 

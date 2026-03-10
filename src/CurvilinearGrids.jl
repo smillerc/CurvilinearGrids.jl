@@ -65,7 +65,7 @@ export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
 export update!
 export cellsize, cellsize_withhalo
 export coord, coords, cartesian_coordinates
-export centroid, centroids, cartesian_centroid
+export centroid, centroids, cartesian_centroid, face_coordinate
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
@@ -73,6 +73,8 @@ export cell_metrics, face_metrics, cell_indices
 export radius, centroid_radius, centroid_radii
 export cellvolume, cellvolumes
 export face_area, outward_face_normal
+export FaceFluxGeometry, face_flux_geometry
+export cell_jacobian, face_metric_coefficient
 
 export forward_cell_metrics, inverse_cell_metrics
 export InverseCoordinateResult, computational_coordinate
