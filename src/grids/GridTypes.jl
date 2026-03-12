@@ -34,7 +34,8 @@ export CartesianOrthogonalGrid1D,
   CartesianOrthogonalGrid2D,
   CartesianOrthogonalGrid3D,
   CylindricalOrthogonalGrid1D,
-  SphericalOrthogonalGrid1D
+  SphericalOrthogonalGrid1D,
+  SphericalOrthogonalGrid2D
 export AxisymmetricOrthogonalGrid2D
 
 export AbstractUnifiedGrid
@@ -49,7 +50,7 @@ export CartesianBasis, SphericalBasis
 export EdgeInterpolationSchemeTrait
 export EdgeInterpolationOrder1, EdgeInterpolationOrder2, EdgeInterpolationOrder3
 
-export coordinate_system, basis_trait
+export coordinate_system, basis_trait, basis_transfer_matrix
 export cell_metrics, face_metrics
 export invalidate_cell_metrics!, invalidate_face_metrics!
 export refresh_cell_metrics!, refresh_face_metrics!
@@ -61,9 +62,10 @@ export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
 export update!
 
 export coord, coords, cartesian_coordinates, coords!, cellsize, cellsize_withhalo
-export centroid, centroids, cartesian_centroid
+export centroid, centroids, cartesian_centroid, face_coordinate
 export cellvolume, cellvolumes
 export face_area, outward_face_normal
+export FaceFluxGeometry, face_flux_geometry
 export cell_jacobian, face_metric_coefficient
 export radius, centroid_radius, centroid_radii
 export jacobian_matrix

@@ -116,42 +116,5 @@ end
   ::Val{N},
   ::Type{T},
 ) where {N,T}
-  Qd = _basis_to_cartesian_matrix(
-    coordinate_system(donor), basis_trait(donor), q_donor, Val(N), T
-  )
-  Qr = _basis_to_cartesian_matrix(
-    coordinate_system(receiver), basis_trait(receiver), q_receiver, Val(N), T
-  )
-  return SMatrix{N,N,T}(transpose(Qr) * Qd)
-end
-
-@inline function _basis_to_cartesian_matrix(
-  cs::CoordinateSystemTrait, ::CartesianBasis, q::SVector{N,T}, ::Val{N}, ::Type{T}
-) where {N,T}
-  return one(SMatrix{N,N,T})
-end
-
-@inline function _basis_to_cartesian_matrix(
-  ::SphericalCS, ::SphericalBasis, q::SVector{3,T}, ::Val{3}, ::Type{T}
-) where {T}
-  _, θ, ϕ = q
-  sθ = sin(θ)
-  cθ = cos(θ)
-  sϕ = sin(ϕ)
-  cϕ = cos(ϕ)
-  return @SMatrix [
-    sθ*cϕ cθ*cϕ -sϕ
-    sθ*sϕ cθ*sϕ cϕ
-    cθ -sθ 0
-  ]
-end
-
-@inline function _basis_to_cartesian_matrix(
-  cs::CoordinateSystemTrait, bt::SphericalBasis, q::SVector{N,T}, ::Val{N}, ::Type{T}
-) where {N,T}
-  throw(
-    ArgumentError(
-      "Unsupported basis transform for $(typeof(bt)) with coordinate system $(typeof(cs)) and N=$N.",
-    ),
-  )
+  return basis_transfer_matrix(donor, q_donor, receiver, q_receiver)
 end
