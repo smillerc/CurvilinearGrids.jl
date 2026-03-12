@@ -66,6 +66,9 @@ All notable changes to this project are documented in this file.
 ### Fixed
 - Missing exports for multi-block APIs from the top-level package.
 - I/O compatibility paths for mapped/discrete grid serialization/deserialization.
+- Spherical 3D orthogonal-grid centroid and cell-volume computations now use
+  algebraically equivalent, numerically stabler radial and polar-angle
+  formulas.
 
 ### Removed
 - Legacy orthogonal-grid concrete type aliases were removed:
