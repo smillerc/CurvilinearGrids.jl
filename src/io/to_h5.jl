@@ -71,6 +71,24 @@ end
   throw(ArgumentError("Unsupported serialized basis tag `$tag`."))
 end
 
+@inline function _write_discretization_scheme(filename::String, mesh)
+  if hasproperty(mesh, :discretization_scheme_name)
+    h5write(
+      filename,
+      "discretization_scheme",
+      String(getproperty(mesh, :discretization_scheme_name)),
+    )
+  end
+end
+
+function _read_discretization_scheme(filename::String; default::Symbol=:meg6)
+  grid_file = h5open(filename, "r")
+  scheme = haskey(grid_file, "discretization_scheme") ?
+    Symbol(read(grid_file, "discretization_scheme")) : default
+  close(grid_file)
+  return scheme
+end
+
 ### Write h5 functions
 
 """
@@ -90,6 +108,7 @@ function write_coordinates(
     h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
+    _write_discretization_scheme(filename, mesh)
   end
 end
 
@@ -113,6 +132,7 @@ function write_coordinates(
     h5writeattr(filename, "y", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
+    _write_discretization_scheme(filename, mesh)
   end
 end
 
@@ -139,6 +159,7 @@ function write_coordinates(
     h5writeattr(filename, "z", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
+    _write_discretization_scheme(filename, mesh)
   end
 end
 
@@ -299,6 +320,7 @@ function write_coordinates(
     h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
+    _write_discretization_scheme(filename, mesh)
   end
 end
 
@@ -322,6 +344,7 @@ function write_coordinates(
     h5writeattr(filename, "y", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
+    _write_discretization_scheme(filename, mesh)
   end
 end
 
@@ -342,12 +365,13 @@ function write_coordinates(
     h5writeattr(filename, "x", Dict("Units" => string(units)))
 
     h5write(filename, "y", collect(y))
-    h5writeattr(filename, "y", Dict("Units" => "string(units)"))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
 
     h5write(filename, "z", collect(z))
     h5writeattr(filename, "z", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
+    _write_discretization_scheme(filename, mesh)
   end
 end
 
@@ -357,7 +381,7 @@ function write_coordinates(
   units::Unitful.FreeUnits{N,Unitful.𝐋,A},
 ) where {N,A,T}
   r, θ, ϕ = coords(mesh)
-  mesh_type = String(nameof(typeof(mesh)))
+  mesh_type = "SphericalGrid3D"
 
   # Write mesh
   h5open(filename, "w") do file
@@ -397,6 +421,7 @@ function write_coordinates(
     h5writeattr(filename, "y", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
+    _write_discretization_scheme(filename, mesh)
   end
 end
 
@@ -423,6 +448,7 @@ function write_coordinates(
     h5writeattr(filename, "z", Dict("Units" => string(units)))
 
     h5write(filename, "grid_type", mesh_type)
+    _write_discretization_scheme(filename, mesh)
   end
 end
 
@@ -524,13 +550,13 @@ function read_coordinates(
 
   if grid_type == "CurvilinearGrid1D"
     x = read_CurvilinearGrid1D(filename)
-    mesh = CurvilinearGrid1D(x, nhalo)
+    mesh = CurvilinearGrid1D(x, _read_discretization_scheme(filename))
   elseif grid_type == "CurvilinearGrid2D"
     x, y = read_CurvilinearGrid2D(filename)
-    mesh = CurvilinearGrid2D(x, y, nhalo)
+    mesh = CurvilinearGrid2D(x, y, _read_discretization_scheme(filename))
   elseif grid_type == "CurvilinearGrid3D"
     x, y, z = read_CurvilinearGrid3D(filename)
-    mesh = CurvilinearGrid3D(x, y, z, nhalo)
+    mesh = CurvilinearGrid3D(x, y, z, _read_discretization_scheme(filename))
   elseif grid_type == "MappedGrid1D"
     mapping_functions, params, celldims, t, nhalo, cs, bt = _read_MappedGrid_payload(
       filename, Val(1)
@@ -592,19 +618,21 @@ function read_coordinates(
     )
   elseif grid_type == "UniformGrid1D"
     x = read_UniformGrid1D(filename)
-    mesh = UniformGrid1D(x, nhalo)
+    mesh = UniformGrid1D(x, _read_discretization_scheme(filename))
   elseif grid_type == "UniformGrid2D"
     x0, x1, y0, y1, ∂x = read_UniformGrid2D(filename)
-    mesh = UniformGrid2D((x0, y0), (x1, y1), ∂x, nhalo)
+    mesh = UniformGrid2D((x0, y0), (x1, y1), ∂x, _read_discretization_scheme(filename))
   elseif grid_type == "UniformGrid3D"
     x0, x1, y0, y1, z0, z1, ∂x = read_UniformGrid3D(filename)
-    mesh = UniformGrid3D((x0, y0, z0), (x1, y1, z1), ∂x, nhalo)
+    mesh = UniformGrid3D(
+      (x0, y0, z0), (x1, y1, z1), ∂x, _read_discretization_scheme(filename)
+    )
   elseif grid_type == "RectilinearGrid2D"
     x, y = read_RectilinearGrid2D(filename)
-    mesh = RectilinearGrid2D(x, y, nhalo)
+    mesh = RectilinearGrid2D(x, y, _read_discretization_scheme(filename))
   elseif grid_type == "RectilinearGrid3D"
     x, y, z = read_RectilinearGrid3D(filename)
-    mesh = RectilinearGrid3D(x, y, z, nhalo)
+    mesh = RectilinearGrid3D(x, y, z, _read_discretization_scheme(filename))
   elseif grid_type == "CylindricalGrid1D"
     x, snap_to_axis = read_CylindricalGrid1D(filename)
     mesh = CylindricalGrid1D(x, :meg6, snap_to_axis)
@@ -617,6 +645,8 @@ function read_coordinates(
   elseif grid_type == "SphericalGrid3D"
     r, θ, ϕ, nhalo = read_SphericalGrid3D(filename)
     mesh = SphericalGrid3D(r, θ, ϕ, nhalo)
+  else
+    throw(ArgumentError("Unsupported serialized grid type `$grid_type`."))
   end
 
   return mesh
@@ -804,7 +834,7 @@ function read_SphericalGrid3D(filename::String)
 
   close(grid_file)
 
-  return collect(x), collect(θ), collect(ϕ), nhalo
+  return collect(r), collect(θ), collect(ϕ), nhalo
 end
 
 end

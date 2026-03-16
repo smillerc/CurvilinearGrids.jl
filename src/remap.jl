@@ -35,8 +35,8 @@ Re-interpolate the resolution of the given `mesh` to have the new dimensions `ni
 function change_resolution(mesh::CurvilinearGrid1D, ni::Int)
   itps = mesh_coord_interpolators(mesh)
 
-  nx, ny = size(itps.x.coefs)
-  new_x = itps.x(range(1; stop=nx, length=ni), range(1; stop=ny, length=nj))
+  nx = length(itps.x.coefs)
+  new_x = itps.x(range(1; stop=nx, length=ni))
 
   new_mesh = CurvilinearGrid1D(new_x, mesh.discretization_scheme_name)
 
@@ -101,11 +101,10 @@ Scale / re-interpolate the resolution of the given `mesh` by a factor of (α,β)
 function scale_resolution(mesh::CurvilinearGrid1D, α::Real)
   itps = mesh_coord_interpolators(mesh)
 
-  ni, nj = size(itps.x.coefs)
-  new_x = itps.x(range(1; stop=ni, step=inv(α)), range(1; stop=nj, step=inv(β)))
-  new_y = itps.y(range(1; stop=ni, step=inv(α)), range(1; stop=nj, step=inv(β)))
+  ni = length(itps.x.coefs)
+  new_x = itps.x(range(1; stop=ni, step=inv(α)))
 
-  new_mesh = CurvilinearGrid2D(new_x, new_y, mesh.discretization_scheme_name)
+  new_mesh = CurvilinearGrid1D(new_x, mesh.discretization_scheme_name)
 
   return new_mesh
 end

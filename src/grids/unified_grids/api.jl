@@ -460,11 +460,43 @@ For coordinate systems already stored in Cartesian-like form, this returns
   _cartesian_coordinates(coordinate_system(grid), coords(grid))
 end
 
+"""
+    cartesian_centroids(grid)
+
+Return 2-D cell-center coordinates in Cartesian plotting form.
+
+For Cartesian-like orthogonal grids, tensor-product centroid vectors are expanded
+to matrices. For spherical 2-D grids, `(r, θ)` centroids are converted to
+Cartesian meridional coordinates `(x, z)`. For mapped/discrete grids, cached
+centroid arrays are returned in Cartesian form when needed.
+"""
+@inline function cartesian_centroids(
+  grid::Union{MappedGrid{2},DiscreteGrid{2},OrthogonalGrid{2}}
+)
+  return _cartesian_centroids(coordinate_system(grid), centroids(grid))
+end
+
 @inline _cartesian_coordinates(::CoordinateSystemTrait, q) = q
 @inline _cartesian_coordinates(::CartesianCS, q) = q
 @inline _cartesian_coordinates(::CurvilinearCS, q) = q
 @inline _cartesian_coordinates(::AxisymmetricCS, q) = q
 @inline _cartesian_coordinates(::CylindricalCS, q) = q
+
+@inline function _tensor_product_coordinates(
+  x::AbstractVector{Tx}, y::AbstractVector{Ty}
+) where {Tx,Ty}
+  xx = [x[i] for i in eachindex(x), _ in eachindex(y)]
+  yy = [y[j] for _ in eachindex(x), j in eachindex(y)]
+  return xx, yy
+end
+
+@inline _tensor_product_coordinates(x::AbstractArray, y::AbstractArray) = (x, y)
+
+@inline _cartesian_centroids(::CartesianCS, q::NTuple{2,Any}) = _tensor_product_coordinates(q...)
+@inline _cartesian_centroids(::CurvilinearCS, q::NTuple{2,Any}) = _tensor_product_coordinates(q...)
+@inline _cartesian_centroids(::AxisymmetricCS, q::NTuple{2,Any}) = _tensor_product_coordinates(q...)
+@inline _cartesian_centroids(::CylindricalCS, q::NTuple{2,Any}) = _tensor_product_coordinates(q...)
+@inline _cartesian_centroids(::CoordinateSystemTrait, q::NTuple{2,Any}) = q
 
 @inline function _cartesian_coordinates(
   ::SphericalCS, q::NTuple{2,<:AbstractVector{T}}
@@ -476,6 +508,23 @@ end
   x = R .* sinθ
   z = R .* cosθ
   return x, z
+end
+
+@inline function _cartesian_centroids(
+  ::SphericalCS, q::NTuple{2,<:AbstractVector{T}}
+) where {T}
+  r, θ = q
+  R = reshape(r, :, 1)
+  sinθ = reshape(sin.(θ), 1, :)
+  cosθ = reshape(cos.(θ), 1, :)
+  return R .* sinθ, R .* cosθ
+end
+
+@inline function _cartesian_centroids(
+  ::SphericalCS, q::NTuple{2,<:AbstractArray}
+)
+  r, θ = q
+  return @. r * sin(θ), @. r * cos(θ)
 end
 
 @inline function _cartesian_coordinates(

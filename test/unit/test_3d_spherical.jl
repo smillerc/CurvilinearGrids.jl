@@ -404,6 +404,14 @@ end
   @test all(grid.edge_metrics.k₊½.ζ.x₃[kdom] .≈ 1 / dϕ)
   @test all(grid.edge_metrics.k₊½.J[kdom] .≈ J)
 
+  idx = first(dom)
+  expected = @SMatrix [
+    grid.cell_center_metrics.x₁.ξ[idx] grid.cell_center_metrics.x₁.η[idx] grid.cell_center_metrics.x₁.ζ[idx]
+    grid.cell_center_metrics.x₂.ξ[idx] grid.cell_center_metrics.x₂.η[idx] grid.cell_center_metrics.x₂.ζ[idx]
+    grid.cell_center_metrics.x₃.ξ[idx] grid.cell_center_metrics.x₃.η[idx] grid.cell_center_metrics.x₃.ζ[idx]
+  ]
+  @test jacobian_matrix(grid, idx.I) ≈ expected
+
   @test all(iszero.(grid.cell_center_metrics.x₂.ξ[dom]))
   @test all(iszero.(grid.cell_center_metrics.x₃.ξ[dom]))
   @test all(iszero.(grid.cell_center_metrics.x₁.η[dom]))

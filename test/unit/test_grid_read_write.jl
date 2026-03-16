@@ -1,4 +1,5 @@
 using Unitful
+using KernelAbstractions
 
 mapped2d_x(t, ξ, η, p) = ξ + p.αx * sin(η / p.Lη)
 mapped2d_y(t, ξ, η, p) = η + p.αy * cos(ξ / p.Lξ)
@@ -57,23 +58,30 @@ function initialize_mesh_Discrete3D()
 end
 
 function initialize_mesh_Uniform1D()
-  return initialize_mesh_Discrete1D()
+  return UniformGrid1D((0.0, 100.0), 49, :meg6)
 end
 
 function initialize_mesh_Uniform2D()
-  return initialize_mesh_Discrete2D()
+  return UniformGrid2D((0.0, 0.0), (100.0, 50.0), 2.0, :meg6)
 end
 
 function initialize_mesh_Uniform3D()
-  return initialize_mesh_Discrete3D()
+  return UniformGrid3D((0.0, 0.0, 0.0), (100.0, 50.0, 200.0), 5.0, :meg6)
 end
 
 function initialize_mesh_Rectilinear2D()
-  return initialize_mesh_Discrete2D()
+  x = [0.0, 4.0, 9.5, 17.0, 27.0, 40.0, 56.0, 75.0, 100.0]
+  y = [0.0, 3.0, 7.5, 14.0, 23.0, 35.0, 50.0]
+  return RectilinearGrid2D(x, y, :meg6)
 end
 
 function initialize_mesh_Rectilinear3D()
-  return initialize_mesh_Discrete3D()
+  x = [0.0, 4.0, 9.5, 17.0, 27.0, 40.0, 56.0, 75.0, 100.0]
+  y = [0.0, 3.0, 7.5, 14.0, 23.0, 35.0, 50.0]
+  z = [0.0, 6.0, 15.0, 29.0, 50.0, 79.0, 116.0, 160.0, 200.0]
+  return RectilinearGrid3D(
+    x, y, z, :meg6
+  )
 end
 
 function initialize_mesh_Cylindrical1D()
@@ -119,6 +127,13 @@ function initialize_mesh_Spherical1D()
   snap_to_axis = true
 
   return SphericalGrid1D(x, :meg6, snap_to_axis)
+end
+
+function initialize_mesh_Spherical3D()
+  r = collect(range(100.0, 200.0; length=8))
+  θ = collect(range(0.3, 1.1; length=7))
+  ϕ = collect(range(-0.2, 0.4; length=6))
+  return SphericalGrid3D(r, θ, ϕ, 1, CPU())
 end
 
 function initialize_mesh_Mapped2D()
@@ -278,6 +293,21 @@ end
   x1 = coords(mesh1D)
 
   @test x1_0 == x1
+end
+
+@testset "Read/Write SphericalGrid3D to .h5" begin
+  mesh3D_0 = initialize_mesh_Spherical3D()
+
+  test_write(mesh3D_0)
+  mesh3D = test_read()
+
+  r0, θ0, ϕ0 = coords(mesh3D_0)
+  r, θ, ϕ = coords(mesh3D)
+
+  @test r0 == r
+  @test θ0 == θ
+  @test ϕ0 == ϕ
+  @test mesh3D.nhalo == mesh3D_0.nhalo
 end
 
 @testset "Read/Write MappedGrid to .h5" begin

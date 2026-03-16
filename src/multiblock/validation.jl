@@ -101,10 +101,8 @@ function _check_abutting_geometry!(
 
   max_distance = zero(T)
   for i in eachindex(left_interior)
-    ξl = _face_computational_coordinate(left_interior[i], iface.left, T, Val(N))
-    ξr = _face_computational_coordinate(right_interior[i], iface.right, T, Val(N))
-    ql = _as_coord_svector(coord(left_block, ξl), T, N)
-    qr = _as_coord_svector(coord(right_block, ξr), T, N)
+    ql = _face_point_native(left_block, left_interior[i], iface.left, T, Val(N))
+    qr = _face_point_native(right_block, right_interior[i], iface.right, T, Val(N))
     xl = _coord_to_cartesian(coordinate_system(left_block), ql)
     xr = _coord_to_cartesian(coordinate_system(right_block), qr)
     left_points[i] = xl
@@ -169,6 +167,11 @@ end
 function _face_tangential_ranges(
   grid::AbstractMappedOrDiscreteGrid, face::BlockFace{N}, ::Val{N}
 ) where {N}
+  domain_ranges = Tuple(grid.iterators.cell.domain.indices)
+  return ntuple(i -> domain_ranges[i < face.axis ? i : i + 1], N - 1)
+end
+
+function _face_tangential_ranges(grid::OrthogonalGrid{N}, face::BlockFace{N}, ::Val{N}) where {N}
   domain_ranges = Tuple(grid.iterators.cell.domain.indices)
   return ntuple(i -> domain_ranges[i < face.axis ? i : i + 1], N - 1)
 end
@@ -294,6 +297,10 @@ end
   cϕ = cos(ϕ)
   return @SVector [r * sθ * cϕ, r * sθ * sϕ, r * cθ]
 end
+@inline function _coord_to_cartesian(::SphericalCS, q::SVector{2,T}) where {T}
+  r, θ = q
+  return @SVector [r * sin(θ), r * cos(θ)]
+end
 
 @inline function _coord_to_cartesian_jacobian(::CartesianCS, q::SVector{N,T}) where {N,T}
   return one(SMatrix{N,N,T})
@@ -318,6 +325,29 @@ end
     cθ -r*sθ 0
   ]
 end
+@inline function _coord_to_cartesian_jacobian(::SphericalCS, q::SVector{2,T}) where {T}
+  r, θ = q
+  sθ = sin(θ)
+  cθ = cos(θ)
+  return @SMatrix [
+    sθ r * cθ
+    cθ -r * sθ
+  ]
+end
+
+@inline function _face_point_native(
+  grid::AbstractMappedOrDiscreteGrid, idx::CartesianIndex{N}, face::BlockFace{N}, ::Type{T}, ::Val{N}
+) where {N,T}
+  q = face_coordinate(grid, idx.I, _block_face_location(face, Val(N)))
+  return _as_coord_svector(q, T, N)
+end
+
+@inline function _face_point_native(
+  grid::AbstractOrthogonalGrid, idx::CartesianIndex{N}, face::BlockFace{N}, ::Type{T}, ::Val{N}
+) where {N,T}
+  q = face_coordinate(grid, idx.I, _block_face_location(face, Val(N)))
+  return _as_coord_svector(q, T, N)
+end
 
 @inline function _face_outward_normal_cartesian(
   grid::AbstractMappedOrDiscreteGrid, idx::CartesianIndex{N}, face::BlockFace{N}, ::Val{N}
@@ -336,6 +366,32 @@ end
     throw(ArgumentError("Degenerate interface normal encountered at index $idx."))
   end
   return n_out / n_norm
+end
+
+@inline function _face_outward_normal_cartesian(
+  grid::AbstractOrthogonalGrid, idx::CartesianIndex{N}, face::BlockFace{N}, ::Val{N}
+) where {N}
+  T = eltype(grid)
+  q = _face_point_native(grid, idx, face, T, Val(N))
+  A = _coord_to_cartesian_jacobian(coordinate_system(grid), q)
+  n = SVector{N,T}(ntuple(i -> A[i, face.axis], N))
+  n_out = face.side === :min ? -n : n
+  n_norm = norm(n_out)
+  if n_norm <= eps(T)
+    throw(ArgumentError("Degenerate interface normal encountered at index $idx."))
+  end
+  return n_out / n_norm
+end
+
+@inline function _block_face_location(face::BlockFace{N}, ::Val{N}) where {N}
+  if face.axis == 1
+    return face.side === :min ? :ilo : :ihi
+  elseif face.axis == 2 && N >= 2
+    return face.side === :min ? :jlo : :jhi
+  elseif face.axis == 3 && N >= 3
+    return face.side === :min ? :klo : :khi
+  end
+  throw(ArgumentError("Invalid block face `(axis=$(face.axis), side=$(face.side))` for N=$N."))
 end
 
 @inline function _face_computational_coordinate(

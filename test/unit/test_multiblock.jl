@@ -1,6 +1,7 @@
 using Test
 using LinearAlgebra
 using StaticArrays
+using KernelAbstractions
 using CurvilinearGrids
 
 function _rect_nodes_2d(x0, x1, y0, y1, ni, nj)
@@ -67,6 +68,23 @@ function _abutting_mapped_3d_cartesian_spherical_setup(; nhalo=2)
 
   iface = (g_cart, :ihi) => (g_sph, :ilo)
   return g_cart, g_sph, iface
+end
+
+function _abutting_orthogonal_discrete_setup(; nhalo=1)
+  backend = CPU()
+  ni, nj = (6, 5)
+  left = OrthogonalGrid(
+    CartesianOrthogonalGrid2D(
+      collect(range(0.0, 1.0; length=ni + 1)),
+      collect(range(0.0, 1.0; length=nj + 1)),
+      nhalo,
+      backend,
+    ),
+  )
+  xnodes, ynodes = _rect_nodes_2d(1.0, 2.0, 0.0, 1.0, ni, nj)
+  right = DiscreteGrid(xnodes, ynodes, nhalo)
+  iface = (left, :ihi) => (right, :ilo)
+  return left, right, iface
 end
 
 @inline function _spherical_basis_to_cartesian_matrix(q::SVector{3,<:Real})
@@ -168,6 +186,42 @@ end
   transferred = computational_coordinate(mb, 1, 1, ξ_left)
   @test transferred.block_id == 2
   @test transferred.coordinate ≈ ξ_right
+end
+
+@testset "MultiBlock orthogonal/discrete validation and exchange" begin
+  left, right, iface = _abutting_orthogonal_discrete_setup()
+  mb = MultiBlockMesh((left, right), (iface,); tolerance=1e-12)
+
+  f_left = zeros(Float64, size(left.iterators.cell.full))
+  f_right = zeros(Float64, size(right.iterators.cell.full))
+  i_left_interior = last(left.iterators.cell.domain.indices[1])
+  i_left_ghost = i_left_interior + 1
+  i_right_interior = first(right.iterators.cell.domain.indices[1])
+  i_right_ghost = i_right_interior - 1
+
+  for j in left.iterators.cell.domain.indices[2]
+    f_left[i_left_interior, j] = 2.5
+    f_right[i_right_interior, j] = 6.5
+  end
+
+  exchange_interface!(mb, 1, [f_left, f_right]; field_kind=:scalar)
+  for j in left.iterators.cell.domain.indices[2]
+    @test f_left[i_left_ghost, j] == 6.5
+    @test f_right[i_right_ghost, j] == 2.5
+  end
+
+  v_left = fill((@SVector [0.0, 0.0]), size(left.iterators.cell.full))
+  v_right = fill((@SVector [0.0, 0.0]), size(right.iterators.cell.full))
+  for j in left.iterators.cell.domain.indices[2]
+    v_left[i_left_interior, j] = @SVector [1.0, -2.0]
+    v_right[i_right_interior, j] = @SVector [3.0, 4.0]
+  end
+
+  exchange_interface!(mb, 1, [v_left, v_right]; field_kind=:vector)
+  for j in left.iterators.cell.domain.indices[2]
+    @test v_left[i_left_ghost, j] ≈ @SVector [3.0, 4.0]
+    @test v_right[i_right_ghost, j] ≈ @SVector [1.0, -2.0]
+  end
 end
 
 if QUICK_TESTS

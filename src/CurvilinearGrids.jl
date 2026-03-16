@@ -65,7 +65,7 @@ export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
 export update!
 export cellsize, cellsize_withhalo
 export coord, coords, cartesian_coordinates
-export centroid, centroids, cartesian_centroid, face_coordinate
+export centroid, centroids, cartesian_centroid, cartesian_centroids, face_coordinate
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian

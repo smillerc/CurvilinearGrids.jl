@@ -495,13 +495,13 @@ end
 function jacobian_matrix(mesh::CurvilinearGrid3D, (i, j, k))
   xξ = mesh.cell_center_metrics.x₁.ξ
   yξ = mesh.cell_center_metrics.x₂.ξ
-  zξ = mesh.cell_center_metrics.x₂.ξ
+  zξ = mesh.cell_center_metrics.x₃.ξ
   xη = mesh.cell_center_metrics.x₁.η
   yη = mesh.cell_center_metrics.x₂.η
-  zη = mesh.cell_center_metrics.x₂.η
-  xζ = mesh.cell_center_metrics.x₁.η
-  yζ = mesh.cell_center_metrics.x₂.η
-  zζ = mesh.cell_center_metrics.x₂.η
+  zη = mesh.cell_center_metrics.x₃.η
+  xζ = mesh.cell_center_metrics.x₁.ζ
+  yζ = mesh.cell_center_metrics.x₂.ζ
+  zζ = mesh.cell_center_metrics.x₃.ζ
 
   return @SMatrix [
     xξ[i, j, k] xη[i, j, k] xζ[i, j, k]

@@ -134,6 +134,18 @@ end
   @test all(gcl_identities)
 end
 
+@testset "Legacy 3D jacobian_matrix matches forward metrics" begin
+  x, y, z, _, _, _ = rectilinear_nodes_3d(0.0, 2.0, 1.0, 3.0, -1.0, 2.0, 6, 7, 8)
+  mesh = CurvilinearGrid3D(x, y, z, :meg6)
+  idx = first(mesh.iterators.cell.domain)
+  expected = @SMatrix [
+    mesh.cell_center_metrics.x₁.ξ[idx] mesh.cell_center_metrics.x₁.η[idx] mesh.cell_center_metrics.x₁.ζ[idx]
+    mesh.cell_center_metrics.x₂.ξ[idx] mesh.cell_center_metrics.x₂.η[idx] mesh.cell_center_metrics.x₂.ζ[idx]
+    mesh.cell_center_metrics.x₃.ξ[idx] mesh.cell_center_metrics.x₃.η[idx] mesh.cell_center_metrics.x₃.ζ[idx]
+  ]
+  @test jacobian_matrix(mesh, idx.I) ≈ expected
+end
+
 @testset "3D Wavy Mesh GCL" begin
   using CurvilinearGrids
   using WriteVTK

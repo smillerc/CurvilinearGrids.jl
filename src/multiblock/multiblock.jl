@@ -6,11 +6,11 @@ module MultiBlockMeshes
 using LinearAlgebra
 using StaticArrays
 
-import ..GridTypes: AbstractMappedOrDiscreteGrid, AbstractOrthogonalGrid
+import ..GridTypes: AbstractMappedOrDiscreteGrid, AbstractOrthogonalGrid, OrthogonalGrid
 import ..GridTypes: CoordinateSystemTrait, CartesianCS, CurvilinearCS, SphericalCS
 import ..GridTypes: BasisTrait, CartesianBasis, SphericalBasis
 import ..GridTypes: coordinate_system, basis_trait, basis_transfer_matrix
-import ..GridTypes: coord, centroid, forward_cell_metrics
+import ..GridTypes: coord, centroid, face_coordinate, forward_cell_metrics
 import ..GridTypes: computational_coordinate
 
 export BlockFace

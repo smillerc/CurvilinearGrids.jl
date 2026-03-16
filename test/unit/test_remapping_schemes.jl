@@ -49,6 +49,23 @@ using CurvilinearGrids
   @test validate_remap_cache(cache, source_grid, destination_grid)
 end
 
+@testset "Legacy 1D remap helpers" begin
+  source = CurvilinearGrid1D((0.0, 1.0), 8, :meg6)
+  resized = change_resolution(source, 16)
+  scaled = scale_resolution(source, 2.0)
+
+  @test resized isa CurvilinearGrid1D
+  @test scaled isa CurvilinearGrid1D
+  @test length(coords(resized)) == 16
+  @test length(coords(scaled)) == 17
+
+  cell_data = collect(1.0:8.0)
+  remapped = remap_cell_data(source, resized, cell_data)
+  @test size(remapped) == size(resized.iterators.cell.domain)
+  @test first(remapped) ≈ first(cell_data)
+  @test last(remapped) ≈ last(cell_data)
+end
+
 @testset "RemappingSchemes wavy 2D to uniform 2D with VTK output" begin
   xwavy(t, xi, eta, p) = xi + p.ax * sin(2pi * eta / p.ly)
   ywavy(t, xi, eta, p) = eta + p.ay * sin(2pi * xi / p.lx)

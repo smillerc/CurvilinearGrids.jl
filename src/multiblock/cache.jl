@@ -109,9 +109,9 @@ end
 end
 
 @inline function _basis_transfer_matrix(
-  donor::AbstractMappedOrDiscreteGrid,
+  donor::Union{AbstractMappedOrDiscreteGrid,AbstractOrthogonalGrid},
   q_donor::SVector{N,T},
-  receiver::AbstractMappedOrDiscreteGrid,
+  receiver::Union{AbstractMappedOrDiscreteGrid,AbstractOrthogonalGrid},
   q_receiver::SVector{N,T},
   ::Val{N},
   ::Type{T},
