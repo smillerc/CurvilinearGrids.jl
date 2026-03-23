@@ -233,6 +233,80 @@ struct SurfaceGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,NC,FC,FN,FA}
   face_areas::FA
 end
 
+function SurfaceGrid(
+  grid::CurvilinearGrids.OrthogonalGrid{N,T,CurvilinearGrids.CartesianCS},
+  boundary::Symbol,
+  outward_normal::Bool=true,
+) where {N,T}
+  if N != 2 && N != 3
+    throw(ArgumentError("`SurfaceGrid` is only supported for 2D and 3D unified grids."))
+  end
+
+  axis, side = _boundary_axis_side(Val(N), boundary)
+  node_ranges = Tuple(grid.iterators.node.domain.indices)
+  cell_ranges = Tuple(grid.iterators.cell.domain.indices)
+  node_axis_idx = side === :lo ? first(node_ranges[axis]) : last(node_ranges[axis])
+  cell_axis_idx = side === :lo ? first(cell_ranges[axis]) : last(cell_ranges[axis])
+  tangential_node_ranges = _tangential_ranges(node_ranges, axis)
+  tangential_cell_ranges = _tangential_ranges(cell_ranges, axis)
+
+  node_dims = ntuple(i -> length(tangential_node_ranges[i]), N - 1)
+  cell_dims = ntuple(i -> length(tangential_cell_ranges[i]), N - 1)
+
+  cs = coordinate_system(grid)
+  bt = CartesianBasis()
+  loc = GridTypes._face_location_symbol(axis, side, Val(N))
+  normal_sign = _surface_orientation_sign(side, outward_normal, T)
+
+  node_coordinates = ntuple(_ -> Array{T}(undef, node_dims...), N)
+  face_centers = ntuple(_ -> Array{T}(undef, cell_dims...), N)
+  face_normals = ntuple(_ -> Array{T}(undef, cell_dims...), N)
+  face_areas = Array{T}(undef, cell_dims...)
+
+  for (Ilocal, Itang) in
+      zip(CartesianIndices(node_dims), CartesianIndices(tangential_node_ranges))
+    Iparent = _build_surface_index(Itang.I, axis, node_axis_idx, Val(N))
+    qnode = SVector{N,T}(ntuple(d -> T(grid.node_coordinates[d][Iparent[d]]), N))
+    for d in 1:N
+      node_coordinates[d][Ilocal] = qnode[d]
+    end
+  end
+
+  for (Ilocal, Itang) in
+      zip(CartesianIndices(cell_dims), CartesianIndices(tangential_cell_ranges))
+    Icell = _build_surface_index(Itang.I, axis, cell_axis_idx, Val(N))
+    center = CurvilinearGrids.face_coordinate(grid, Icell.I, loc)
+    area = CurvilinearGrids.face_area(grid, Icell.I, loc)
+    for d in 1:N
+      face_centers[d][Ilocal] = center[d]
+      face_normals[d][Ilocal] = d == axis ? normal_sign : zero(T)
+    end
+    face_areas[Ilocal] = area
+  end
+
+  return SurfaceGrid{
+    N,
+    T,
+    typeof(cs),
+    typeof(bt),
+    typeof(node_coordinates),
+    typeof(face_centers),
+    typeof(face_normals),
+    typeof(face_areas),
+  }(
+    boundary,
+    outward_normal,
+    axis,
+    side,
+    cs,
+    bt,
+    node_coordinates,
+    face_centers,
+    face_normals,
+    face_areas,
+  )
+end
+
 """
     SurfaceGrid(grid::Union{MappedGrid,DiscreteGrid}, boundary::Symbol, outward_normal=true)
 
@@ -340,6 +414,14 @@ function extract_surface_mesh(
   return SurfaceGrid(grid, boundary, outward_normal)
 end
 
+function extract_surface_mesh(
+  grid::CurvilinearGrids.OrthogonalGrid{N,T,CurvilinearGrids.CartesianCS},
+  boundary::Symbol;
+  outward_normal::Bool=true,
+) where {N,T}
+  return SurfaceGrid(grid, boundary, outward_normal)
+end
+
 """
     extract_surface_mesh(mesh::AbstractCurvilinearGrid2D, loc::Symbol)
 
@@ -405,7 +487,33 @@ end
 Write a 2D boundary `SurfaceGrid` (1D line) to VTK with only node coordinates,
 face normals, and face areas.
 """
-function VTKOutput.save_vtk(surface::SurfaceGrid{2}, fn="surface")
+@inline _surface_component_names(::Val{1}) = ["x1"]
+@inline _surface_component_names(::Val{2}) = ["x1", "x2"]
+@inline _surface_component_names(::Val{3}) = ["x1", "x2", "x3"]
+
+@inline _surface_scalar_cell_field(data::AbstractVector, ::SurfaceGrid{2}) = reshape(data, :, 1)
+@inline _surface_scalar_cell_field(data::AbstractArray, ::SurfaceGrid{3}) = data
+
+@inline _surface_vector_cell_field(data::NTuple{N,<:AbstractVector}, ::SurfaceGrid{2}) where {N} =
+  ntuple(i -> reshape(data[i], :, 1), N)
+@inline _surface_vector_cell_field(data::NTuple{N,<:AbstractArray}, ::SurfaceGrid{3}) where {N} =
+  data
+
+function _write_surface_extra_cell_data!(vtk, surface::SurfaceGrid, extra_cell_data)
+  isnothing(extra_cell_data) && return nothing
+  for (key, value) in pairs(extra_cell_data)
+    if value isa Tuple
+      ncomponents = length(value)
+      vtk[String(key), VTKCellData(), component_names = _surface_component_names(Val(ncomponents))] =
+        _surface_vector_cell_field(value, surface)
+    else
+      vtk[String(key), VTKCellData()] = _surface_scalar_cell_field(value, surface)
+    end
+  end
+  return nothing
+end
+
+function VTKOutput.save_vtk(surface::SurfaceGrid{2}, fn="surface"; extra_cell_data=nothing)
   x_line, y_line = surface.node_coordinates
   npoints = length(x_line)
   x = Array{eltype(x_line)}(undef, npoints, 2)
@@ -424,6 +532,7 @@ function VTKOutput.save_vtk(surface::SurfaceGrid{2}, fn="surface")
   vtk_grid(fn, (x, y)) do vtk
     vtk["face_area", VTKCellData()] = area
     vtk["face_normal", VTKCellData(), component_names = ["x1", "x2"]] = (nx, ny)
+    _write_surface_extra_cell_data!(vtk, surface, extra_cell_data)
   end
   return nothing
 end
@@ -446,7 +555,7 @@ end
 Write a 3D boundary `SurfaceGrid` (2D surface) to VTK with only node
 coordinates, face normals, and face areas.
 """
-function VTKOutput.save_vtk(surface::SurfaceGrid{3}, fn="surface")
+function VTKOutput.save_vtk(surface::SurfaceGrid{3}, fn="surface"; extra_cell_data=nothing)
   points = _surface_vtk_points(surface)
   @info "Writing to $fn.vti"
   vtk_grid(fn, points) do vtk
@@ -454,6 +563,7 @@ function VTKOutput.save_vtk(surface::SurfaceGrid{3}, fn="surface")
     vtk["face_normal", VTKCellData(), component_names = ["x1", "x2", "x3"]] = (
       surface.face_normals[1], surface.face_normals[2], surface.face_normals[3]
     )
+    _write_surface_extra_cell_data!(vtk, surface, extra_cell_data)
   end
   return nothing
 end

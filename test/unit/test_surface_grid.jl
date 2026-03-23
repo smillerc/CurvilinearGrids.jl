@@ -1,4 +1,5 @@
 using LinearAlgebra
+using KernelAbstractions: CPU
 using Test
 using CurvilinearGrids
 
@@ -325,6 +326,38 @@ end
   @test_throws ArgumentError extract_surface_mesh(legacy3, :qhi)
 end
 
+@testset "SurfaceGrid Cartesian orthogonal extraction" begin
+  grid2 = CartesianOrthogonalGrid2D(
+    collect(range(0.0, 1.0; length=6)),
+    collect(range(-1.0, 1.0; length=5)),
+    1,
+    CPU(),
+  )
+  surf2 = extract_surface_mesh(grid2, :ilo)
+  I2 = first(CartesianIndices(surf2.face_areas))
+  @test surf2 isa SurfaceGrid{2,Float64}
+  @test surf2.axis == 1
+  @test surf2.side == :lo
+  @test surf2.face_normals[1][I2] ≈ -1.0 atol = 1e-12
+  @test surf2.face_normals[2][I2] ≈ 0.0 atol = 1e-12
+
+  grid3 = CartesianOrthogonalGrid3D(
+    collect(range(0.0, 1.0; length=5)),
+    collect(range(0.0, 2.0; length=4)),
+    collect(range(-1.0, 1.0; length=6)),
+    1,
+    CPU(),
+  )
+  surf3 = extract_surface_mesh(grid3, :khi)
+  I3 = first(CartesianIndices(surf3.face_areas))
+  @test surf3 isa SurfaceGrid{3,Float64}
+  @test surf3.axis == 3
+  @test surf3.side == :hi
+  @test surf3.face_normals[1][I3] ≈ 0.0 atol = 1e-12
+  @test surf3.face_normals[2][I3] ≈ 0.0 atol = 1e-12
+  @test surf3.face_normals[3][I3] ≈ 1.0 atol = 1e-12
+end
+
 @testset "SurfaceGrid VTK output fields" begin
   x2(t, ξ, η, p) = ξ + 0.5 * sin(0.25 * η)
   y2(t, ξ, η, p) = η + 0.10 * sin(0.20 * ξ) * cos(0.30 * η)
@@ -360,6 +393,17 @@ end
   @test occursin("face_normal", txt2)
   @test !occursin("face_center", txt2)
   @test !occursin("parent_cell_index", txt2)
+  save_vtk(
+    surf2,
+    fn2;
+    extra_cell_data=(;
+      marker=collect(1.0:length(surf2.face_areas)),
+      traction=(fill(1.0, length(surf2.face_areas)), fill(-2.0, length(surf2.face_areas))),
+    ),
+  )
+  txt2_extra = read(vtk2, String)
+  @test occursin("marker", txt2_extra)
+  @test occursin("traction", txt2_extra)
 
   fn3 = joinpath(dir, "surface3d_curved")
   for ext in (".vti", ".vts")
@@ -374,5 +418,20 @@ end
   @test occursin("face_normal", txt3)
   @test !occursin("face_center", txt3)
   @test !occursin("parent_cell_index", txt3)
+  save_vtk(
+    surf3,
+    fn3;
+    extra_cell_data=(;
+      heat_flux=fill(0.25, size(surf3.face_areas)),
+      wall_traction=(
+        fill(1.0, size(surf3.face_areas)),
+        fill(2.0, size(surf3.face_areas)),
+        fill(3.0, size(surf3.face_areas)),
+      ),
+    ),
+  )
+  txt3_extra = read(vtk3, String)
+  @test occursin("heat_flux", txt3_extra)
+  @test occursin("wall_traction", txt3_extra)
   # end
 end
