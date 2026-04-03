@@ -79,9 +79,7 @@ function initialize_mesh_Rectilinear3D()
   x = [0.0, 4.0, 9.5, 17.0, 27.0, 40.0, 56.0, 75.0, 100.0]
   y = [0.0, 3.0, 7.5, 14.0, 23.0, 35.0, 50.0]
   z = [0.0, 6.0, 15.0, 29.0, 50.0, 79.0, 116.0, 160.0, 200.0]
-  return RectilinearGrid3D(
-    x, y, z, :meg6
-  )
+  return RectilinearGrid3D(x, y, z, :meg6)
 end
 
 function initialize_mesh_Cylindrical1D()

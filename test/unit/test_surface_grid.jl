@@ -328,10 +328,7 @@ end
 
 @testset "SurfaceGrid Cartesian orthogonal extraction" begin
   grid2 = CartesianOrthogonalGrid2D(
-    collect(range(0.0, 1.0; length=6)),
-    collect(range(-1.0, 1.0; length=5)),
-    1,
-    CPU(),
+    collect(range(0.0, 1.0; length=6)), collect(range(-1.0, 1.0; length=5)), 1, CPU()
   )
   surf2 = extract_surface_mesh(grid2, :ilo)
   I2 = first(CartesianIndices(surf2.face_areas))

@@ -1,5 +1,5 @@
 @inline _axisymmetric_rotational_axis(::Symbol) = throw(
-  ArgumentError("rotational_axis must be `:x` or `:y`"),
+  ArgumentError("rotational_axis must be `:x` or `:y`")
 )
 @inline _axisymmetric_rotational_axis(::Val{:x}) = :x
 @inline _axisymmetric_rotational_axis(::Val{:y}) = :y
@@ -66,13 +66,7 @@ function AxisymmetricOrthogonalGrid2D(
     typeof(limits),
     typeof(face_areas),
   }(
-    node_coordinates,
-    centroid_coordinates,
-    cell_volumes,
-    iters,
-    limits,
-    face_areas,
-    nhalo,
+    node_coordinates, centroid_coordinates, cell_volumes, iters, limits, face_areas, nhalo
   )
 end
 
@@ -109,13 +103,7 @@ function compute_axisymmetric_centroids!(
 end
 
 function compute_axisymmetric_face_areas!(
-  face_areas,
-  node_coordinates,
-  iters,
-  backend,
-  halo_coords_included,
-  nhalo,
-  rotational_axis,
+  face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo, rotational_axis
 )
   domain = iters.cell.domain
   if nhalo == 0

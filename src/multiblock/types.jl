@@ -275,10 +275,12 @@ function MultiBlockMesh(
   isempty(block_tuple) && throw(ArgumentError("`blocks` cannot be empty."))
 
   first_block = first(block_tuple)
-  if !(first_block isa AbstractMappedOrDiscreteGrid || first_block isa AbstractOrthogonalGrid)
+  if !(
+    first_block isa AbstractMappedOrDiscreteGrid || first_block isa AbstractOrthogonalGrid
+  )
     throw(
       ArgumentError(
-        "`blocks` must contain only `MappedGrid`, `DiscreteGrid`, or `OrthogonalGrid`.",
+        "`blocks` must contain only `MappedGrid`, `DiscreteGrid`, or `OrthogonalGrid`."
       ),
     )
   end

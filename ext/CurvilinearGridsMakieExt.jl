@@ -509,7 +509,7 @@ end
 @inline _to_cartesian(q::Tuple, ::CurvilinearGrids.CoordinateSystemTrait) = q
 
 @inline function _coordinate_system_trait(
-  grid::Union{CurvilinearGrids.AbstractUnifiedGrid,CurvilinearGrids.AbstractOrthogonalGrid},
+  grid::Union{CurvilinearGrids.AbstractUnifiedGrid,CurvilinearGrids.AbstractOrthogonalGrid}
 )
   return CurvilinearGrids.coordinate_system(grid)
 end

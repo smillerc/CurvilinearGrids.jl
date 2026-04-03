@@ -26,26 +26,13 @@ function SphericalOrthogonalGrid2D(
   _populate_2d_nodes!(node_coordinates, coords, iters)
 
   compute_spherical_2d_centroids!(
-    centroid_coordinates,
-    node_coordinates,
-    iters,
-    backend,
-    halo_coords_included,
+    centroid_coordinates, node_coordinates, iters, backend, halo_coords_included
   )
   compute_spherical_2d_volumes!(
-    cell_volumes,
-    node_coordinates,
-    iters,
-    backend,
-    halo_coords_included,
+    cell_volumes, node_coordinates, iters, backend, halo_coords_included
   )
   compute_spherical_2d_face_areas!(
-    face_areas,
-    node_coordinates,
-    iters,
-    backend,
-    halo_coords_included,
-    nhalo,
+    face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo
   )
 
   return OrthogonalGrid{
@@ -64,11 +51,7 @@ function SphericalOrthogonalGrid2D(
 end
 
 function compute_spherical_2d_centroids!(
-  centroids,
-  node_coordinates,
-  iters,
-  backend,
-  halo_coords_included,
+  centroids, node_coordinates, iters, backend, halo_coords_included
 )
   domain = halo_coords_included ? iters.cell.full : iters.cell.domain
 
@@ -84,12 +67,7 @@ function compute_spherical_2d_centroids!(
 end
 
 function compute_spherical_2d_face_areas!(
-  face_areas,
-  node_coordinates,
-  iters,
-  backend,
-  halo_coords_included,
-  nhalo,
+  face_areas, node_coordinates, iters, backend, halo_coords_included, nhalo
 )
   domain = iters.cell.domain
   if nhalo == 0
@@ -123,20 +101,12 @@ function compute_spherical_2d_face_areas!(
 end
 
 function compute_spherical_2d_volumes!(
-  volumes,
-  node_coordinates,
-  iters,
-  backend,
-  halo_coords_included,
+  volumes, node_coordinates, iters, backend, halo_coords_included
 )
   domain = halo_coords_included ? iters.cell.full : iters.cell.domain
 
   _compute_spherical_2d_volumes!(backend)(
-    volumes,
-    node_coordinates[1],
-    node_coordinates[2],
-    domain;
-    ndrange=size(domain),
+    volumes, node_coordinates[1], node_coordinates[2], domain; ndrange=size(domain)
   )
   return nothing
 end

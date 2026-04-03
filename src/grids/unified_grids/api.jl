@@ -112,25 +112,19 @@ end
 end
 
 @inline function basis_transfer_matrix(
-  grid::Union{MappedGrid{N},DiscreteGrid{N}},
-  from_q::SVector{N,T1},
-  to_q::SVector{N,T2},
+  grid::Union{MappedGrid{N},DiscreteGrid{N}}, from_q::SVector{N,T1}, to_q::SVector{N,T2}
 ) where {N,T1,T2}
   return basis_transfer_matrix(grid, from_q, grid, to_q)
 end
 
 @inline function basis_transfer_matrix(
-  grid::OrthogonalGrid{N},
-  from_q::Tuple{Vararg{Real,N}},
-  to_q::Tuple{Vararg{Real,N}},
+  grid::OrthogonalGrid{N}, from_q::Tuple{Vararg{Real,N}}, to_q::Tuple{Vararg{Real,N}}
 ) where {N}
   basis_transfer_matrix(grid, SVector{N}(from_q), SVector{N}(to_q))
 end
 
 @inline function basis_transfer_matrix(
-  grid::OrthogonalGrid{N},
-  from_q::SVector{N,T1},
-  to_q::SVector{N,T2},
+  grid::OrthogonalGrid{N}, from_q::SVector{N,T1}, to_q::SVector{N,T2}
 ) where {N,T1,T2}
   return basis_transfer_matrix(grid, from_q, grid, to_q)
 end
@@ -138,12 +132,11 @@ end
 @inline _identity_basis_transfer(::Val{N}, ::Type{T}) where {N,T} = one(SMatrix{N,N,T})
 
 @inline function _grid_basis_to_cartesian_matrix(
-  grid::Union{MappedGrid{N},DiscreteGrid{N}},
-  q::SVector{N,T},
-  ::Val{N},
-  ::Type{T},
+  grid::Union{MappedGrid{N},DiscreteGrid{N}}, q::SVector{N,T}, ::Val{N}, ::Type{T}
 ) where {N,T}
-  return _mapped_basis_to_cartesian_matrix(coordinate_system(grid), basis_trait(grid), q, Val(N), T)
+  return _mapped_basis_to_cartesian_matrix(
+    coordinate_system(grid), basis_trait(grid), q, Val(N), T
+  )
 end
 
 @inline function _grid_basis_to_cartesian_matrix(
@@ -492,10 +485,18 @@ end
 
 @inline _tensor_product_coordinates(x::AbstractArray, y::AbstractArray) = (x, y)
 
-@inline _cartesian_centroids(::CartesianCS, q::NTuple{2,Any}) = _tensor_product_coordinates(q...)
-@inline _cartesian_centroids(::CurvilinearCS, q::NTuple{2,Any}) = _tensor_product_coordinates(q...)
-@inline _cartesian_centroids(::AxisymmetricCS, q::NTuple{2,Any}) = _tensor_product_coordinates(q...)
-@inline _cartesian_centroids(::CylindricalCS, q::NTuple{2,Any}) = _tensor_product_coordinates(q...)
+@inline _cartesian_centroids(::CartesianCS, q::NTuple{2,Any}) = _tensor_product_coordinates(
+  q...
+)
+@inline _cartesian_centroids(::CurvilinearCS, q::NTuple{2,Any}) = _tensor_product_coordinates(
+  q...
+)
+@inline _cartesian_centroids(::AxisymmetricCS, q::NTuple{2,Any}) = _tensor_product_coordinates(
+  q...
+)
+@inline _cartesian_centroids(::CylindricalCS, q::NTuple{2,Any}) = _tensor_product_coordinates(
+  q...
+)
 @inline _cartesian_centroids(::CoordinateSystemTrait, q::NTuple{2,Any}) = q
 
 @inline function _cartesian_coordinates(
@@ -520,9 +521,7 @@ end
   return R .* sinθ, R .* cosθ
 end
 
-@inline function _cartesian_centroids(
-  ::SphericalCS, q::NTuple{2,<:AbstractArray}
-)
+@inline function _cartesian_centroids(::SphericalCS, q::NTuple{2,<:AbstractArray})
   r, θ = q
   return @. r * sin(θ), @. r * cos(θ)
 end
@@ -1276,7 +1275,9 @@ at the face midpoint in computational space.
 An `SVector` giving the face-center coordinate in the grid's physical
 coordinate system.
 """
-@inline function face_coordinate(grid::AbstractUnifiedGrid, idx::CartesianIndex, loc::Symbol)
+@inline function face_coordinate(
+  grid::AbstractUnifiedGrid, idx::CartesianIndex, loc::Symbol
+)
   face_coordinate(grid, idx.I, loc)
 end
 
@@ -1286,7 +1287,10 @@ end
   axis, side = _face_loc_axis_side(Val(N), loc)
   face_idx = ntuple(d -> d == axis ? idx[d] + (side === :hi ? 1 : 0) : idx[d], N)
   return SVector{N,T}(
-    ntuple(d -> d == axis ? _orth_face_coord(grid, d, face_idx) : _orth_cell_coord(grid, d, idx), N)
+    ntuple(
+      d -> d == axis ? _orth_face_coord(grid, d, face_idx) : _orth_cell_coord(grid, d, idx),
+      N,
+    ),
   )
 end
 
@@ -1507,7 +1511,9 @@ end
   return (; normal=normal, area=area, cartesian_coordinate=x, mapped_coordinate=q)
 end
 
-@inline function _face_flux_cache_index(idx::NTuple{N,Int}, axis::Int, side::Symbol) where {N}
+@inline function _face_flux_cache_index(
+  idx::NTuple{N,Int}, axis::Int, side::Symbol
+) where {N}
   return ntuple(d -> d == axis ? idx[d] + (side === :hi ? 0 : -1) : idx[d], N)
 end
 

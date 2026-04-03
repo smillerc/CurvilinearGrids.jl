@@ -52,8 +52,8 @@ function rotate!(
     point[1] = grid.node_coordinates[c].x
     point[2] = grid.node_coordinates[c].y
 
-    grid.node_coordinates.x[c] = (rotation_matrix*point)[1]
-    grid.node_coordinates.y[c] = (rotation_matrix*point)[2]
+    grid.node_coordinates.x[c] = (rotation_matrix * point)[1]
+    grid.node_coordinates.y[c] = (rotation_matrix * point)[2]
   end
 
   update!(grid; force=true)

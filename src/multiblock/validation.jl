@@ -171,7 +171,9 @@ function _face_tangential_ranges(
   return ntuple(i -> domain_ranges[i < face.axis ? i : i + 1], N - 1)
 end
 
-function _face_tangential_ranges(grid::OrthogonalGrid{N}, face::BlockFace{N}, ::Val{N}) where {N}
+function _face_tangential_ranges(
+  grid::OrthogonalGrid{N}, face::BlockFace{N}, ::Val{N}
+) where {N}
   domain_ranges = Tuple(grid.iterators.cell.domain.indices)
   return ntuple(i -> domain_ranges[i < face.axis ? i : i + 1], N - 1)
 end
@@ -336,14 +338,22 @@ end
 end
 
 @inline function _face_point_native(
-  grid::AbstractMappedOrDiscreteGrid, idx::CartesianIndex{N}, face::BlockFace{N}, ::Type{T}, ::Val{N}
+  grid::AbstractMappedOrDiscreteGrid,
+  idx::CartesianIndex{N},
+  face::BlockFace{N},
+  ::Type{T},
+  ::Val{N},
 ) where {N,T}
   q = face_coordinate(grid, idx.I, _block_face_location(face, Val(N)))
   return _as_coord_svector(q, T, N)
 end
 
 @inline function _face_point_native(
-  grid::AbstractOrthogonalGrid, idx::CartesianIndex{N}, face::BlockFace{N}, ::Type{T}, ::Val{N}
+  grid::AbstractOrthogonalGrid,
+  idx::CartesianIndex{N},
+  face::BlockFace{N},
+  ::Type{T},
+  ::Val{N},
 ) where {N,T}
   q = face_coordinate(grid, idx.I, _block_face_location(face, Val(N)))
   return _as_coord_svector(q, T, N)
@@ -391,7 +401,9 @@ end
   elseif face.axis == 3 && N >= 3
     return face.side === :min ? :klo : :khi
   end
-  throw(ArgumentError("Invalid block face `(axis=$(face.axis), side=$(face.side))` for N=$N."))
+  throw(
+    ArgumentError("Invalid block face `(axis=$(face.axis), side=$(face.side))` for N=$N.")
+  )
 end
 
 @inline function _face_computational_coordinate(

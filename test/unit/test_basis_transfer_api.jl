@@ -38,17 +38,7 @@ end
   expected_sph2 = @SMatrix [cos(Δθ) sin(Δθ); -sin(Δθ) cos(Δθ)]
   @test Rsph2 ≈ expected_sph2 atol=1.0e-12
 
-  params3 = (;
-    ni=5,
-    nj=4,
-    nk=3,
-    r0=1.4,
-    θ0=0.35,
-    ϕ0=0.2,
-    Δr=0.1,
-    Δθ=0.08,
-    Δϕ=0.09,
-  )
+  params3 = (; ni=5, nj=4, nk=3, r0=1.4, θ0=0.35, ϕ0=0.2, Δr=0.1, Δθ=0.08, Δϕ=0.09)
   rmap(t, ξ, η, ζ, p) = p.r0 + (ξ - 1) * p.Δr
   θmap(t, ξ, η, ζ, p) = p.θ0 + (η - 1) * p.Δθ
   ϕmap(t, ξ, η, ζ, p) = p.ϕ0 + (ζ - 1) * p.Δϕ
@@ -107,7 +97,9 @@ end
     compute_metrics=false,
     cache_mode=:off,
   )
-  @test_throws ArgumentError basis_transfer_matrix(bad2, SVector(1.0, 0.2), SVector(1.1, 0.3))
+  @test_throws ArgumentError basis_transfer_matrix(
+    bad2, SVector(1.0, 0.2), SVector(1.1, 0.3)
+  )
 end
 
 @testset "Public face-coordinate and face-flux geometry API" begin
@@ -147,10 +139,8 @@ end
   )
 
   I2 = (cart2.nhalo + 3, cart2.nhalo + 4)
-  @test face_coordinate(cart2, I2, :ilo) ≈
-    face_coordinate(cart2, (I2[1] - 1, I2[2]), :ihi) atol=1.0e-12
-  @test face_coordinate(cart2, I2, :jlo) ≈
-    face_coordinate(cart2, (I2[1], I2[2] - 1), :jhi) atol=1.0e-12
+  @test face_coordinate(cart2, I2, :ilo) ≈ face_coordinate(cart2, (I2[1] - 1, I2[2]), :ihi) atol=1.0e-12
+  @test face_coordinate(cart2, I2, :jlo) ≈ face_coordinate(cart2, (I2[1], I2[2] - 1), :jhi) atol=1.0e-12
 
   geom_hi = face_flux_geometry(cart2, I2, :ihi)
   geom_lo = face_flux_geometry(cart2, I2, :ilo)

@@ -491,21 +491,26 @@ face normals, and face areas.
 @inline _surface_component_names(::Val{2}) = ["x1", "x2"]
 @inline _surface_component_names(::Val{3}) = ["x1", "x2", "x3"]
 
-@inline _surface_scalar_cell_field(data::AbstractVector, ::SurfaceGrid{2}) = reshape(data, :, 1)
+@inline _surface_scalar_cell_field(data::AbstractVector, ::SurfaceGrid{2}) = reshape(
+  data, :, 1
+)
 @inline _surface_scalar_cell_field(data::AbstractArray, ::SurfaceGrid{3}) = data
 
-@inline _surface_vector_cell_field(data::NTuple{N,<:AbstractVector}, ::SurfaceGrid{2}) where {N} =
-  ntuple(i -> reshape(data[i], :, 1), N)
-@inline _surface_vector_cell_field(data::NTuple{N,<:AbstractArray}, ::SurfaceGrid{3}) where {N} =
-  data
+@inline _surface_vector_cell_field(data::NTuple{N,<:AbstractVector}, ::SurfaceGrid{2}) where {N} = ntuple(
+  i -> reshape(data[i], :, 1), N
+)
+@inline _surface_vector_cell_field(
+  data::NTuple{N,<:AbstractArray}, ::SurfaceGrid{3}
+) where {N} = data
 
 function _write_surface_extra_cell_data!(vtk, surface::SurfaceGrid, extra_cell_data)
   isnothing(extra_cell_data) && return nothing
   for (key, value) in pairs(extra_cell_data)
     if value isa Tuple
       ncomponents = length(value)
-      vtk[String(key), VTKCellData(), component_names = _surface_component_names(Val(ncomponents))] =
-        _surface_vector_cell_field(value, surface)
+      vtk[String(key), VTKCellData(), component_names = _surface_component_names(Val(ncomponents))] = _surface_vector_cell_field(
+        value, surface
+      )
     else
       vtk[String(key), VTKCellData()] = _surface_scalar_cell_field(value, surface)
     end

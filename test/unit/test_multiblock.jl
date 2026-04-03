@@ -245,7 +245,9 @@ else
       v_cart[i_cart_interior, j, k] = donor_vec
     end
 
-    exchange_interface!(mb, 1, [v_cart, v_sph]; field_kind=:vector, direction=:left_to_right)
+    exchange_interface!(
+      mb, 1, [v_cart, v_sph]; field_kind=:vector, direction=:left_to_right
+    )
 
     for j in g_cart.iterators.cell.domain.indices[2],
       k in g_cart.iterators.cell.domain.indices[3]

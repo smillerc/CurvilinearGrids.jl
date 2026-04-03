@@ -83,8 +83,11 @@ end
 
 function _read_discretization_scheme(filename::String; default::Symbol=:meg6)
   grid_file = h5open(filename, "r")
-  scheme = haskey(grid_file, "discretization_scheme") ?
-    Symbol(read(grid_file, "discretization_scheme")) : default
+  scheme = if haskey(grid_file, "discretization_scheme")
+    Symbol(read(grid_file, "discretization_scheme"))
+  else
+    default
+  end
   close(grid_file)
   return scheme
 end
