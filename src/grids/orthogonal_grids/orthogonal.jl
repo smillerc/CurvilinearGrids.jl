@@ -26,6 +26,7 @@ end
 #   New: f(g::OrthogonalGrid{1,<:Any,SphericalCS})
 #
 #   Old: f(g::AxisymmetricOrthogonalGrid2D)
+#   New: f(g::OrthogonalGrid{2,<:Any,AxisymmetricCS{:x}})
 #   New: f(g::OrthogonalGrid{2,<:Any,AxisymmetricCS{:y}})
 #
 #   Old: f(g::SphericalGrid3D)  # orthogonal spherical constructor return type

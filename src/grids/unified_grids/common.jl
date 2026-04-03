@@ -1373,8 +1373,10 @@ function _coordinate_system_from_legacy(mesh::AxisymmetricGrid2D)
   end
 end
 
-function _coordinate_system_from_legacy(::OrthogonalGrid{2,T,AxisymmetricCS{:y}}) where {T}
-  AxisymmetricCS{:y}()
+function _coordinate_system_from_legacy(::OrthogonalGrid{2,T,AxisymmetricCS{Axis}}) where {T,Axis}
+  Axis in (:x, :y) ||
+    throw(ArgumentError("Unsupported axisymmetric axis `:$Axis` in legacy orthogonal grid"))
+  AxisymmetricCS{Axis}()
 end
 _coordinate_system_from_legacy(::AbstractCurvilinearGrid) = CurvilinearCS()
 
