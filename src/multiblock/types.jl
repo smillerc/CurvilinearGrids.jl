@@ -49,7 +49,7 @@ function BlockInterface(
   right::BlockFace{N},
   permutation::Tuple,
   flips::Tuple;
-  tolerance::T=T(1e-10),
+  tolerance::T=1e-10,
 ) where {N,T<:Real}
   if left == right
     throw(ArgumentError("Interface cannot connect a face to itself."))
