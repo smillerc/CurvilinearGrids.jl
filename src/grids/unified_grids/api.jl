@@ -485,18 +485,14 @@ end
 
 @inline _tensor_product_coordinates(x::AbstractArray, y::AbstractArray) = (x, y)
 
-@inline _cartesian_centroids(::CartesianCS, q::NTuple{2,Any}) = _tensor_product_coordinates(
-  q...
-)
-@inline _cartesian_centroids(::CurvilinearCS, q::NTuple{2,Any}) = _tensor_product_coordinates(
-  q...
-)
-@inline _cartesian_centroids(::AxisymmetricCS, q::NTuple{2,Any}) = _tensor_product_coordinates(
-  q...
-)
-@inline _cartesian_centroids(::CylindricalCS, q::NTuple{2,Any}) = _tensor_product_coordinates(
-  q...
-)
+@inline _cartesian_centroids(::CartesianCS, q::NTuple{2,Any}) =
+  _tensor_product_coordinates(q...)
+@inline _cartesian_centroids(::CurvilinearCS, q::NTuple{2,Any}) =
+  _tensor_product_coordinates(q...)
+@inline _cartesian_centroids(::AxisymmetricCS, q::NTuple{2,Any}) =
+  _tensor_product_coordinates(q...)
+@inline _cartesian_centroids(::CylindricalCS, q::NTuple{2,Any}) =
+  _tensor_product_coordinates(q...)
 @inline _cartesian_centroids(::CoordinateSystemTrait, q::NTuple{2,Any}) = q
 
 @inline function _cartesian_coordinates(
@@ -1213,18 +1209,18 @@ function face_metric_coefficient(
 end
 
 @inline function _face_loc_axis_side(::Val{N}, loc::Symbol) where {N}
-  l = Symbol(lowercase(String(loc)))
-  axis, side = if l in (:ilo, :imin, :xlo, :xmin)
+  # Fast-path canonical symbols used in hot loops to avoid String/lowercase allocations.
+  axis, side = if loc === :ilo
     (1, :lo)
-  elseif l in (:ihi, :imax, :xhi, :xmax)
+  elseif loc === :ihi
     (1, :hi)
-  elseif l in (:jlo, :jmin, :ylo, :ymin)
+  elseif loc === :jlo
     (2, :lo)
-  elseif l in (:jhi, :jmax, :yhi, :ymax)
+  elseif loc === :jhi
     (2, :hi)
-  elseif l in (:klo, :kmin, :zlo, :zmin)
+  elseif loc === :klo
     (3, :lo)
-  elseif l in (:khi, :kmax, :zhi, :zmax)
+  elseif loc === :khi
     (3, :hi)
   else
     throw(
@@ -1233,6 +1229,7 @@ end
       ),
     )
   end
+
   if axis > N
     throw(
       ArgumentError(
@@ -1654,10 +1651,12 @@ end
   return T(det(_continuous_forward_jacobian(grid, idx)))
 end
 
-@inline _radial_centroid_1d(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::NTuple{1,Int}) = grid.centroid_coordinates[1][idx...]
-@inline _radial_centroid_1d(grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::Tuple{Vararg{Real,1}}) = _continuous_coord(
-  grid, idx
-)[1]
+@inline _radial_centroid_1d(
+  grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::NTuple{1,Int}
+) = grid.centroid_coordinates[1][idx...]
+@inline _radial_centroid_1d(
+  grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::Tuple{Vararg{Real,1}}
+) = _continuous_coord(grid, idx)[1]
 
 @inline function _axisymmetric_radius(
   ::AxisymmetricCS{:x}, grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx::NTuple{2,Int}

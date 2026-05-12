@@ -15,6 +15,7 @@ using .RectilinearArrays
 
 include("grids/GridTypes.jl")
 using .GridTypes
+include("grids/orthogonal_from_faces.jl")
 
 include("multiblock/multiblock.jl")
 using .MultiBlockMeshes: BlockFace, BlockInterface
