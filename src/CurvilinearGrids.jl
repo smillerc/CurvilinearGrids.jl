@@ -24,10 +24,6 @@ using .MultiBlockMeshes:
 using .MultiBlockMeshes: exchange_interface!, exchange_all_interfaces!
 using .MultiBlockMeshes: MultiBlockMesh
 
-include("remapping/remapping.jl")
-using .RemappingSchemes: RemapCache, build_remap_cache, remap_scalar, remap_scalar!
-using .RemappingSchemes: source_overlap_mass, validate_remap_cache
-
 export AbstractCurvilinearGrid
 export AbstractCurvilinearGrid1D
 export AbstractCurvilinearGrid2D
@@ -85,9 +81,6 @@ export validate_multiblock!, build_interface_caches!, invalidate_interface_cache
 export exchange_interface!, exchange_all_interfaces!
 export invalidate_cell_metrics!, invalidate_face_metrics!
 export refresh_cell_metrics!, refresh_face_metrics!
-export RemapCache, build_remap_cache, remap_scalar, remap_scalar!
-export source_overlap_mass, validate_remap_cache
-
 include("operators/Operators.jl")
 using .Operators
 export cell_center_derivative, edge_derivative
