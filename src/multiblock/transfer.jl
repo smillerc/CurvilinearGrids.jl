@@ -1,5 +1,5 @@
 """
-    exchange_interface!(mb, iface_id, fields; field_kind=:scalar, direction=:both)
+    exchange_interface!(mb, iface_id, fields; field_kind=:scalar, direction=:both, depth=1)
 
 Exchange one interface for cell-centered fields.
 
@@ -11,6 +11,7 @@ Exchange one interface for cell-centered fields.
 # Keywords
   - `field_kind`: `:scalar`, `:vector`, or `:tensor`.
   - `direction`: `:left_to_right`, `:right_to_left`, or `:both`.
+  - `depth`: Number of halo layers to fill from the opposing block interior.
 
 # Returns
 `fields`.
@@ -21,6 +22,7 @@ function exchange_interface!(
   fields;
   field_kind::Symbol=:scalar,
   direction::Symbol=:both,
+  depth::Integer=1,
 ) where {N,T}
   if iface_id < 1 || iface_id > length(mb.interfaces)
     throw(ArgumentError("Invalid `iface_id=$iface_id`."))
@@ -31,9 +33,19 @@ function exchange_interface!(
   if direction ∉ (:left_to_right, :right_to_left, :both)
     throw(ArgumentError("Invalid `direction=$direction`."))
   end
+  depth >= 1 || throw(ArgumentError("`depth` must be positive."))
 
   _validate_fields_container(mb, fields)
+  _validate_exchange_depth(mb, depth)
   iface = mb.interfaces[iface_id]
+
+  if depth > 1
+    for layer in 1:depth
+      _exchange_interface_layer!(mb, iface, fields, field_kind, direction, layer, Val(N), T)
+    end
+    return fields
+  end
+
   cache = _ensure_interface_cache!(mb, iface_id)
 
   left_values = fields[iface.left.block_id]
@@ -67,7 +79,7 @@ function exchange_interface!(
 end
 
 """
-    exchange_all_interfaces!(mb, fields; field_kind=:scalar, direction=:both)
+    exchange_all_interfaces!(mb, fields; field_kind=:scalar, direction=:both, depth=1)
 
 Exchange all interfaces for cell-centered fields.
 
@@ -78,15 +90,22 @@ Exchange all interfaces for cell-centered fields.
 # Keywords
   - `field_kind`: `:scalar`, `:vector`, or `:tensor`.
   - `direction`: `:left_to_right`, `:right_to_left`, or `:both`.
+  - `depth`: Number of halo layers to fill from the opposing block interior.
 
 # Returns
 `fields`.
 """
 function exchange_all_interfaces!(
-  mb::MultiBlockMesh, fields; field_kind::Symbol=:scalar, direction::Symbol=:both
+  mb::MultiBlockMesh,
+  fields;
+  field_kind::Symbol=:scalar,
+  direction::Symbol=:both,
+  depth::Integer=1,
 )
   for iface_id in eachindex(mb.interfaces)
-    exchange_interface!(mb, iface_id, fields; field_kind=field_kind, direction=direction)
+    exchange_interface!(
+      mb, iface_id, fields; field_kind=field_kind, direction=direction, depth=depth
+    )
   end
   return fields
 end
@@ -100,6 +119,143 @@ function _validate_fields_container(mb::MultiBlockMesh, fields)
     )
   end
   return nothing
+end
+
+function _validate_exchange_depth(mb::MultiBlockMesh, depth::Integer)
+  for (block_id, block) in pairs(mb.blocks)
+    if depth > block.nhalo
+      throw(
+        ArgumentError(
+          "`depth=$depth` exceeds halo width $(block.nhalo) for block $block_id.",
+        ),
+      )
+    end
+  end
+  return nothing
+end
+
+function _exchange_interface_layer!(
+  mb::MultiBlockMesh{N},
+  iface::BlockInterface{N},
+  fields,
+  field_kind::Symbol,
+  direction::Symbol,
+  layer::Int,
+  ::Val{N},
+  ::Type{T},
+) where {N,T}
+  left_values = fields[iface.left.block_id]
+  right_values = fields[iface.right.block_id]
+  left_interior, right_interior, left_ghost, right_ghost =
+    _paired_interface_layer_indices(mb, iface, layer, Val(N))
+  left_to_right_transform, right_to_left_transform = if field_kind === :scalar
+    nothing, nothing
+  else
+    _interface_layer_transforms(mb, iface, left_interior, right_interior, Val(N), T)
+  end
+
+  if direction === :left_to_right || direction === :both
+    _exchange_one_direction!(
+      left_values,
+      right_values,
+      left_interior,
+      right_ghost,
+      left_to_right_transform,
+      field_kind,
+      Val(N),
+      T,
+    )
+  end
+  if direction === :right_to_left || direction === :both
+    _exchange_one_direction!(
+      right_values,
+      left_values,
+      right_interior,
+      left_ghost,
+      right_to_left_transform,
+      field_kind,
+      Val(N),
+      T,
+    )
+  end
+  return nothing
+end
+
+function _paired_interface_layer_indices(
+  mb::MultiBlockMesh{N}, iface::BlockInterface{N}, layer::Int, ::Val{N}
+) where {N}
+  left_block = mb.blocks[iface.left.block_id]
+  right_block = mb.blocks[iface.right.block_id]
+
+  left_domain = Tuple(left_block.iterators.cell.domain.indices)
+  right_domain = Tuple(right_block.iterators.cell.domain.indices)
+  left_tangential = _face_tangential_ranges(left_block, iface.left, Val(N))
+  right_tangential = _face_tangential_ranges(right_block, iface.right, Val(N))
+
+  source_layer = -(layer - 1)
+  left_axis_idx = _face_axis_index(left_domain, iface.left, source_layer)
+  right_axis_idx = _face_axis_index(right_domain, iface.right, source_layer)
+  left_ghost_axis = _face_axis_index(left_domain, iface.left, layer)
+  right_ghost_axis = _face_axis_index(right_domain, iface.right, layer)
+
+  left_interior = CartesianIndex{N}[]
+  right_interior = CartesianIndex{N}[]
+  left_ghost = CartesianIndex{N}[]
+  right_ghost = CartesianIndex{N}[]
+
+  if N == 1
+    push!(left_interior, CartesianIndex(left_axis_idx))
+    push!(right_interior, CartesianIndex(right_axis_idx))
+    push!(left_ghost, CartesianIndex(left_ghost_axis))
+    push!(right_ghost, CartesianIndex(right_ghost_axis))
+    return left_interior, right_interior, left_ghost, right_ghost
+  end
+
+  for left_t in CartesianIndices(left_tangential)
+    left_tvals = left_t.I
+    right_tvals = _map_tangential_indices(
+      left_tvals, left_tangential, right_tangential, iface.permutation, iface.flips, Val(N)
+    )
+    push!(
+      left_interior,
+      _build_face_cartesian_index(left_tvals, iface.left.axis, left_axis_idx, Val(N)),
+    )
+    push!(
+      right_interior,
+      _build_face_cartesian_index(right_tvals, iface.right.axis, right_axis_idx, Val(N)),
+    )
+    push!(
+      left_ghost,
+      _build_face_cartesian_index(left_tvals, iface.left.axis, left_ghost_axis, Val(N)),
+    )
+    push!(
+      right_ghost,
+      _build_face_cartesian_index(right_tvals, iface.right.axis, right_ghost_axis, Val(N)),
+    )
+  end
+  return left_interior, right_interior, left_ghost, right_ghost
+end
+
+function _interface_layer_transforms(
+  mb::MultiBlockMesh{N},
+  iface::BlockInterface{N},
+  left_interior,
+  right_interior,
+  ::Val{N},
+  ::Type{T},
+) where {N,T}
+  left_block = mb.blocks[iface.left.block_id]
+  right_block = mb.blocks[iface.right.block_id]
+  left_to_right = Vector{SMatrix{N,N,T}}(undef, length(left_interior))
+  right_to_left = Vector{SMatrix{N,N,T}}(undef, length(left_interior))
+
+  for i in eachindex(left_interior)
+    ql = _as_coord_svector(centroid(left_block, left_interior[i]), T, N)
+    qr = _as_coord_svector(centroid(right_block, right_interior[i]), T, N)
+    left_to_right[i] = _basis_transfer_matrix(left_block, ql, right_block, qr, Val(N), T)
+    right_to_left[i] = _basis_transfer_matrix(right_block, qr, left_block, ql, Val(N), T)
+  end
+  return left_to_right, right_to_left
 end
 
 function _exchange_one_direction!(

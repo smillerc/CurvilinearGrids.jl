@@ -912,6 +912,34 @@ end
   cm.inverse[idx...]
 end
 
+@inline function _cell_center_computational_coordinate(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::NTuple{N,Int}
+) where {N,T}
+  Iglobal = grid.iterators.global_domain.cell.full[CartesianIndex(idx)]
+  half = T(0.5)
+  return ntuple(d -> T(Iglobal.I[d] - grid.nhalo) + half, N)
+end
+
+@inline function _cell_forward_metric_at(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::NTuple{N,Int}
+) where {N,T}
+  if !_has_metric_storage(grid)
+    return _cell_forward_metric_at(grid, _cell_center_computational_coordinate(grid, idx))
+  end
+  cm = cell_metrics(grid)
+  return cm.forward[idx...]
+end
+
+@inline function _cell_inverse_metric_at(
+  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::NTuple{N,Int}
+) where {N,T}
+  if !_has_metric_storage(grid)
+    return _cell_inverse_metric_at(grid, _cell_center_computational_coordinate(grid, idx))
+  end
+  cm = cell_metrics(grid)
+  return cm.inverse[idx...]
+end
+
 @inline function _cell_forward_metric_at(
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::Tuple{Vararg{Real,N}}
 ) where {N,T}
@@ -1547,7 +1575,8 @@ end
   Ghat = face_metrics(grid)[axis].conserved[face_idx...].jacobian_matrix
   T = promote_type(eltype(q), eltype(Ghat))
   metric_row = SVector{N,T}(ntuple(j -> Ghat[axis, j], N))
-  metric_vector = (side === :hi ? one(T) : -one(T)) * metric_row
+  area_scale = _face_area_scale(coordinate_system(grid), SVector{N,T}(q))
+  metric_vector = area_scale * (side === :hi ? one(T) : -one(T)) * metric_row
   area = norm(metric_vector)
   normal = area > zero(T) ? metric_vector / area : zero(metric_vector)
   return FaceFluxGeometry{N,T}(SVector{N,T}(q), metric_vector, area, normal)
@@ -1643,12 +1672,12 @@ end
 @inline function _jacobian_volume_factor(
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::NTuple{N,Int}
 ) where {N,T}
-  return _cell_forward_metric_at(grid, idx).J
+  return abs(_cell_forward_metric_at(grid, idx).J)
 end
 @inline function _jacobian_volume_factor(
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::Tuple{Vararg{Real,N}}
 ) where {N,T}
-  return T(det(_continuous_forward_jacobian(grid, idx)))
+  return abs(T(det(_continuous_forward_jacobian(grid, idx))))
 end
 
 @inline _radial_centroid_1d(

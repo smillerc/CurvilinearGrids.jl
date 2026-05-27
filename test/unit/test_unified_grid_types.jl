@@ -270,6 +270,19 @@ end
   rax = centroid(axi_x, Iax)[2]
   @test cellvolume(axi_x, Iax) ≈ (2 * π * rax) * Jax
 
+  xmap(t, ξ, η, p) = ξ
+  ymap(t, ξ, η, p) = η^2
+  nonlinear = MappedGrid(
+    xmap, ymap, (;), (6, 6), 2; basis=CartesianBasis(), cache_mode=:eager
+  )
+  Inl = (3, 4)
+  cached = cell_metrics(nonlinear).forward[Inl...]
+  @test forward_cell_metrics(nonlinear, Inl).J ≈ cached.J
+  @test jacobian_matrix(nonlinear, Inl) ≈ cached.jacobian_matrix
+  @test cellvolume(nonlinear, Inl) ≈ abs(cached.J)
+  @test forward_cell_metrics(nonlinear, Inl).J !=
+    forward_cell_metrics(nonlinear, (Float64(Inl[1]), Float64(Inl[2]))).J
+
   params = (r0=1.0, θ0=0.2, ϕ0=0.1, Δr=0.1, Δθ=0.05, Δϕ=0.07)
   rmap(t, ξ, η, ζ, p) = p.r0 + (ξ - 1) * p.Δr
   θmap(t, ξ, η, ζ, p) = p.θ0 + (η - 1) * p.Δθ

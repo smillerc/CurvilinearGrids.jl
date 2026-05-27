@@ -165,9 +165,20 @@ end
   idx_api = (last(cell_ranges[1]), first(cell_ranges[2]))
   area_api = face_area(axisym, idx_api, :ihi)
   normal_api = outward_face_normal(axisym, idx_api, :ihi)
+  flux_api = face_flux_geometry(axisym, idx_api, :ihi)
   @test area_api ≈ map_surface.face_areas[I] atol = 1e-12
   @test normal_api[1] ≈ map_surface.face_normals[1][I] atol = 1e-12
   @test normal_api[2] ≈ map_surface.face_normals[2][I] atol = 1e-12
+  @test flux_api.area ≈ area_api atol = 1e-12
+  @test norm(flux_api.metric_vector) ≈ area_api atol = 1e-12
+  @test flux_api.normal[1] ≈ normal_api[1] atol = 1e-12
+  @test flux_api.normal[2] ≈ normal_api[2] atol = 1e-12
+
+  idx_jhi = (first(cell_ranges[1]), last(cell_ranges[2]))
+  area_jhi = face_area(axisym, idx_jhi, :jhi)
+  flux_jhi = face_flux_geometry(axisym, idx_jhi, :jhi)
+  @test flux_jhi.area ≈ area_jhi atol = 1e-12
+  @test norm(flux_jhi.metric_vector) ≈ area_jhi atol = 1e-12
 end
 
 @testset "SurfaceGrid spherical-basis sector geometry" begin

@@ -142,6 +142,29 @@ end
     @test f2[i2_ghost, j] == 3.0
   end
 
+  f1_depth = zeros(Float64, size(b1.iterators.cell.full))
+  f2_depth = zeros(Float64, size(b2.iterators.cell.full))
+  i1_interior_2 = i1_interior - 1
+  i1_ghost_2 = i1_interior + 2
+  i2_interior_2 = i2_interior + 1
+  i2_ghost_2 = i2_interior - 2
+  for j in b1.iterators.cell.domain.indices[2]
+    f1_depth[i1_interior, j] = 31.0
+    f1_depth[i1_interior_2, j] = 32.0
+    f2_depth[i2_interior, j] = 71.0
+    f2_depth[i2_interior_2, j] = 72.0
+  end
+  exchange_interface!(mb, 1, [f1_depth, f2_depth]; field_kind=:scalar, depth=2)
+  for j in b1.iterators.cell.domain.indices[2]
+    @test f1_depth[i1_ghost, j] == 71.0
+    @test f1_depth[i1_ghost_2, j] == 72.0
+    @test f2_depth[i2_ghost, j] == 31.0
+    @test f2_depth[i2_ghost_2, j] == 32.0
+  end
+  @test_throws ArgumentError exchange_interface!(
+    mb, 1, [f1_depth, f2_depth]; field_kind=:scalar, depth=3
+  )
+
   v1 = fill((@SVector [0.0, 0.0]), size(b1.iterators.cell.full))
   v2 = fill((@SVector [0.0, 0.0]), size(b2.iterators.cell.full))
   for j in b1.iterators.cell.domain.indices[2]
