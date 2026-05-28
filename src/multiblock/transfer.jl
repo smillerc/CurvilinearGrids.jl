@@ -110,6 +110,97 @@ function exchange_all_interfaces!(
   return fields
 end
 
+"""
+    interface_index_plan(left_domain, left_face, right_domain, right_face, permutation, flips; depth=1, left_valid_domain=nothing, right_valid_domain=nothing)
+
+Build ordered scalar index pairs for an oriented block interface.
+
+The returned named tuple has `left_to_right` and `right_to_left` vectors. Each
+entry is `source => target`, where source is an interior cell index on the donor
+side and target is the corresponding ghost-cell index on the receiver side.
+"""
+function interface_index_plan(
+  left_domain::CartesianIndices{N},
+  left_face::BlockFace{N},
+  right_domain::CartesianIndices{N},
+  right_face::BlockFace{N},
+  permutation,
+  flips;
+  depth::Integer=1,
+  left_valid_domain=nothing,
+  right_valid_domain=nothing,
+) where {N}
+  depth >= 1 || throw(ArgumentError("`depth` must be positive."))
+  perm = Tuple(permutation)
+  flip = Tuple(flips)
+  _validate_interface_index_mapping(
+    left_domain, right_domain, left_face, right_face, perm, flip, Val(N)
+  )
+
+  left_to_right = Pair{CartesianIndex{N},CartesianIndex{N}}[]
+  right_to_left = Pair{CartesianIndex{N},CartesianIndex{N}}[]
+
+  for layer in 1:depth
+    left_interior, right_interior, left_ghost, right_ghost =
+      _paired_interface_layer_indices(
+        left_domain, left_face, right_domain, right_face, perm, flip, layer, Val(N)
+      )
+    for i in eachindex(left_interior)
+      if _index_in_domain(left_interior[i], left_valid_domain) &&
+        _index_in_domain(right_ghost[i], right_valid_domain)
+        push!(left_to_right, left_interior[i] => right_ghost[i])
+      end
+      if _index_in_domain(right_interior[i], right_valid_domain) &&
+        _index_in_domain(left_ghost[i], left_valid_domain)
+        push!(right_to_left, right_interior[i] => left_ghost[i])
+      end
+    end
+  end
+
+  return (; left_to_right, right_to_left)
+end
+
+function interface_index_plan(
+  left_grid,
+  right_grid,
+  iface::BlockInterface{N};
+  depth::Integer=1,
+  left_valid_domain=nothing,
+  right_valid_domain=nothing,
+) where {N}
+  return interface_index_plan(
+    left_grid.iterators.cell.domain,
+    iface.left,
+    right_grid.iterators.cell.domain,
+    iface.right,
+    iface.permutation,
+    iface.flips;
+    depth,
+    left_valid_domain,
+    right_valid_domain,
+  )
+end
+
+function interface_index_plan(
+  mb::MultiBlockMesh,
+  iface_id::Integer;
+  depth::Integer=1,
+  left_valid_domain=nothing,
+  right_valid_domain=nothing,
+)
+  1 <= iface_id <= length(mb.interfaces) ||
+    throw(ArgumentError("Invalid `iface_id=$iface_id`."))
+  iface = mb.interfaces[Int(iface_id)]
+  return interface_index_plan(
+    mb.blocks[iface.left.block_id],
+    mb.blocks[iface.right.block_id],
+    iface;
+    depth,
+    left_valid_domain,
+    right_valid_domain,
+  )
+end
+
 function _validate_fields_container(mb::MultiBlockMesh, fields)
   if length(fields) != length(mb.blocks)
     throw(
@@ -119,6 +210,120 @@ function _validate_fields_container(mb::MultiBlockMesh, fields)
     )
   end
   return nothing
+end
+
+@inline function _index_in_domain(::CartesianIndex, ::Nothing)
+  return true
+end
+
+@inline function _index_in_domain(idx::CartesianIndex{N}, domain::CartesianIndices{N}) where {N}
+  return all(i -> first(domain.indices[i]) <= idx[i] <= last(domain.indices[i]), 1:N)
+end
+
+function _validate_interface_index_mapping(
+  left_domain::CartesianIndices{N},
+  right_domain::CartesianIndices{N},
+  left_face::BlockFace{N},
+  right_face::BlockFace{N},
+  permutation::Tuple,
+  flips::Tuple,
+  ::Val{N},
+) where {N}
+  length(permutation) == N - 1 ||
+    throw(
+      ArgumentError(
+        "Invalid `permutation` length $(length(permutation)); expected $(N - 1)."
+      ),
+    )
+  length(flips) == N - 1 ||
+    throw(
+      ArgumentError("Invalid `flips` length $(length(flips)); expected $(N - 1).")
+    )
+  sort(collect(permutation)) == collect(1:(N - 1)) ||
+    throw(
+      ArgumentError(
+        "Invalid tangential `permutation`. Expected a permutation of `1:$(N - 1)`."
+      ),
+    )
+  all(x -> x isa Bool, flips) || throw(ArgumentError("`flips` entries must be booleans."))
+
+  left_tangential = _face_tangential_ranges(left_domain, left_face, Val(N))
+  right_tangential = _face_tangential_ranges(right_domain, right_face, Val(N))
+  for i in 1:(N - 1)
+    right_dim = permutation[i]
+    length(left_tangential[i]) == length(right_tangential[right_dim]) || throw(
+      ArgumentError(
+        "Interface tangential range mismatch: left tangential axis $i has length $(length(left_tangential[i])) but right tangential axis $right_dim has length $(length(right_tangential[right_dim]))",
+      ),
+    )
+  end
+  return nothing
+end
+
+function _face_tangential_ranges(
+  domain::CartesianIndices{N}, face::BlockFace{N}, ::Val{N}
+) where {N}
+  domain_ranges = Tuple(domain.indices)
+  return ntuple(i -> domain_ranges[i < face.axis ? i : i + 1], N - 1)
+end
+
+function _paired_interface_layer_indices(
+  left_domain::CartesianIndices{N},
+  left_face::BlockFace{N},
+  right_domain::CartesianIndices{N},
+  right_face::BlockFace{N},
+  permutation::Tuple,
+  flips::Tuple,
+  layer::Int,
+  ::Val{N},
+) where {N}
+  left_ranges = Tuple(left_domain.indices)
+  right_ranges = Tuple(right_domain.indices)
+  left_tangential = _face_tangential_ranges(left_domain, left_face, Val(N))
+  right_tangential = _face_tangential_ranges(right_domain, right_face, Val(N))
+
+  source_layer = -(layer - 1)
+  left_axis_idx = _face_axis_index(left_ranges, left_face, source_layer)
+  right_axis_idx = _face_axis_index(right_ranges, right_face, source_layer)
+  left_ghost_axis = _face_axis_index(left_ranges, left_face, layer)
+  right_ghost_axis = _face_axis_index(right_ranges, right_face, layer)
+
+  left_interior = CartesianIndex{N}[]
+  right_interior = CartesianIndex{N}[]
+  left_ghost = CartesianIndex{N}[]
+  right_ghost = CartesianIndex{N}[]
+
+  if N == 1
+    push!(left_interior, CartesianIndex(left_axis_idx))
+    push!(right_interior, CartesianIndex(right_axis_idx))
+    push!(left_ghost, CartesianIndex(left_ghost_axis))
+    push!(right_ghost, CartesianIndex(right_ghost_axis))
+    return left_interior, right_interior, left_ghost, right_ghost
+  end
+
+  for left_t in CartesianIndices(left_tangential)
+    left_tvals = left_t.I
+    right_tvals = _map_tangential_indices(
+      left_tvals, left_tangential, right_tangential, permutation, flips, Val(N)
+    )
+    push!(
+      left_interior,
+      _build_face_cartesian_index(left_tvals, left_face.axis, left_axis_idx, Val(N)),
+    )
+    push!(
+      right_interior,
+      _build_face_cartesian_index(right_tvals, right_face.axis, right_axis_idx, Val(N)),
+    )
+    push!(
+      left_ghost,
+      _build_face_cartesian_index(left_tvals, left_face.axis, left_ghost_axis, Val(N)),
+    )
+    push!(
+      right_ghost,
+      _build_face_cartesian_index(right_tvals, right_face.axis, right_ghost_axis, Val(N)),
+    )
+  end
+  return left_interior, right_interior, left_ghost, right_ghost
 end
 
 function _validate_exchange_depth(mb::MultiBlockMesh, depth::Integer)
@@ -186,54 +391,16 @@ function _paired_interface_layer_indices(
 ) where {N}
   left_block = mb.blocks[iface.left.block_id]
   right_block = mb.blocks[iface.right.block_id]
-
-  left_domain = Tuple(left_block.iterators.cell.domain.indices)
-  right_domain = Tuple(right_block.iterators.cell.domain.indices)
-  left_tangential = _face_tangential_ranges(left_block, iface.left, Val(N))
-  right_tangential = _face_tangential_ranges(right_block, iface.right, Val(N))
-
-  source_layer = -(layer - 1)
-  left_axis_idx = _face_axis_index(left_domain, iface.left, source_layer)
-  right_axis_idx = _face_axis_index(right_domain, iface.right, source_layer)
-  left_ghost_axis = _face_axis_index(left_domain, iface.left, layer)
-  right_ghost_axis = _face_axis_index(right_domain, iface.right, layer)
-
-  left_interior = CartesianIndex{N}[]
-  right_interior = CartesianIndex{N}[]
-  left_ghost = CartesianIndex{N}[]
-  right_ghost = CartesianIndex{N}[]
-
-  if N == 1
-    push!(left_interior, CartesianIndex(left_axis_idx))
-    push!(right_interior, CartesianIndex(right_axis_idx))
-    push!(left_ghost, CartesianIndex(left_ghost_axis))
-    push!(right_ghost, CartesianIndex(right_ghost_axis))
-    return left_interior, right_interior, left_ghost, right_ghost
-  end
-
-  for left_t in CartesianIndices(left_tangential)
-    left_tvals = left_t.I
-    right_tvals = _map_tangential_indices(
-      left_tvals, left_tangential, right_tangential, iface.permutation, iface.flips, Val(N)
-    )
-    push!(
-      left_interior,
-      _build_face_cartesian_index(left_tvals, iface.left.axis, left_axis_idx, Val(N)),
-    )
-    push!(
-      right_interior,
-      _build_face_cartesian_index(right_tvals, iface.right.axis, right_axis_idx, Val(N)),
-    )
-    push!(
-      left_ghost,
-      _build_face_cartesian_index(left_tvals, iface.left.axis, left_ghost_axis, Val(N)),
-    )
-    push!(
-      right_ghost,
-      _build_face_cartesian_index(right_tvals, iface.right.axis, right_ghost_axis, Val(N)),
-    )
-  end
-  return left_interior, right_interior, left_ghost, right_ghost
+  return _paired_interface_layer_indices(
+    left_block.iterators.cell.domain,
+    iface.left,
+    right_block.iterators.cell.domain,
+    iface.right,
+    iface.permutation,
+    iface.flips,
+    layer,
+    Val(N),
+  )
 end
 
 function _interface_layer_transforms(

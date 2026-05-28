@@ -33,7 +33,12 @@ All notable changes to this project are documented in this file.
   - `validate_multiblock!`
   - `build_interface_caches!`, `invalidate_interface_caches!`
   - `exchange_interface!`, `exchange_all_interfaces!`
+  - `interface_index_plan`
   - multi-block `computational_coordinate` transfer helpers
+- Public scalar index-planning API for oriented multi-block interfaces:
+  `interface_index_plan` returns ordered source-to-target Cartesian index pairs
+  for both interface directions, including permutation, flip, halo-depth, and
+  optional valid-domain filtering.
 - New orthogonal-grid constructors for Cartesian grids:
   - `CartesianOrthogonalGrid2D`
   - `CartesianOrthogonalGrid3D`
@@ -50,6 +55,9 @@ All notable changes to this project are documented in this file.
 - Unified-grid cell volume logic is now coordinate-system and basis aware.
 - Multiblock basis exchange now goes through the same public
   `basis_transfer_matrix` API used by solver code.
+- Multi-block scalar interface exchange now shares its oriented layer-mapping
+  logic with `interface_index_plan`, so solver and MPI layers can reuse the same
+  index plan instead of duplicating flip/permutation handling.
 - HDF5 reconstruction for unified grids now supports `compute_metrics` and `cache_mode` options in `read_coordinates`.
 - Unified-grid internals were refactored toward immutable, trait-driven storage and clearer cache/state behavior.
 - `nhalo` handling was cleaned up in unified-grid construction paths.

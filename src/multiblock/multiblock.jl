@@ -17,7 +17,7 @@ export BlockFace
 export BlockInterface
 export MultiBlockMesh
 export validate_multiblock!, build_interface_caches!, invalidate_interface_caches!
-export exchange_interface!, exchange_all_interfaces!
+export interface_index_plan, exchange_interface!, exchange_all_interfaces!
 
 include("types.jl")
 include("validation.jl")

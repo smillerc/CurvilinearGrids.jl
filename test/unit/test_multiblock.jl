@@ -22,6 +22,16 @@ function _abutting_two_block_setup(; nhalo=2, gap=0.0)
   return b1, b2, iface
 end
 
+function _copy_scalar_index_plan!(left, right, plan)
+  for pair in plan.left_to_right
+    right[pair.second] = left[pair.first]
+  end
+  for pair in plan.right_to_left
+    left[pair.second] = right[pair.first]
+  end
+  return left, right
+end
+
 @inline _linear_coord(s::Real, n::Int, lo::Real, hi::Real) = lo + ((s - 1) / n) * (hi - lo)
 
 function _abutting_mapped_3d_cartesian_spherical_setup(; nhalo=2)
@@ -188,6 +198,80 @@ end
     @test t1[i1_ghost, j] ≈ @SMatrix [5.0 6.0; 7.0 8.0]
     @test t2[i2_ghost, j] ≈ @SMatrix [1.0 2.0; 3.0 4.0]
   end
+end
+
+@testset "MultiBlock interface_index_plan" begin
+  ni, nj = (4, 5)
+  x1, y1 = _rect_nodes_2d(0.0, 1.0, 0.0, 1.0, ni, nj)
+  x2, y2 = _rect_nodes_2d(1.0, 2.0, 0.0, 1.0, ni, nj)
+  b1 = DiscreteGrid(x1, y1, 2; compute_metrics=false, cache_mode=:off)
+  b2 = DiscreteGrid(x2, y2, 2; compute_metrics=false, cache_mode=:off)
+  iface = BlockInterface(
+    BlockFace{2}(1, 1, :max), BlockFace{2}(2, 1, :min), (1,), (true,)
+  )
+  mb = MultiBlockMesh((b1, b2), (iface,); validate=false, build_cache=false)
+
+  f1 = [
+    10.0 * i + j for i in 1:size(b1.iterators.cell.full, 1),
+    j in 1:size(b1.iterators.cell.full, 2)
+  ]
+  f2 = [
+    100.0 + 10.0 * i + j for i in 1:size(b2.iterators.cell.full, 1),
+    j in 1:size(b2.iterators.cell.full, 2)
+  ]
+  f1_exchange = copy(f1)
+  f2_exchange = copy(f2)
+  exchange_interface!(mb, 1, [f1_exchange, f2_exchange]; field_kind=:scalar, depth=2)
+
+  f1_plan = copy(f1)
+  f2_plan = copy(f2)
+  plan = interface_index_plan(mb, 1; depth=2)
+  _copy_scalar_index_plan!(f1_plan, f2_plan, plan)
+
+  @test f1_plan == f1_exchange
+  @test f2_plan == f2_exchange
+
+  left_domain = b1.iterators.cell.domain
+  right_domain = b2.iterators.cell.domain
+  tangential_subset = (first(left_domain.indices[2]) + 1):(last(left_domain.indices[2]) - 1)
+  left_valid = CartesianIndices((
+    first(left_domain.indices[1]):(last(left_domain.indices[1]) + 1),
+    tangential_subset,
+  ))
+  right_valid = CartesianIndices((
+    (first(right_domain.indices[1]) - 1):last(right_domain.indices[1]),
+    tangential_subset,
+  ))
+  filtered = interface_index_plan(
+    left_domain,
+    iface.left,
+    right_domain,
+    iface.right,
+    iface.permutation,
+    iface.flips;
+    left_valid_domain=left_valid,
+    right_valid_domain=right_valid,
+  )
+  @test length(filtered.left_to_right) == 3
+  @test length(filtered.right_to_left) == 3
+  @test all(pair -> pair.first in left_valid && pair.second in right_valid, filtered.left_to_right)
+  @test all(pair -> pair.first in right_valid && pair.second in left_valid, filtered.right_to_left)
+
+  left_3d = CartesianIndices((2:5, 3:6, 4:7))
+  right_3d = CartesianIndices((10:13, 20:23, 30:33))
+  plan_3d = interface_index_plan(
+    left_3d,
+    BlockFace{3}(1, 1, :max),
+    right_3d,
+    BlockFace{3}(2, 3, :min),
+    (2, 1),
+    (false, true),
+  )
+  @test length(plan_3d.left_to_right) == 16
+  @test (CartesianIndex(5, 3, 4) => CartesianIndex(13, 20, 29)) in
+    plan_3d.left_to_right
+  @test (CartesianIndex(13, 20, 30) => CartesianIndex(6, 3, 4)) in
+    plan_3d.right_to_left
 end
 
 @testset "MultiBlock computational coordinate transfer" begin

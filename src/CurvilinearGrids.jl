@@ -21,7 +21,7 @@ include("multiblock/multiblock.jl")
 using .MultiBlockMeshes: BlockFace, BlockInterface
 using .MultiBlockMeshes:
   validate_multiblock!, build_interface_caches!, invalidate_interface_caches!
-using .MultiBlockMeshes: exchange_interface!, exchange_all_interfaces!
+using .MultiBlockMeshes: interface_index_plan, exchange_interface!, exchange_all_interfaces!
 using .MultiBlockMeshes: MultiBlockMesh
 
 export AbstractCurvilinearGrid
@@ -78,7 +78,7 @@ export InverseCoordinateResult, computational_coordinate
 export BlockFace, BlockInterface
 export MultiBlockMesh
 export validate_multiblock!, build_interface_caches!, invalidate_interface_caches!
-export exchange_interface!, exchange_all_interfaces!
+export interface_index_plan, exchange_interface!, exchange_all_interfaces!
 export invalidate_cell_metrics!, invalidate_face_metrics!
 export refresh_cell_metrics!, refresh_face_metrics!
 include("operators/Operators.jl")
