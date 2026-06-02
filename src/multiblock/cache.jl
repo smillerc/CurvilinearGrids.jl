@@ -82,9 +82,15 @@ function _build_interface_cache(
 
   A_lr = Vector{SMatrix{N,N,T}}(undef, length(left_interior))
   A_rl = Vector{SMatrix{N,N,T}}(undef, length(left_interior))
+  left_centroids = _interface_centroid_coordinates(left_block)
+  right_centroids = _interface_centroid_coordinates(right_block)
   for i in eachindex(left_interior)
-    ql = _as_coord_svector(centroid(left_block, left_interior[i]), T, N)
-    qr = _as_coord_svector(centroid(right_block, right_interior[i]), T, N)
+    ql = _as_coord_svector(
+      _interface_centroid(left_block, left_centroids, left_interior[i]), T, N
+    )
+    qr = _as_coord_svector(
+      _interface_centroid(right_block, right_centroids, right_interior[i]), T, N
+    )
     A_lr[i] = _basis_transfer_matrix(left_block, ql, right_block, qr, Val(N), T)
     A_rl[i] = _basis_transfer_matrix(right_block, qr, left_block, ql, Val(N), T)
   end
@@ -99,6 +105,21 @@ function _build_interface_cache(
     _grid_state_token(left_block),
     _grid_state_token(right_block),
   )
+end
+
+@inline _interface_centroid_coordinates(grid) = nothing
+@inline function _interface_centroid_coordinates(grid::OrthogonalGrid)
+  return map(Array, grid.centroid_coordinates)
+end
+
+@inline function _interface_centroid(grid, ::Nothing, idx)
+  return centroid(grid, idx)
+end
+
+@inline function _interface_centroid(
+  grid::OrthogonalGrid{N}, centroid_coordinates, idx::CartesianIndex{N}
+) where {N}
+  return ntuple(d -> centroid_coordinates[d][idx.I[d]], N)
 end
 
 @inline function _replace_axis(

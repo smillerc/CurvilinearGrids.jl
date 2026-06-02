@@ -1,4 +1,5 @@
 using Adapt
+using KernelAbstractions
 
 function Adapt.adapt_structure(to, grid::SphericalGrid1D)
   node_coordinates = Adapt.adapt_structure(to, grid.node_coordinates)
@@ -164,6 +165,17 @@ function Adapt.adapt_structure(to, grid::CurvilinearGrid3D)
 end
 
 function Adapt.adapt_structure(to, grid::OrthogonalGrid)
+  return _adapt_orthogonal_grid(
+    KernelAbstractions.get_backend(grid.node_coordinates[1]), to, grid
+  )
+end
+
+function _adapt_orthogonal_grid(::KernelAbstractions.GPU, to, grid::OrthogonalGrid)
+  _ = to
+  return grid
+end
+
+function _adapt_orthogonal_grid(::KernelAbstractions.Backend, to, grid::OrthogonalGrid)
   node_coordinates = Adapt.adapt_structure(to, grid.node_coordinates)
   centroid_coordinates = Adapt.adapt_structure(to, grid.centroid_coordinates)
   cell_volumes = Adapt.adapt_structure(to, grid.cell_volumes)

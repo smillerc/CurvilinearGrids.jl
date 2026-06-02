@@ -335,6 +335,10 @@ end
   return UInt(hash(grid.state[]))
 end
 
+@inline function _grid_state_token(grid::OrthogonalGrid)
+  return UInt(hash(map(Array, grid.node_coordinates)))
+end
+
 @inline function _grid_state_token(grid::AbstractOrthogonalGrid)
   return UInt(hash(grid.node_coordinates))
 end
