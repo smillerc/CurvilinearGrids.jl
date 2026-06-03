@@ -1,6 +1,6 @@
 name = "CurvilinearGrids"
 uuid = "58b19789-dd19-4aa2-839c-c763a7b10301"
-version = "0.12.5"
+version = "0.12.6"
 authors = ["Sam Miller <smil@lle.rochester.edu> and contributors"]
 
 [deps]

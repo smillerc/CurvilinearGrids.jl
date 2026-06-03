@@ -53,6 +53,7 @@ export BasisTrait
 export CartesianBasis, SphericalBasis
 export EdgeInterpolationSchemeTrait
 export EdgeInterpolationOrder1, EdgeInterpolationOrder2, EdgeInterpolationOrder3
+export ADThomasLombardMetric
 export coordinate_system, basis_trait, basis_transfer_matrix
 
 export rectilinear_grid,
@@ -62,7 +63,8 @@ export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
 export update!
 export cellsize, cellsize_withhalo
 export coord, coords, cartesian_coordinates
-export centroid, centroids, cartesian_centroid, cartesian_centroids, face_coordinate
+export centroid, centroids, cartesian_centroid, cartesian_centroids
+export face_coordinates, face_coordinate
 export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
@@ -71,6 +73,7 @@ export radius, centroid_radius, centroid_radii
 export cellvolume, cellvolumes
 export face_area, outward_face_normal
 export FaceFluxGeometry, face_flux_geometry
+export conservation_cell_metric_scale, conservation_face_metric_component_scale
 export cell_jacobian, face_metric_coefficient
 
 export forward_cell_metrics, inverse_cell_metrics

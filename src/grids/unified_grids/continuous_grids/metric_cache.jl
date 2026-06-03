@@ -10,6 +10,15 @@ struct EdgeInterpolationOrder1 <: EdgeInterpolationSchemeTrait end
 struct EdgeInterpolationOrder2 <: EdgeInterpolationSchemeTrait end
 struct EdgeInterpolationOrder3 <: EdgeInterpolationSchemeTrait end
 
+"""
+AD Thomas-Lombard conservative metric path.
+
+This preserves the Thomas-Lombard conservative metric algebra using AD-evaluated
+metric potentials and optimized pair-table assembly for the active conserved
+face rows.
+"""
+struct ADThomasLombardMetric <: EdgeInterpolationSchemeTrait end
+
 @inline _edge_reconstruct(ϕᵢ, ϕᵢ₊₁, ::EdgeInterpolationOrder1) = 0.5 * (ϕᵢ + ϕᵢ₊₁)
 
 @inline function _edge_reconstruct(
@@ -444,6 +453,73 @@ function get_edge_functions_1d(
   return edge_funcs
 end
 
+
+function get_ad_thomas_lombard_inverse_metric_terms(x, y, z, backend)
+  function jacobian_matrix(t, i, j, k, p)
+    DifferentiationInterface.jacobian(
+      u -> SVector(
+        x(t, u[1], u[2], u[3], p),
+        y(t, u[1], u[2], u[3], p),
+        z(t, u[1], u[2], u[3], p),
+      ),
+      backend,
+      SVector(i, j, k),
+    )
+  end
+
+  inverse_jacobian_matrix(t, i, j, k, p) = inv(jacobian_matrix(t, i, j, k, p))
+
+  zero_face_component(t, i, j, k, p) = zero(i + j + k)
+  Jinvᵢ₊½(t, i, j, k, p) = inverse_jacobian_matrix(t, i + 0.5, j, k, p)
+  Jinvⱼ₊½(t, i, j, k, p) = inverse_jacobian_matrix(t, i, j + 0.5, k, p)
+  Jinvₖ₊½(t, i, j, k, p) = inverse_jacobian_matrix(t, i, j, k + 0.5, p)
+
+  inverse_metrics = (; Jinv=inverse_jacobian_matrix)
+  edge_metrics = (;
+    ad_thomas_lombard_metric=true,
+    diff_backend=backend,
+    x,
+    y,
+    z,
+    jacobian=jacobian_matrix,
+    ξ̂xᵢ₊½=zero_face_component,
+    η̂xᵢ₊½=zero_face_component,
+    ζ̂xᵢ₊½=zero_face_component,
+    ξ̂yᵢ₊½=zero_face_component,
+    η̂yᵢ₊½=zero_face_component,
+    ζ̂yᵢ₊½=zero_face_component,
+    ξ̂zᵢ₊½=zero_face_component,
+    η̂zᵢ₊½=zero_face_component,
+    ζ̂zᵢ₊½=zero_face_component,
+    Jinvᵢ₊½,
+    #
+    ξ̂xⱼ₊½=zero_face_component,
+    η̂xⱼ₊½=zero_face_component,
+    ζ̂xⱼ₊½=zero_face_component,
+    ξ̂yⱼ₊½=zero_face_component,
+    η̂yⱼ₊½=zero_face_component,
+    ζ̂yⱼ₊½=zero_face_component,
+    ξ̂zⱼ₊½=zero_face_component,
+    η̂zⱼ₊½=zero_face_component,
+    ζ̂zⱼ₊½=zero_face_component,
+    Jinvⱼ₊½,
+    #
+    ξ̂xₖ₊½=zero_face_component,
+    η̂xₖ₊½=zero_face_component,
+    ζ̂xₖ₊½=zero_face_component,
+    ξ̂yₖ₊½=zero_face_component,
+    η̂yₖ₊½=zero_face_component,
+    ζ̂yₖ₊½=zero_face_component,
+    ξ̂zₖ₊½=zero_face_component,
+    η̂zₖ₊½=zero_face_component,
+    ζ̂zₖ₊½=zero_face_component,
+    Jinvₖ₊½,
+  )
+
+  return inverse_metrics, edge_metrics
+end
+
+
 function get_inverse_metric_terms(
   x,
   y,
@@ -452,6 +528,10 @@ function get_inverse_metric_terms(
   edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
 )
   edge_scheme = edge_interpolation_scheme
+
+  if edge_scheme isa ADThomasLombardMetric
+    return get_ad_thomas_lombard_inverse_metric_terms(x, y, z, backend)
+  end
 
   #
 

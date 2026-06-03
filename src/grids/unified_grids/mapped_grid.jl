@@ -8,12 +8,13 @@
 Unified grid backed by continuous mapping functions from computational space to
 physical space.
 
-`MappedGrid` stores node/centroid coordinates, mapping/metric function caches,
+`MappedGrid` stores node/centroid/face coordinates, mapping/metric function caches,
 and independent metric caches for cell and face data.
 
 # Fields
   - `node_coordinates`: Node coordinate arrays as `NTuple{N,AbstractArray}`.
   - `centroid_coordinates`: Cell-center coordinate arrays as `NTuple{N,AbstractArray}`.
+  - `face_coordinates`: High-side face-center coordinate arrays indexed by face axis.
   - `mapping_functions`: Physical mapping callbacks (`x1`, `x2`, `x3` by dimension).
   - `metric_functions_cache`: Cached metric-function closures.
   - `backend`: Compute backend used for storage allocation.
@@ -23,10 +24,11 @@ and independent metric caches for cell and face data.
   - `state`: Mutable reference to runtime state (`t`, `params`).
   - `metric_caches`: Independent cell and face metric caches.
 """
-struct MappedGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,NC,CC,MF,MFC,B,DB,I,S,MC} <:
+struct MappedGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,NC,CC,FC,MF,MFC,B,DB,I,S,MC} <:
        AbstractMappedOrDiscreteGrid
   node_coordinates::NC
   centroid_coordinates::CC
+  face_coordinates::FC
   mapping_functions::MF
   metric_functions_cache::MFC
   backend::B
@@ -168,6 +170,7 @@ function _new_mapped_grid(
     typeof(basis),
     typeof(components.node_coordinates),
     typeof(components.centroid_coordinates),
+    typeof(components.face_coordinates),
     typeof(mapping_functions),
     typeof(components.metric_functions_cache),
     typeof(backend),
@@ -178,6 +181,7 @@ function _new_mapped_grid(
   }(
     components.node_coordinates,
     components.centroid_coordinates,
+    components.face_coordinates,
     mapping_functions,
     components.metric_functions_cache,
     backend,
@@ -200,6 +204,16 @@ function _new_mapped_grid(
   )
   _compute_unified_centroid_coordinates!(
     grid.centroid_coordinates,
+    grid.mapping_functions,
+    grid.iterators,
+    grid.nhalo,
+    t,
+    params,
+    Val(N),
+    grid.backend,
+  )
+  _compute_unified_face_coordinates!(
+    grid.face_coordinates,
     grid.mapping_functions,
     grid.iterators,
     grid.nhalo,
@@ -391,6 +405,16 @@ function update!(grid::MappedGrid{N}, t::Real, params::NamedTuple) where {N}
   )
   _compute_unified_centroid_coordinates!(
     grid.centroid_coordinates,
+    grid.mapping_functions,
+    grid.iterators,
+    grid.nhalo,
+    t,
+    params,
+    Val(N),
+    grid.backend,
+  )
+  _compute_unified_face_coordinates!(
+    grid.face_coordinates,
     grid.mapping_functions,
     grid.iterators,
     grid.nhalo,

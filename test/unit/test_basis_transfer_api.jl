@@ -152,7 +152,60 @@ end
   @test geom_hi.normal * geom_hi.area ≈ geom_hi.metric_vector atol=1.0e-12
   @test geom_lo.metric_vector ≈ (-@SVector [Glo[1, 1], Glo[1, 2]]) atol=1.0e-12
 
+  params1 = (; ni=8, r0=0.6, r1=1.4)
+  rmap1(t, ξ, p) = p.r0 + ((ξ - 1) / p.ni) * (p.r1 - p.r0)
+  cyl1 = MappedGrid(
+    rmap1,
+    params1,
+    (params1.ni,),
+    2;
+    coordinate_system=CylindricalCS(),
+    basis=CartesianBasis(),
+    cache_mode=:eager,
+  )
+  I1 = (cyl1.nhalo + 3,)
+  q1 = face_coordinate(cyl1, I1, :ihi)
+  G1 = face_metrics(cyl1)[1].conserved[I1...].jacobian_matrix
+  geom1 = face_flux_geometry(cyl1, I1, :ihi)
+  @test geom1.metric_vector ≈ (@SVector [2π * abs(q1[1]) * G1[1, 1]]) atol=1.0e-12
+
+  axisym2 = MappedGrid(
+    xmap2,
+    ymap2,
+    params2,
+    (params2.ni, params2.nj),
+    2;
+    coordinate_system=AxisymmetricCS{:y}(),
+    basis=CartesianBasis(),
+    cache_mode=:eager,
+  )
+  qaxi = face_coordinate(axisym2, I2, :ihi)
+  Gaxi = face_metrics(axisym2)[1].conserved[I2...].jacobian_matrix
+  geom_axi = face_flux_geometry(axisym2, I2, :ihi)
+  @test geom_axi.metric_vector ≈
+    (2π * abs(qaxi[1])) * (@SVector [Gaxi[1, 1], Gaxi[1, 2]]) atol=1.0e-12
+
   params3 = (; ni=6, nj=5, nk=4, r0=1.4, θ0=0.45, ϕ0=0.3, Δr=0.08, Δθ=0.07, Δϕ=0.06)
+  params_s2 = (; ni=6, nj=5, r0=1.4, θ0=0.45, Δr=0.08, Δθ=0.07)
+  rmap_s2(t, ξ, η, p) = p.r0 + (ξ - 1) * p.Δr
+  θmap_s2(t, ξ, η, p) = p.θ0 + (η - 1) * p.Δθ
+  sph2map = MappedGrid(
+    rmap_s2,
+    θmap_s2,
+    params_s2,
+    (params_s2.ni, params_s2.nj),
+    2;
+    coordinate_system=SphericalCS(),
+    basis=SphericalBasis(),
+    cache_mode=:eager,
+  )
+  I2s = (sph2map.nhalo + 2, sph2map.nhalo + 2)
+  q2s = face_coordinate(sph2map, I2s, :jhi)
+  G2s = face_metrics(sph2map)[2].conserved[I2s...].jacobian_matrix
+  geom2s = face_flux_geometry(sph2map, I2s, :jhi)
+  scale2s = @SVector [2π * q2s[1]^2 * sin(q2s[2]), 2π * q2s[1] * sin(q2s[2])]
+  @test geom2s.metric_vector ≈ scale2s .* (@SVector [G2s[2, 1], G2s[2, 2]]) atol=1.0e-12
+
   rmap(t, ξ, η, ζ, p) = p.r0 + (ξ - 1) * p.Δr
   θmap(t, ξ, η, ζ, p) = p.θ0 + (η - 1) * p.Δθ
   ϕmap(t, ξ, η, ζ, p) = p.ϕ0 + (ζ - 1) * p.Δϕ
@@ -172,7 +225,10 @@ end
   geom3 = face_flux_geometry(sph3, I3, :ihi)
   outward3 = outward_face_normal(sph3, I3, :ihi)
   q3 = face_coordinate(sph3, I3, :ihi)
+  G3 = face_metrics(sph3)[1].conserved[I3...].jacobian_matrix
   Q3 = _spherical_basis_to_cartesian_matrix_3d(SVector(q3[1], q3[2], q3[3]))
+  scale3 = @SVector [q3[1]^2 * sin(q3[2]), q3[1] * sin(q3[2]), q3[1]]
+  @test geom3.metric_vector ≈ scale3 .* (@SVector [G3[1, 1], G3[1, 2], G3[1, 3]]) atol=1.0e-12
   @test geom3.normal ≈ (@SVector [1.0, 0.0, 0.0]) atol=1.0e-12
   @test outward3 ≈ SVector(Q3[1, 1], Q3[2, 1], Q3[3, 1]) atol=1.0e-12
   @test norm(outward3 - geom3.normal) > 1.0e-3

@@ -191,3 +191,94 @@ function _adapt_orthogonal_grid(::KernelAbstractions.Backend, to, grid::Orthogon
     grid.nhalo,
   )
 end
+
+function Adapt.adapt_structure(to, cache::GridTypes.UnifiedMetricCache)
+  data = Adapt.adapt_structure(to, cache.data)
+  return GridTypes.UnifiedMetricCache(data, cache.valid, cache.mode)
+end
+
+function Adapt.adapt_structure(to, caches::GridTypes.UnifiedMetricCaches)
+  cell = Adapt.adapt_structure(to, caches.cell)
+  face = Adapt.adapt_structure(to, caches.face)
+  return GridTypes.UnifiedMetricCaches(cell, face)
+end
+
+@inline _adapted_unified_backend(node_coordinates) =
+  KernelAbstractions.get_backend(node_coordinates[1])
+
+function Adapt.adapt_structure(to, grid::MappedGrid{N,T,CS,BT}) where {N,T,CS,BT}
+  node_coordinates = Adapt.adapt_structure(to, grid.node_coordinates)
+  centroid_coordinates = Adapt.adapt_structure(to, grid.centroid_coordinates)
+  face_coordinates = Adapt.adapt_structure(to, grid.face_coordinates)
+  metric_caches = isnothing(grid.metric_caches) ? nothing : Adapt.adapt_structure(to, grid.metric_caches)
+  backend = _adapted_unified_backend(node_coordinates)
+
+  return MappedGrid{
+    N,
+    T,
+    CS,
+    BT,
+    typeof(node_coordinates),
+    typeof(centroid_coordinates),
+    typeof(face_coordinates),
+    typeof(grid.mapping_functions),
+    typeof(grid.metric_functions_cache),
+    typeof(backend),
+    typeof(grid.diff_backend),
+    typeof(grid.iterators),
+    typeof(grid.state),
+    typeof(metric_caches),
+  }(
+    node_coordinates,
+    centroid_coordinates,
+    face_coordinates,
+    grid.mapping_functions,
+    grid.metric_functions_cache,
+    backend,
+    grid.diff_backend,
+    grid.nhalo,
+    grid.iterators,
+    grid.state,
+    metric_caches,
+  )
+end
+
+function Adapt.adapt_structure(to, grid::DiscreteGrid{N,T,CS,BT,IP}) where {N,T,CS,BT,IP}
+  node_coordinates = Adapt.adapt_structure(to, grid.node_coordinates)
+  centroid_coordinates = Adapt.adapt_structure(to, grid.centroid_coordinates)
+  face_coordinates = Adapt.adapt_structure(to, grid.face_coordinates)
+  metric_caches = isnothing(grid.metric_caches) ? nothing : Adapt.adapt_structure(to, grid.metric_caches)
+  backend = _adapted_unified_backend(node_coordinates)
+
+  return DiscreteGrid{
+    N,
+    T,
+    CS,
+    BT,
+    IP,
+    typeof(node_coordinates),
+    typeof(centroid_coordinates),
+    typeof(face_coordinates),
+    typeof(grid.mapping_functions),
+    typeof(grid.metric_functions_cache),
+    typeof(backend),
+    typeof(grid.diff_backend),
+    typeof(grid.iterators),
+    typeof(grid.state),
+    typeof(metric_caches),
+  }(
+    node_coordinates,
+    centroid_coordinates,
+    face_coordinates,
+    grid.mapping_functions,
+    grid.metric_functions_cache,
+    backend,
+    grid.diff_backend,
+    grid.nhalo,
+    grid.iterators,
+    grid.interpolation,
+    grid.interpolants,
+    grid.state,
+    metric_caches,
+  )
+end

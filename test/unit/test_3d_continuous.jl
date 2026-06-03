@@ -154,6 +154,162 @@ end
   @test runtimes[2] < runtimes[3]
 end
 
+@testset "AD Thomas-Lombard MappedGrid3D" begin
+  function max_gcl_residual(mesh)
+    I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(
+      face_metrics(mesh), mesh.iterators.cell.domain
+    )
+    domain = mesh.iterators.cell.domain
+    return maximum((
+      maximum(abs, I1[domain]), maximum(abs, I2[domain]), maximum(abs, I3[domain])
+    ))
+  end
+
+  function max_active_row_difference(reference, prototype)
+    reference_face_metrics = face_metrics(reference)
+    prototype_face_metrics = face_metrics(prototype)
+    domain = reference.iterators.cell.domain
+    max_error = 0.0
+    for axis in 1:3, I in domain, component in 1:3
+      reference_value =
+        reference_face_metrics[axis].conserved[I].jacobian_matrix[axis, component]
+      prototype_value =
+        prototype_face_metrics[axis].conserved[I].jacobian_matrix[axis, component]
+      max_error = max(max_error, abs(reference_value - prototype_value))
+    end
+    return max_error
+  end
+
+  function warped_mapping()
+    function x(t, i, j, k, p)
+      @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, xmin = p
+      xmin +
+      Δx0 * ((i - 1) + Ax * sin(pi * n * (j - 1) * Δy0) * sin(pi * n * (k - 1) * Δz0))
+    end
+
+    function y(t, i, j, k, p)
+      @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, ymin = p
+      ymin +
+      Δy0 * ((j - 1) + Ay * sin(pi * n * (k - 1) * Δz0) * sin(pi * n * (i - 1) * Δx0))
+    end
+
+    function z(t, i, j, k, p)
+      @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, zmin = p
+      zmin +
+      Δz0 * ((k - 1) + Az * sin(pi * n * (i - 1) * Δx0) * sin(pi * n * (j - 1) * Δy0))
+    end
+
+    return x, y, z
+  end
+
+  function warped_params(celldims)
+    ni, nj, nk = celldims
+    Lx = Ly = Lz = 12
+    Δx0 = Lx / ni
+    Δy0 = Ly / nj
+    Δz0 = Lz / nk
+    return (;
+      Ax=0.2 / Δx0,
+      Ay=0.4 / Δy0,
+      Az=0.6 / Δz0,
+      n=0.5,
+      Δx0,
+      Δy0,
+      Δz0,
+      xmin=-Lx / 2,
+      ymin=-Ly / 2,
+      zmin=-Lz / 2,
+    )
+  end
+
+  function spherical_wedge_mapping()
+    function x(t, i, j, k, p)
+      @unpack rmin, θmin, ϕmin, Δr, Δθ, Δϕ = p
+      r = rmin + (i - 1) * Δr
+      θ = θmin + (j - 1) * Δθ
+      ϕ = ϕmin + (k - 1) * Δϕ
+      return r * sin(θ) * cos(ϕ)
+    end
+
+    function y(t, i, j, k, p)
+      @unpack rmin, θmin, ϕmin, Δr, Δθ, Δϕ = p
+      r = rmin + (i - 1) * Δr
+      θ = θmin + (j - 1) * Δθ
+      ϕ = ϕmin + (k - 1) * Δϕ
+      return r * sin(θ) * sin(ϕ)
+    end
+
+    function z(t, i, j, k, p)
+      @unpack rmin, θmin, Δr, Δθ = p
+      r = rmin + (i - 1) * Δr
+      θ = θmin + (j - 1) * Δθ
+      return r * cos(θ)
+    end
+
+    return x, y, z
+  end
+
+  function spherical_wedge_params(celldims)
+    ni, nj, nk = celldims
+    rmin, rmax = 1.0, 4.0
+    θmin, θmax = π / 2 - deg2rad(5), π / 2 + deg2rad(5)
+    ϕmin, ϕmax = -deg2rad(10), deg2rad(10)
+    return (;
+      rmin,
+      θmin,
+      ϕmin,
+      Δr=(rmax - rmin) / ni,
+      Δθ=(θmax - θmin) / nj,
+      Δϕ=(ϕmax - ϕmin) / nk,
+    )
+  end
+
+
+  @testset "AD Thomas-Lombard mapped" begin
+    ad_tl_cases = (
+      ("warped", warped_mapping(), warped_params((4, 4, 4)), (4, 4, 4)),
+      (
+        "spherical wedge",
+        spherical_wedge_mapping(),
+        spherical_wedge_params((4, 4, 4)),
+        (4, 4, 4),
+      ),
+    )
+
+    for (name, mapping, params, celldims) in ad_tl_cases
+      @testset "$name" begin
+        x, y, z = mapping
+        reference = MappedGrid(
+          x,
+          y,
+          z,
+          params,
+          celldims,
+          3;
+          backend=CPU(),
+          diff_backend=AutoForwardDiff(),
+          conserved_metric_scheme=EdgeInterpolationOrder3(),
+        )
+        ad_tl = MappedGrid(
+          x,
+          y,
+          z,
+          params,
+          celldims,
+          3;
+          backend=CPU(),
+          diff_backend=AutoForwardDiff(),
+          conserved_metric_scheme=ADThomasLombardMetric(),
+        )
+
+        @test max_gcl_residual(ad_tl) < 1e-12
+        @test max_active_row_difference(reference, ad_tl) < 1e-12
+      end
+    end
+  end
+
+end
+
 @testset "Sphere Sector MappedGrid3D" begin
   function get_sector_parameters()
     celldims = (40, 40, 40)

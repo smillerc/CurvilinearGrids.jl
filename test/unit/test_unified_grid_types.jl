@@ -1,5 +1,6 @@
 using Test
 using CurvilinearGrids
+using StaticArrays
 
 @testset "UnifiedGrid traits and adapters" begin
   x = collect(range(0.0, 1.0; length=8))
@@ -140,6 +141,62 @@ end
   @test mgrid.metric_caches.face.valid
 end
 
+@testset "Mapped and discrete face coordinates are stored" begin
+  hi_locs = (:ihi, :jhi, :khi)
+  lo_locs = (:ilo, :jlo, :klo)
+
+  x1(t, ξ, p) = p.shift + 2ξ
+  x2(t, ξ, η, p) = p.shift + ξ + 0.1η
+  y2(t, ξ, η, p) = p.shift - 0.2ξ + 1.5η
+  x3(t, ξ, η, ζ, p) = p.shift + ξ + 0.1η
+  y3(t, ξ, η, ζ, p) = p.shift + η + 0.2ζ
+  z3(t, ξ, η, ζ, p) = p.shift + ζ - 0.1ξ
+
+  mapped = (
+    MappedGrid(x1, (; shift=0.0), (6,), 2; cache_mode=:eager),
+    MappedGrid(x2, y2, (; shift=0.0), (5, 4), 2; cache_mode=:eager),
+    MappedGrid(x3, y3, z3, (; shift=0.0), (4, 3, 2), 2; cache_mode=:eager),
+  )
+
+  x = collect(range(1.0, 4.0; length=8))
+  x2d = [i + 0.1j for i in 1:6, j in 1:5]
+  y2d = [j - 0.2i for i in 1:6, j in 1:5]
+  x3d = [i + 0.1j for i in 1:5, j in 1:4, k in 1:3]
+  y3d = [j + 0.2k for i in 1:5, j in 1:4, k in 1:3]
+  z3d = [k - 0.1i for i in 1:5, j in 1:4, k in 1:3]
+  discrete = (
+    DiscreteGrid(x, 2; cache_mode=:eager),
+    DiscreteGrid(x2d, y2d, 2; cache_mode=:eager),
+    DiscreteGrid(x3d, y3d, z3d, 2; cache_mode=:eager),
+  )
+
+  for grid in (mapped..., discrete...)
+    N = length(grid.centroid_coordinates)
+    fcoords = face_coordinates(grid)
+    @test fcoords === grid.face_coordinates
+
+    for axis in 1:N
+      @test size(fcoords[axis][1]) == size(face_metrics(grid)[axis].conserved)
+    end
+
+    I = first(grid.iterators.cell.domain)
+    for axis in 1:N
+      hi = face_coordinate(grid, I.I, hi_locs[axis])
+      lo = face_coordinate(grid, I.I, lo_locs[axis])
+      lo_idx = CartesianIndex(ntuple(d -> d == axis ? I.I[d] - 1 : I.I[d], N))
+      @test hi ≈ SVector(ntuple(d -> fcoords[axis][d][I], N)) atol=1.0e-12
+      @test lo ≈ SVector(ntuple(d -> fcoords[axis][d][lo_idx], N)) atol=1.0e-12
+    end
+  end
+
+  time_grid = MappedGrid(x1, (; shift=0.0), (6,), 2; cache_mode=:eager)
+  I = first(time_grid.iterators.cell.domain)
+  before = face_coordinate(time_grid, I.I, :ihi)
+  update!(time_grid, 0.0, (; shift=2.0))
+  after = face_coordinate(time_grid, I.I, :ihi)
+  @test after[1] ≈ before[1] + 2.0
+end
+
 @testset "Metrics can be fully disabled" begin
   xmap(t, ξ, p) = ξ + p.shift
   mgrid = MappedGrid(xmap, (; shift=1.0), (8,), 5; compute_metrics=false, cache_mode=:off)
@@ -147,10 +204,14 @@ end
   @test mgrid.metric_functions_cache !== nothing
   @test mgrid.metric_caches === nothing
   c0 = coord(mgrid, (1,))
+  f0 = face_coordinate(mgrid, (1,), :ihi)
   @test isfinite(c0[1])
+  @test isfinite(f0[1])
   update!(mgrid, 1.0, (; shift=2.0))
   c1 = coord(mgrid, (1,))
+  f1 = face_coordinate(mgrid, (1,), :ihi)
   @test c1[1] ≈ c0[1] + 1.0
+  @test f1[1] ≈ f0[1] + 1.0
 
   @test_throws ArgumentError cell_metrics(mgrid)
   @test_throws ArgumentError face_metrics(mgrid)
@@ -166,6 +227,7 @@ end
   @test dgrid.metric_functions_cache !== nothing
   @test dgrid.metric_caches === nothing
   @test isfinite(coord(dgrid, (1,))[1])
+  @test isfinite(face_coordinate(dgrid, (1,), :ihi)[1])
 
   @test_throws ArgumentError cell_metrics(dgrid)
   @test_throws ArgumentError face_metrics(dgrid)
@@ -309,7 +371,7 @@ end
   Is2 = first(sph2d.iterators.cell.domain)
   Js2 = cell_metrics(sph2d).forward[Is2].J
   cs2 = centroid(sph2d, Is2)
-  @test cellvolume(sph2d, Is2) ≈ (cs2[1]^2 * sin(cs2[2])) * Js2
+  @test cellvolume(sph2d, Is2) ≈ (2π * cs2[1]^2 * sin(cs2[2])) * Js2
 end
 
 @testset "Mixed Real/Int tuple indexing" begin

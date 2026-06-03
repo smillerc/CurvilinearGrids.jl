@@ -589,6 +589,18 @@ function centroids(grid::Union{MappedGrid{3},DiscreteGrid{3}})
 end
 
 """
+    face_coordinates(grid)
+
+Return the stored high-side face-center coordinate arrays for mapped/discrete
+grids.
+
+The layout is `face_coordinates(grid)[axis][component][I]`. The index `I`
+matches `face_metrics(grid)[axis].conserved[I]`; low-side faces are read from
+the neighboring high-side face index.
+"""
+@inline face_coordinates(grid::Union{MappedGrid,DiscreteGrid}) = grid.face_coordinates
+
+"""
     centroid(grid, idx)
 
 Return the native physical coordinate of the cell center at `idx`.
@@ -1323,7 +1335,9 @@ end
   grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::NTuple{N,Int}, loc::Symbol
 ) where {N,T}
   axis, side = _face_loc_axis_side(Val(N), loc)
-  return _face_mapped_coordinate(grid, CartesianIndex(idx), axis, side)
+  face_idx = _face_flux_cache_index(idx, axis, side)
+  coords = face_coordinates(grid)
+  return SVector{N,T}(ntuple(d -> coords[axis][d][face_idx...], Val(N)))
 end
 
 @inline function _face_evaluation_coordinate(
@@ -1486,6 +1500,7 @@ end
 @inline _face_area_scale(::CurvilinearCS, q::SVector{N,T}) where {N,T} = one(T)
 @inline _face_area_scale(::CartesianCS, q::SVector{N,T}) where {N,T} = one(T)
 @inline _face_area_scale(::SphericalCS, q::SVector{N,T}) where {N,T} = one(T)
+@inline _face_area_scale(::CylindricalCS, q::SVector{1,T}) where {T} = T(2π) * abs(q[1])
 
 @inline _face_rotational_radius(::CylindricalCS, q::SVector{2,T}) where {T} = q[1]
 @inline _face_rotational_radius(::AxisymmetricCS{:x}, q::SVector{2,T}) where {T} = q[2]
@@ -1504,6 +1519,49 @@ end
   return T(2π) * abs(_face_rotational_radius(cs, q))
 end
 
+@inline conservation_cell_metric_scale(cs::CoordinateSystemTrait, bt::BasisTrait, q::SVector{N,T}) where {N,T} =
+  one(T)
+@inline conservation_cell_metric_scale(::CylindricalCS, ::CartesianBasis, q::SVector{1,T}) where {T} =
+  T(2π) * abs(q[1])
+@inline conservation_cell_metric_scale(::CylindricalCS, ::CartesianBasis, q::SVector{2,T}) where {T} =
+  T(2π) * abs(q[1])
+@inline conservation_cell_metric_scale(
+  ::AxisymmetricCS{:x}, ::CartesianBasis, q::SVector{2,T}
+) where {T} = T(2π) * abs(q[2])
+@inline conservation_cell_metric_scale(
+  ::AxisymmetricCS{:y}, ::CartesianBasis, q::SVector{2,T}
+) where {T} = T(2π) * abs(q[1])
+@inline conservation_cell_metric_scale(::SphericalCS, ::SphericalBasis, q::SVector{1,T}) where {T} =
+  T(4π) * abs(q[1])^2
+@inline conservation_cell_metric_scale(::SphericalCS, ::SphericalBasis, q::SVector{2,T}) where {T} =
+  T(2π) * abs(q[1])^2 * sin(q[2])
+@inline conservation_cell_metric_scale(::SphericalCS, ::SphericalBasis, q::SVector{3,T}) where {T} =
+  abs(q[1])^2 * sin(q[2])
+
+@inline function conservation_face_metric_component_scale(cs, bt, q::SVector{N,T}) where {N,T}
+  scale = conservation_cell_metric_scale(cs, bt, q)
+  return SVector{N,T}(ntuple(_ -> scale, Val(N)))
+end
+
+@inline function conservation_face_metric_component_scale(::SphericalCS, ::SphericalBasis, q::SVector{1,T}) where {T}
+  r = abs(q[1])
+  return SVector{1,T}(T(4π) * r^2)
+end
+
+@inline function conservation_face_metric_component_scale(::SphericalCS, ::SphericalBasis, q::SVector{2,T}) where {T}
+  r = abs(q[1])
+  θ = q[2]
+  sθ = sin(θ)
+  return SVector{2,T}(T(2π) * r^2 * sθ, T(2π) * r * sθ)
+end
+
+@inline function conservation_face_metric_component_scale(::SphericalCS, ::SphericalBasis, q::SVector{3,T}) where {T}
+  r = abs(q[1])
+  θ = q[2]
+  sθ = sin(θ)
+  return SVector{3,T}(r^2 * sθ, r * sθ, r)
+end
+
 @inline _face_outward_sign(side::Symbol, ::Type{T}) where {T} =
   side === :hi ? one(T) : -one(T)
 
@@ -1519,7 +1577,7 @@ end
   end
   axis, side = _face_loc_axis_side(Val(N), loc)
   Icell = CartesianIndex(idx)
-  q = _face_mapped_coordinate(grid, Icell, axis, side)
+  q = face_coordinate(grid, idx, loc)
 
   Fq = _face_forward_jacobian(grid, Icell, axis, side)
 
@@ -1552,9 +1610,9 @@ The returned metric vector and normal are expressed in the grid's physical
 basis, not in Cartesian embedding coordinates.
 
 For a face on computational axis `alpha`, the returned `metric_vector` is the
-outward-oriented active conserved row of
-`face_metrics(grid)[alpha].conserved[idx].jacobian_matrix`. This is the
-canonical face metric vector `S^alpha` consumed by inviscid flux assembly.
+outward-oriented physical conserved face metric vector `S^alpha_phys` consumed
+by inviscid flux assembly. Coordinate-system measure factors such as
+cylindrical/axisymmetric `2πr` and spherical basis factors are included here.
 
 `face_flux_geometry` is intentionally unavailable for `OrthogonalGrid`; those
 paths should use [`cellvolume`](@ref), [`face_area`](@ref),
@@ -1575,11 +1633,12 @@ end
   Ghat = face_metrics(grid)[axis].conserved[face_idx...].jacobian_matrix
   T = promote_type(eltype(q), eltype(Ghat))
   metric_row = SVector{N,T}(ntuple(j -> Ghat[axis, j], N))
-  area_scale = _face_area_scale(coordinate_system(grid), SVector{N,T}(q))
-  metric_vector = area_scale * (side === :hi ? one(T) : -one(T)) * metric_row
+  qvec = SVector{N,T}(q)
+  component_scale = conservation_face_metric_component_scale(coordinate_system(grid), basis_trait(grid), qvec)
+  metric_vector = (side === :hi ? one(T) : -one(T)) * (component_scale .* metric_row)
   area = norm(metric_vector)
   normal = area > zero(T) ? metric_vector / area : zero(metric_vector)
-  return FaceFluxGeometry{N,T}(SVector{N,T}(q), metric_vector, area, normal)
+  return FaceFluxGeometry{N,T}(qvec, metric_vector, area, normal)
 end
 
 function face_flux_geometry(::AbstractOrthogonalGrid, idx, loc::Symbol)
@@ -1744,8 +1803,8 @@ end
 @inline function _cellvolume_dispatch(
   ::CylindricalCS, ::CartesianBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{1,Int}
 )
-  r = _radial_centroid_1d(grid, idx)
-  return (2π * r) * _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(CylindricalCS(), CartesianBasis(), centroid(grid, idx)) *
+         _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -1754,8 +1813,8 @@ end
   grid::AbstractMappedOrDiscreteGrid,
   idx::Tuple{Vararg{Real,1}},
 )
-  r = _radial_centroid_1d(grid, idx)
-  return (2π * r) * _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(CylindricalCS(), CartesianBasis(), _continuous_coord(grid, idx)) *
+         _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -1764,8 +1823,8 @@ end
   grid::Union{MappedGrid{2},DiscreteGrid{2}},
   idx::NTuple{2,Int},
 )
-  r = centroid(grid, idx)[1]
-  return (2π * r) * _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(CylindricalCS(), CartesianBasis(), centroid(grid, idx)) *
+         _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -1774,8 +1833,8 @@ end
   grid::Union{MappedGrid{2},DiscreteGrid{2}},
   idx::Tuple{Vararg{Real,2}},
 )
-  r = _continuous_coord(grid, idx)[1]
-  return (2π * r) * _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(CylindricalCS(), CartesianBasis(), _continuous_coord(grid, idx)) *
+         _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -1784,8 +1843,8 @@ end
   grid::AbstractMappedOrDiscreteGrid,
   idx::NTuple{2,Int},
 ) where {Axis}
-  r = _axisymmetric_radius(cs, grid, idx)
-  return (2π * r) * _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(cs, CartesianBasis(), centroid(grid, idx)) *
+         _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -1794,15 +1853,15 @@ end
   grid::AbstractMappedOrDiscreteGrid,
   idx::Tuple{Vararg{Real,2}},
 ) where {Axis}
-  r = _axisymmetric_radius(cs, grid, idx)
-  return (2π * r) * _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(cs, CartesianBasis(), _continuous_coord(grid, idx)) *
+         _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
   ::SphericalCS, ::SphericalBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{1,Int}
 )
-  r = _radial_centroid_1d(grid, idx)
-  return (4π * r^2) * _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(SphericalCS(), SphericalBasis(), centroid(grid, idx)) *
+         _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -1811,8 +1870,8 @@ end
   grid::AbstractMappedOrDiscreteGrid,
   idx::Tuple{Vararg{Real,1}},
 )
-  r = _radial_centroid_1d(grid, idx)
-  return (4π * r^2) * _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(SphericalCS(), SphericalBasis(), _continuous_coord(grid, idx)) *
+         _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -1821,10 +1880,8 @@ end
   grid::Union{MappedGrid{3},DiscreteGrid{3}},
   idx::NTuple{3,Int},
 )
-  c = centroid(grid, idx)
-  r = c[1]
-  θ = c[2]
-  return (r^2 * sin(θ)) * _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(SphericalCS(), SphericalBasis(), centroid(grid, idx)) *
+         _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -1833,19 +1890,15 @@ end
   grid::Union{MappedGrid{3},DiscreteGrid{3}},
   idx::Tuple{Vararg{Real,3}},
 )
-  c = _continuous_coord(grid, idx)
-  r = c[1]
-  θ = c[2]
-  return (r^2 * sin(θ)) * _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(SphericalCS(), SphericalBasis(), _continuous_coord(grid, idx)) *
+         _jacobian_volume_factor(grid, idx)
 end
 
 function _cellvolume_dispatch(
   ::SphericalCS, ::SphericalBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{2,Int}
 )
-  c = centroid(grid, idx)
-  r = c[1]
-  θ = c[2]
-  return (r^2 * sin(θ)) * _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(SphericalCS(), SphericalBasis(), centroid(grid, idx)) *
+         _jacobian_volume_factor(grid, idx)
 end
 
 function _cellvolume_dispatch(
@@ -1854,10 +1907,8 @@ function _cellvolume_dispatch(
   grid::AbstractMappedOrDiscreteGrid,
   idx::Tuple{Vararg{Real,2}},
 )
-  c = _continuous_coord(grid, idx)
-  r = c[1]
-  θ = c[2]
-  return (r^2 * sin(θ)) * _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(SphericalCS(), SphericalBasis(), _continuous_coord(grid, idx)) *
+         _jacobian_volume_factor(grid, idx)
 end
 
 function _cellvolume_dispatch(
@@ -1886,18 +1937,52 @@ function _cellvolume_dispatch(
   )
 end
 
-function cellvolumes(grid::Union{MappedGrid,DiscreteGrid})
-  volumes = zeros(eltype(grid), size(grid.iterators.cell.domain))
+function cellvolumes(grid::Union{MappedGrid{N},DiscreteGrid{N}}; include_halo::Bool=false) where {N}
+  volumes = KernelAbstractions.zeros(
+    grid.backend, eltype(grid), size(grid.iterators.cell.full); unified=false
+  )
+  _compute_unified_cell_volumes!(volumes, grid, Val(N))
+  include_halo && return volumes
+  @views return volumes[grid.iterators.cell.domain]
+end
 
-  for (idx0, idx1) in zip(CartesianIndices(volumes), grid.iterators.cell.domain)
-    volumes[idx0] = cellvolume(grid, idx1)
-  end
+function cellvolumes(grid::OrthogonalGrid; include_halo::Bool=false)
+  include_halo && return grid.cell_volumes
+  @views return grid.cell_volumes[grid.iterators.cell.domain]
+end
 
+function _compute_unified_cell_volumes!(volumes, grid, ::Val{N}) where {N}
+  backend = KernelAbstractions.get_backend(volumes)
+  kernel = _compute_unified_cell_volumes_kernel!(backend)
+  metrics = cell_metrics(grid)
+  kernel(
+    volumes,
+    metrics.forward,
+    grid.centroid_coordinates,
+    coordinate_system(grid),
+    basis_trait(grid),
+    grid.iterators.cell.full,
+    Val(N);
+    ndrange=length(grid.iterators.cell.full),
+  )
+  KernelAbstractions.synchronize(backend)
   return volumes
 end
 
-function cellvolumes(grid::OrthogonalGrid)
-  @views grid.cell_volumes[grid.iterators.cell.domain]
+@kernel function _compute_unified_cell_volumes_kernel!(
+  volumes,
+  cell_forward_metrics,
+  centroid_coordinates,
+  coordinate_system,
+  basis,
+  local_domain,
+  ::Val{N},
+) where {N}
+  idx = @index(Global, Linear)
+  I = local_domain[idx]
+  q = SVector{N}(ntuple(d -> centroid_coordinates[d][I], N))
+  scale = conservation_cell_metric_scale(coordinate_system, basis, q)
+  volumes[I] = scale * abs(cell_forward_metrics[I].J)
 end
 
 cellsize(grid::Union{MappedGrid,DiscreteGrid}) = size(grid.iterators.cell.domain)
