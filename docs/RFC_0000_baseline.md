@@ -13,7 +13,7 @@
 This RFC covers:
 - Discrete grid types (`CurvilinearGrid*`, `RectilinearGrid*`, `UniformGrid*`, axisymmetric/cylindrical/spherical variants)
 - Continuous mapping-based grids (`ContinuousCurvilinearGrid*`)
-- Metric update pipeline (forward + conservative inverse metrics + edge interpolation)
+- Metric update pipeline (forward + conservative inverse metrics + edge reconstruction)
 - IO (`save_vtk`, `write_coordinates`, `read_coordinates`)
 - Resolution remapping helpers
 - Spherical finite-volume differential operators (`gradient`, `divergence`, `derivative`)
@@ -86,7 +86,7 @@ Behavior:
 - Metric update sequence:
   1. forward derivatives (`x_ξ`, etc.)
   2. conservative inverse metrics (`ξ_x`, etc.), optionally symmetric conservative form
-  3. edge interpolation of metrics
+  3. edge reconstruction of metrics
 
 ## 7. Public API Surface (Current)
 
@@ -174,4 +174,3 @@ These should be considered implementation defects relative to the intended API c
 - RFC-B: Unified operator interface across mapped and orthogonal families.
 - RFC-C: IO format versioning and compatibility guarantees.
 - RFC-D: Validation harness for GCL, Jacobian positivity, and halo contract compliance.
-

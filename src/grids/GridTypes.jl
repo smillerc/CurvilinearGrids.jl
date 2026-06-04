@@ -48,7 +48,8 @@ export CartesianCS, CylindricalCS, SphericalCS, AxisymmetricCS, CurvilinearCS
 export BasisTrait
 export CartesianBasis, SphericalBasis
 export EdgeInterpolationSchemeTrait
-export EdgeInterpolationOrder1, EdgeInterpolationOrder2, EdgeInterpolationOrder3
+export EndpointAverageReconstruction,
+  GradientCorrectedReconstruction, CurvatureCorrectedReconstruction
 export ADThomasLombardMetric
 
 export coordinate_system, basis_trait, basis_transfer_matrix

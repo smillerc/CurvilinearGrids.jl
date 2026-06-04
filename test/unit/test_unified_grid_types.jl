@@ -43,64 +43,118 @@ using StaticArrays
   @test_throws ArgumentError DiscreteGrid(x, 5; interpolation=:cubic)
 end
 
-@testset "Conserved face interpolation scheme selection" begin
+@testset "Conserved face reconstruction selection" begin
   xmap(t, ξ, η, p) = ξ + 0.15 * sin(0.3 * ξ) * cos(0.2 * η)
   ymap(t, ξ, η, p) = η + 0.1 * cos(0.2 * ξ) * sin(0.3 * η)
 
-  g_o3 = MappedGrid(
+  g_curvature = MappedGrid(
     xmap,
     ymap,
     (;),
     (12, 12),
     5;
     cache_mode=:eager,
-    conserved_metric_scheme=EdgeInterpolationOrder3(),
+    conserved_metric_scheme=CurvatureCorrectedReconstruction(),
   )
-  g_o2 = MappedGrid(
+  g_gradient = MappedGrid(
     xmap,
     ymap,
     (;),
     (12, 12),
     5;
     cache_mode=:eager,
-    conserved_metric_scheme=EdgeInterpolationOrder2(),
+    conserved_metric_scheme=GradientCorrectedReconstruction(),
   )
-  g_o1 = MappedGrid(
+  g_average = MappedGrid(
     xmap,
     ymap,
     (;),
     (12, 12),
     5;
     cache_mode=:eager,
-    conserved_metric_scheme=EdgeInterpolationOrder1(),
+    conserved_metric_scheme=EndpointAverageReconstruction(),
   )
 
-  I = first(g_o3.iterators.cell.domain)
-  c_o3 = face_metrics(g_o3)[1].conserved[I].jacobian_matrix
-  c_o2 = face_metrics(g_o2)[1].conserved[I].jacobian_matrix
-  c_o1 = face_metrics(g_o1)[1].conserved[I].jacobian_matrix
-  @test c_o3 != c_o2
-  @test c_o3 != c_o1
+  I = first(g_curvature.iterators.cell.domain)
+  c_curvature = face_metrics(g_curvature)[1].conserved[I].jacobian_matrix
+  c_gradient = face_metrics(g_gradient)[1].conserved[I].jacobian_matrix
+  c_average = face_metrics(g_average)[1].conserved[I].jacobian_matrix
+  @test c_curvature != c_gradient
+  @test c_curvature != c_average
 
   nx, ny = (13, 13)
   x = [xmap(0.0, i, j, (;)) for i in 1:nx, j in 1:ny]
   y = [ymap(0.0, i, j, (;)) for i in 1:nx, j in 1:ny]
-  d_o2 = DiscreteGrid(
+  d_gradient = DiscreteGrid(
     x,
     y,
     5;
     cache_mode=:eager,
-    conserved_metric_scheme=EdgeInterpolationOrder2(),
+    conserved_metric_scheme=GradientCorrectedReconstruction(),
     interpolation=:linear,
   )
 
-  @test face_metrics(d_o2)[1].conserved[I] isa ConservedMetric{2,Float64}
+  @test face_metrics(d_gradient)[1].conserved[I] isa ConservedMetric{2,Float64}
   @test_throws TypeError MappedGrid(
     xmap, ymap, (;), (8, 8), 5; cache_mode=:eager, conserved_metric_scheme=:not_a_scheme
   )
   @test_throws TypeError MappedGrid(
     xmap, ymap, (;), (8, 8), 5; cache_mode=:eager, conserved_metric_scheme=4
   )
+end
+
+@testset "ADThomasLombardMetric direct form in lower dimensions" begin
+  warn_pattern = r"ADThomasLombardMetric simplifies to the direct metric form in 1-D/2-D."
+
+  xmap1(t, ξ, p) = ξ + 0.05 * sin(0.3 * ξ)
+  g1_ref = MappedGrid(
+    xmap1, (;), (10,), 4; cache_mode=:eager, conserved_metric_scheme=CurvatureCorrectedReconstruction()
+  )
+  g1_ad = @test_logs (:warn, warn_pattern) begin
+    MappedGrid(
+      xmap1, (;), (10,), 4; cache_mode=:eager, conserved_metric_scheme=ADThomasLombardMetric()
+    )
+  end
+  I1 = first(g1_ad.iterators.cell.domain)
+  @test face_metrics(g1_ad)[1].conserved[I1].jacobian_matrix ==
+    face_metrics(g1_ref)[1].conserved[I1].jacobian_matrix
+
+  xmap2(t, ξ, η, p) = ξ + 0.1 * sin(0.2 * ξ) * cos(0.3 * η)
+  ymap2(t, ξ, η, p) = η + 0.08 * cos(0.3 * ξ) * sin(0.2 * η)
+  g2_ref = MappedGrid(
+    xmap2,
+    ymap2,
+    (;),
+    (8, 8),
+    4;
+    cache_mode=:eager,
+    conserved_metric_scheme=CurvatureCorrectedReconstruction(),
+  )
+  g2_ad = @test_logs (:warn, warn_pattern) begin
+    MappedGrid(
+      xmap2,
+      ymap2,
+      (;),
+      (8, 8),
+      4;
+      cache_mode=:eager,
+      conserved_metric_scheme=ADThomasLombardMetric(),
+    )
+  end
+  I2 = first(g2_ad.iterators.cell.domain)
+  @test face_metrics(g2_ad)[1].conserved[I2].jacobian_matrix ==
+    face_metrics(g2_ref)[1].conserved[I2].jacobian_matrix
+  @test face_metrics(g2_ad)[2].conserved[I2].jacobian_matrix ==
+    face_metrics(g2_ref)[2].conserved[I2].jacobian_matrix
+
+  xnodes = collect(range(0.0, 1.0; length=12))
+  d1_ad = @test_logs (:warn, warn_pattern) begin
+    DiscreteGrid(
+      xnodes, 4; cache_mode=:eager, conserved_metric_scheme=ADThomasLombardMetric()
+    )
+  end
+  @test face_metrics(d1_ad)[1].conserved[first(d1_ad.iterators.cell.domain)] isa
+    ConservedMetric{1,Float64}
 end
 
 @testset "MappedGrid and independent cache refresh" begin
@@ -505,7 +559,7 @@ end
     (8, 7),
     2;
     cache_mode=:eager,
-    conserved_metric_scheme=EdgeInterpolationOrder2(),
+    conserved_metric_scheme=GradientCorrectedReconstruction(),
   )
 
   nx, ny = (9, 8)

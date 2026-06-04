@@ -259,7 +259,10 @@ Mapping callbacks are evaluated as `x1(t, xi, params)` in 1D,
   - `coordinate_system`: Coordinate-system trait. Default: `CurvilinearCS()`.
   - `basis`: Basis trait. Default: `CartesianBasis()`.
   - `cache_mode`: Metric cache mode (`:eager`, `:lazy`, `:off`). Default: `:eager`.
-  - `conserved_metric_scheme`: Conserved face interpolation scheme trait (`EdgeInterpolationOrder1()`, `EdgeInterpolationOrder2()`, `EdgeInterpolationOrder3()`). Default: `EdgeInterpolationOrder3()`.
+  - `conserved_metric_scheme`: Conserved face reconstruction selector
+    (`EndpointAverageReconstruction()`, `GradientCorrectedReconstruction()`,
+    `CurvatureCorrectedReconstruction()`). Default:
+    `CurvatureCorrectedReconstruction()`.
 
 # Returns
 A `MappedGrid{N,T,...}` instance with initialized coordinates and metric cache
@@ -279,7 +282,7 @@ function MappedGrid(
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
   basis::BasisTrait=CartesianBasis(),
   cache_mode::Symbol=:eager,
-  conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   @assert nhalo >= 0
 
@@ -318,7 +321,7 @@ function MappedGrid(
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
   basis::BasisTrait=CartesianBasis(),
   cache_mode::Symbol=:eager,
-  conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   @assert nhalo >= 0
 
@@ -358,7 +361,7 @@ function MappedGrid(
   coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
   basis::BasisTrait=CartesianBasis(),
   cache_mode::Symbol=:eager,
-  conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   @assert nhalo >= 0
 

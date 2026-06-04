@@ -107,11 +107,25 @@ struct MetricCache{FM,IM,EM}
   edge::EM
 end
 
+"""
+Trait for selecting how conserved metric terms are reconstructed at faces.
+"""
 abstract type EdgeInterpolationSchemeTrait end
 
-struct EdgeInterpolationOrder1 <: EdgeInterpolationSchemeTrait end
-struct EdgeInterpolationOrder2 <: EdgeInterpolationSchemeTrait end
-struct EdgeInterpolationOrder3 <: EdgeInterpolationSchemeTrait end
+"""
+Face reconstruction from the average of endpoint values.
+"""
+struct EndpointAverageReconstruction <: EdgeInterpolationSchemeTrait end
+
+"""
+Face reconstruction using endpoint values and first derivatives.
+"""
+struct GradientCorrectedReconstruction <: EdgeInterpolationSchemeTrait end
+
+"""
+Face reconstruction using endpoint values plus first- and second-derivative corrections.
+"""
+struct CurvatureCorrectedReconstruction <: EdgeInterpolationSchemeTrait end
 
 """
 AD Thomas-Lombard conservative metric path.
@@ -126,14 +140,14 @@ struct ADThomasLombardMetric <: EdgeInterpolationSchemeTrait end
 @inline _coefficient_type(x::StaticArray) = eltype(x)
 @inline _edge_coefficient_type(x, Δξ) = promote_type(_coefficient_type(x), typeof(Δξ))
 
-@inline function _edge_reconstruct(ϕᵢ, ϕᵢ₊₁, ::EdgeInterpolationOrder1)
+@inline function _edge_reconstruct(ϕᵢ, ϕᵢ₊₁, ::EndpointAverageReconstruction)
   T = _edge_coefficient_type(ϕᵢ, 1)
   half = one(T) / T(2)
   return half * (ϕᵢ + ϕᵢ₊₁)
 end
 
 @inline function _edge_reconstruct(
-  ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ::EdgeInterpolationOrder2, Δξ::Real=1
+  ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ::GradientCorrectedReconstruction, Δξ::Real=1
 )
   T = _edge_coefficient_type(ϕᵢ, Δξ)
   half = one(T) / T(2)
@@ -145,7 +159,7 @@ end
 end
 
 @inline function _edge_reconstruct(
-  ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, ::EdgeInterpolationOrder3, Δξ::Real=1
+  ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, ::CurvatureCorrectedReconstruction, Δξ::Real=1
 )
   T = _edge_coefficient_type(ϕᵢ, Δξ)
   half = one(T) / T(2)
@@ -166,7 +180,7 @@ function MetricCache(
   y::Function,
   z::Function,
   backend;
-  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   xξ(t, i, j, k, p) = derivative(ξ -> x(t, ξ, j, k, p), backend, i)
   xη(t, i, j, k, p) = derivative(η -> x(t, i, η, k, p), backend, j)
@@ -227,7 +241,7 @@ function MetricCache(
   x::Function,
   y::Function,
   backend;
-  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   xξ(t, i, j, p) = derivative(ξ -> x(t, ξ, j, p), backend, i)
   xη(t, i, j, p) = derivative(η -> x(t, i, η, p), backend, j)
@@ -286,7 +300,7 @@ end
 function MetricCache(
   x::Function,
   backend;
-  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   xξ(t, i, p) = derivative(ξ -> x(t, ξ, p), backend, i)
 
@@ -321,22 +335,22 @@ function MetricCache(
   return MetricCache(forward_metrics, inverse_metrics, edge_metrics)
 end
 
-edge_functions_3d(ϕ, backend) = edge_functions_3d(ϕ, backend, EdgeInterpolationOrder3())
+edge_functions_3d(ϕ, backend) = edge_functions_3d(ϕ, backend, CurvatureCorrectedReconstruction())
 
-function edge_functions_3d(ϕ, backend, ::EdgeInterpolationOrder1)
+function edge_functions_3d(ϕ, backend, ::EndpointAverageReconstruction)
   function ϕᵢ₊½(t, i, j, k, p)
-    _edge_reconstruct(ϕ(t, i, j, k, p), ϕ(t, i + 1, j, k, p), EdgeInterpolationOrder1())
+    _edge_reconstruct(ϕ(t, i, j, k, p), ϕ(t, i + 1, j, k, p), EndpointAverageReconstruction())
   end
   function ϕⱼ₊½(t, i, j, k, p)
-    _edge_reconstruct(ϕ(t, i, j, k, p), ϕ(t, i, j + 1, k, p), EdgeInterpolationOrder1())
+    _edge_reconstruct(ϕ(t, i, j, k, p), ϕ(t, i, j + 1, k, p), EndpointAverageReconstruction())
   end
   function ϕₖ₊½(t, i, j, k, p)
-    _edge_reconstruct(ϕ(t, i, j, k, p), ϕ(t, i, j, k + 1, p), EdgeInterpolationOrder1())
+    _edge_reconstruct(ϕ(t, i, j, k, p), ϕ(t, i, j, k + 1, p), EndpointAverageReconstruction())
   end
   return (; ϕᵢ₊½, ϕⱼ₊½, ϕₖ₊½)
 end
 
-function edge_functions_3d(ϕ, backend, ::EdgeInterpolationOrder2)
+function edge_functions_3d(ϕ, backend, ::GradientCorrectedReconstruction)
   ξ_derivs(t, i, j, k, p) = value_and_derivative(ξ -> ϕ(t, ξ, j, k, p), backend, i)
   η_derivs(t, i, j, k, p) = value_and_derivative(η -> ϕ(t, i, η, k, p), backend, j)
   ζ_derivs(t, i, j, k, p) = value_and_derivative(ζ -> ϕ(t, i, j, ζ, p), backend, k)
@@ -344,22 +358,22 @@ function edge_functions_3d(ϕ, backend, ::EdgeInterpolationOrder2)
   function ϕᵢ₊½(t, i, j, k, p)
     ϕᵢ, ∂ϕ_∂ξᵢ = ξ_derivs(t, i, j, k, p)
     ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁ = ξ_derivs(t, i + 1, j, k, p)
-    _edge_reconstruct(ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, EdgeInterpolationOrder2())
+    _edge_reconstruct(ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, GradientCorrectedReconstruction())
   end
   function ϕⱼ₊½(t, i, j, k, p)
     ϕⱼ, ∂ϕ_∂ηⱼ = η_derivs(t, i, j, k, p)
     ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁ = η_derivs(t, i, j + 1, k, p)
-    _edge_reconstruct(ϕⱼ, ∂ϕ_∂ηⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, EdgeInterpolationOrder2())
+    _edge_reconstruct(ϕⱼ, ∂ϕ_∂ηⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, GradientCorrectedReconstruction())
   end
   function ϕₖ₊½(t, i, j, k, p)
     ϕₖ, ∂ϕ_∂ζₖ = ζ_derivs(t, i, j, k, p)
     ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁ = ζ_derivs(t, i, j, k + 1, p)
-    _edge_reconstruct(ϕₖ, ∂ϕ_∂ζₖ, ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, EdgeInterpolationOrder2())
+    _edge_reconstruct(ϕₖ, ∂ϕ_∂ζₖ, ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, GradientCorrectedReconstruction())
   end
   return (; ϕᵢ₊½, ϕⱼ₊½, ϕₖ₊½)
 end
 
-function edge_functions_3d(ϕ, backend, ::EdgeInterpolationOrder3)
+function edge_functions_3d(ϕ, backend, ::CurvatureCorrectedReconstruction)
   function ξ_derivs(t, i, j, k, p)
     value_derivative_and_second_derivative(ξ -> ϕ(t, ξ, j, k, p), backend, i)
   end
@@ -374,56 +388,56 @@ function edge_functions_3d(ϕ, backend, ::EdgeInterpolationOrder3)
     ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(t, i, j, k, p)
     ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁ = ξ_derivs(t, i + 1, j, k, p)
     _edge_reconstruct(
-      ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, EdgeInterpolationOrder3()
+      ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, CurvatureCorrectedReconstruction()
     )
   end
   function ϕⱼ₊½(t, i, j, k, p)
     ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ = η_derivs(t, i, j, k, p)
     ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁ = η_derivs(t, i, j + 1, k, p)
     _edge_reconstruct(
-      ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁, EdgeInterpolationOrder3()
+      ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁, CurvatureCorrectedReconstruction()
     )
   end
   function ϕₖ₊½(t, i, j, k, p)
     ϕₖ, ∂ϕ_∂ζₖ, ∂²ϕ_∂ζ²ₖ = ζ_derivs(t, i, j, k, p)
     ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, ∂²ϕ_∂ζ²ₖ₊₁ = ζ_derivs(t, i, j, k + 1, p)
     _edge_reconstruct(
-      ϕₖ, ∂ϕ_∂ζₖ, ∂²ϕ_∂ζ²ₖ, ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, ∂²ϕ_∂ζ²ₖ₊₁, EdgeInterpolationOrder3()
+      ϕₖ, ∂ϕ_∂ζₖ, ∂²ϕ_∂ζ²ₖ, ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, ∂²ϕ_∂ζ²ₖ₊₁, CurvatureCorrectedReconstruction()
     )
   end
   return (; ϕᵢ₊½, ϕⱼ₊½, ϕₖ₊½)
 end
 
-edge_functions_2d(ϕ, backend) = edge_functions_2d(ϕ, backend, EdgeInterpolationOrder3())
+edge_functions_2d(ϕ, backend) = edge_functions_2d(ϕ, backend, CurvatureCorrectedReconstruction())
 
-function edge_functions_2d(ϕ, backend, ::EdgeInterpolationOrder1)
+function edge_functions_2d(ϕ, backend, ::EndpointAverageReconstruction)
   function ϕᵢ₊½(t, i, j, p)
-    _edge_reconstruct(ϕ(t, i, j, p), ϕ(t, i + 1, j, p), EdgeInterpolationOrder1())
+    _edge_reconstruct(ϕ(t, i, j, p), ϕ(t, i + 1, j, p), EndpointAverageReconstruction())
   end
   function ϕⱼ₊½(t, i, j, p)
-    _edge_reconstruct(ϕ(t, i, j, p), ϕ(t, i, j + 1, p), EdgeInterpolationOrder1())
+    _edge_reconstruct(ϕ(t, i, j, p), ϕ(t, i, j + 1, p), EndpointAverageReconstruction())
   end
   return (; ϕᵢ₊½, ϕⱼ₊½)
 end
 
-function edge_functions_2d(ϕ, backend, ::EdgeInterpolationOrder2)
+function edge_functions_2d(ϕ, backend, ::GradientCorrectedReconstruction)
   ξ_derivs(t, i, j, p) = value_and_derivative(ξ -> ϕ(t, ξ, j, p), backend, i)
   η_derivs(t, i, j, p) = value_and_derivative(η -> ϕ(t, i, η, p), backend, j)
 
   function ϕᵢ₊½(t, i, j, p)
     ϕᵢ, ∂ϕ_∂ξᵢ = ξ_derivs(t, i, j, p)
     ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁ = ξ_derivs(t, i + 1, j, p)
-    _edge_reconstruct(ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, EdgeInterpolationOrder2())
+    _edge_reconstruct(ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, GradientCorrectedReconstruction())
   end
   function ϕⱼ₊½(t, i, j, p)
     ϕⱼ, ∂ϕ_∂ηⱼ = η_derivs(t, i, j, p)
     ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁ = η_derivs(t, i, j + 1, p)
-    _edge_reconstruct(ϕⱼ, ∂ϕ_∂ηⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, EdgeInterpolationOrder2())
+    _edge_reconstruct(ϕⱼ, ∂ϕ_∂ηⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, GradientCorrectedReconstruction())
   end
   return (; ϕᵢ₊½, ϕⱼ₊½)
 end
 
-function edge_functions_2d(ϕ, backend, ::EdgeInterpolationOrder3)
+function edge_functions_2d(ϕ, backend, ::CurvatureCorrectedReconstruction)
   function ξ_derivs(t, i, j, p)
     value_derivative_and_second_derivative(ξ -> ϕ(t, ξ, j, p), backend, i)
   end
@@ -435,43 +449,43 @@ function edge_functions_2d(ϕ, backend, ::EdgeInterpolationOrder3)
     ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(t, i, j, p)
     ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁ = ξ_derivs(t, i + 1, j, p)
     _edge_reconstruct(
-      ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, EdgeInterpolationOrder3()
+      ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, CurvatureCorrectedReconstruction()
     )
   end
   function ϕⱼ₊½(t, i, j, p)
     ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ = η_derivs(t, i, j, p)
     ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁ = η_derivs(t, i, j + 1, p)
     _edge_reconstruct(
-      ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁, EdgeInterpolationOrder3()
+      ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁, CurvatureCorrectedReconstruction()
     )
   end
   return (; ϕᵢ₊½, ϕⱼ₊½)
 end
 
-edge_functions_1d(ϕ, backend) = edge_functions_1d(ϕ, backend, EdgeInterpolationOrder3())
+edge_functions_1d(ϕ, backend) = edge_functions_1d(ϕ, backend, CurvatureCorrectedReconstruction())
 
-function edge_functions_1d(ϕ, backend, ::EdgeInterpolationOrder1)
-  ϕᵢ₊½(t, i, p) = _edge_reconstruct(ϕ(t, i, p), ϕ(t, i + 1, p), EdgeInterpolationOrder1())
+function edge_functions_1d(ϕ, backend, ::EndpointAverageReconstruction)
+  ϕᵢ₊½(t, i, p) = _edge_reconstruct(ϕ(t, i, p), ϕ(t, i + 1, p), EndpointAverageReconstruction())
   return (; ϕᵢ₊½)
 end
 
-function edge_functions_1d(ϕ, backend, ::EdgeInterpolationOrder2)
+function edge_functions_1d(ϕ, backend, ::GradientCorrectedReconstruction)
   ξ_derivs(t, i, p) = value_and_derivative(ξ -> ϕ(t, ξ, p), backend, i)
   function ϕᵢ₊½(t, i, p)
     ϕᵢ, ∂ϕ_∂ξᵢ = ξ_derivs(t, i, p)
     ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁ = ξ_derivs(t, i + 1, p)
-    _edge_reconstruct(ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, EdgeInterpolationOrder2())
+    _edge_reconstruct(ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, GradientCorrectedReconstruction())
   end
   return (; ϕᵢ₊½)
 end
 
-function edge_functions_1d(ϕ, backend, ::EdgeInterpolationOrder3)
+function edge_functions_1d(ϕ, backend, ::CurvatureCorrectedReconstruction)
   ξ_derivs(t, i, p) = value_derivative_and_second_derivative(ξ -> ϕ(t, ξ, p), backend, i)
   function ϕᵢ₊½(t, i, p)
     ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(t, i, p)
     ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁ = ξ_derivs(t, i + 1, p)
     _edge_reconstruct(
-      ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, EdgeInterpolationOrder3()
+      ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, CurvatureCorrectedReconstruction()
     )
   end
   return (; ϕᵢ₊½)
@@ -481,7 +495,7 @@ function get_edge_functions_3d(
   forward_metrics,
   inverse_metrics,
   diff_backend;
-  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   ξ̂xᵢ₊½, ξ̂xⱼ₊½, ξ̂xₖ₊½ = edge_functions_3d(
     inverse_metrics.ξ̂x, diff_backend, edge_interpolation_scheme
@@ -540,7 +554,7 @@ function get_edge_functions_2d(
   forward_metrics,
   inverse_metrics,
   diff_backend;
-  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   Jinv_ᵢ₊½, Jinv_ⱼ₊½ = edge_functions_2d(
     inverse_metrics.Jinv, diff_backend, edge_interpolation_scheme
@@ -558,7 +572,7 @@ function get_edge_functions_1d(
   forward_metrics,
   inverse_metrics,
   diff_backend;
-  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   Jinv_ᵢ₊½ = edge_functions_1d(
     inverse_metrics.Jinv, diff_backend, edge_interpolation_scheme
@@ -644,7 +658,7 @@ function get_inverse_metric_terms(
   y,
   z,
   backend;
-  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   edge_scheme = edge_interpolation_scheme
 
@@ -879,16 +893,16 @@ end
 @inline _η_eval_3d_metriccache(η, ϕ, t, i, k, p) = ϕ(t, i, η, k, p)
 @inline _ζ_eval_3d_metriccache(ζ, ϕ, t, i, j, p) = ϕ(t, i, j, ζ, p)
 
-ξ_derivs(ϕ, backend) = ξ_derivs(ϕ, backend, EdgeInterpolationOrder3())
-η_derivs(ϕ, backend) = η_derivs(ϕ, backend, EdgeInterpolationOrder3())
-ζ_derivs(ϕ, backend) = ζ_derivs(ϕ, backend, EdgeInterpolationOrder3())
+ξ_derivs(ϕ, backend) = ξ_derivs(ϕ, backend, CurvatureCorrectedReconstruction())
+η_derivs(ϕ, backend) = η_derivs(ϕ, backend, CurvatureCorrectedReconstruction())
+ζ_derivs(ϕ, backend) = ζ_derivs(ϕ, backend, CurvatureCorrectedReconstruction())
 
-function ξ_derivs(ϕ, backend, ::EdgeInterpolationOrder1)
+function ξ_derivs(ϕ, backend, ::EndpointAverageReconstruction)
   ϕval(t, i, j, k, p) = _ξ_eval_3d_metriccache(i, ϕ, t, j, k, p)
   return ϕval
 end
 
-function ξ_derivs(ϕ, backend, ::EdgeInterpolationOrder2)
+function ξ_derivs(ϕ, backend, ::GradientCorrectedReconstruction)
   cϕ = DifferentiationInterface.Constant(ϕ)
   prep = prepare_derivative(
     _ξ_eval_3d_metriccache,
@@ -919,7 +933,7 @@ function ξ_derivs(ϕ, backend, ::EdgeInterpolationOrder2)
   return ϕall
 end
 
-function ξ_derivs(ϕ, backend, ::EdgeInterpolationOrder3)
+function ξ_derivs(ϕ, backend, ::CurvatureCorrectedReconstruction)
   cϕ = DifferentiationInterface.Constant(ϕ)
   prep = prepare_second_derivative(
     _ξ_eval_3d_metriccache,
@@ -950,12 +964,12 @@ function ξ_derivs(ϕ, backend, ::EdgeInterpolationOrder3)
   return ϕall
 end
 
-function η_derivs(ϕ, backend, ::EdgeInterpolationOrder1)
+function η_derivs(ϕ, backend, ::EndpointAverageReconstruction)
   ϕval(t, i, j, k, p) = _η_eval_3d_metriccache(j, ϕ, t, i, k, p)
   return ϕval
 end
 
-function η_derivs(ϕ, backend, ::EdgeInterpolationOrder2)
+function η_derivs(ϕ, backend, ::GradientCorrectedReconstruction)
   cϕ = DifferentiationInterface.Constant(ϕ)
   prep = prepare_derivative(
     _η_eval_3d_metriccache,
@@ -986,7 +1000,7 @@ function η_derivs(ϕ, backend, ::EdgeInterpolationOrder2)
   return ϕall
 end
 
-function η_derivs(ϕ, backend, ::EdgeInterpolationOrder3)
+function η_derivs(ϕ, backend, ::CurvatureCorrectedReconstruction)
   cϕ = DifferentiationInterface.Constant(ϕ)
   prep = prepare_second_derivative(
     _η_eval_3d_metriccache,
@@ -1017,12 +1031,12 @@ function η_derivs(ϕ, backend, ::EdgeInterpolationOrder3)
   return ϕall
 end
 
-function ζ_derivs(ϕ, backend, ::EdgeInterpolationOrder1)
+function ζ_derivs(ϕ, backend, ::EndpointAverageReconstruction)
   ϕval(t, i, j, k, p) = _ζ_eval_3d_metriccache(k, ϕ, t, i, j, p)
   return ϕval
 end
 
-function ζ_derivs(ϕ, backend, ::EdgeInterpolationOrder2)
+function ζ_derivs(ϕ, backend, ::GradientCorrectedReconstruction)
   cϕ = DifferentiationInterface.Constant(ϕ)
   prep = prepare_derivative(
     _ζ_eval_3d_metriccache,
@@ -1053,7 +1067,7 @@ function ζ_derivs(ϕ, backend, ::EdgeInterpolationOrder2)
   return ϕall
 end
 
-function ζ_derivs(ϕ, backend, ::EdgeInterpolationOrder3)
+function ζ_derivs(ϕ, backend, ::CurvatureCorrectedReconstruction)
   cϕ = DifferentiationInterface.Constant(ϕ)
   prep = prepare_second_derivative(
     _ζ_eval_3d_metriccache,
@@ -1085,13 +1099,13 @@ function ζ_derivs(ϕ, backend, ::EdgeInterpolationOrder3)
 end
 
 
-# Edge interpolation helpers used by metric caches.
+# Edge reconstruction helpers used by metric caches.
 
 #-------------------------------------------------------------
-# 1D edge interpolation
+# 1D edge reconstruction
 #-------------------------------------------------------------
 function ϕ_iedge(ϕ_eval, t, i::Real, p::NamedTuple)
-  ϕ_iedge(ϕ_eval, t, i, p, EdgeInterpolationOrder3(), 1)
+  ϕ_iedge(ϕ_eval, t, i, p, CurvatureCorrectedReconstruction(), 1)
 end
 
 function ϕ_iedge(
@@ -1111,35 +1125,35 @@ function ϕ_iedge(
   ϕ_iedge(ϕ_eval, t, i, p, edge_interpolation_scheme, Δξ)
 end
 
-function ϕ_iedge(ϕ_values, t, i::Real, p::NamedTuple, ::EdgeInterpolationOrder1, Δξ::Real)
+function ϕ_iedge(ϕ_values, t, i::Real, p::NamedTuple, ::EndpointAverageReconstruction, Δξ::Real)
   return _edge_reconstruct(
-    ϕ_values(t, i, p), ϕ_values(t, i + 1, p), EdgeInterpolationOrder1()
+    ϕ_values(t, i, p), ϕ_values(t, i + 1, p), EndpointAverageReconstruction()
   )
 end
 
 function ϕ_iedge(
-  ϕ_val_and_derivs, t, i::Real, p::NamedTuple, ::EdgeInterpolationOrder2, Δξ::Real
+  ϕ_val_and_derivs, t, i::Real, p::NamedTuple, ::GradientCorrectedReconstruction, Δξ::Real
 )
   ϕᵢ, ϕξᵢ = ϕ_val_and_derivs(t, i, p)
   ϕᵢ₊₁, ϕξᵢ₊₁ = ϕ_val_and_derivs(t, i + 1, p)
-  return _edge_reconstruct(ϕᵢ, ϕξᵢ, ϕᵢ₊₁, ϕξᵢ₊₁, EdgeInterpolationOrder2(), Δξ)
+  return _edge_reconstruct(ϕᵢ, ϕξᵢ, ϕᵢ₊₁, ϕξᵢ₊₁, GradientCorrectedReconstruction(), Δξ)
 end
 
 function ϕ_iedge(
-  ϕ_val_and_derivs, t, i::Real, p::NamedTuple, ::EdgeInterpolationOrder3, Δξ::Real
+  ϕ_val_and_derivs, t, i::Real, p::NamedTuple, ::CurvatureCorrectedReconstruction, Δξ::Real
 )
   ϕᵢ, ϕξᵢ, ϕξξᵢ = ϕ_val_and_derivs(t, i, p)
   ϕᵢ₊₁, ϕξᵢ₊₁, ϕξξᵢ₊₁ = ϕ_val_and_derivs(t, i + 1, p)
   return _edge_reconstruct(
-    ϕᵢ, ϕξᵢ, ϕξξᵢ, ϕᵢ₊₁, ϕξᵢ₊₁, ϕξξᵢ₊₁, EdgeInterpolationOrder3(), Δξ
+    ϕᵢ, ϕξᵢ, ϕξξᵢ, ϕᵢ₊₁, ϕξᵢ₊₁, ϕξξᵢ₊₁, CurvatureCorrectedReconstruction(), Δξ
   )
 end
 
 #-------------------------------------------------------------
-# 2D edge interpolation
+# 2D edge reconstruction
 #-------------------------------------------------------------
 function ϕ_iedge(ϕ_eval, t, i::Real, j::Real, p::NamedTuple)
-  ϕ_iedge(ϕ_eval, t, i, j, p, EdgeInterpolationOrder3(), 1)
+  ϕ_iedge(ϕ_eval, t, i, j, p, CurvatureCorrectedReconstruction(), 1)
 end
 
 function ϕ_iedge(
@@ -1166,33 +1180,33 @@ function ϕ_iedge(
 end
 
 function ϕ_iedge(
-  ϕ_values, t, i::Real, j::Real, p::NamedTuple, ::EdgeInterpolationOrder1, Δξ::Real
+  ϕ_values, t, i::Real, j::Real, p::NamedTuple, ::EndpointAverageReconstruction, Δξ::Real
 )
   return _edge_reconstruct(
-    ϕ_values(t, i, j, p), ϕ_values(t, i + 1, j, p), EdgeInterpolationOrder1()
+    ϕ_values(t, i, j, p), ϕ_values(t, i + 1, j, p), EndpointAverageReconstruction()
   )
 end
 
 function ϕ_iedge(
-  ϕ_val_and_derivs, t, i::Real, j::Real, p::NamedTuple, ::EdgeInterpolationOrder2, Δξ::Real
+  ϕ_val_and_derivs, t, i::Real, j::Real, p::NamedTuple, ::GradientCorrectedReconstruction, Δξ::Real
 )
   ϕᵢ, ϕξᵢ = ϕ_val_and_derivs(t, i, j, p)
   ϕᵢ₊₁, ϕξᵢ₊₁ = ϕ_val_and_derivs(t, i + 1, j, p)
-  return _edge_reconstruct(ϕᵢ, ϕξᵢ, ϕᵢ₊₁, ϕξᵢ₊₁, EdgeInterpolationOrder2(), Δξ)
+  return _edge_reconstruct(ϕᵢ, ϕξᵢ, ϕᵢ₊₁, ϕξᵢ₊₁, GradientCorrectedReconstruction(), Δξ)
 end
 
 function ϕ_iedge(
-  ϕ_val_and_derivs, t, i::Real, j::Real, p::NamedTuple, ::EdgeInterpolationOrder3, Δξ::Real
+  ϕ_val_and_derivs, t, i::Real, j::Real, p::NamedTuple, ::CurvatureCorrectedReconstruction, Δξ::Real
 )
   ϕᵢ, ϕξᵢ, ϕξξᵢ = ϕ_val_and_derivs(t, i, j, p)
   ϕᵢ₊₁, ϕξᵢ₊₁, ϕξξᵢ₊₁ = ϕ_val_and_derivs(t, i + 1, j, p)
   return _edge_reconstruct(
-    ϕᵢ, ϕξᵢ, ϕξξᵢ, ϕᵢ₊₁, ϕξᵢ₊₁, ϕξξᵢ₊₁, EdgeInterpolationOrder3(), Δξ
+    ϕᵢ, ϕξᵢ, ϕξξᵢ, ϕᵢ₊₁, ϕξᵢ₊₁, ϕξξᵢ₊₁, CurvatureCorrectedReconstruction(), Δξ
   )
 end
 
 function ϕ_jedge(ϕ_eval, t, i::Real, j::Real, p::NamedTuple)
-  ϕ_jedge(ϕ_eval, t, i, j, p, EdgeInterpolationOrder3(), 1)
+  ϕ_jedge(ϕ_eval, t, i, j, p, CurvatureCorrectedReconstruction(), 1)
 end
 
 function ϕ_jedge(
@@ -1219,36 +1233,36 @@ function ϕ_jedge(
 end
 
 function ϕ_jedge(
-  ϕ_values, t, i::Real, j::Real, p::NamedTuple, ::EdgeInterpolationOrder1, Δξ::Real
+  ϕ_values, t, i::Real, j::Real, p::NamedTuple, ::EndpointAverageReconstruction, Δξ::Real
 )
   return _edge_reconstruct(
-    ϕ_values(t, i, j, p), ϕ_values(t, i, j + 1, p), EdgeInterpolationOrder1()
+    ϕ_values(t, i, j, p), ϕ_values(t, i, j + 1, p), EndpointAverageReconstruction()
   )
 end
 
 function ϕ_jedge(
-  ϕ_val_and_derivs, t, i::Real, j::Real, p::NamedTuple, ::EdgeInterpolationOrder2, Δξ::Real
+  ϕ_val_and_derivs, t, i::Real, j::Real, p::NamedTuple, ::GradientCorrectedReconstruction, Δξ::Real
 )
   ϕⱼ, ϕηⱼ = ϕ_val_and_derivs(t, i, j, p)
   ϕⱼ₊₁, ϕηⱼ₊₁ = ϕ_val_and_derivs(t, i, j + 1, p)
-  return _edge_reconstruct(ϕⱼ, ϕηⱼ, ϕⱼ₊₁, ϕηⱼ₊₁, EdgeInterpolationOrder2(), Δξ)
+  return _edge_reconstruct(ϕⱼ, ϕηⱼ, ϕⱼ₊₁, ϕηⱼ₊₁, GradientCorrectedReconstruction(), Δξ)
 end
 
 function ϕ_jedge(
-  ϕ_val_and_derivs, t, i::Real, j::Real, p::NamedTuple, ::EdgeInterpolationOrder3, Δξ::Real
+  ϕ_val_and_derivs, t, i::Real, j::Real, p::NamedTuple, ::CurvatureCorrectedReconstruction, Δξ::Real
 )
   ϕⱼ, ϕηⱼ, ϕηηⱼ = ϕ_val_and_derivs(t, i, j, p)
   ϕⱼ₊₁, ϕηⱼ₊₁, ϕηηⱼ₊₁ = ϕ_val_and_derivs(t, i, j + 1, p)
   return _edge_reconstruct(
-    ϕⱼ, ϕηⱼ, ϕηηⱼ, ϕⱼ₊₁, ϕηⱼ₊₁, ϕηηⱼ₊₁, EdgeInterpolationOrder3(), Δξ
+    ϕⱼ, ϕηⱼ, ϕηηⱼ, ϕⱼ₊₁, ϕηⱼ₊₁, ϕηηⱼ₊₁, CurvatureCorrectedReconstruction(), Δξ
   )
 end
 
 #-------------------------------------------------------------
-# 3D edge interpolation
+# 3D edge reconstruction
 #-------------------------------------------------------------
 function ϕ_iedge(ϕ_eval, t, i::Real, j::Real, k::Real, p::NamedTuple)
-  ϕ_iedge(ϕ_eval, t, i, j, k, p, EdgeInterpolationOrder3(), 1)
+  ϕ_iedge(ϕ_eval, t, i, j, k, p, CurvatureCorrectedReconstruction(), 1)
 end
 
 function ϕ_iedge(
@@ -1277,10 +1291,10 @@ function ϕ_iedge(
 end
 
 function ϕ_iedge(
-  ϕ_values, t, i::Real, j::Real, k::Real, p::NamedTuple, ::EdgeInterpolationOrder1, Δξ::Real
+  ϕ_values, t, i::Real, j::Real, k::Real, p::NamedTuple, ::EndpointAverageReconstruction, Δξ::Real
 )
   return _edge_reconstruct(
-    ϕ_values(t, i, j, k, p), ϕ_values(t, i + 1, j, k, p), EdgeInterpolationOrder1()
+    ϕ_values(t, i, j, k, p), ϕ_values(t, i + 1, j, k, p), EndpointAverageReconstruction()
   )
 end
 
@@ -1291,12 +1305,12 @@ function ϕ_iedge(
   j::Real,
   k::Real,
   p::NamedTuple,
-  ::EdgeInterpolationOrder2,
+  ::GradientCorrectedReconstruction,
   Δξ::Real,
 )
   ϕᵢ, ϕξᵢ = ϕ_val_and_derivs(t, i, j, k, p)
   ϕᵢ₊₁, ϕξᵢ₊₁ = ϕ_val_and_derivs(t, i + 1, j, k, p)
-  return _edge_reconstruct(ϕᵢ, ϕξᵢ, ϕᵢ₊₁, ϕξᵢ₊₁, EdgeInterpolationOrder2(), Δξ)
+  return _edge_reconstruct(ϕᵢ, ϕξᵢ, ϕᵢ₊₁, ϕξᵢ₊₁, GradientCorrectedReconstruction(), Δξ)
 end
 
 function ϕ_iedge(
@@ -1306,18 +1320,18 @@ function ϕ_iedge(
   j::Real,
   k::Real,
   p::NamedTuple,
-  ::EdgeInterpolationOrder3,
+  ::CurvatureCorrectedReconstruction,
   Δξ::Real,
 )
   ϕᵢ, ϕξᵢ, ϕξξᵢ = ϕ_val_and_derivs(t, i, j, k, p)
   ϕᵢ₊₁, ϕξᵢ₊₁, ϕξξᵢ₊₁ = ϕ_val_and_derivs(t, i + 1, j, k, p)
   return _edge_reconstruct(
-    ϕᵢ, ϕξᵢ, ϕξξᵢ, ϕᵢ₊₁, ϕξᵢ₊₁, ϕξξᵢ₊₁, EdgeInterpolationOrder3(), Δξ
+    ϕᵢ, ϕξᵢ, ϕξξᵢ, ϕᵢ₊₁, ϕξᵢ₊₁, ϕξξᵢ₊₁, CurvatureCorrectedReconstruction(), Δξ
   )
 end
 
 function ϕ_jedge(ϕ_eval, t, i::Real, j::Real, k::Real, p::NamedTuple)
-  ϕ_jedge(ϕ_eval, t, i, j, k, p, EdgeInterpolationOrder3(), 1)
+  ϕ_jedge(ϕ_eval, t, i, j, k, p, CurvatureCorrectedReconstruction(), 1)
 end
 
 function ϕ_jedge(
@@ -1346,10 +1360,10 @@ function ϕ_jedge(
 end
 
 function ϕ_jedge(
-  ϕ_values, t, i::Real, j::Real, k::Real, p::NamedTuple, ::EdgeInterpolationOrder1, Δξ::Real
+  ϕ_values, t, i::Real, j::Real, k::Real, p::NamedTuple, ::EndpointAverageReconstruction, Δξ::Real
 )
   return _edge_reconstruct(
-    ϕ_values(t, i, j, k, p), ϕ_values(t, i, j + 1, k, p), EdgeInterpolationOrder1()
+    ϕ_values(t, i, j, k, p), ϕ_values(t, i, j + 1, k, p), EndpointAverageReconstruction()
   )
 end
 
@@ -1360,12 +1374,12 @@ function ϕ_jedge(
   j::Real,
   k::Real,
   p::NamedTuple,
-  ::EdgeInterpolationOrder2,
+  ::GradientCorrectedReconstruction,
   Δξ::Real,
 )
   ϕⱼ, ϕηⱼ = ϕ_val_and_derivs(t, i, j, k, p)
   ϕⱼ₊₁, ϕηⱼ₊₁ = ϕ_val_and_derivs(t, i, j + 1, k, p)
-  return _edge_reconstruct(ϕⱼ, ϕηⱼ, ϕⱼ₊₁, ϕηⱼ₊₁, EdgeInterpolationOrder2(), Δξ)
+  return _edge_reconstruct(ϕⱼ, ϕηⱼ, ϕⱼ₊₁, ϕηⱼ₊₁, GradientCorrectedReconstruction(), Δξ)
 end
 
 function ϕ_jedge(
@@ -1375,18 +1389,18 @@ function ϕ_jedge(
   j::Real,
   k::Real,
   p::NamedTuple,
-  ::EdgeInterpolationOrder3,
+  ::CurvatureCorrectedReconstruction,
   Δξ::Real,
 )
   ϕⱼ, ϕηⱼ, ϕηηⱼ = ϕ_val_and_derivs(t, i, j, k, p)
   ϕⱼ₊₁, ϕηⱼ₊₁, ϕηηⱼ₊₁ = ϕ_val_and_derivs(t, i, j + 1, k, p)
   return _edge_reconstruct(
-    ϕⱼ, ϕηⱼ, ϕηηⱼ, ϕⱼ₊₁, ϕηⱼ₊₁, ϕηηⱼ₊₁, EdgeInterpolationOrder3(), Δξ
+    ϕⱼ, ϕηⱼ, ϕηηⱼ, ϕⱼ₊₁, ϕηⱼ₊₁, ϕηηⱼ₊₁, CurvatureCorrectedReconstruction(), Δξ
   )
 end
 
 function ϕ_kedge(ϕ_eval, t, i::Real, j::Real, k::Real, p::NamedTuple)
-  ϕ_kedge(ϕ_eval, t, i, j, k, p, EdgeInterpolationOrder3(), 1)
+  ϕ_kedge(ϕ_eval, t, i, j, k, p, CurvatureCorrectedReconstruction(), 1)
 end
 
 function ϕ_kedge(
@@ -1415,10 +1429,10 @@ function ϕ_kedge(
 end
 
 function ϕ_kedge(
-  ϕ_values, t, i::Real, j::Real, k::Real, p::NamedTuple, ::EdgeInterpolationOrder1, Δξ::Real
+  ϕ_values, t, i::Real, j::Real, k::Real, p::NamedTuple, ::EndpointAverageReconstruction, Δξ::Real
 )
   return _edge_reconstruct(
-    ϕ_values(t, i, j, k, p), ϕ_values(t, i, j, k + 1, p), EdgeInterpolationOrder1()
+    ϕ_values(t, i, j, k, p), ϕ_values(t, i, j, k + 1, p), EndpointAverageReconstruction()
   )
 end
 
@@ -1429,12 +1443,12 @@ function ϕ_kedge(
   j::Real,
   k::Real,
   p::NamedTuple,
-  ::EdgeInterpolationOrder2,
+  ::GradientCorrectedReconstruction,
   Δξ::Real,
 )
   ϕₖ, ϕζₖ = ϕ_val_and_derivs(t, i, j, k, p)
   ϕₖ₊₁, ϕζₖ₊₁ = ϕ_val_and_derivs(t, i, j, k + 1, p)
-  return _edge_reconstruct(ϕₖ, ϕζₖ, ϕₖ₊₁, ϕζₖ₊₁, EdgeInterpolationOrder2(), Δξ)
+  return _edge_reconstruct(ϕₖ, ϕζₖ, ϕₖ₊₁, ϕζₖ₊₁, GradientCorrectedReconstruction(), Δξ)
 end
 
 function ϕ_kedge(
@@ -1444,13 +1458,13 @@ function ϕ_kedge(
   j::Real,
   k::Real,
   p::NamedTuple,
-  ::EdgeInterpolationOrder3,
+  ::CurvatureCorrectedReconstruction,
   Δξ::Real,
 )
   ϕₖ, ϕζₖ, ϕζζₖ = ϕ_val_and_derivs(t, i, j, k, p)
   ϕₖ₊₁, ϕζₖ₊₁, ϕζζₖ₊₁ = ϕ_val_and_derivs(t, i, j, k + 1, p)
   return _edge_reconstruct(
-    ϕₖ, ϕζₖ, ϕζζₖ, ϕₖ₊₁, ϕζₖ₊₁, ϕζζₖ₊₁, EdgeInterpolationOrder3(), Δξ
+    ϕₖ, ϕζₖ, ϕζζₖ, ϕₖ₊₁, ϕζₖ₊₁, ϕζζₖ₊₁, CurvatureCorrectedReconstruction(), Δξ
   )
 end
 
@@ -1460,30 +1474,30 @@ end
 #-------------------------------------------------------------
 # 3D cell-center derivatives
 #-------------------------------------------------------------
-∂ϕ_∂ξ_3d(ϕ, backend) = ∂ϕ_∂ξ_3d(ϕ, backend, EdgeInterpolationOrder3())
+∂ϕ_∂ξ_3d(ϕ, backend) = ∂ϕ_∂ξ_3d(ϕ, backend, CurvatureCorrectedReconstruction())
 
-function ∂ϕ_∂ξ_3d(ϕ, backend, ::EdgeInterpolationOrder1)
+function ∂ϕ_∂ξ_3d(ϕ, backend, ::EndpointAverageReconstruction)
   ϕᵢ₊½(t, i, j, k, p) = _edge_reconstruct(
-    ϕ(t, i, j, k, p), ϕ(t, i + 1, j, k, p), EdgeInterpolationOrder1()
+    ϕ(t, i, j, k, p), ϕ(t, i + 1, j, k, p), EndpointAverageReconstruction()
   )
   ∂ϕ_∂ξ(t, i, j, k, p) = ϕᵢ₊½(t, i, j, k, p) - ϕᵢ₊½(t, i - 1, j, k, p)
   return ∂ϕ_∂ξ
 end
 
-function ∂ϕ_∂ξ_3d(ϕ, backend, ::EdgeInterpolationOrder2)
+function ∂ϕ_∂ξ_3d(ϕ, backend, ::GradientCorrectedReconstruction)
   ξ_derivs(t, i, j, k, p) = value_and_derivative(ξ -> ϕ(t, ξ, j, k, p), backend, i)
 
   function ϕᵢ₊½(t, i, j, k, p)
     ϕᵢ, ∂ϕ_∂ξᵢ = ξ_derivs(t, i, j, k, p)
     ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁ = ξ_derivs(t, i + 1, j, k, p)
-    return _edge_reconstruct(ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, EdgeInterpolationOrder2())
+    return _edge_reconstruct(ϕᵢ, ∂ϕ_∂ξᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, GradientCorrectedReconstruction())
   end
 
   ∂ϕ_∂ξ(t, i, j, k, p) = ϕᵢ₊½(t, i, j, k, p) - ϕᵢ₊½(t, i - 1, j, k, p)
   return ∂ϕ_∂ξ
 end
 
-function ∂ϕ_∂ξ_3d(ϕ, backend, ::EdgeInterpolationOrder3)
+function ∂ϕ_∂ξ_3d(ϕ, backend, ::CurvatureCorrectedReconstruction)
   ξ_derivs(t, i, j, k, p) = value_derivative_and_second_derivative(
     ξ -> ϕ(t, ξ, j, k, p), backend, i
   )
@@ -1492,7 +1506,7 @@ function ∂ϕ_∂ξ_3d(ϕ, backend, ::EdgeInterpolationOrder3)
     ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(t, i, j, k, p)
     ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁ = ξ_derivs(t, i + 1, j, k, p)
     return _edge_reconstruct(
-      ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, EdgeInterpolationOrder3()
+      ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, CurvatureCorrectedReconstruction()
     )
   end
 
@@ -1500,30 +1514,30 @@ function ∂ϕ_∂ξ_3d(ϕ, backend, ::EdgeInterpolationOrder3)
   return ∂ϕ_∂ξ
 end
 
-∂ϕ_∂η_3d(ϕ, backend) = ∂ϕ_∂η_3d(ϕ, backend, EdgeInterpolationOrder3())
+∂ϕ_∂η_3d(ϕ, backend) = ∂ϕ_∂η_3d(ϕ, backend, CurvatureCorrectedReconstruction())
 
-function ∂ϕ_∂η_3d(ϕ, backend, ::EdgeInterpolationOrder1)
+function ∂ϕ_∂η_3d(ϕ, backend, ::EndpointAverageReconstruction)
   ϕⱼ₊½(t, i, j, k, p) = _edge_reconstruct(
-    ϕ(t, i, j, k, p), ϕ(t, i, j + 1, k, p), EdgeInterpolationOrder1()
+    ϕ(t, i, j, k, p), ϕ(t, i, j + 1, k, p), EndpointAverageReconstruction()
   )
   ∂ϕ_∂η(t, i, j, k, p) = ϕⱼ₊½(t, i, j, k, p) - ϕⱼ₊½(t, i, j - 1, k, p)
   return ∂ϕ_∂η
 end
 
-function ∂ϕ_∂η_3d(ϕ, backend, ::EdgeInterpolationOrder2)
+function ∂ϕ_∂η_3d(ϕ, backend, ::GradientCorrectedReconstruction)
   η_derivs(t, i, j, k, p) = value_and_derivative(η -> ϕ(t, i, η, k, p), backend, j)
 
   function ϕⱼ₊½(t, i, j, k, p)
     ϕⱼ, ∂ϕ_∂ηⱼ = η_derivs(t, i, j, k, p)
     ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁ = η_derivs(t, i, j + 1, k, p)
-    return _edge_reconstruct(ϕⱼ, ∂ϕ_∂ηⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, EdgeInterpolationOrder2())
+    return _edge_reconstruct(ϕⱼ, ∂ϕ_∂ηⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, GradientCorrectedReconstruction())
   end
 
   ∂ϕ_∂η(t, i, j, k, p) = ϕⱼ₊½(t, i, j, k, p) - ϕⱼ₊½(t, i, j - 1, k, p)
   return ∂ϕ_∂η
 end
 
-function ∂ϕ_∂η_3d(ϕ, backend, ::EdgeInterpolationOrder3)
+function ∂ϕ_∂η_3d(ϕ, backend, ::CurvatureCorrectedReconstruction)
   η_derivs(t, i, j, k, p) = value_derivative_and_second_derivative(
     η -> ϕ(t, i, η, k, p), backend, j
   )
@@ -1532,7 +1546,7 @@ function ∂ϕ_∂η_3d(ϕ, backend, ::EdgeInterpolationOrder3)
     ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ = η_derivs(t, i, j, k, p)
     ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁ = η_derivs(t, i, j + 1, k, p)
     return _edge_reconstruct(
-      ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁, EdgeInterpolationOrder3()
+      ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ, ϕⱼ₊₁, ∂ϕ_∂ηⱼ₊₁, ∂²ϕ_∂η²ⱼ₊₁, CurvatureCorrectedReconstruction()
     )
   end
 
@@ -1540,30 +1554,30 @@ function ∂ϕ_∂η_3d(ϕ, backend, ::EdgeInterpolationOrder3)
   return ∂ϕ_∂η
 end
 
-∂ϕ_∂ζ_3d(ϕ, backend) = ∂ϕ_∂ζ_3d(ϕ, backend, EdgeInterpolationOrder3())
+∂ϕ_∂ζ_3d(ϕ, backend) = ∂ϕ_∂ζ_3d(ϕ, backend, CurvatureCorrectedReconstruction())
 
-function ∂ϕ_∂ζ_3d(ϕ, backend, ::EdgeInterpolationOrder1)
+function ∂ϕ_∂ζ_3d(ϕ, backend, ::EndpointAverageReconstruction)
   ϕₖ₊½(t, i, j, k, p) = _edge_reconstruct(
-    ϕ(t, i, j, k, p), ϕ(t, i, j, k + 1, p), EdgeInterpolationOrder1()
+    ϕ(t, i, j, k, p), ϕ(t, i, j, k + 1, p), EndpointAverageReconstruction()
   )
   ∂ϕ_∂ζ(t, i, j, k, p) = ϕₖ₊½(t, i, j, k, p) - ϕₖ₊½(t, i, j, k - 1, p)
   return ∂ϕ_∂ζ
 end
 
-function ∂ϕ_∂ζ_3d(ϕ, backend, ::EdgeInterpolationOrder2)
+function ∂ϕ_∂ζ_3d(ϕ, backend, ::GradientCorrectedReconstruction)
   ζ_derivs(t, i, j, k, p) = value_and_derivative(ζ -> ϕ(t, i, j, ζ, p), backend, k)
 
   function ϕₖ₊½(t, i, j, k, p)
     ϕₖ, ∂ϕ_∂ζₖ = ζ_derivs(t, i, j, k, p)
     ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁ = ζ_derivs(t, i, j, k + 1, p)
-    return _edge_reconstruct(ϕₖ, ∂ϕ_∂ζₖ, ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, EdgeInterpolationOrder2())
+    return _edge_reconstruct(ϕₖ, ∂ϕ_∂ζₖ, ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, GradientCorrectedReconstruction())
   end
 
   ∂ϕ_∂ζ(t, i, j, k, p) = ϕₖ₊½(t, i, j, k, p) - ϕₖ₊½(t, i, j, k - 1, p)
   return ∂ϕ_∂ζ
 end
 
-function ∂ϕ_∂ζ_3d(ϕ, backend, ::EdgeInterpolationOrder3)
+function ∂ϕ_∂ζ_3d(ϕ, backend, ::CurvatureCorrectedReconstruction)
   ζ_derivs(t, i, j, k, p) = value_derivative_and_second_derivative(
     ζ -> ϕ(t, i, j, ζ, p), backend, k
   )
@@ -1572,7 +1586,7 @@ function ∂ϕ_∂ζ_3d(ϕ, backend, ::EdgeInterpolationOrder3)
     ϕₖ, ∂ϕ_∂ζₖ, ∂²ϕ_∂ζ²ₖ = ζ_derivs(t, i, j, k, p)
     ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, ∂²ϕ_∂ζ²ₖ₊₁ = ζ_derivs(t, i, j, k + 1, p)
     return _edge_reconstruct(
-      ϕₖ, ∂ϕ_∂ζₖ, ∂²ϕ_∂ζ²ₖ, ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, ∂²ϕ_∂ζ²ₖ₊₁, EdgeInterpolationOrder3()
+      ϕₖ, ∂ϕ_∂ζₖ, ∂²ϕ_∂ζ²ₖ, ϕₖ₊₁, ∂ϕ_∂ζₖ₊₁, ∂²ϕ_∂ζ²ₖ₊₁, CurvatureCorrectedReconstruction()
     )
   end
 
@@ -1583,41 +1597,65 @@ end
 
 # Metric cache construction for mapping callbacks.
 
+@inline _default_direct_metric_scheme() = CurvatureCorrectedReconstruction()
+
+@inline function _normalize_conserved_metric_scheme(
+  dim::Val, scheme::EdgeInterpolationSchemeTrait
+)
+  return scheme
+end
+
+@inline function _normalize_conserved_metric_scheme(
+  dim::Val{3}, scheme::ADThomasLombardMetric
+)
+  return scheme
+end
+
+function _normalize_conserved_metric_scheme(
+  dim::Val{N}, ::ADThomasLombardMetric
+) where {N}
+  @warn "ADThomasLombardMetric simplifies to the direct metric form in 1-D/2-D." dimension = N
+  return _default_direct_metric_scheme()
+end
+
 @inline function _metric_cache_for_mapping(
-  ::Val{1},
+  dim::Val{1},
   mapping_functions,
   diff_backend,
   edge_interpolation_scheme::EdgeInterpolationSchemeTrait,
 )
+  scheme = _normalize_conserved_metric_scheme(dim, edge_interpolation_scheme)
   MetricCache(
-    mapping_functions.x1, diff_backend; edge_interpolation_scheme=edge_interpolation_scheme
+    mapping_functions.x1, diff_backend; edge_interpolation_scheme=scheme
   )
 end
 @inline function _metric_cache_for_mapping(
-  ::Val{2},
+  dim::Val{2},
   mapping_functions,
   diff_backend,
   edge_interpolation_scheme::EdgeInterpolationSchemeTrait,
 )
+  scheme = _normalize_conserved_metric_scheme(dim, edge_interpolation_scheme)
   MetricCache(
     mapping_functions.x1,
     mapping_functions.x2,
     diff_backend;
-    edge_interpolation_scheme=edge_interpolation_scheme,
+    edge_interpolation_scheme=scheme,
   )
 end
 @inline function _metric_cache_for_mapping(
-  ::Val{3},
+  dim::Val{3},
   mapping_functions,
   diff_backend,
   edge_interpolation_scheme::EdgeInterpolationSchemeTrait,
 )
+  scheme = _normalize_conserved_metric_scheme(dim, edge_interpolation_scheme)
   MetricCache(
     mapping_functions.x1,
     mapping_functions.x2,
     mapping_functions.x3,
     diff_backend;
-    edge_interpolation_scheme=edge_interpolation_scheme,
+    edge_interpolation_scheme=scheme,
   )
 end
 
@@ -2550,7 +2588,7 @@ function _ad_thomas_lombard_edge_potential(
   end
 
   return _edge_reconstruct(
-    ϕᵢ, ϕaᵢ, ϕaaᵢ, ϕᵢ₊₁, ϕaᵢ₊₁, ϕaaᵢ₊₁, EdgeInterpolationOrder3()
+    ϕᵢ, ϕaᵢ, ϕaaᵢ, ϕᵢ₊₁, ϕaᵢ₊₁, ϕaaᵢ₊₁, CurvatureCorrectedReconstruction()
   )
 end
 
@@ -2751,7 +2789,7 @@ end
     Q[ip, jp, kp],
     Qb[ip, jp, kp],
     Qbb[ip, jp, kp],
-    EdgeInterpolationOrder3(),
+    CurvatureCorrectedReconstruction(),
   )
   edge_low = _edge_reconstruct(
     Q[im, jm, km],
@@ -2760,7 +2798,7 @@ end
     Q[i, j, k],
     Qb[i, j, k],
     Qbb[i, j, k],
-    EdgeInterpolationOrder3(),
+    CurvatureCorrectedReconstruction(),
   )
 
   return edge_high - edge_low
@@ -2806,7 +2844,7 @@ end
     table[value_id][ip, jp, kp],
     table[normal_deriv_id][ip, jp, kp],
     table[normal_second_deriv_id][ip, jp, kp],
-    EdgeInterpolationOrder3(),
+    CurvatureCorrectedReconstruction(),
   )
 end
 
@@ -2885,8 +2923,8 @@ end
     table, normal_axis, normal_is_axis_a, im, jm, km
   )
 
-  edge_high = _edge_reconstruct(Q, Qd, Qdd, Qp, Qdp, Qddp, EdgeInterpolationOrder3())
-  edge_low = _edge_reconstruct(Qm, Qdm, Qddm, Q, Qd, Qdd, EdgeInterpolationOrder3())
+  edge_high = _edge_reconstruct(Q, Qd, Qdd, Qp, Qdp, Qddp, CurvatureCorrectedReconstruction())
+  edge_low = _edge_reconstruct(Qm, Qdm, Qddm, Q, Qd, Qdd, CurvatureCorrectedReconstruction())
   return edge_high - edge_low
 end
 

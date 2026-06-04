@@ -65,7 +65,7 @@ end
 function MetricCache(
   x::InterpolantMapping{1},
   backend;
-  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   return MetricCache(
     (t, ξ, p) -> x(t, ξ, p), backend; edge_interpolation_scheme=edge_interpolation_scheme
@@ -76,7 +76,7 @@ function MetricCache(
   x::InterpolantMapping{2},
   y::InterpolantMapping{2},
   backend;
-  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   return MetricCache(
     (t, ξ, η, p) -> x(t, ξ, η, p),
@@ -91,7 +91,7 @@ function MetricCache(
   y::InterpolantMapping{3},
   z::InterpolantMapping{3},
   backend;
-  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  edge_interpolation_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 )
   return MetricCache(
     (t, ξ, η, ζ, p) -> x(t, ξ, η, ζ, p),
@@ -408,7 +408,10 @@ already include `nhalo` halo nodes on each side.
   - `basis`: Basis trait. Default: `CartesianBasis()`.
   - `interpolation`: Interpolation mode. Must be `:linear`.
   - `cache_mode`: Metric cache mode (`:eager`, `:lazy`, `:off`). Default: `:eager`.
-  - `conserved_metric_scheme`: Conserved face interpolation scheme trait (`EdgeInterpolationOrder1()`, `EdgeInterpolationOrder2()`, `EdgeInterpolationOrder3()`). Default: `EdgeInterpolationOrder3()`.
+  - `conserved_metric_scheme`: Conserved face reconstruction selector
+    (`EndpointAverageReconstruction()`, `GradientCorrectedReconstruction()`,
+    `CurvatureCorrectedReconstruction()`). Default:
+    `CurvatureCorrectedReconstruction()`.
 
 # Returns
 A `DiscreteGrid{N,T,...}` instance with initialized coordinates and metric
@@ -427,7 +430,7 @@ function DiscreteGrid(
   basis::BasisTrait=CartesianBasis(),
   interpolation::Symbol=:linear,
   cache_mode::Symbol=:eager,
-  conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 ) where {TX}
   _validate_discrete_interpolation(interpolation)
 
@@ -475,7 +478,7 @@ function DiscreteGrid(
   basis::BasisTrait=CartesianBasis(),
   interpolation::Symbol=:linear,
   cache_mode::Symbol=:eager,
-  conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 ) where {TX}
   size(x) == size(y) ||
     throw(ArgumentError("x and y arrays must have matching dimensions."))
@@ -532,7 +535,7 @@ function DiscreteGrid(
   basis::BasisTrait=CartesianBasis(),
   interpolation::Symbol=:linear,
   cache_mode::Symbol=:eager,
-  conserved_metric_scheme::EdgeInterpolationSchemeTrait=EdgeInterpolationOrder3(),
+  conserved_metric_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
 ) where {TX}
   (size(x) == size(y) && size(y) == size(z)) ||
     throw(ArgumentError("x, y, and z arrays must have matching dimensions."))

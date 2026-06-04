@@ -63,7 +63,7 @@ using CurvilinearGrids,
   @test all(abs.(extrema(I3)) .< 1e-14)
 end
 
-@testset "Wavy MappedGrid3D Edge Scheme Runtime Comparison" begin
+@testset "Wavy MappedGrid3D Face Reconstruction Runtime Comparison" begin
   function wavy_mapping()
     function x(t, i, j, k, p)
       @unpack Ax, Ay, Az, n, Δx0, Δy0, Δz0, xmin = p
@@ -124,9 +124,18 @@ end
   x, y, z = wavy_mapping()
   params, celldims = wavy_params()
   schemes = (
-    ("EdgeInterpolationOrder1", CurvilinearGrids.GridTypes.EdgeInterpolationOrder1()),
-    ("EdgeInterpolationOrder2", CurvilinearGrids.GridTypes.EdgeInterpolationOrder2()),
-    ("EdgeInterpolationOrder3", CurvilinearGrids.GridTypes.EdgeInterpolationOrder3()),
+    (
+      "EndpointAverageReconstruction",
+      CurvilinearGrids.GridTypes.EndpointAverageReconstruction(),
+    ),
+    (
+      "GradientCorrectedReconstruction",
+      CurvilinearGrids.GridTypes.GradientCorrectedReconstruction(),
+    ),
+    (
+      "CurvatureCorrectedReconstruction",
+      CurvilinearGrids.GridTypes.CurvatureCorrectedReconstruction(),
+    ),
   )
 
   # Warm up each scheme to avoid JIT compilation noise in runtime comparison.
@@ -141,7 +150,7 @@ end
     elapsed_seconds = (time_ns() - t0) * 1e-9
     push!(runtimes, elapsed_seconds)
 
-    @info "Wavy MappedGrid3D edge interpolation comparison" scheme = name max_I1 = errors.m1 max_I2 =
+    @info "Wavy MappedGrid3D face reconstruction comparison" scheme = name max_I1 = errors.m1 max_I2 =
       errors.m2 max_I3 = errors.m3 max_error = errors.m runtime_seconds = elapsed_seconds
 
     @test errors.m1 < 1e-14
@@ -288,7 +297,7 @@ end
           3;
           backend=CPU(),
           diff_backend=AutoForwardDiff(),
-          conserved_metric_scheme=EdgeInterpolationOrder3(),
+          conserved_metric_scheme=CurvatureCorrectedReconstruction(),
         )
         ad_tl = MappedGrid(
           x,
@@ -367,7 +376,7 @@ end
     5;
     backend=CPU(),
     diff_backend=backend,
-    conserved_metric_scheme=CurvilinearGrids.GridTypes.EdgeInterpolationOrder1(),
+    conserved_metric_scheme=CurvilinearGrids.GridTypes.EndpointAverageReconstruction(),
   )
   I1, I2, I3 = CurvilinearGrids.GridTypes.gcl(
     face_metrics(mesh), mesh.iterators.cell.domain

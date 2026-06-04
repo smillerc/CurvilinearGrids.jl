@@ -67,7 +67,9 @@ Useful keyword arguments for `MappedGrid` and `DiscreteGrid`:
 - `compute_metrics`: `true` to populate metrics according to `cache_mode`; `false` to defer work, or to disable metric storage when paired with `cache_mode=:off`.
 - `coordinate_system`: `CurvilinearCS()`, `CartesianCS()`, `CylindricalCS()`, `SphericalCS()`, `AxisymmetricCS{:x|:y}()`.
 - `basis`: `CartesianBasis()` or `SphericalBasis()`.
-- `conserved_metric_scheme`: `EdgeInterpolationOrder1()`, `EdgeInterpolationOrder2()`, `EdgeInterpolationOrder3()`.
+- `conserved_metric_scheme`: face reconstruction selector, such as
+  `EndpointAverageReconstruction()`, `GradientCorrectedReconstruction()`, or
+  `CurvatureCorrectedReconstruction()`.
 
 Useful constructor-specific keywords:
 - `MappedGrid`: `global_cell_indices` for custom global-index domains.
