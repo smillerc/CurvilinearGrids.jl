@@ -3,6 +3,11 @@
 
 Exchange one interface for cell-centered fields.
 
+Scalar exchange copies donor interior values into receiver ghost cells using
+the same oriented index mapping returned by [`interface_index_plan`](@ref).
+Vector and tensor exchange also applies the public [`basis_transfer_matrix`](@ref)
+between the donor and receiver cell centers.
+
 # Arguments
   - `mb`: Multi-block mesh.
   - `iface_id`: Interface index.
@@ -12,6 +17,7 @@ Exchange one interface for cell-centered fields.
   - `field_kind`: `:scalar`, `:vector`, or `:tensor`.
   - `direction`: `:left_to_right`, `:right_to_left`, or `:both`.
   - `depth`: Number of halo layers to fill from the opposing block interior.
+    Must not exceed the halo width of either connected block.
 
 # Returns
 `fields`.
@@ -111,13 +117,42 @@ function exchange_all_interfaces!(
 end
 
 """
+    interface_index_plan(mb, iface_id; depth=1, left_valid_domain=nothing, right_valid_domain=nothing)
+    interface_index_plan(left_grid, right_grid, iface; depth=1, left_valid_domain=nothing, right_valid_domain=nothing)
     interface_index_plan(left_domain, left_face, right_domain, right_face, permutation, flips; depth=1, left_valid_domain=nothing, right_valid_domain=nothing)
 
 Build ordered scalar index pairs for an oriented block interface.
 
 The returned named tuple has `left_to_right` and `right_to_left` vectors. Each
-entry is `source => target`, where source is an interior cell index on the donor
-side and target is the corresponding ghost-cell index on the receiver side.
+entry is `source => target`, where `source` is an interior cell index on the
+donor side and `target` is the corresponding ghost-cell index on the receiver
+side. The order, permutation, flip handling, and halo-layer traversal match the
+scalar path in [`exchange_interface!`](@ref).
+
+Use this API when a solver, boundary-condition layer, or MPI exchange layer
+needs the interface mapping without mutating field arrays.
+
+# Arguments
+  - `mb`: Multi-block mesh.
+  - `iface_id`: 1-based interface index in `mb.interfaces`.
+  - `left_grid`, `right_grid`: Blocks connected by `iface`.
+  - `iface`: Explicit `BlockInterface`.
+  - `left_domain`, `right_domain`: Cell domains used to form source and ghost
+    indices.
+  - `left_face`, `right_face`: Face descriptors for the oriented interface.
+  - `permutation`: Tangential-axis permutation mapping left -> right.
+  - `flips`: Tangential-axis reversal flags applied after permutation.
+
+# Keywords
+  - `depth`: Number of halo layers to include. Default: `1`.
+  - `left_valid_domain`: Optional domain filter for left-side source/target
+    indices.
+  - `right_valid_domain`: Optional domain filter for right-side source/target
+    indices.
+
+# Returns
+Named tuple `(left_to_right, right_to_left)` of `Pair{CartesianIndex,CartesianIndex}`
+vectors.
 """
 function interface_index_plan(
   left_domain::CartesianIndices{N},

@@ -236,6 +236,10 @@ end
 
 Construct a mapped unified grid from continuous coordinate mapping functions.
 
+Mapping callbacks are evaluated as `x1(t, xi, params)` in 1D,
+`x1(t, xi, eta, params)`/`x2(t, xi, eta, params)` in 2D, and with
+`zeta` added in 3D.
+
 # Arguments
   - `x1`: Mapping function for the first physical coordinate.
   - `x2`: Mapping function for the second physical coordinate (2D/3D).
@@ -249,9 +253,10 @@ Construct a mapped unified grid from continuous coordinate mapping functions.
   - `diff_backend`: Differentiation backend. Default: `AutoForwardDiff()`.
   - `t`: Initial time. Default: `zero(Float64)`.
   - `T`: Grid floating-point type. Default: `Float64`.
-  - `compute_metrics`: Enable initial metric computation. Default: `true`.
-    Set `compute_metrics=false` with `cache_mode=:off` to disable metric
-    allocation/caching entirely.
+  - `compute_metrics`: Enable initial metric-cache computation. Default: `true`.
+    When `false`, metrics are computed on first access unless `cache_mode=:off`;
+    set `compute_metrics=false, cache_mode=:off` to disable metric storage
+    entirely.
   - `global_cell_indices`: Optional global index map. Default: `nothing`.
   - `coordinate_system`: Coordinate-system trait. Default: `CurvilinearCS()`.
   - `basis`: Basis trait. Default: `CartesianBasis()`.

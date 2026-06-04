@@ -540,6 +540,20 @@ end
   return x, y, z
 end
 
+"""
+    coord(grid, idx)
+
+Return the native physical coordinate at a node or continuous computational
+coordinate.
+
+For `MappedGrid` and `DiscreteGrid`, integer tuple and `CartesianIndex` inputs
+address stored node coordinates. Real-valued tuples evaluate the underlying
+mapping at that computational coordinate, for example `coord(grid, (5.25, 7.5))`.
+Orthogonal-grid methods return coordinates assembled from the native node
+coordinate arrays.
+
+See also [`coords`](@ref), [`centroid`](@ref), and [`jacobian_matrix`](@ref).
+"""
 function coord(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int})
   @SVector [grid.node_coordinates[1][i]]
 end
@@ -1031,9 +1045,13 @@ end
 
 Compute cell volume at a given index.
 
+For mapped/discrete grids, `idx` may be a `CartesianIndex`, an integer tuple for
+stored cell metrics, or a real-valued tuple for continuous-coordinate metric
+evaluation. For orthogonal grids, `idx` is an integer cell index.
+
 # Arguments
   - `grid`: Unified grid instance.
-  - `idx`: `CartesianIndex` or tuple index.
+  - `idx`: `CartesianIndex`, integer tuple, or supported real tuple.
 """
 function cellvolume(grid::Union{MappedGrid,DiscreteGrid}, idx::CartesianIndex)
   cellvolume(grid, idx.I)

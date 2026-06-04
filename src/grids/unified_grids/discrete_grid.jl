@@ -378,6 +378,10 @@ end
 Construct a discrete unified grid from coordinate arrays using linear
 interpolation.
 
+Input arrays are node coordinates in computational-index order. By default they
+should exclude halo nodes; set `halo_coords_included=true` when the arrays
+already include `nhalo` halo nodes on each side.
+
 # Arguments
   - `x`: First coordinate array.
   - `y`: Second coordinate array (2D/3D).
@@ -389,9 +393,10 @@ interpolation.
   - `diff_backend`: Differentiation backend. Default: `AutoForwardDiff()`.
   - `T`: Grid floating-point type.
   - `Tcore`: Deprecated alias for `T` behavior; if provided, overrides numeric type.
-  - `compute_metrics`: Enable initial metric computation. Default: `true`.
-    Set `compute_metrics=false` with `cache_mode=:off` to disable metric
-    allocation/caching entirely.
+  - `compute_metrics`: Enable initial metric-cache computation. Default: `true`.
+    When `false`, metrics are computed on first access unless `cache_mode=:off`;
+    set `compute_metrics=false, cache_mode=:off` to disable metric storage
+    entirely.
   - `halo_coords_included`: Whether inputs include halo nodes. Default: `false`.
   - `coordinate_system`: Coordinate-system trait. Default: `CurvilinearCS()`.
   - `basis`: Basis trait. Default: `CartesianBasis()`.

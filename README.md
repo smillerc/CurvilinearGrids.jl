@@ -9,9 +9,9 @@
 `CurvilinearGrids.jl` is a Julia package for curvilinear structured grids, metric evaluation, and geometry-aware finite-difference workflows.
 
 The package now exposes a unified API centered on:
-- `MappedGrid`: grid defined from continuous mapping functions.
-- `DiscreteGrid`: grid defined from coordinate arrays (with linear interpolation in computational space).
-- `OrthogonalGrid`: wrapper around orthogonal legacy grids with unified geometry access.
+- `MappedGrid`: structured grid defined by continuous mapping functions.
+- `DiscreteGrid`: structured grid defined by coordinate arrays with linear interpolation in computational space.
+- `OrthogonalGrid`: orthogonal-grid wrapper with unified geometry access.
 
 For solver code, the package also exposes a small geometry/basis layer that is
 intended to be the public source of truth for metric and basis metadata:
@@ -64,10 +64,14 @@ OrthogonalGrid(...; coordinate_system=..., kwargs...)
 
 Useful keyword arguments for `MappedGrid` and `DiscreteGrid`:
 - `cache_mode`: `:eager`, `:lazy`, or `:off`.
-- `compute_metrics`: `true`/`false`.
+- `compute_metrics`: `true` to populate metrics according to `cache_mode`; `false` to defer work, or to disable metric storage when paired with `cache_mode=:off`.
 - `coordinate_system`: `CurvilinearCS()`, `CartesianCS()`, `CylindricalCS()`, `SphericalCS()`, `AxisymmetricCS{:x|:y}()`.
 - `basis`: `CartesianBasis()` or `SphericalBasis()`.
 - `conserved_metric_scheme`: `EdgeInterpolationOrder1()`, `EdgeInterpolationOrder2()`, `EdgeInterpolationOrder3()`.
+
+Useful constructor-specific keywords:
+- `MappedGrid`: `global_cell_indices` for custom global-index domains.
+- `DiscreteGrid`: `halo_coords_included=true` when input coordinate arrays already include halo nodes; `interpolation=:linear` is the current interpolation mode.
 
 ### Core geometry and metric calls
 
@@ -194,7 +198,7 @@ result = computational_coordinate(
 
 ## Multi-Block Interfaces
 
-`MultiBlockMesh` connects multiple `MappedGrid`/`DiscreteGrid` blocks with strict 1-to-1 interfaces.
+`MultiBlockMesh` connects multiple `MappedGrid`, `DiscreteGrid`, or `OrthogonalGrid` blocks with strict 1-to-1 interfaces.
 
 ```julia
 using CurvilinearGrids
@@ -208,6 +212,10 @@ mb = MultiBlockMesh((b1, b2), interfaces; tolerance=1e-12)
 exchange_interface!(mb, 1, [field_b1, field_b2]; field_kind=:scalar)
 exchange_all_interfaces!(mb, [field_b1, field_b2]; field_kind=:vector)
 
+plan = interface_index_plan(mb, 1; depth=2)
+plan.left_to_right  # source interior index => receiver ghost index
+plan.right_to_left
+
 ξ_right = computational_coordinate(mb, 1, (6.5, 4.25); from=:left)
 ```
 
@@ -215,6 +223,11 @@ Supported `field_kind` values:
 - `:scalar`
 - `:vector`
 - `:tensor`
+
+`interface_index_plan` returns ordered scalar exchange pairs without mutating
+field arrays. Use it when a solver or MPI layer needs to reuse the same
+interface orientation, permutation, flip, and halo-depth mapping as
+`exchange_interface!`.
 
 Multiblock vector/tensor exchange now uses the same public
 `basis_transfer_matrix` API, so solver code and interface exchange rely on a
@@ -236,7 +249,7 @@ Legacy grid types and constructors are still exported, including:
 - `rectilinear_grid`, `rtheta_grid`, `rthetaphi_grid`
 - orthogonal legacy types (`CartesianOrthogonalGrid1D`, `CylindricalOrthogonalGrid1D`, `SphericalOrthogonalGrid1D`, `AxisymmetricOrthogonalGrid2D`)
 
-New development should prefer the unified grid API (`MappedGrid`, `DiscreteGrid`, `OrthogonalGrid`) and multiblock API (`MultiBlockMesh`, `BlockInterface`, exchange/cache helpers).
+New development should prefer the unified grid API (`MappedGrid`, `DiscreteGrid`, `OrthogonalGrid`) and multiblock API (`MultiBlockMesh`, `BlockInterface`, `interface_index_plan`, exchange/cache helpers).
 
 
 ## Jacobian matrices of transformation

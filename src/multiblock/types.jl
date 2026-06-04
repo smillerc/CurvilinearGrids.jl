@@ -32,8 +32,10 @@ One 1-to-1 interface between two block faces.
 # Fields
   - `left`: Left face descriptor.
   - `right`: Right face descriptor.
-  - `permutation`: Tangential-axis permutation mapping left -> right.
-  - `flips`: Tangential-axis reversal flags (after permutation).
+  - `permutation`: Tangential-axis permutation mapping left axes to right axes.
+    `permutation[i]` is the right tangential axis paired with left tangential
+    axis `i`.
+  - `flips`: Tangential-axis reversal flags applied while mapping left -> right.
   - `tolerance`: Abutting geometry tolerance.
 """
 struct BlockInterface{N,T,P<:Tuple,F<:Tuple}
@@ -129,7 +131,7 @@ end
 Topological and geometric connectivity for multiple unified blocks.
 
 # Fields
-  - `blocks`: Tuple of unified blocks (`MappedGrid` or `DiscreteGrid`).
+  - `blocks`: Tuple of unified blocks (`MappedGrid`, `DiscreteGrid`, or `OrthogonalGrid`).
   - `interfaces`: Vector of 1-to-1 interface declarations.
   - `cache`: Interface mapping cache container.
 """
@@ -255,15 +257,23 @@ end
 Construct a multi-block mesh and optionally validate/build interface caches.
 
 # Arguments
-  - `blocks`: Collection of `MappedGrid`/`DiscreteGrid`/`OrthogonalGrid` blocks.
+  - `blocks`: Collection of `MappedGrid`/`DiscreteGrid`/`OrthogonalGrid` blocks
+    with the same dimension.
   - `interfaces`: Tuple of interface declarations, either:
     - `BlockInterface{N}` entries, or
     - mesh references using `(mesh, :face_symbol) => (mesh, :face_symbol)`.
+    Pair-style declarations use the default tangential ordering and no flips;
+    use `BlockInterface` directly for rotated or reversed interfaces.
 
 # Keywords
   - `validate`: Run topology/abutting validation. Default: `true`.
   - `build_cache`: Build interface caches. Default: `true`.
   - `tolerance`: Default abutting tolerance for pair-style interface specs.
+
+# Face Symbols
+Accepted pair-style face symbols include `:ilo`/`:ihi`, `:jlo`/`:jhi`, and
+`:klo`/`:khi`; axis-specific aliases such as `:imin`/`:imax` and
+`:xmin`/`:xmax` are also accepted.
 
 # Returns
 `MultiBlockMesh`.
