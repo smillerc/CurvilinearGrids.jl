@@ -96,30 +96,42 @@ end
 
       x_nodes = Array(mapped.node_coordinates[1])
       y_nodes = Array(mapped.node_coordinates[2])
-      discrete = DiscreteGrid(
-        x_nodes,
-        y_nodes,
-        mapped.nhalo;
-        backend=backend,
-        T=number_type,
-        halo_coords_included=true,
-        interpolation=:linear,
-        cache_mode=:eager,
-      )
+      if backend isa CPU
+        discrete = DiscreteGrid(
+          x_nodes,
+          y_nodes,
+          mapped.nhalo;
+          backend=backend,
+          T=number_type,
+          halo_coords_included=true,
+          interpolation=:linear,
+          cache_mode=:eager,
+        )
 
-      discrete_domain = discrete.iterators.cell.domain
-      discrete_cm = cell_metrics(discrete)
-      discrete_fm = face_metrics(discrete)
-      discrete_cm_host = (;
-        forward=Array(discrete_cm.forward), inverse=Array(discrete_cm.inverse)
-      )
-      discrete_fm_host = _host_face_metrics(discrete_fm)
+        discrete_domain = discrete.iterators.cell.domain
+        discrete_cm = cell_metrics(discrete)
+        discrete_fm = face_metrics(discrete)
+        discrete_cm_host = (;
+          forward=Array(discrete_cm.forward), inverse=Array(discrete_cm.inverse)
+        )
+        discrete_fm_host = _host_face_metrics(discrete_fm)
 
-      discrete_J = getproperty.(discrete_cm_host.forward[discrete_domain], :J)
-      @test all(isfinite, discrete_J)
-      @test minimum(discrete_J) > 0
-      discrete_tol = backend_name === :cpu ? 1e-12 : 1e-6
-      @test _max_gcl(discrete_fm_host, discrete_domain) < discrete_tol
+        discrete_J = getproperty.(discrete_cm_host.forward[discrete_domain], :J)
+        @test all(isfinite, discrete_J)
+        @test minimum(discrete_J) > 0
+        @test _max_gcl(discrete_fm_host, discrete_domain) < 1e-12
+      else
+        @test_throws ArgumentError DiscreteGrid(
+          x_nodes,
+          y_nodes,
+          mapped.nhalo;
+          backend=backend,
+          T=number_type,
+          halo_coords_included=true,
+          interpolation=:linear,
+          cache_mode=:eager,
+        )
+      end
     end
   end
 end

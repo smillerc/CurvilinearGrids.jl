@@ -1,9 +1,5 @@
-# Unified grid implementations and APIs for:
-# - `MappedGrid`
-# - `DiscreteGrid`
-include("continuous_grids/continous_grids.jl")
+# Unified grid implementation organized by ownership.
 include("metrics.jl")
-include("common.jl")
-include("mapped_grid.jl")
-include("discrete_grid.jl")
+include("constructors.jl")
+include("generation.jl")
 include("api.jl")

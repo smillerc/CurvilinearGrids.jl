@@ -249,6 +249,7 @@ function Adapt.adapt_structure(to, grid::DiscreteGrid{N,T,CS,BT,IP}) where {N,T,
   face_coordinates = Adapt.adapt_structure(to, grid.face_coordinates)
   metric_caches = isnothing(grid.metric_caches) ? nothing : Adapt.adapt_structure(to, grid.metric_caches)
   backend = _adapted_unified_backend(node_coordinates)
+  GridTypes._validate_discrete_backend(backend)
 
   return DiscreteGrid{
     N,
