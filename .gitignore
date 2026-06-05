@@ -1,4 +1,6 @@
 /Manifest.toml
+docs/build/
+.DS_Store
 .vscode/*
 *.vt?
 *.png
