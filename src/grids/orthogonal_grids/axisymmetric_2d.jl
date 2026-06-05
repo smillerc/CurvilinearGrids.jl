@@ -1,6 +1,5 @@
-@inline _axisymmetric_rotational_axis(::Symbol) = throw(
-  ArgumentError("rotational_axis must be `:x` or `:y`")
-)
+@inline _axisymmetric_rotational_axis(::Symbol) =
+  throw(ArgumentError("rotational_axis must be `:x` or `:y`"))
 @inline _axisymmetric_rotational_axis(::Val{:x}) = :x
 @inline _axisymmetric_rotational_axis(::Val{:y}) = :y
 
@@ -157,8 +156,8 @@ function compute_axisymmetric_volumes!(
   return nothing
 end
 
-@inline _axisymmetric_midpoint(a, b) = (a + b) / 2
-@inline _axisymmetric_radial_centroid(a, b) = (2 / 3) * ((b^3 - a^3) / (b^2 - a^2))
+@inline _axisymmetric_midpoint(a::T, b::T) = T(1 / 2) * (a + b)
+@inline _axisymmetric_radial_centroid(a::T, b::T) = T(2 / 3) * ((b^3 - a^3) / (b^2 - a^2))
 
 @kernel function _compute_axisymmetric_centroids!(
   c1, c2, n1, n2, cell_domain, radial_dim::Val{RadialDim}
@@ -177,43 +176,43 @@ end
 end
 
 @kernel function _compute_axisymmetric_radial_face_areas!(
-  Aᵢ₊½, n1, n2, domain, radial_dim::Val{RadialDim}
-) where {RadialDim}
+  Aᵢ₊½::AbstractArray{T,N}, n1, n2, domain, radial_dim::Val{RadialDim}
+) where {RadialDim,T,N}
   idx = @index(Global, Linear)
   I = domain[idx]
   i, j = I.I
 
   if RadialDim == 1
-    Aᵢ₊½[I] = 2π * n1[i + 1] * (n2[j + 1] - n2[j])
+    Aᵢ₊½[I] = T(2π) * n1[i + 1] * (n2[j + 1] - n2[j])
   else
-    Aᵢ₊½[I] = π * (n2[j + 1]^2 - n2[j]^2)
+    Aᵢ₊½[I] = T(π) * (n2[j + 1]^2 - n2[j]^2)
   end
 end
 
 @kernel function _compute_axisymmetric_axial_face_areas!(
-  Aⱼ₊½, n1, n2, domain, radial_dim::Val{RadialDim}
-) where {RadialDim}
+  Aⱼ₊½::AbstractArray{T,N}, n1, n2, domain, radial_dim::Val{RadialDim}
+) where {RadialDim,T,N}
   idx = @index(Global, Linear)
   I = domain[idx]
   i, j = I.I
 
   if RadialDim == 1
-    Aⱼ₊½[I] = π * (n1[i + 1]^2 - n1[i]^2)
+    Aⱼ₊½[I] = T(π) * (n1[i + 1]^2 - n1[i]^2)
   else
-    Aⱼ₊½[I] = 2π * n2[j + 1] * (n1[i + 1] - n1[i])
+    Aⱼ₊½[I] = T(2π) * n2[j + 1] * (n1[i + 1] - n1[i])
   end
 end
 
 @kernel function _compute_axisymmetric_volumes!(
-  V, n1, n2, cell_domain, radial_dim::Val{RadialDim}
-) where {RadialDim}
+  V::AbstractArray{T,N}, n1, n2, cell_domain, radial_dim::Val{RadialDim}
+) where {RadialDim,T,N}
   idx = @index(Global, Linear)
   I = cell_domain[idx]
   i, j = I.I
 
   if RadialDim == 1
-    V[I] = π * (n1[i + 1]^2 - n1[i]^2) * (n2[j + 1] - n2[j])
+    V[I] = T(π) * (n1[i + 1]^2 - n1[i]^2) * (n2[j + 1] - n2[j])
   else
-    V[I] = π * (n2[j + 1]^2 - n2[j]^2) * (n1[i + 1] - n1[i])
+    V[I] = T(π) * (n2[j + 1]^2 - n2[j]^2) * (n1[i + 1] - n1[i])
   end
 end
