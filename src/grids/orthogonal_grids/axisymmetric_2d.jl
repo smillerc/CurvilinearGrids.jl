@@ -156,8 +156,9 @@ function compute_axisymmetric_volumes!(
   return nothing
 end
 
-@inline _axisymmetric_midpoint(a::T, b::T) = T(1 / 2) * (a + b)
-@inline _axisymmetric_radial_centroid(a::T, b::T) = T(2 / 3) * ((b^3 - a^3) / (b^2 - a^2))
+@inline _axisymmetric_midpoint(a::T, b::T) where {T} = T(1 / 2) * (a + b)
+@inline _axisymmetric_radial_centroid(a::T, b::T) where {T} =
+  T(2 / 3) * ((b^3 - a^3) / (b^2 - a^2))
 
 @kernel function _compute_axisymmetric_centroids!(
   c1, c2, n1, n2, cell_domain, radial_dim::Val{RadialDim}
