@@ -1,10 +1,12 @@
 # Changelog
 
-## Unreleased
+## v0.13.0 - 2026-06-10
 
 Changes since `v0.12.4`:
 
 ### Added
+- Added `EndpointAverageReconstruction`, `GradientCorrectedReconstruction`, 
+  `CurvatureCorrectedReconstruction` options for mapped metric reconstruction at cell faces.
 - Public scalar index-planning API for oriented multi-block interfaces:
   `interface_index_plan` returns ordered source-to-target Cartesian index pairs
   for both interface directions, including permutation, flip, halo-depth, and
