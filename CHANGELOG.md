@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+Changes since `v0.13.0`:
+
+### Fixed
+- Added HDF5 coordinate serialization and reconstruction for 1D, 2D, and 3D
+  unified orthogonal grids, including Cartesian, cylindrical, axisymmetric, and
+  spherical coordinate systems.
+
 ## v0.13.0 - 2026-06-10
 
 Changes since `v0.12.4`:
