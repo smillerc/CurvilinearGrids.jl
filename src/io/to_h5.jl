@@ -1,6 +1,7 @@
 module H5Output
 
 using HDF5, Unitful
+using KernelAbstractions: CPU
 using Serialization
 using ..GridTypes
 
@@ -378,6 +379,87 @@ function write_coordinates(
   end
 end
 
+"""
+    write_coordinates(mesh::OrthogonalGrid{1}, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
+
+Write 1D orthogonal-grid information to HDF5 with coordinate units, the
+coordinate-system trait, and the halo-cell count recorded in the file.
+"""
+function write_coordinates(
+  mesh::OrthogonalGrid{1}, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
+  x = coords(mesh)
+
+  h5open(filename, "w") do file
+    h5write(filename, "x", collect(x))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
+
+    h5write(filename, "grid_type", "OrthogonalGrid1D")
+    h5write(filename, "nhalo", mesh.nhalo)
+    h5write(
+      filename,
+      "coordinate_system_trait",
+      _coordinate_system_tag(coordinate_system(mesh)),
+    )
+  end
+end
+
+"""
+    write_coordinates(mesh::OrthogonalGrid{2}, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
+
+Write 2D orthogonal-grid information to HDF5 with coordinate units, the
+coordinate-system trait, and the halo-cell count recorded in the file.
+"""
+function write_coordinates(
+  mesh::OrthogonalGrid{2}, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A}
+) where {N,A}
+  x, y = coords(mesh)
+
+  h5open(filename, "w") do file
+    h5write(filename, "x", collect(x))
+    h5writeattr(filename, "x", Dict("Units" => string(units)))
+    h5write(filename, "y", collect(y))
+    h5writeattr(filename, "y", Dict("Units" => string(units)))
+
+    h5write(filename, "grid_type", "OrthogonalGrid2D")
+    h5write(filename, "nhalo", mesh.nhalo)
+    h5write(
+      filename,
+      "coordinate_system_trait",
+      _coordinate_system_tag(coordinate_system(mesh)),
+    )
+  end
+end
+
+"""
+    write_coordinates(mesh::OrthogonalGrid{3}, filename::String, units::Unitful.FreeUnits{N,Unitful.𝐋,A})
+
+Write Cartesian 3D orthogonal-grid information to HDF5 with coordinate units,
+the coordinate-system trait, and the halo-cell count recorded in the file.
+"""
+function write_coordinates(
+  mesh::OrthogonalGrid{3,T,CartesianCS},
+  filename::String,
+  units::Unitful.FreeUnits{N,Unitful.𝐋,A},
+) where {N,A,T}
+  x, y, z = coords(mesh)
+
+  h5open(filename, "w") do file
+    for (name, coordinate) in (("x", x), ("y", y), ("z", z))
+      h5write(filename, name, collect(coordinate))
+      h5writeattr(filename, name, Dict("Units" => string(units)))
+    end
+
+    h5write(filename, "grid_type", "OrthogonalGrid3D")
+    h5write(filename, "nhalo", mesh.nhalo)
+    h5write(
+      filename,
+      "coordinate_system_trait",
+      _coordinate_system_tag(coordinate_system(mesh)),
+    )
+  end
+end
+
 function write_coordinates(
   mesh::OrthogonalGrid{3,T,SphericalCS},
   filename::String,
@@ -608,6 +690,74 @@ function read_coordinates(
       coordinate_system=cs,
       basis=bt,
     )
+  elseif grid_type == "OrthogonalGrid1D"
+    grid_file = h5open(filename, "r")
+    x = collect(read(grid_file, "x"))
+    serialized_nhalo = Int(read(grid_file, "nhalo"))
+    coordinate_tag = read(grid_file, "coordinate_system_trait")
+    close(grid_file)
+
+    coordinate_system_trait = _coordinate_system_from_tag(coordinate_tag)
+    if coordinate_system_trait isa CartesianCS
+      mesh = CartesianOrthogonalGrid1D(x, serialized_nhalo, CPU())
+    elseif coordinate_system_trait isa CylindricalCS
+      mesh = CylindricalOrthogonalGrid1D(x, serialized_nhalo, CPU())
+    elseif coordinate_system_trait isa SphericalCS
+      mesh = SphericalOrthogonalGrid1D(x, serialized_nhalo, CPU())
+    else
+      throw(
+        ArgumentError(
+          "Unsupported coordinate system `$coordinate_tag` for serialized 1D orthogonal grid.",
+        ),
+      )
+    end
+  elseif grid_type == "OrthogonalGrid2D"
+    grid_file = h5open(filename, "r")
+    x = collect(read(grid_file, "x"))
+    y = collect(read(grid_file, "y"))
+    serialized_nhalo = Int(read(grid_file, "nhalo"))
+    coordinate_tag = String(read(grid_file, "coordinate_system_trait"))
+    close(grid_file)
+
+    coordinate_system_trait = _coordinate_system_from_tag(coordinate_tag)
+    if coordinate_system_trait isa CartesianCS
+      mesh = CartesianOrthogonalGrid2D(x, y, serialized_nhalo, CPU())
+    elseif coordinate_system_trait isa AxisymmetricCS{:x}
+      mesh = AxisymmetricOrthogonalGrid2D(
+        x, y, serialized_nhalo, CPU(); rotational_axis=:x
+      )
+    elseif coordinate_system_trait isa AxisymmetricCS{:y}
+      mesh = AxisymmetricOrthogonalGrid2D(
+        x, y, serialized_nhalo, CPU(); rotational_axis=:y
+      )
+    elseif coordinate_system_trait isa SphericalCS
+      mesh = SphericalOrthogonalGrid2D(x, y, serialized_nhalo, CPU())
+    else
+      throw(
+        ArgumentError(
+          "Unsupported coordinate system `$coordinate_tag` for serialized 2D orthogonal grid.",
+        ),
+      )
+    end
+  elseif grid_type == "OrthogonalGrid3D"
+    grid_file = h5open(filename, "r")
+    x = collect(read(grid_file, "x"))
+    y = collect(read(grid_file, "y"))
+    z = collect(read(grid_file, "z"))
+    serialized_nhalo = Int(read(grid_file, "nhalo"))
+    coordinate_tag = String(read(grid_file, "coordinate_system_trait"))
+    close(grid_file)
+
+    coordinate_system_trait = _coordinate_system_from_tag(coordinate_tag)
+    if coordinate_system_trait isa CartesianCS
+      mesh = CartesianOrthogonalGrid3D(x, y, z, serialized_nhalo, CPU())
+    else
+      throw(
+        ArgumentError(
+          "Unsupported coordinate system `$coordinate_tag` for serialized 3D orthogonal grid.",
+        ),
+      )
+    end
   elseif grid_type == "DiscreteGrid1D"
     x = read_CurvilinearGrid1D(filename)
     mesh = DiscreteGrid(x, nhalo; compute_metrics=compute_metrics, cache_mode=cache_mode)

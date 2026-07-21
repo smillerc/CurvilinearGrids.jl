@@ -232,6 +232,42 @@ end
   @test z3_0 == z3
 end
 
+@testset "Read/Write 1D OrthogonalGrid to .h5" begin
+  meshes = (
+    CartesianOrthogonalGrid1D([0.0, 1.0, 2.0], 2, CPU()),
+    CylindricalOrthogonalGrid1D([1.0, 2.0, 4.0], 2, CPU()),
+    SphericalOrthogonalGrid1D([1.0, 2.0, 4.0], 2, CPU()),
+  )
+
+  for mesh₀ in meshes
+    test_write(mesh₀)
+    mesh = test_read()
+    @test coords(mesh₀) == coords(mesh)
+    @test mesh.nhalo == mesh₀.nhalo
+  end
+end
+
+@testset "Read/Write 2D and 3D OrthogonalGrid to .h5" begin
+  meshes = (
+    CartesianOrthogonalGrid2D([0.0, 1.0, 2.0], [0.0, 2.0], 2, CPU()),
+    AxisymmetricOrthogonalGrid2D(
+      [1.0, 2.0, 4.0], [0.0, 1.0, 2.0], 2, CPU(); rotational_axis=:x
+    ),
+    AxisymmetricOrthogonalGrid2D(
+      [1.0, 2.0, 4.0], [0.0, 1.0, 2.0], 2, CPU(); rotational_axis=:y
+    ),
+    SphericalOrthogonalGrid2D([1.0, 2.0, 4.0], [0.0, π / 2], 2, CPU()),
+    CartesianOrthogonalGrid3D([0.0, 1.0], [0.0, 2.0], [0.0, 3.0], 2, CPU()),
+  )
+
+  for mesh₀ in meshes
+    test_write(mesh₀)
+    mesh = test_read()
+    @test coords(mesh₀) == coords(mesh)
+    @test mesh.nhalo == mesh₀.nhalo
+  end
+end
+
 @testset "Read/Write RectilinearGrid to .h5" begin
   mesh2D_0 = initialize_mesh_Rectilinear2D()
   mesh3D_0 = initialize_mesh_Rectilinear3D()
