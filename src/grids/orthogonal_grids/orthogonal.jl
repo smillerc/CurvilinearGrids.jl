@@ -45,9 +45,11 @@ include("spherical_2d.jl")
 include("spherical_3d.jl")
 include("pad_with_halo.jl")
 
-function _prepare_1d_coordinates(_x, nhalo, halo_coords_included)
+function _prepare_1d_coordinates(
+  _x, nhalo, halo_coords_included; padder=pad_with_halo
+)
   if !halo_coords_included
-    x = pad_with_halo(_x, nhalo)
+    x = padder(_x, nhalo)
   else
     x = _x
   end
@@ -59,23 +61,12 @@ function _prepare_1d_coordinates(_x, nhalo, halo_coords_included)
   return x, limits, iters, nodedims, celldims
 end
 
-function _prepare_nd_coordinates(_coords::NTuple{2}, nhalo, halo_coords_included)
+function _prepare_nd_coordinates(
+  _coords::NTuple{N}, nhalo, halo_coords_included;
+  padders=ntuple(_ -> pad_with_halo, Val(N)),
+) where {N}
   if !halo_coords_included
-    coords = map(c -> pad_with_halo(c, nhalo), _coords)
-  else
-    coords = _coords
-  end
-
-  nodedims = map(length, coords) |> Tuple
-  limits, iters = get_iterators(nodedims, true, nhalo)
-  celldims = size(iters.cell.full)
-
-  return coords, limits, iters, nodedims, celldims
-end
-
-function _prepare_nd_coordinates(_coords::NTuple{3}, nhalo, halo_coords_included)
-  if !halo_coords_included
-    coords = map(c -> pad_with_halo(c, nhalo), _coords)
+    coords = ntuple(d -> padders[d](_coords[d], nhalo), Val(N))
   else
     coords = _coords
   end
@@ -94,4 +85,14 @@ function _populate_1d_nodes!(storage, coords, iters)
     @views storage[iters.node.domain.indices[1]] .= coords
   end
   return nothing
+end
+
+@inline function _spherical_polar_centroid(θ₀::T, θ₁::T) where {T}
+  μ = clamp((cos(θ₀) + cos(θ₁)) / 2, -one(T), one(T))
+  canonical = acos(μ)
+  midpoint = (θ₀ + θ₁) / 2
+  period = T(2π)
+  positive = canonical + period * round((midpoint - canonical) / period)
+  negative = -canonical + period * round((midpoint + canonical) / period)
+  return abs(positive - midpoint) ≤ abs(negative - midpoint) ? positive : negative
 end

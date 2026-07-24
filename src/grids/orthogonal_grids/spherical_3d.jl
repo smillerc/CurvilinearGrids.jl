@@ -11,7 +11,7 @@ function SphericalGrid3D(
   # spacing on either end of the coordinate vector. For this mesh type, 
   # halo geometry MUST be defined
   if !halo_coords_included
-    r = pad_with_halo(_r, nhalo)
+    r = _pad_spherical_radial_with_halo(_r, nhalo)
     θ = pad_with_halo(_θ, nhalo)
     ϕ = pad_with_halo(_ϕ, nhalo)
     halo_coords_included = true
@@ -116,11 +116,7 @@ end
 function compute_centroids!(
   centroids, node_coordinates, iters, backend, halo_coords_included
 )
-  if halo_coords_included
-    domain = iters.cell.full
-  else
-    domain = iters.cell.domain
-  end
+  domain = iters.cell.full
 
   kern = _compute_centroids!(backend)
   kern(
@@ -225,7 +221,7 @@ end
   rc[i] = (3 / 4) * (num / den)
 
   # rc[i] = (3 / 4) * ((r2^4 - r1^4) / (r2^3 - r1^3))
-  θc[j] = acos((cos(θ₀) + cos(θ₁)) / 2)
+  θc[j] = _spherical_polar_centroid(θ₀, θ₁)
   ϕc[k] = (ϕ₀ + ϕ₁) / 2
 end
 

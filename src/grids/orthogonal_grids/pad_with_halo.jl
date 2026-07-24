@@ -26,3 +26,22 @@ function pad_with_halo(x::AbstractVector, nhalo::Integer)
 
   return xh
 end
+
+function _pad_spherical_radial_with_halo(r::AbstractVector, nhalo::Integer)
+  rh = pad_with_halo(r, nhalo)
+
+  if iszero(first(r))
+    length(r) ≥ nhalo + 1 || throw(
+      ArgumentError(
+        "spherical radial coordinates beginning at zero require at least " *
+        "$(nhalo + 1) nodes for $nhalo halo layers",
+      ),
+    )
+
+    @inbounds for k in 1:nhalo
+      rh[nhalo + 1 - k] = -r[k + 1]
+    end
+  end
+
+  return rh
+end

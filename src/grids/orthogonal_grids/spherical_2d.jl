@@ -6,7 +6,10 @@ function SphericalOrthogonalGrid2D(
   halo_coords_included=false,
 ) where {T<:Real}
   coords, limits, iters, nodedims, celldims = _prepare_nd_coordinates(
-    (_r, _θ), nhalo, halo_coords_included
+    (_r, _θ),
+    nhalo,
+    halo_coords_included;
+    padders=(_pad_spherical_radial_with_halo, pad_with_halo),
   )
 
   node_coordinates = (
@@ -53,7 +56,7 @@ end
 function compute_spherical_2d_centroids!(
   centroids, node_coordinates, iters, backend, halo_coords_included
 )
-  domain = halo_coords_included ? iters.cell.full : iters.cell.domain
+  domain = iters.cell.full
 
   _compute_spherical_2d_centroids!(backend)(
     centroids[1],
@@ -122,7 +125,7 @@ end
   θ₁ = θnode[j + 1]
 
   rc[i] = (3 / 4) * ((r₁^4 - r₀^4) / (r₁^3 - r₀^3))
-  θc[j] = acos((cos(θ₀) + cos(θ₁)) / 2)
+  θc[j] = _spherical_polar_centroid(θ₀, θ₁)
 end
 
 @kernel function _compute_spherical_2d_radial_face_areas!(Aᵢ₊½, r, θ, domain)

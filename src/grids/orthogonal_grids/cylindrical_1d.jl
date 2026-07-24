@@ -40,7 +40,7 @@ end
 function compute_cylindrical_centroids!(
   centroids, node_coordinates, iters, backend, halo_coords_included
 )
-  domain = halo_coords_included ? iters.cell.full : iters.cell.domain
+  domain = iters.cell.full
 
   _compute_cylindrical_centroids!(backend)(
     centroids[1], node_coordinates[1], domain; ndrange=size(domain)

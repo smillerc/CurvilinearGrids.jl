@@ -86,7 +86,7 @@ end
 function compute_axisymmetric_centroids!(
   centroids, node_coordinates, iters, backend, halo_coords_included, rotational_axis
 )
-  domain = halo_coords_included ? iters.cell.full : iters.cell.domain
+  domain = iters.cell.full
   radial_dim = rotational_axis === :x ? 2 : 1
 
   _compute_axisymmetric_centroids!(backend)(

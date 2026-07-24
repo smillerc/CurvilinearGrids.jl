@@ -65,7 +65,7 @@ end
 function compute_cartesian_2d_centroids!(
   centroids, node_coordinates, iters, backend, halo_coords_included
 )
-  domain = halo_coords_included ? iters.cell.full : iters.cell.domain
+  domain = iters.cell.full
   _compute_cartesian_2d_centroids!(backend)(
     centroids[1],
     centroids[2],

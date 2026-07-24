@@ -2,7 +2,7 @@ function SphericalOrthogonalGrid1D(
   _r::AbstractVector{T}, nhalo::Int, backend; halo_coords_included=false
 ) where {T<:Real}
   r, limits, iters, nodedims, celldims = _prepare_1d_coordinates(
-    _r, nhalo, halo_coords_included
+    _r, nhalo, halo_coords_included; padder=_pad_spherical_radial_with_halo
   )
 
   node_coordinates = (KernelAbstractions.zeros(backend, T, nodedims...),)
@@ -40,7 +40,7 @@ end
 function compute_spherical_1d_centroids!(
   centroids, node_coordinates, iters, backend, halo_coords_included
 )
-  domain = halo_coords_included ? iters.cell.full : iters.cell.domain
+  domain = iters.cell.full
 
   _compute_spherical_1d_centroids!(backend)(
     centroids[1], node_coordinates[1], domain; ndrange=size(domain)
