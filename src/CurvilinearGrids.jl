@@ -56,6 +56,8 @@ export EndpointAverageReconstruction,
   GradientCorrectedReconstruction, CurvatureCorrectedReconstruction
 export ADThomasLombardMetric
 export coordinate_system, basis_trait, basis_transfer_matrix
+export conserved_metric_scheme
+export cartesian_position, reparameterize_mapping
 
 export rectilinear_grid,
   rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid

@@ -228,6 +228,7 @@ function Adapt.adapt_structure(to, grid::MappedGrid{N,T,CS,BT}) where {N,T,CS,BT
     typeof(grid.iterators),
     typeof(grid.state),
     typeof(metric_caches),
+    typeof(grid.conserved_metric_scheme),
   }(
     node_coordinates,
     centroid_coordinates,
@@ -240,6 +241,7 @@ function Adapt.adapt_structure(to, grid::MappedGrid{N,T,CS,BT}) where {N,T,CS,BT
     grid.iterators,
     grid.state,
     metric_caches,
+    grid.conserved_metric_scheme,
   )
 end
 

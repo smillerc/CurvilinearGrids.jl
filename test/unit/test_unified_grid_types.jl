@@ -2,6 +2,83 @@ using Test
 using CurvilinearGrids
 using StaticArrays
 
+struct CustomCartesianLikeCS <: CoordinateSystemTrait end
+
+@testset "Mapping reparameterization and Cartesian embedding" begin
+  x1(t, ξ, p) = p.offset + ξ
+  x2a(t, ξ, η, p) = p.offset + ξ + 2η
+  x2b(t, ξ, η, p) = p.offset - 3ξ + η
+  x3a(t, ξ, η, ζ, p) = ξ + η + ζ + p.offset
+  x3b(t, ξ, η, ζ, p) = 2ξ - η + ζ + p.offset
+  x3c(t, ξ, η, ζ, p) = -ξ + η + 3ζ + p.offset
+  params = (; offset=0.25f0)
+
+  map1 = reparameterize_mapping((; x1), (3.0f0,), (0.5f0,))
+  @test map1 === @inferred(reparameterize_mapping((; x1), (3.0f0,), (0.5f0,)))
+  @test keys(map1) == (:x1,)
+  @test isbitstype(typeof(map1))
+  @test @inferred(map1.x1(0.0f0, 5.0f0, params)) == 5.25f0
+
+  map2 = reparameterize_mapping(
+    (; x1=x2a, x2=x2b), (10.0f0, -2.0f0), (0.5f0, 2.0f0)
+  )
+  @test map2.x1(0.0f0, 3.0f0, 4.0f0, params) == 19.25f0
+  @test map2.x2(0.0f0, 3.0f0, 4.0f0, params) == -28.75f0
+
+  map3 = reparameterize_mapping(
+    (; x1=x3a, x2=x3b, x3=x3c), (2.0, 3.0, 4.0), (0.5, 1.0, 2.0)
+  )
+  qglobal = (3.0, 5.0, 10.0)
+  @test map3.x1(0.0, 3.0, 3.0, 4.0, params) ≈ sum(qglobal) + params.offset
+  @test map3.x2(0.0, 3.0, 3.0, 4.0, params) ≈
+    2qglobal[1] - qglobal[2] + qglobal[3] + params.offset
+  @test map3.x3(0.0, 3.0, 3.0, 4.0, params) ≈
+    -qglobal[1] + qglobal[2] + 3qglobal[3] + params.offset
+  @test typeof(map3) ===
+    typeof(
+      reparameterize_mapping(
+        (; x1=x3a, x2=x3b, x3=x3c), (20.0, 30.0, 40.0), (0.25, 0.5, 1.0)
+      ),
+    )
+
+  @test_throws ArgumentError reparameterize_mapping((; bad=x1), (1.0,), (1.0,))
+  @test_throws DimensionMismatch reparameterize_mapping((; x1), (1.0,), (1.0, 1.0))
+  @test_throws ArgumentError reparameterize_mapping(
+    (; x1=x3a, x2=x3b, x3=x3c, x4=x3a),
+    (1.0, 1.0, 1.0, 1.0),
+    (1.0, 1.0, 1.0, 1.0),
+  )
+
+  @test cartesian_position(CartesianCS(), (1, 2)) == SVector(1, 2)
+  @test cartesian_position(CurvilinearCS(), SVector(1.0f0, 2.0f0)) ===
+    SVector(1.0f0, 2.0f0)
+  @test cartesian_position(CustomCartesianLikeCS(), SVector(1.0, 2.0)) ==
+    SVector(1.0, 2.0)
+  @test cartesian_position(CylindricalCS(), (2.0, 3.0)) == SVector(2.0, 3.0)
+  @test cartesian_position(AxisymmetricCS{:x}(), (2.0, 3.0)) == SVector(2.0, 3.0)
+  @test cartesian_position(CylindricalCS(), (2.0, π / 2, -1.0)) ≈
+    SVector(0.0, 2.0, -1.0) atol = 1.0e-14
+  @test cartesian_position(SphericalCS(), (2.0, π / 2)) ≈
+    SVector(2.0, 0.0) atol = 1.0e-14
+  @test cartesian_position(SphericalCS(), (2.0, π / 2, π / 2)) ≈
+    SVector(0.0, 2.0, 0.0) atol = 1.0e-14
+  @test_throws ArgumentError cartesian_position(AxisymmetricCS{:x}(), SVector(1.0))
+
+  r2 = [1.0 2.0; 3.0 4.0]
+  θ2 = fill(π / 2, 2, 2)
+  x2, z2 = cartesian_coordinates(SphericalCS(), (r2, θ2))
+  @test x2 ≈ r2
+  @test z2 ≈ zeros(2, 2) atol = 1.0e-14
+
+  r3 = fill(2.0, 2, 2, 2)
+  θ3 = fill(π / 2, 2, 2, 2)
+  z3 = reshape(collect(1.0:8.0), 2, 2, 2)
+  x3, y3, zout3 = cartesian_coordinates(CylindricalCS(), (r3, θ3, z3))
+  @test x3 ≈ zeros(2, 2, 2) atol = 1.0e-14
+  @test y3 ≈ r3
+  @test zout3 === z3
+end
+
 @testset "UnifiedGrid traits and adapters" begin
   x = collect(range(0.0, 1.0; length=8))
   dgrid = DiscreteGrid(x, 5; interpolation=:linear, cache_mode=:eager)
@@ -56,6 +133,7 @@ end
     cache_mode=:eager,
     conserved_metric_scheme=CurvatureCorrectedReconstruction(),
   )
+  @test conserved_metric_scheme(g_curvature) isa CurvatureCorrectedReconstruction
   g_gradient = MappedGrid(
     xmap,
     ymap,

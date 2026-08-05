@@ -18,6 +18,17 @@ MappedGrid(xmap, ymap, zmap, params, celldims, nhalo; kwargs...)
 Use it when mapping functions are part of the model and can be evaluated at
 arbitrary computational locations.
 
+Use
+
+```julia
+reparameterize_mapping(mapping_functions, origin, scale)
+```
+
+to localize a named tuple of global mapping components to another one-based
+computational lattice without copying coordinates. The returned concrete
+callables preserve the mapping keys and are suitable for `MappedGrid` on the
+selected backend.
+
 ### `DiscreteGrid`
 
 `DiscreteGrid` is for user-provided node arrays:
@@ -67,7 +78,9 @@ SphericalBasis()
 ```julia
 coords(grid)
 coord(grid, idx)
+cartesian_position(coordinate_system, q)
 cartesian_coordinates(grid)
+cartesian_coordinates(coordinate_system, native_coordinates)
 
 centroids(grid)
 centroid(grid, idx)

@@ -60,11 +60,17 @@ end
       ωy = number_type(0.3)
       xmap(t, ξ, η, p) = ξ + p.ax * sin(ωx * η) + p.ct * t
       ymap(t, ξ, η, p) = η + p.ay * cos(ωy * ξ) - p.ct * t
+      maps = reparameterize_mapping(
+        (; x1=xmap, x2=ymap),
+        (one(number_type), one(number_type)),
+        (one(number_type), one(number_type)),
+      )
+      @test isbitstype(typeof(maps))
 
       params = (; ax=number_type(0.08), ay=number_type(0.05), ct=number_type(0.01))
       mapped = MappedGrid(
-        xmap,
-        ymap,
+        maps.x1,
+        maps.x2,
         params,
         (8, 9),
         2;

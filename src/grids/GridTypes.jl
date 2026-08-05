@@ -53,6 +53,8 @@ export EndpointAverageReconstruction,
 export ADThomasLombardMetric
 
 export coordinate_system, basis_trait, basis_transfer_matrix
+export conserved_metric_scheme
+export cartesian_position, reparameterize_mapping
 export cell_metrics, face_metrics
 export invalidate_cell_metrics!, invalidate_face_metrics!
 export refresh_cell_metrics!, refresh_face_metrics!

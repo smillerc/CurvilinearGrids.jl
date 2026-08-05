@@ -1,5 +1,85 @@
 # MappedGrid type and constructors.
 
+struct _ReparameterizedMappingComponent{D,F,O,S} <: Function
+  f::F
+  origin::O
+  scale::S
+end
+
+@inline _reparameterized_coordinate(q, origin, scale) =
+  origin + (q - oneunit(q)) * scale
+
+@inline _mapping_component_keys(::Val{1}) = (:x1,)
+@inline _mapping_component_keys(::Val{2}) = (:x1, :x2)
+@inline _mapping_component_keys(::Val{3}) = (:x1, :x2, :x3)
+
+@inline function (m::_ReparameterizedMappingComponent{1})(t, ξ, params)
+  return m.f(t, _reparameterized_coordinate(ξ, m.origin[1], m.scale[1]), params)
+end
+
+@inline function (m::_ReparameterizedMappingComponent{2})(t, ξ, η, params)
+  ξf = _reparameterized_coordinate(ξ, m.origin[1], m.scale[1])
+  ηf = _reparameterized_coordinate(η, m.origin[2], m.scale[2])
+  return m.f(t, ξf, ηf, params)
+end
+
+@inline function (m::_ReparameterizedMappingComponent{3})(t, ξ, η, ζ, params)
+  ξf = _reparameterized_coordinate(ξ, m.origin[1], m.scale[1])
+  ηf = _reparameterized_coordinate(η, m.origin[2], m.scale[2])
+  ζf = _reparameterized_coordinate(ζ, m.origin[3], m.scale[3])
+  return m.f(t, ξf, ηf, ζf, params)
+end
+
+"""
+    reparameterize_mapping(mapping_functions, origin, scale)
+
+Return mapping components that evaluate `mapping_functions` after the affine
+one-based computational-coordinate transform
+`q_global[d] = origin[d] + (q_local[d] - 1) * scale[d]`.
+
+`mapping_functions` must be a named tuple with exactly the keys `:x1`, `:x2`,
+and `:x3` required by its dimension. The returned named tuple preserves those
+keys and contains concrete callable values suitable for mapped-grid CPU or GPU
+evaluation. `origin` and `scale` are stored by value; no mapping parameters or
+mutable grid state are captured.
+"""
+function reparameterize_mapping(
+  mapping_functions::NamedTuple,
+  origin::NTuple{D,<:Real},
+  scale::NTuple{D,<:Real},
+) where {D}
+  D in 1:3 || throw(
+    ArgumentError(
+      "Mapping reparameterization supports dimensions 1, 2, and 3; got D=$D."
+    ),
+  )
+  expected_keys = _mapping_component_keys(Val(D))
+  keys(mapping_functions) == expected_keys || throw(
+    ArgumentError(
+      "Expected mapping-function keys $expected_keys for D=$D; got $(keys(mapping_functions))."
+    ),
+  )
+  components = ntuple(Val(D)) do d
+    f = getfield(mapping_functions, d)
+    _ReparameterizedMappingComponent{D,typeof(f),typeof(origin),typeof(scale)}(
+      f, origin, scale
+    )
+  end
+  return NamedTuple{expected_keys}(components)
+end
+
+function reparameterize_mapping(
+  mapping_functions::NamedTuple,
+  origin::Tuple{Vararg{Real}},
+  scale::Tuple{Vararg{Real}},
+)
+  throw(
+    DimensionMismatch(
+      "Mapping origin and scale dimensions must match; got $(length(origin)) and $(length(scale))."
+    ),
+  )
+end
+
 """
     MappedGrid{N,T,CS,BT,...}
 
@@ -21,8 +101,9 @@ and independent metric caches for cell and face data.
   - `iterators`: Node/cell iterator bundle for local/global indexing.
   - `state`: Mutable reference to runtime state (`t`, `params`).
   - `metric_caches`: Independent cell and face metric caches.
+  - `conserved_metric_scheme`: Scheme used to construct conserved face metrics.
 """
-struct MappedGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,NC,CC,FC,MF,MFC,B,DB,I,S,MC} <:
+struct MappedGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,NC,CC,FC,MF,MFC,B,DB,I,S,MC,CMS<:EdgeInterpolationSchemeTrait} <:
        AbstractMappedOrDiscreteGrid
   node_coordinates::NC
   centroid_coordinates::CC
@@ -35,6 +116,7 @@ struct MappedGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,NC,CC,FC,MF,MFC,B
   iterators::I
   state::S
   metric_caches::MC
+  conserved_metric_scheme::CMS
 end
 
 function _mapped_state(grid::MappedGrid)
@@ -176,6 +258,7 @@ function _new_mapped_grid(
     typeof(components.iterators),
     typeof(state),
     typeof(caches),
+    typeof(conserved_metric_scheme),
   }(
     components.node_coordinates,
     components.centroid_coordinates,
@@ -188,6 +271,7 @@ function _new_mapped_grid(
     components.iterators,
     state,
     caches,
+    conserved_metric_scheme,
   )
 
   _compute_unified_node_coordinates!(
