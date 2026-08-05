@@ -72,7 +72,8 @@ Useful keyword arguments for `MappedGrid` and `DiscreteGrid`:
   `CurvatureCorrectedReconstruction()`.
 
 Useful constructor-specific keywords:
-- `MappedGrid`: `global_cell_indices` for custom global-index domains.
+- `MappedGrid`: `global_cell_indices` for block-global, non-halo cell domains,
+  plus `local_grid` for materializing partition-local analytic grids.
 - `DiscreteGrid`: `halo_coords_included=true` when input coordinate arrays already include halo nodes; `interpolation=:linear` is the current interpolation mode.
 
 ### Core geometry and metric calls

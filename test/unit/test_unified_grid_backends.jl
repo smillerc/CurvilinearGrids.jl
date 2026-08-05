@@ -100,6 +100,26 @@ end
       mapped_next = Array(mapped.node_coordinates[1])
       @test !all(mapped_prev .== mapped_next)
 
+      prototype = MappedGrid(
+        xmap,
+        ymap,
+        params,
+        (8, 9),
+        2;
+        backend=CPU(),
+        cache_mode=:off,
+        compute_metrics=false,
+        T=number_type,
+        t=zero(number_type),
+      )
+      localized = local_grid(prototype, (3:6, 4:8); backend=backend)
+      @test localized isa MappedGrid{2,number_type}
+      @test KernelAbstractions.get_backend(localized.node_coordinates[1]) isa typeof(backend)
+      @test all(isfinite, getproperty.(Array(cell_metrics(localized).forward), :J))
+      @test _max_gcl(
+        _host_face_metrics(face_metrics(localized)), localized.iterators.cell.domain
+      ) < mapped_tol
+
       x_nodes = Array(mapped.node_coordinates[1])
       y_nodes = Array(mapped.node_coordinates[2])
       if backend isa CPU

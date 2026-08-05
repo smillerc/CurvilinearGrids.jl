@@ -371,6 +371,82 @@ end
   @test isfinite(cellvolume(dgrid, (1,)))
 end
 
+@testset "MappedGrid localization preserves analytic mapping" begin
+  nx, ny, nhalo = 12, 9, 2
+  params = (; ax=0.07, ay=0.04)
+  xmap(t, ξ, η, p) = ξ + p.ax * sin(0.3 * η) + 0.01 * t
+  ymap(t, ξ, η, p) = η + p.ay * cos(0.2 * ξ) - 0.02 * t
+  scheme = GradientCorrectedReconstruction()
+
+  prototype = MappedGrid(
+    xmap,
+    ymap,
+    params,
+    (nx, ny),
+    nhalo;
+    t=0.5,
+    compute_metrics=false,
+    cache_mode=:off,
+    conserved_metric_scheme=scheme,
+  )
+  reference = MappedGrid(
+    xmap,
+    ymap,
+    params,
+    (nx, ny),
+    nhalo;
+    t=0.5,
+    cache_mode=:eager,
+    conserved_metric_scheme=scheme,
+  )
+
+  ranges = (5:10, 3:7)
+  localized = local_grid(prototype, ranges)
+
+  @test localized isa MappedGrid{2,Float64}
+  @test prototype.metric_caches === nothing
+  @test localized.metric_caches.cell.valid
+  @test localized.metric_caches.face.valid
+  @test cellsize(localized) == length.(ranges)
+  @test first(localized.iterators.global_domain.cell.domain).I .- nhalo == first.(ranges)
+  @test last(localized.iterators.global_domain.cell.domain).I .- nhalo == last.(ranges)
+
+  cell_ranges = ntuple(d -> first(ranges[d]):(last(ranges[d]) + 2nhalo), 2)
+  node_ranges = ntuple(d -> first(ranges[d]):(last(ranges[d]) + 2nhalo + 1), 2)
+  for d in 1:2
+    @test Array(localized.node_coordinates[d]) ≈ Array(reference.node_coordinates[d][node_ranges...])
+    @test Array(localized.centroid_coordinates[d]) ≈
+      Array(reference.centroid_coordinates[d][cell_ranges...])
+    for axis in 1:2
+      @test Array(localized.face_coordinates[axis][d]) ≈
+        Array(reference.face_coordinates[axis][d][cell_ranges...])
+    end
+  end
+
+  localized_cell = cell_metrics(localized)
+  reference_cell = cell_metrics(reference)
+  for kind in (:forward, :inverse)
+    local_values = Array(getproperty(localized_cell, kind))
+    reference_values = Array(getproperty(reference_cell, kind)[cell_ranges...])
+    @test all(
+      isapprox(a.jacobian_matrix, b.jacobian_matrix; rtol=1e-12, atol=1e-12) &&
+        isapprox(a.J, b.J; rtol=1e-12, atol=1e-12) for
+      (a, b) in zip(local_values, reference_values)
+    )
+  end
+
+  localized_face = face_metrics(localized)
+  reference_face = face_metrics(reference)
+  for axis in 1:2, kind in (:forward, :inverse, :conserved)
+    local_values = Array(getproperty(localized_face[axis], kind))
+    reference_values = Array(getproperty(reference_face[axis], kind)[cell_ranges...])
+    @test all(
+      isapprox(a.jacobian_matrix, b.jacobian_matrix; rtol=1e-12, atol=1e-12) for
+      (a, b) in zip(local_values, reference_values)
+    )
+  end
+end
+
 @testset "Face metrics include conservative hatted terms" begin
   nx, ny = (6, 7)
   x = zeros(Float64, nx, ny)

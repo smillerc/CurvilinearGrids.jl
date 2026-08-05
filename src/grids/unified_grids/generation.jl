@@ -7,11 +7,28 @@ function get_iterators(celldims::NTuple{N,Int}, nhalo::Int, global_cell_domain) 
   node = (full=nodeCI, domain=expand(nodeCI, -nhalo))
   cell = (full=cellCI, domain=expand(cellCI, -nhalo))
 
-  if isnothing(global_cell_domain)
-    global_domain = (node=node, cell=cell)
+  interior_global_cell_domain = if isnothing(global_cell_domain)
+    CartesianIndices(celldims)
   else
-    global_domain = (node=expand_upper(global_cell_domain, +1), cell=global_cell_domain)
+    size(global_cell_domain) == celldims || throw(
+      ArgumentError(
+        "global_cell_indices must describe the local non-halo cell domain with size $celldims; got $(size(global_cell_domain))",
+      ),
+    )
+    global_cell_domain
   end
+
+  # Mapping kernels retain the historical `Iglobal - nhalo` convention. Shift
+  # the true global interior domain by the halo width before padding so that a
+  # local interior index maps back to its block-global computational index.
+  shifted_global_cell_domain = shift(interior_global_cell_domain, nhalo)
+  global_cell_full = expand(shifted_global_cell_domain, nhalo)
+  global_node_domain = expand_upper(shifted_global_cell_domain, +1)
+  global_node_full = expand_upper(global_cell_full, +1)
+  global_domain = (
+    node=(full=global_node_full, domain=global_node_domain),
+    cell=(full=global_cell_full, domain=shifted_global_cell_domain),
+  )
   return (; node, cell, nhalo, global_domain)
 end
 
@@ -136,14 +153,19 @@ function _build_unified_components(
   ::Type{T};
   global_cell_indices=nothing,
   build_metric_storage::Bool=true,
+  metric_functions_cache=nothing,
 ) where {N,T}
   iterators = get_iterators(celldims, nhalo, global_cell_indices)
   node_coordinates, centroid_coordinates, face_coordinates = _allocate_unified_coordinates(
     Val(N), iterators, backend, T
   )
-  metric_functions_cache = _metric_cache_for_mapping(
-    Val(N), mapping_functions, diff_backend, edge_interpolation_scheme
-  )
+  resolved_metric_functions_cache = if isnothing(metric_functions_cache)
+    _metric_cache_for_mapping(
+      Val(N), mapping_functions, diff_backend, edge_interpolation_scheme
+    )
+  else
+    metric_functions_cache
+  end
   cell_metric_storage, face_metric_storage = if build_metric_storage
     _allocate_unified_metric_storage(Val(N), backend, T, iterators)
   else
@@ -154,7 +176,7 @@ function _build_unified_components(
     node_coordinates,
     centroid_coordinates,
     face_coordinates,
-    metric_functions_cache,
+    metric_functions_cache=resolved_metric_functions_cache,
     cell_metric_storage,
     face_metric_storage,
     nhalo,

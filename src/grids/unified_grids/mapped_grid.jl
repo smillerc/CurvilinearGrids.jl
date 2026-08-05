@@ -215,6 +215,7 @@ function _new_mapped_grid(
   basis::BasisTrait,
   cache_mode::Symbol,
   conserved_metric_scheme::EdgeInterpolationSchemeTrait,
+  metric_functions_cache=nothing,
 ) where {N}
   _check_unified_basis_trait(basis)
 
@@ -230,6 +231,7 @@ function _new_mapped_grid(
     T;
     global_cell_indices=global_cell_indices,
     build_metric_storage=(!disable_metrics),
+    metric_functions_cache=metric_functions_cache,
   )
 
   requested_mode =
@@ -314,6 +316,55 @@ function _new_mapped_grid(
 end
 
 """
+    local_grid(grid::MappedGrid, global_cell_domain; kwargs...)
+
+Materialize a rank-local `MappedGrid` over the supplied block-global, non-halo
+cell domain. The analytic mapping and metric functions are preserved, while
+coordinate and metric storage are allocated only for the local cells and halos.
+
+`global_cell_domain` may be a `CartesianIndices` domain or a tuple of integer
+ranges. Metrics are computed after localization by default.
+"""
+function local_grid(
+  grid::MappedGrid{N,T},
+  global_cell_domain::CartesianIndices{N};
+  backend=grid.backend,
+  compute_metrics::Bool=true,
+  cache_mode::Symbol=:eager,
+) where {N,T}
+  state = grid.state[]
+  has_state = state isa NamedTuple && haskey(state, :t) && haskey(state, :params)
+  has_state || throw(ArgumentError("MappedGrid has no valid mapping state to localize."))
+
+  return _new_mapped_grid(
+    Val(N),
+    grid.mapping_functions,
+    state.params,
+    size(global_cell_domain),
+    grid.nhalo;
+    backend=backend,
+    diff_backend=grid.diff_backend,
+    t=state.t,
+    T=T,
+    compute_metrics=compute_metrics,
+    global_cell_indices=global_cell_domain,
+    coordinate_system=coordinate_system(grid),
+    basis=basis_trait(grid),
+    cache_mode=cache_mode,
+    conserved_metric_scheme=CurvatureCorrectedReconstruction(),
+    metric_functions_cache=grid.metric_functions_cache,
+  )
+end
+
+function local_grid(
+  grid::MappedGrid{N},
+  global_cell_ranges::NTuple{N,<:AbstractUnitRange};
+  kwargs...,
+) where {N}
+  return local_grid(grid, CartesianIndices(global_cell_ranges); kwargs...)
+end
+
+"""
     MappedGrid(x1[, x2[, x3]], params, celldims, nhalo; kwargs...)
 
 Construct a mapped unified grid from continuous coordinate mapping functions.
@@ -339,7 +390,8 @@ Mapping callbacks are evaluated as `x1(t, xi, params)` in 1D,
     When `false`, metrics are computed on first access unless `cache_mode=:off`;
     set `compute_metrics=false, cache_mode=:off` to disable metric storage
     entirely.
-  - `global_cell_indices`: Optional global index map. Default: `nothing`.
+  - `global_cell_indices`: Optional block-global `CartesianIndices` domain for
+    the non-halo cells. Its size must equal `celldims`. Default: `nothing`.
   - `coordinate_system`: Coordinate-system trait. Default: `CurvilinearCS()`.
   - `basis`: Basis trait. Default: `CartesianBasis()`.
   - `cache_mode`: Metric cache mode (`:eager`, `:lazy`, `:off`). Default: `:eager`.

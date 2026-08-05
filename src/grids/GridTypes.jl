@@ -40,6 +40,7 @@ export AxisymmetricOrthogonalGrid2D
 
 export AbstractUnifiedGrid
 export MappedGrid, DiscreteGrid, OrthogonalGrid
+export local_grid
 export Metric, ConservedMetric
 
 export CoordinateSystemTrait
