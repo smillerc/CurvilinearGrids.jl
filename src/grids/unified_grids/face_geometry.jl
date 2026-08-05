@@ -165,42 +165,6 @@ end
 # Face embedding transforms
 #
 
-@inline function _face_coord_to_cartesian(
-  ::CoordinateSystemTrait, q::SVector{N,T}
-) where {N,T}
-  return q
-end
-
-@inline function _face_coord_to_cartesian(::CartesianCS, q::SVector{N,T}) where {N,T}
-  return q
-end
-
-@inline function _face_coord_to_cartesian(::CurvilinearCS, q::SVector{N,T}) where {N,T}
-  return q
-end
-
-@inline function _face_coord_to_cartesian(::AxisymmetricCS, q::SVector{2,T}) where {T}
-  return q
-end
-
-@inline function _face_coord_to_cartesian(::CylindricalCS, q::SVector{2,T}) where {T}
-  return q
-end
-
-@inline function _face_coord_to_cartesian(::SphericalCS, q::SVector{2,T}) where {T}
-  r, θ = q
-  return SVector{2,T}(r * sin(θ), r * cos(θ))
-end
-
-@inline function _face_coord_to_cartesian(::SphericalCS, q::SVector{3,T}) where {T}
-  r, θ, ϕ = q
-  sθ = sin(θ)
-  cθ = cos(θ)
-  sϕ = sin(ϕ)
-  cϕ = cos(ϕ)
-  return SVector{3,T}(r * sθ * cϕ, r * sθ * sϕ, r * cθ)
-end
-
 @inline function _face_coord_to_cartesian_jacobian(
   ::CoordinateSystemTrait, q::SVector{N,T}
 ) where {N,T}
@@ -383,7 +347,7 @@ end
   base_area = norm(outward_vec)
   normal = base_area > zero(T) ? outward_vec / base_area : zero(SVector{N,T})
   area = base_area * _face_area_scale(cs, q)
-  x = _face_coord_to_cartesian(cs, q)
+  x = cartesian_position(cs, q)
 
   return (; normal=normal, area=area, cartesian_coordinate=x, mapped_coordinate=q)
 end

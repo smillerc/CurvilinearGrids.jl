@@ -10,6 +10,7 @@ import ..GridTypes: AbstractMappedOrDiscreteGrid, AbstractOrthogonalGrid, Orthog
 import ..GridTypes: CoordinateSystemTrait, CartesianCS, CurvilinearCS, SphericalCS
 import ..GridTypes: BasisTrait, CartesianBasis, SphericalBasis
 import ..GridTypes: coordinate_system, basis_trait, basis_transfer_matrix
+import ..GridTypes: cartesian_position
 import ..GridTypes: coord, centroid, face_coordinate, forward_cell_metrics
 import ..GridTypes: computational_coordinate
 

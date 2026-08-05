@@ -103,8 +103,8 @@ function _check_abutting_geometry!(
   for i in eachindex(left_interior)
     ql = _face_point_native(left_block, left_interior[i], iface.left, T, Val(N))
     qr = _face_point_native(right_block, right_interior[i], iface.right, T, Val(N))
-    xl = _coord_to_cartesian(coordinate_system(left_block), ql)
-    xr = _coord_to_cartesian(coordinate_system(right_block), qr)
+    xl = cartesian_position(coordinate_system(left_block), ql)
+    xr = cartesian_position(coordinate_system(right_block), qr)
     left_points[i] = xl
     right_points[i] = xr
     max_distance = max(max_distance, norm(xl - xr))
@@ -280,28 +280,6 @@ end
 
 @inline function _as_coord_svector(x, ::Type{T}, N::Int) where {T}
   return SVector{N,T}(ntuple(i -> T(x[i]), N))
-end
-
-@inline function _coord_to_cartesian(::CartesianCS, q::SVector{N,T}) where {N,T}
-  return q
-end
-@inline function _coord_to_cartesian(::CurvilinearCS, q::SVector{N,T}) where {N,T}
-  return q
-end
-@inline function _coord_to_cartesian(::CoordinateSystemTrait, q::SVector{N,T}) where {N,T}
-  return q
-end
-@inline function _coord_to_cartesian(::SphericalCS, q::SVector{3,T}) where {T}
-  r, θ, ϕ = q
-  sθ = sin(θ)
-  cθ = cos(θ)
-  sϕ = sin(ϕ)
-  cϕ = cos(ϕ)
-  return @SVector [r * sθ * cϕ, r * sθ * sϕ, r * cθ]
-end
-@inline function _coord_to_cartesian(::SphericalCS, q::SVector{2,T}) where {T}
-  r, θ = q
-  return @SVector [r * sin(θ), r * cos(θ)]
 end
 
 @inline function _coord_to_cartesian_jacobian(::CartesianCS, q::SVector{N,T}) where {N,T}

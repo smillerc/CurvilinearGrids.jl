@@ -62,35 +62,6 @@ end
   return CartesianIndex(full)
 end
 
-@inline function _coord_to_cartesian(::CoordinateSystemTrait, q::SVector{N,T}) where {N,T}
-  return q
-end
-
-@inline function _coord_to_cartesian(::CartesianCS, q::SVector{N,T}) where {N,T}
-  return q
-end
-
-@inline function _coord_to_cartesian(::CurvilinearCS, q::SVector{N,T}) where {N,T}
-  return q
-end
-
-@inline function _coord_to_cartesian(::AxisymmetricCS, q::SVector{2,T}) where {T}
-  return q
-end
-
-@inline function _coord_to_cartesian(::CylindricalCS, q::SVector{2,T}) where {T}
-  return q
-end
-
-@inline function _coord_to_cartesian(::SphericalCS, q::SVector{3,T}) where {T}
-  r, θ, ϕ = q
-  sθ = sin(θ)
-  cθ = cos(θ)
-  sϕ = sin(ϕ)
-  cϕ = cos(ϕ)
-  return SVector{3,T}(r * sθ * cϕ, r * sθ * sϕ, r * cθ)
-end
-
 @inline function _coord_to_cartesian_jacobian(
   ::CoordinateSystemTrait, q::SVector{N,T}
 ) where {N,T}
@@ -354,7 +325,7 @@ function SurfaceGrid(
       zip(CartesianIndices(node_dims), CartesianIndices(tangential_node_ranges))
     Iparent = _build_surface_index(Itang.I, axis, node_axis_idx, Val(N))
     qnode = SVector{N,T}(ntuple(d -> T(node_arrays[d][Iparent]), N))
-    xnode = _coord_to_cartesian(cs, qnode)
+    xnode = cartesian_position(cs, qnode)
     for d in 1:N
       node_coordinates[d][Ilocal] = xnode[d]
     end

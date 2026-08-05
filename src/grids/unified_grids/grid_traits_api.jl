@@ -50,6 +50,70 @@ function basis_trait(::Type{<:AbstractOrthogonalGrid})
 end
 
 """
+    conserved_metric_scheme(grid::MappedGrid)
+
+Return the scheme requested when the mapped grid's conserved face metrics were
+constructed.
+"""
+conserved_metric_scheme(grid::MappedGrid) = grid.conserved_metric_scheme
+
+"""
+    cartesian_position(coordinate_system, q)
+
+Convert one native physical-coordinate point `q` to its Cartesian embedding.
+Tuple inputs return an `SVector`. Cartesian and general curvilinear coordinates
+are already Cartesian. One- and two-dimensional cylindrical coordinates and
+two-dimensional axisymmetric coordinates represent reduced meridional spaces
+and are also returned unchanged. Spherical coordinates use `(r)`, `(r, θ)`,
+or `(r, θ, ϕ)`; three-dimensional cylindrical coordinates use
+`(r, θ, z)`.
+
+Unsupported coordinate-system/dimension combinations throw `ArgumentError`.
+"""
+function cartesian_position end
+
+@inline function cartesian_position(
+  coordinate_system::CoordinateSystemTrait, q::Tuple{Vararg{Real,N}}
+) where {N}
+  return cartesian_position(coordinate_system, SVector{N}(q))
+end
+
+@inline cartesian_position(::CartesianCS, q::SVector{N,T}) where {N,T} = q
+@inline cartesian_position(::CurvilinearCS, q::SVector{N,T}) where {N,T} = q
+@inline cartesian_position(::CylindricalCS, q::SVector{1,T}) where {T} = q
+@inline cartesian_position(::CylindricalCS, q::SVector{2,T}) where {T} = q
+@inline cartesian_position(::AxisymmetricCS, q::SVector{2,T}) where {T} = q
+@inline cartesian_position(::SphericalCS, q::SVector{1,T}) where {T} = q
+
+@inline function cartesian_position(::CylindricalCS, q::SVector{3,T}) where {T}
+  r, θ, z = q
+  return SVector(r * cos(θ), r * sin(θ), z)
+end
+
+@inline function cartesian_position(::SphericalCS, q::SVector{2,T}) where {T}
+  r, θ = q
+  return SVector(r * sin(θ), r * cos(θ))
+end
+
+@inline function cartesian_position(::SphericalCS, q::SVector{3,T}) where {T}
+  r, θ, ϕ = q
+  sθ = sin(θ)
+  return SVector(r * sθ * cos(ϕ), r * sθ * sin(ϕ), r * cos(θ))
+end
+
+@inline function cartesian_position(
+  coordinate_system::Union{CylindricalCS,SphericalCS,AxisymmetricCS}, q::SVector{N,T}
+) where {N,T}
+  throw(
+    ArgumentError(
+      "Unsupported Cartesian embedding for $(typeof(coordinate_system)) with dimension $N."
+    ),
+  )
+end
+
+@inline cartesian_position(::CoordinateSystemTrait, q::SVector{N,T}) where {N,T} = q
+
+"""
     basis_transfer_matrix(grid, from_q, to_q)
 
 Return the local basis-transfer matrix that maps vector components stored at

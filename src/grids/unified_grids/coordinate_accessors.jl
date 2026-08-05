@@ -26,17 +26,24 @@ function coords(grid::Union{MappedGrid{3},DiscreteGrid{3}})
 end
 
 """
-    cartesian_coordinates(grid::AbstractOrthogonalGrid)
+    cartesian_coordinates(grid)
+    cartesian_coordinates(coordinate_system, native_coordinates)
 
-Return orthogonal-grid node coordinates in Cartesian form.
+Return grid node coordinates in Cartesian form, or convert supplied native
+coordinate arrays using a coordinate-system trait.
 
 For coordinate systems already stored in Cartesian-like form, this returns
-`coords(grid)` unchanged. For spherical 3D grids, this converts `(r, θ, ϕ)` to
-`(x, y, z)`.
+the input unchanged. Spherical and three-dimensional cylindrical coordinates
+are embedded in Cartesian space.
 """
-@inline function cartesian_coordinates(grid::AbstractOrthogonalGrid)
-  _cartesian_coordinates(coordinate_system(grid), coords(grid))
+@inline function cartesian_coordinates(
+  grid::Union{MappedGrid,DiscreteGrid,AbstractOrthogonalGrid}
+)
+  return cartesian_coordinates(coordinate_system(grid), coords(grid))
 end
+
+@inline cartesian_coordinates(coordinate_system::CoordinateSystemTrait, q) =
+  _cartesian_coordinates(coordinate_system, q)
 
 """
     cartesian_centroids(grid)
@@ -59,6 +66,29 @@ end
 @inline _cartesian_coordinates(::CurvilinearCS, q) = q
 @inline _cartesian_coordinates(::AxisymmetricCS, q) = q
 @inline _cartesian_coordinates(::CylindricalCS, q) = q
+
+@inline function _cartesian_coordinates(
+  ::CylindricalCS, q::NTuple{3,<:AbstractVector{T}}
+) where {T}
+  r, θ, z = q
+  R = reshape(r, :, 1, 1)
+  cosθ = reshape(cos.(θ), 1, :, 1)
+  sinθ = reshape(sin.(θ), 1, :, 1)
+  Z = reshape(z, 1, 1, :)
+  onez = reshape(one.(z), 1, 1, :)
+  oner = reshape(one.(r), :, 1, 1)
+  oneθ = reshape(one.(θ), 1, :, 1)
+  return R .* cosθ .* onez, R .* sinθ .* onez, oner .* oneθ .* Z
+end
+
+@inline function _cartesian_coordinates(
+  ::CylindricalCS, q::NTuple{3,<:AbstractArray}
+)
+  r, θ, z = q
+  x = @. r * cos(θ)
+  y = @. r * sin(θ)
+  return x, y, z
+end
 
 @inline function _tensor_product_coordinates(
   x::AbstractVector{Tx}, y::AbstractVector{Ty}
@@ -92,6 +122,13 @@ end
   return x, z
 end
 
+@inline function _cartesian_coordinates(::SphericalCS, q::NTuple{2,<:AbstractArray})
+  r, θ = q
+  x = @. r * sin(θ)
+  z = @. r * cos(θ)
+  return x, z
+end
+
 @inline function _cartesian_centroids(
   ::SphericalCS, q::NTuple{2,<:AbstractVector{T}}
 ) where {T}
@@ -122,6 +159,14 @@ end
   y = R .* sinθ .* sinϕ
   z = R .* cosθ .* oneϕ
 
+  return x, y, z
+end
+
+@inline function _cartesian_coordinates(::SphericalCS, q::NTuple{3,<:AbstractArray})
+  r, θ, ϕ = q
+  x = @. r * sin(θ) * cos(ϕ)
+  y = @. r * sin(θ) * sin(ϕ)
+  z = @. r * cos(θ)
   return x, y, z
 end
 
