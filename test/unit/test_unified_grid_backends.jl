@@ -36,6 +36,8 @@ end
 
 const _UNIFIED_TEST_BACKENDS = _unified_test_backends()
 
+struct _UnifiedMockGPUBackend <: KernelAbstractions.GPU end
+
 function _host_face_metrics(face_storage::Tuple)
   ntuple(
     axis -> (;
@@ -160,4 +162,15 @@ end
       end
     end
   end
+end
+
+@testset "Unified grid device adaptation preserves GPU backend" begin
+  gpu_backend = _UnifiedMockGPUBackend()
+  device_coordinates = (nothing,)
+  @test CurvilinearGrids._adapted_unified_backend(
+    gpu_backend, device_coordinates
+  ) === gpu_backend
+
+  host_coordinates = (zeros(2),)
+  @test CurvilinearGrids._adapted_unified_backend(CPU(), host_coordinates) isa CPU
 end

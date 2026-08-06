@@ -2,6 +2,18 @@ using Test
 using CurvilinearGrids
 using StaticArrays
 
+function _mapped_grid_backtrace_probe(grid::MappedGrid)
+  error("mapped grid backtrace probe")
+end
+
+function _discrete_grid_backtrace_probe(grid::DiscreteGrid)
+  error("discrete grid backtrace probe")
+end
+
+function _orthogonal_grid_backtrace_probe(grid::OrthogonalGrid)
+  error("orthogonal grid backtrace probe")
+end
+
 struct CustomCartesianLikeCS <: CoordinateSystemTrait end
 
 @testset "Mapping reparameterization and Cartesian embedding" begin
@@ -82,6 +94,21 @@ end
 @testset "UnifiedGrid traits and adapters" begin
   x = collect(range(0.0, 1.0; length=8))
   dgrid = DiscreteGrid(x, 5; interpolation=:linear, cache_mode=:eager)
+
+  full_grid_type = sprint(show, typeof(dgrid))
+  backtrace_grid_type = sprint(show, typeof(dgrid); context=:backtrace => true)
+  @test occursin("InterpolantMapping", full_grid_type)
+  @test backtrace_grid_type == "DiscreteGrid{1, Float64, …}"
+  backtrace_text = try
+    _discrete_grid_backtrace_probe(dgrid)
+  catch err
+    sprint(io -> showerror(io, err, catch_backtrace()))
+  end
+  @test occursin(
+    "_discrete_grid_backtrace_probe(grid::DiscreteGrid{1, Float64, …})",
+    backtrace_text,
+  )
+  @test !occursin("InterpolantMapping", backtrace_text)
 
   @test dgrid isa DiscreteGrid
   @test dgrid isa DiscreteGrid{1,Float64}
@@ -240,6 +267,20 @@ end
   params = (amp=1.0,)
 
   mgrid = MappedGrid(xmap, params, (8,), 5; cache_mode=:eager)
+  full_grid_type = sprint(show, typeof(mgrid))
+  backtrace_grid_type = sprint(show, typeof(mgrid); context=:backtrace => true)
+  @test occursin("MetricCache", full_grid_type)
+  @test backtrace_grid_type == "MappedGrid{1, Float64, …}"
+  backtrace_text = try
+    _mapped_grid_backtrace_probe(mgrid)
+  catch err
+    sprint(io -> showerror(io, err, catch_backtrace()))
+  end
+  @test occursin(
+    "_mapped_grid_backtrace_probe(grid::MappedGrid{1, Float64, …})",
+    backtrace_text,
+  )
+  @test !occursin("MetricCache", backtrace_text)
   @test mgrid isa MappedGrid
   @test mgrid isa MappedGrid{1,Float64}
   @test isconcretetype(typeof(mgrid))
@@ -476,6 +517,21 @@ end
   phi = collect(range(0.1, 1.0; length=6))
   legacy = SphericalGrid3D(r, theta, phi, 1)
   ogrid = OrthogonalGrid(legacy)
+
+  full_grid_type = sprint(show, typeof(ogrid))
+  backtrace_grid_type = sprint(show, typeof(ogrid); context=:backtrace => true)
+  @test occursin("SphericalCS", full_grid_type)
+  @test backtrace_grid_type == "OrthogonalGrid{3, Float64, …}"
+  backtrace_text = try
+    _orthogonal_grid_backtrace_probe(ogrid)
+  catch err
+    sprint(io -> showerror(io, err, catch_backtrace()))
+  end
+  @test occursin(
+    "_orthogonal_grid_backtrace_probe(grid::OrthogonalGrid{3, Float64, …})",
+    backtrace_text,
+  )
+  @test !occursin("SphericalCS", backtrace_text)
 
   @test ogrid isa OrthogonalGrid
   @test ogrid isa OrthogonalGrid{3,Float64}

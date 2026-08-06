@@ -44,6 +44,14 @@ struct DiscreteGrid{
   metric_caches::MC
 end
 
+function Base.show(io::IO, grid_type::Type{<:DiscreteGrid{N,T}}) where {N,T}
+  if get(io, :backtrace, false)::Bool
+    print(io, "DiscreteGrid{", N, ", ", T, ", …}")
+    return nothing
+  end
+  return invoke(Base.show, Tuple{IO,Type}, io, grid_type)
+end
+
 function _strip_halo_nodes(A, nhalo::Int)
   if nhalo <= 0
     return A

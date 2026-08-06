@@ -119,6 +119,14 @@ struct MappedGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,NC,CC,FC,MF,MFC,B
   conserved_metric_scheme::CMS
 end
 
+function Base.show(io::IO, grid_type::Type{<:MappedGrid{N,T}}) where {N,T}
+  if get(io, :backtrace, false)::Bool
+    print(io, "MappedGrid{", N, ", ", T, ", …}")
+    return nothing
+  end
+  return invoke(Base.show, Tuple{IO,Type}, io, grid_type)
+end
+
 function _mapped_state(grid::MappedGrid)
   state = grid.state[]
   has_state = state isa NamedTuple && haskey(state, :t) && haskey(state, :params)

@@ -203,7 +203,14 @@ function Adapt.adapt_structure(to, caches::GridTypes.UnifiedMetricCaches)
   return GridTypes.UnifiedMetricCaches(cell, face)
 end
 
-@inline _adapted_unified_backend(node_coordinates) =
+@inline function _adapted_unified_backend(
+  backend::KernelAbstractions.GPU, node_coordinates
+)
+  _ = node_coordinates
+  return backend
+end
+
+@inline _adapted_unified_backend(::KernelAbstractions.Backend, node_coordinates) =
   KernelAbstractions.get_backend(node_coordinates[1])
 
 function Adapt.adapt_structure(to, grid::MappedGrid{N,T,CS,BT}) where {N,T,CS,BT}
@@ -211,7 +218,7 @@ function Adapt.adapt_structure(to, grid::MappedGrid{N,T,CS,BT}) where {N,T,CS,BT
   centroid_coordinates = Adapt.adapt_structure(to, grid.centroid_coordinates)
   face_coordinates = Adapt.adapt_structure(to, grid.face_coordinates)
   metric_caches = isnothing(grid.metric_caches) ? nothing : Adapt.adapt_structure(to, grid.metric_caches)
-  backend = _adapted_unified_backend(node_coordinates)
+  backend = _adapted_unified_backend(grid.backend, node_coordinates)
 
   return MappedGrid{
     N,
@@ -250,7 +257,7 @@ function Adapt.adapt_structure(to, grid::DiscreteGrid{N,T,CS,BT,IP}) where {N,T,
   centroid_coordinates = Adapt.adapt_structure(to, grid.centroid_coordinates)
   face_coordinates = Adapt.adapt_structure(to, grid.face_coordinates)
   metric_caches = isnothing(grid.metric_caches) ? nothing : Adapt.adapt_structure(to, grid.metric_caches)
-  backend = _adapted_unified_backend(node_coordinates)
+  backend = _adapted_unified_backend(grid.backend, node_coordinates)
   GridTypes._validate_discrete_backend(backend)
 
   return DiscreteGrid{
