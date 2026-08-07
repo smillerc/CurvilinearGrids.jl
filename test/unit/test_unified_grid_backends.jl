@@ -116,7 +116,8 @@ end
       )
       localized = local_grid(prototype, (3:6, 4:8); backend=backend)
       @test localized isa MappedGrid{2,number_type}
-      @test KernelAbstractions.get_backend(localized.node_coordinates[1]) isa typeof(backend)
+      @test KernelAbstractions.get_backend(localized.node_coordinates[1]) isa
+        typeof(backend)
       @test all(isfinite, getproperty.(Array(cell_metrics(localized).forward), :J))
       @test _max_gcl(
         _host_face_metrics(face_metrics(localized)), localized.iterators.cell.domain
@@ -167,9 +168,8 @@ end
 @testset "Unified grid device adaptation preserves GPU backend" begin
   gpu_backend = _UnifiedMockGPUBackend()
   device_coordinates = (nothing,)
-  @test CurvilinearGrids._adapted_unified_backend(
-    gpu_backend, device_coordinates
-  ) === gpu_backend
+  @test CurvilinearGrids._adapted_unified_backend(gpu_backend, device_coordinates) ===
+    gpu_backend
 
   host_coordinates = (zeros(2),)
   @test CurvilinearGrids._adapted_unified_backend(CPU(), host_coordinates) isa CPU

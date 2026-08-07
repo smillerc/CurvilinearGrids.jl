@@ -60,11 +60,7 @@
     @test rcenters_2d[2] == -rcenters_2d[3]
 
     spherical_3d = SphericalGrid3D(
-      radial_nodes,
-      [0.0, π / 4, π / 2, 3π / 4, π],
-      [0.0, 0.5, 1.0, 1.5],
-      nhalo,
-      backend,
+      radial_nodes, [0.0, π / 4, π / 2, 3π / 4, π], [0.0, 0.5, 1.0, 1.5], nhalo, backend
     )
     @test Array(spherical_3d.node_coordinates[1])[1:2] == [-0.23, -0.1]
     rcenters_3d = Array(spherical_3d.centroid_coordinates[1])
@@ -80,32 +76,20 @@
     )
     @test Array(supplied.node_coordinates[1]) == supplied_nodes
     supplied_centers = Array(supplied.centroid_coordinates[1])
-    @test supplied_centers ==
-      (supplied_nodes[1:(end - 1)] .+ supplied_nodes[2:end]) ./ 2
+    @test supplied_centers == (supplied_nodes[1:(end - 1)] .+ supplied_nodes[2:end]) ./ 2
 
-    @test_throws ArgumentError SphericalOrthogonalGrid1D(
-      [0.0, 0.1], nhalo, backend
-    )
+    @test_throws ArgumentError SphericalOrthogonalGrid1D([0.0, 0.1], nhalo, backend)
   end
 
   @testset "Unwrapped spherical polar centroids" begin
-    grid = SphericalOrthogonalGrid2D(
-      [1.0, 2.0, 3.0],
-      [0.0, 0.4, 1.5, π],
-      1,
-      backend,
-    )
+    grid = SphericalOrthogonalGrid2D([1.0, 2.0, 3.0], [0.0, 0.4, 1.5, π], 1, backend)
     θcenters = Array(grid.centroid_coordinates[2])
     @test θcenters[1] < 0
     @test θcenters[end] > π
     @test all(>(0), diff(θcenters))
 
     grid_3d = SphericalGrid3D(
-      [1.0, 2.0, 3.0],
-      [0.0, 0.4, 1.5, π],
-      [0.0, 0.5, 1.0],
-      1,
-      backend,
+      [1.0, 2.0, 3.0], [0.0, 0.4, 1.5, π], [0.0, 0.5, 1.0], 1, backend
     )
     θcenters_3d = Array(grid_3d.centroid_coordinates[2])
     @test θcenters_3d[1] < 0

@@ -31,9 +31,7 @@ struct CustomCartesianLikeCS <: CoordinateSystemTrait end
   @test isbitstype(typeof(map1))
   @test @inferred(map1.x1(0.0f0, 5.0f0, params)) == 5.25f0
 
-  map2 = reparameterize_mapping(
-    (; x1=x2a, x2=x2b), (10.0f0, -2.0f0), (0.5f0, 2.0f0)
-  )
+  map2 = reparameterize_mapping((; x1=x2a, x2=x2b), (10.0f0, -2.0f0), (0.5f0, 2.0f0))
   @test map2.x1(0.0f0, 3.0f0, 4.0f0, params) == 19.25f0
   @test map2.x2(0.0f0, 3.0f0, 4.0f0, params) == -28.75f0
 
@@ -46,34 +44,26 @@ struct CustomCartesianLikeCS <: CoordinateSystemTrait end
     2qglobal[1] - qglobal[2] + qglobal[3] + params.offset
   @test map3.x3(0.0, 3.0, 3.0, 4.0, params) ≈
     -qglobal[1] + qglobal[2] + 3qglobal[3] + params.offset
-  @test typeof(map3) ===
-    typeof(
-      reparameterize_mapping(
-        (; x1=x3a, x2=x3b, x3=x3c), (20.0, 30.0, 40.0), (0.25, 0.5, 1.0)
-      ),
-    )
+  @test typeof(map3) === typeof(
+    reparameterize_mapping((; x1=x3a, x2=x3b, x3=x3c), (20.0, 30.0, 40.0), (0.25, 0.5, 1.0))
+  )
 
   @test_throws ArgumentError reparameterize_mapping((; bad=x1), (1.0,), (1.0,))
   @test_throws DimensionMismatch reparameterize_mapping((; x1), (1.0,), (1.0, 1.0))
   @test_throws ArgumentError reparameterize_mapping(
-    (; x1=x3a, x2=x3b, x3=x3c, x4=x3a),
-    (1.0, 1.0, 1.0, 1.0),
-    (1.0, 1.0, 1.0, 1.0),
+    (; x1=x3a, x2=x3b, x3=x3c, x4=x3a), (1.0, 1.0, 1.0, 1.0), (1.0, 1.0, 1.0, 1.0)
   )
 
   @test cartesian_position(CartesianCS(), (1, 2)) == SVector(1, 2)
-  @test cartesian_position(CurvilinearCS(), SVector(1.0f0, 2.0f0)) ===
-    SVector(1.0f0, 2.0f0)
-  @test cartesian_position(CustomCartesianLikeCS(), SVector(1.0, 2.0)) ==
-    SVector(1.0, 2.0)
+  @test cartesian_position(CurvilinearCS(), SVector(1.0f0, 2.0f0)) === SVector(1.0f0, 2.0f0)
+  @test cartesian_position(CustomCartesianLikeCS(), SVector(1.0, 2.0)) == SVector(1.0, 2.0)
   @test cartesian_position(CylindricalCS(), (2.0, 3.0)) == SVector(2.0, 3.0)
   @test cartesian_position(AxisymmetricCS{:x}(), (2.0, 3.0)) == SVector(2.0, 3.0)
-  @test cartesian_position(CylindricalCS(), (2.0, π / 2, -1.0)) ≈
-    SVector(0.0, 2.0, -1.0) atol = 1.0e-14
-  @test cartesian_position(SphericalCS(), (2.0, π / 2)) ≈
-    SVector(2.0, 0.0) atol = 1.0e-14
-  @test cartesian_position(SphericalCS(), (2.0, π / 2, π / 2)) ≈
-    SVector(0.0, 2.0, 0.0) atol = 1.0e-14
+  @test cartesian_position(CylindricalCS(), (2.0, π / 2, -1.0)) ≈ SVector(0.0, 2.0, -1.0) atol =
+    1.0e-14
+  @test cartesian_position(SphericalCS(), (2.0, π / 2)) ≈ SVector(2.0, 0.0) atol = 1.0e-14
+  @test cartesian_position(SphericalCS(), (2.0, π / 2, π / 2)) ≈ SVector(0.0, 2.0, 0.0) atol =
+    1.0e-14
   @test_throws ArgumentError cartesian_position(AxisymmetricCS{:x}(), SVector(1.0))
 
   r2 = [1.0 2.0; 3.0 4.0]
@@ -105,8 +95,7 @@ end
     sprint(io -> showerror(io, err, catch_backtrace()))
   end
   @test occursin(
-    "_discrete_grid_backtrace_probe(grid::DiscreteGrid{1, Float64, …})",
-    backtrace_text,
+    "_discrete_grid_backtrace_probe(grid::DiscreteGrid{1, Float64, …})", backtrace_text
   )
   @test !occursin("InterpolantMapping", backtrace_text)
 
@@ -213,11 +202,21 @@ end
 
   xmap1(t, ξ, p) = ξ + 0.05 * sin(0.3 * ξ)
   g1_ref = MappedGrid(
-    xmap1, (;), (10,), 4; cache_mode=:eager, conserved_metric_scheme=CurvatureCorrectedReconstruction()
+    xmap1,
+    (;),
+    (10,),
+    4;
+    cache_mode=:eager,
+    conserved_metric_scheme=CurvatureCorrectedReconstruction(),
   )
   g1_ad = @test_logs (:warn, warn_pattern) begin
     MappedGrid(
-      xmap1, (;), (10,), 4; cache_mode=:eager, conserved_metric_scheme=ADThomasLombardMetric()
+      xmap1,
+      (;),
+      (10,),
+      4;
+      cache_mode=:eager,
+      conserved_metric_scheme=ADThomasLombardMetric(),
     )
   end
   I1 = first(g1_ad.iterators.cell.domain)
@@ -277,8 +276,7 @@ end
     sprint(io -> showerror(io, err, catch_backtrace()))
   end
   @test occursin(
-    "_mapped_grid_backtrace_probe(grid::MappedGrid{1, Float64, …})",
-    backtrace_text,
+    "_mapped_grid_backtrace_probe(grid::MappedGrid{1, Float64, …})", backtrace_text
   )
   @test !occursin("MetricCache", backtrace_text)
   @test mgrid isa MappedGrid
@@ -455,7 +453,8 @@ end
   cell_ranges = ntuple(d -> first(ranges[d]):(last(ranges[d]) + 2nhalo), 2)
   node_ranges = ntuple(d -> first(ranges[d]):(last(ranges[d]) + 2nhalo + 1), 2)
   for d in 1:2
-    @test Array(localized.node_coordinates[d]) ≈ Array(reference.node_coordinates[d][node_ranges...])
+    @test Array(localized.node_coordinates[d]) ≈
+      Array(reference.node_coordinates[d][node_ranges...])
     @test Array(localized.centroid_coordinates[d]) ≈
       Array(reference.centroid_coordinates[d][cell_ranges...])
     for axis in 1:2
@@ -528,8 +527,7 @@ end
     sprint(io -> showerror(io, err, catch_backtrace()))
   end
   @test occursin(
-    "_orthogonal_grid_backtrace_probe(grid::OrthogonalGrid{3, Float64, …})",
-    backtrace_text,
+    "_orthogonal_grid_backtrace_probe(grid::OrthogonalGrid{3, Float64, …})", backtrace_text
   )
   @test !occursin("SphericalCS", backtrace_text)
 

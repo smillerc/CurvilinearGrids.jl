@@ -6,8 +6,7 @@ struct _ReparameterizedMappingComponent{D,F,O,S} <: Function
   scale::S
 end
 
-@inline _reparameterized_coordinate(q, origin, scale) =
-  origin + (q - oneunit(q)) * scale
+@inline _reparameterized_coordinate(q, origin, scale) = origin + (q - oneunit(q)) * scale
 
 @inline _mapping_component_keys(::Val{1}) = (:x1,)
 @inline _mapping_component_keys(::Val{2}) = (:x1, :x2)
@@ -44,19 +43,15 @@ evaluation. `origin` and `scale` are stored by value; no mapping parameters or
 mutable grid state are captured.
 """
 function reparameterize_mapping(
-  mapping_functions::NamedTuple,
-  origin::NTuple{D,<:Real},
-  scale::NTuple{D,<:Real},
+  mapping_functions::NamedTuple, origin::NTuple{D,<:Real}, scale::NTuple{D,<:Real}
 ) where {D}
   D in 1:3 || throw(
-    ArgumentError(
-      "Mapping reparameterization supports dimensions 1, 2, and 3; got D=$D."
-    ),
+    ArgumentError("Mapping reparameterization supports dimensions 1, 2, and 3; got D=$D.")
   )
   expected_keys = _mapping_component_keys(Val(D))
   keys(mapping_functions) == expected_keys || throw(
     ArgumentError(
-      "Expected mapping-function keys $expected_keys for D=$D; got $(keys(mapping_functions))."
+      "Expected mapping-function keys $expected_keys for D=$D; got $(keys(mapping_functions)).",
     ),
   )
   components = ntuple(Val(D)) do d
@@ -69,13 +64,11 @@ function reparameterize_mapping(
 end
 
 function reparameterize_mapping(
-  mapping_functions::NamedTuple,
-  origin::Tuple{Vararg{Real}},
-  scale::Tuple{Vararg{Real}},
+  mapping_functions::NamedTuple, origin::Tuple{Vararg{Real}}, scale::Tuple{Vararg{Real}}
 )
   throw(
     DimensionMismatch(
-      "Mapping origin and scale dimensions must match; got $(length(origin)) and $(length(scale))."
+      "Mapping origin and scale dimensions must match; got $(length(origin)) and $(length(scale)).",
     ),
   )
 end
@@ -103,8 +96,23 @@ and independent metric caches for cell and face data.
   - `metric_caches`: Independent cell and face metric caches.
   - `conserved_metric_scheme`: Scheme used to construct conserved face metrics.
 """
-struct MappedGrid{N,T,CS<:CoordinateSystemTrait,BT<:BasisTrait,NC,CC,FC,MF,MFC,B,DB,I,S,MC,CMS<:EdgeInterpolationSchemeTrait} <:
-       AbstractMappedOrDiscreteGrid
+struct MappedGrid{
+  N,
+  T,
+  CS<:CoordinateSystemTrait,
+  BT<:BasisTrait,
+  NC,
+  CC,
+  FC,
+  MF,
+  MFC,
+  B,
+  DB,
+  I,
+  S,
+  MC,
+  CMS<:EdgeInterpolationSchemeTrait,
+} <: AbstractMappedOrDiscreteGrid
   node_coordinates::NC
   centroid_coordinates::CC
   face_coordinates::FC
@@ -365,9 +373,7 @@ function local_grid(
 end
 
 function local_grid(
-  grid::MappedGrid{N},
-  global_cell_ranges::NTuple{N,<:AbstractUnitRange};
-  kwargs...,
+  grid::MappedGrid{N}, global_cell_ranges::NTuple{N,<:AbstractUnitRange}; kwargs...
 ) where {N}
   return local_grid(grid, CartesianIndices(global_cell_ranges); kwargs...)
 end

@@ -397,9 +397,7 @@ function write_coordinates(
     h5write(filename, "grid_type", "OrthogonalGrid1D")
     h5write(filename, "nhalo", mesh.nhalo)
     h5write(
-      filename,
-      "coordinate_system_trait",
-      _coordinate_system_tag(coordinate_system(mesh)),
+      filename, "coordinate_system_trait", _coordinate_system_tag(coordinate_system(mesh))
     )
   end
 end
@@ -424,9 +422,7 @@ function write_coordinates(
     h5write(filename, "grid_type", "OrthogonalGrid2D")
     h5write(filename, "nhalo", mesh.nhalo)
     h5write(
-      filename,
-      "coordinate_system_trait",
-      _coordinate_system_tag(coordinate_system(mesh)),
+      filename, "coordinate_system_trait", _coordinate_system_tag(coordinate_system(mesh))
     )
   end
 end
@@ -453,9 +449,7 @@ function write_coordinates(
     h5write(filename, "grid_type", "OrthogonalGrid3D")
     h5write(filename, "nhalo", mesh.nhalo)
     h5write(
-      filename,
-      "coordinate_system_trait",
-      _coordinate_system_tag(coordinate_system(mesh)),
+      filename, "coordinate_system_trait", _coordinate_system_tag(coordinate_system(mesh))
     )
   end
 end
@@ -723,13 +717,9 @@ function read_coordinates(
     if coordinate_system_trait isa CartesianCS
       mesh = CartesianOrthogonalGrid2D(x, y, serialized_nhalo, CPU())
     elseif coordinate_system_trait isa AxisymmetricCS{:x}
-      mesh = AxisymmetricOrthogonalGrid2D(
-        x, y, serialized_nhalo, CPU(); rotational_axis=:x
-      )
+      mesh = AxisymmetricOrthogonalGrid2D(x, y, serialized_nhalo, CPU(); rotational_axis=:x)
     elseif coordinate_system_trait isa AxisymmetricCS{:y}
-      mesh = AxisymmetricOrthogonalGrid2D(
-        x, y, serialized_nhalo, CPU(); rotational_axis=:y
-      )
+      mesh = AxisymmetricOrthogonalGrid2D(x, y, serialized_nhalo, CPU(); rotational_axis=:y)
     elseif coordinate_system_trait isa SphericalCS
       mesh = SphericalOrthogonalGrid2D(x, y, serialized_nhalo, CPU())
     else

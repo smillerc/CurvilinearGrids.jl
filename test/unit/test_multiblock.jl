@@ -46,9 +46,8 @@ function _abutting_mapped_3d_cartesian_spherical_setup(; nhalo=2)
   x_phys(t, ξ, η, ζ, p) = _linear_coord(ξ, p.ni, p.xlo, p.xhi)
   y_phys(t, ξ, η, ζ, p) = _linear_coord(η, p.nj, p.ylo, p.yhi)
   z_phys(t, ξ, η, ζ, p) = _linear_coord(ζ, p.nk, p.zlo, p.zhi)
-  rmap(t, ξ, η, ζ, p) = sqrt(
-    x_phys(t, ξ, η, ζ, p)^2 + y_phys(t, ξ, η, ζ, p)^2 + z_phys(t, ξ, η, ζ, p)^2
-  )
+  rmap(t, ξ, η, ζ, p) =
+    sqrt(x_phys(t, ξ, η, ζ, p)^2 + y_phys(t, ξ, η, ζ, p)^2 + z_phys(t, ξ, η, ζ, p)^2)
   θmap(t, ξ, η, ζ, p) = begin
     r = rmap(t, ξ, η, ζ, p)
     acos(z_phys(t, ξ, η, ζ, p) / r)
@@ -206,18 +205,16 @@ end
   x2, y2 = _rect_nodes_2d(1.0, 2.0, 0.0, 1.0, ni, nj)
   b1 = DiscreteGrid(x1, y1, 2; compute_metrics=false, cache_mode=:off)
   b2 = DiscreteGrid(x2, y2, 2; compute_metrics=false, cache_mode=:off)
-  iface = BlockInterface(
-    BlockFace{2}(1, 1, :max), BlockFace{2}(2, 1, :min), (1,), (true,)
-  )
+  iface = BlockInterface(BlockFace{2}(1, 1, :max), BlockFace{2}(2, 1, :min), (1,), (true,))
   mb = MultiBlockMesh((b1, b2), (iface,); validate=false, build_cache=false)
 
   f1 = [
-    10.0 * i + j for i in 1:size(b1.iterators.cell.full, 1),
-    j in 1:size(b1.iterators.cell.full, 2)
+    10.0 * i + j for
+    i in 1:size(b1.iterators.cell.full, 1), j in 1:size(b1.iterators.cell.full, 2)
   ]
   f2 = [
-    100.0 + 10.0 * i + j for i in 1:size(b2.iterators.cell.full, 1),
-    j in 1:size(b2.iterators.cell.full, 2)
+    100.0 + 10.0 * i + j for
+    i in 1:size(b2.iterators.cell.full, 1), j in 1:size(b2.iterators.cell.full, 2)
   ]
   f1_exchange = copy(f1)
   f2_exchange = copy(f2)
@@ -235,12 +232,10 @@ end
   right_domain = b2.iterators.cell.domain
   tangential_subset = (first(left_domain.indices[2]) + 1):(last(left_domain.indices[2]) - 1)
   left_valid = CartesianIndices((
-    first(left_domain.indices[1]):(last(left_domain.indices[1]) + 1),
-    tangential_subset,
+    first(left_domain.indices[1]):(last(left_domain.indices[1]) + 1), tangential_subset
   ))
   right_valid = CartesianIndices((
-    (first(right_domain.indices[1]) - 1):last(right_domain.indices[1]),
-    tangential_subset,
+    (first(right_domain.indices[1]) - 1):last(right_domain.indices[1]), tangential_subset
   ))
   filtered = interface_index_plan(
     left_domain,
@@ -254,8 +249,12 @@ end
   )
   @test length(filtered.left_to_right) == 3
   @test length(filtered.right_to_left) == 3
-  @test all(pair -> pair.first in left_valid && pair.second in right_valid, filtered.left_to_right)
-  @test all(pair -> pair.first in right_valid && pair.second in left_valid, filtered.right_to_left)
+  @test all(
+    pair -> pair.first in left_valid && pair.second in right_valid, filtered.left_to_right
+  )
+  @test all(
+    pair -> pair.first in right_valid && pair.second in left_valid, filtered.right_to_left
+  )
 
   left_3d = CartesianIndices((2:5, 3:6, 4:7))
   right_3d = CartesianIndices((10:13, 20:23, 30:33))
@@ -268,10 +267,8 @@ end
     (false, true),
   )
   @test length(plan_3d.left_to_right) == 16
-  @test (CartesianIndex(5, 3, 4) => CartesianIndex(13, 20, 29)) in
-    plan_3d.left_to_right
-  @test (CartesianIndex(13, 20, 30) => CartesianIndex(6, 3, 4)) in
-    plan_3d.right_to_left
+  @test (CartesianIndex(5, 3, 4) => CartesianIndex(13, 20, 29)) in plan_3d.left_to_right
+  @test (CartesianIndex(13, 20, 30) => CartesianIndex(6, 3, 4)) in plan_3d.right_to_left
 end
 
 @testset "MultiBlock computational coordinate transfer" begin

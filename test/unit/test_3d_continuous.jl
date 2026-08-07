@@ -150,8 +150,9 @@ end
     elapsed_seconds = (time_ns() - t0) * 1e-9
     push!(runtimes, elapsed_seconds)
 
-    @info "Wavy MappedGrid3D face reconstruction comparison" scheme = name max_I1 = errors.m1 max_I2 =
-      errors.m2 max_I3 = errors.m3 max_error = errors.m runtime_seconds = elapsed_seconds
+    @info "Wavy MappedGrid3D face reconstruction comparison" scheme = name max_I1 =
+      errors.m1 max_I2 = errors.m2 max_I3 = errors.m3 max_error = errors.m runtime_seconds =
+      elapsed_seconds
 
     @test errors.m1 < 1e-14
     @test errors.m2 < 1e-14
@@ -180,10 +181,12 @@ end
     domain = reference.iterators.cell.domain
     max_error = 0.0
     for axis in 1:3, I in domain, component in 1:3
-      reference_value =
-        reference_face_metrics[axis].conserved[I].jacobian_matrix[axis, component]
-      prototype_value =
-        prototype_face_metrics[axis].conserved[I].jacobian_matrix[axis, component]
+      reference_value = reference_face_metrics[axis].conserved[I].jacobian_matrix[
+        axis, component
+      ]
+      prototype_value = prototype_face_metrics[axis].conserved[I].jacobian_matrix[
+        axis, component
+      ]
       max_error = max(max_error, abs(reference_value - prototype_value))
     end
     return max_error
@@ -225,9 +228,9 @@ end
       Δx0,
       Δy0,
       Δz0,
-      xmin=-Lx / 2,
-      ymin=-Ly / 2,
-      zmin=-Lz / 2,
+      xmin=(-Lx / 2),
+      ymin=(-Ly / 2),
+      zmin=(-Lz / 2),
     )
   end
 
@@ -264,15 +267,9 @@ end
     θmin, θmax = π / 2 - deg2rad(5), π / 2 + deg2rad(5)
     ϕmin, ϕmax = -deg2rad(10), deg2rad(10)
     return (;
-      rmin,
-      θmin,
-      ϕmin,
-      Δr=(rmax - rmin) / ni,
-      Δθ=(θmax - θmin) / nj,
-      Δϕ=(ϕmax - ϕmin) / nk,
+      rmin, θmin, ϕmin, Δr=(rmax - rmin) / ni, Δθ=(θmax - θmin) / nj, Δϕ=(ϕmax - ϕmin) / nk
     )
   end
-
 
   @testset "AD Thomas-Lombard mapped" begin
     ad_tl_cases = (
@@ -316,7 +313,6 @@ end
       end
     end
   end
-
 end
 
 @testset "Sphere Sector MappedGrid3D" begin

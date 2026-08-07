@@ -32,7 +32,6 @@ function get_iterators(celldims::NTuple{N,Int}, nhalo::Int, global_cell_domain) 
   return (; node, cell, nhalo, global_domain)
 end
 
-
 # Metric and coordinate storage allocation.
 
 function _allocate_unified_cell_metric_storage(
@@ -40,7 +39,8 @@ function _allocate_unified_cell_metric_storage(
 ) where {N,T}
   celldims = size(iterators.cell.full)
   metric_type = _metric_eltype(Val(N), T)
-  metric_array() = KernelAbstractions.zeros(backend, metric_type, celldims...; unified=false)
+  metric_array() =
+    KernelAbstractions.zeros(backend, metric_type, celldims...; unified=false)
   return (; forward=metric_array(), inverse=metric_array())
 end
 
@@ -50,7 +50,8 @@ function _allocate_unified_face_metric_storage(
   celldims = size(iterators.cell.full)
   metric_type = _metric_eltype(Val(N), T)
   conserved_metric_type = _conserved_metric_eltype(Val(N), T)
-  metric_array() = KernelAbstractions.zeros(backend, metric_type, celldims...; unified=false)
+  metric_array() =
+    KernelAbstractions.zeros(backend, metric_type, celldims...; unified=false)
   function conserved_metric_array()
     KernelAbstractions.zeros(backend, conserved_metric_type, celldims...; unified=false)
   end
@@ -77,7 +78,6 @@ function _ensure_metric_storage!(
   _require_metric_storage(grid, "_ensure_metric_storage!")
   return grid.metric_caches.cell.data, grid.metric_caches.face.data
 end
-
 
 # Coordinate storage allocation.
 
@@ -138,8 +138,6 @@ function _allocate_unified_coordinates(::Val{3}, iterators, backend, ::Type{T}) 
   return node_coordinates, centroid_coordinates, face_coordinates
 end
 
-
-
 # Unified component construction.
 
 function _build_unified_components(
@@ -183,7 +181,6 @@ function _build_unified_components(
     iterators,
   )
 end
-
 
 # Coordinate generation kernels and launchers.
 
@@ -341,7 +338,7 @@ function _compute_unified_node_coordinates!(
     params;
     ndrange=size(local_domain),
   )
-  KernelAbstractions.synchronize(backend)
+
   return nothing
 end
 
@@ -369,7 +366,7 @@ function _compute_unified_node_coordinates!(
     params;
     ndrange=size(local_domain),
   )
-  KernelAbstractions.synchronize(backend)
+
   return nothing
 end
 
@@ -399,7 +396,7 @@ function _compute_unified_node_coordinates!(
     params;
     ndrange=size(local_domain),
   )
-  KernelAbstractions.synchronize(backend)
+
   return nothing
 end
 
@@ -440,7 +437,7 @@ function _compute_unified_centroid_coordinates!(
     params;
     ndrange=size(local_domain),
   )
-  KernelAbstractions.synchronize(backend)
+
   return nothing
 end
 
@@ -468,7 +465,7 @@ function _compute_unified_centroid_coordinates!(
     params;
     ndrange=size(local_domain),
   )
-  KernelAbstractions.synchronize(backend)
+
   return nothing
 end
 
@@ -498,7 +495,7 @@ function _compute_unified_centroid_coordinates!(
     params;
     ndrange=size(local_domain),
   )
-  KernelAbstractions.synchronize(backend)
+
   return nothing
 end
 
@@ -532,7 +529,7 @@ function _compute_unified_face_coordinates!(
     params;
     ndrange=size(local_domain),
   )
-  KernelAbstractions.synchronize(backend)
+
   return nothing
 end
 
@@ -563,7 +560,7 @@ function _compute_unified_face_coordinates!(
       ndrange=size(local_domain),
     )
   end
-  KernelAbstractions.synchronize(backend)
+
   return nothing
 end
 
@@ -596,7 +593,7 @@ function _compute_unified_face_coordinates!(
       ndrange=size(local_domain),
     )
   end
-  KernelAbstractions.synchronize(backend)
+
   return nothing
 end
 
@@ -720,7 +717,6 @@ function cell_jacobian(grid::AbstractOrthogonalGrid, idx::NTuple{N,Int}) where {
   )
 end
 
-
 # Cell volume array generation and grid sizes.
 
 @inline function _jacobian_volume_factor(
@@ -798,8 +794,9 @@ end
 @inline function _cellvolume_dispatch(
   ::CylindricalCS, ::CartesianBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{1,Int}
 )
-  return conservation_cell_metric_scale(CylindricalCS(), CartesianBasis(), centroid(grid, idx)) *
-         _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(
+    CylindricalCS(), CartesianBasis(), centroid(grid, idx)
+  ) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -808,8 +805,9 @@ end
   grid::AbstractMappedOrDiscreteGrid,
   idx::Tuple{Vararg{Real,1}},
 )
-  return conservation_cell_metric_scale(CylindricalCS(), CartesianBasis(), _continuous_coord(grid, idx)) *
-         _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(
+    CylindricalCS(), CartesianBasis(), _continuous_coord(grid, idx)
+  ) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -818,8 +816,9 @@ end
   grid::Union{MappedGrid{2},DiscreteGrid{2}},
   idx::NTuple{2,Int},
 )
-  return conservation_cell_metric_scale(CylindricalCS(), CartesianBasis(), centroid(grid, idx)) *
-         _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(
+    CylindricalCS(), CartesianBasis(), centroid(grid, idx)
+  ) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -828,8 +827,9 @@ end
   grid::Union{MappedGrid{2},DiscreteGrid{2}},
   idx::Tuple{Vararg{Real,2}},
 )
-  return conservation_cell_metric_scale(CylindricalCS(), CartesianBasis(), _continuous_coord(grid, idx)) *
-         _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(
+    CylindricalCS(), CartesianBasis(), _continuous_coord(grid, idx)
+  ) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -848,15 +848,17 @@ end
   grid::AbstractMappedOrDiscreteGrid,
   idx::Tuple{Vararg{Real,2}},
 ) where {Axis}
-  return conservation_cell_metric_scale(cs, CartesianBasis(), _continuous_coord(grid, idx)) *
-         _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(
+    cs, CartesianBasis(), _continuous_coord(grid, idx)
+  ) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
   ::SphericalCS, ::SphericalBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{1,Int}
 )
-  return conservation_cell_metric_scale(SphericalCS(), SphericalBasis(), centroid(grid, idx)) *
-         _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(
+    SphericalCS(), SphericalBasis(), centroid(grid, idx)
+  ) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -865,8 +867,9 @@ end
   grid::AbstractMappedOrDiscreteGrid,
   idx::Tuple{Vararg{Real,1}},
 )
-  return conservation_cell_metric_scale(SphericalCS(), SphericalBasis(), _continuous_coord(grid, idx)) *
-         _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(
+    SphericalCS(), SphericalBasis(), _continuous_coord(grid, idx)
+  ) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -875,8 +878,9 @@ end
   grid::Union{MappedGrid{3},DiscreteGrid{3}},
   idx::NTuple{3,Int},
 )
-  return conservation_cell_metric_scale(SphericalCS(), SphericalBasis(), centroid(grid, idx)) *
-         _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(
+    SphericalCS(), SphericalBasis(), centroid(grid, idx)
+  ) * _jacobian_volume_factor(grid, idx)
 end
 
 @inline function _cellvolume_dispatch(
@@ -885,15 +889,17 @@ end
   grid::Union{MappedGrid{3},DiscreteGrid{3}},
   idx::Tuple{Vararg{Real,3}},
 )
-  return conservation_cell_metric_scale(SphericalCS(), SphericalBasis(), _continuous_coord(grid, idx)) *
-         _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(
+    SphericalCS(), SphericalBasis(), _continuous_coord(grid, idx)
+  ) * _jacobian_volume_factor(grid, idx)
 end
 
 function _cellvolume_dispatch(
   ::SphericalCS, ::SphericalBasis, grid::AbstractMappedOrDiscreteGrid, idx::NTuple{2,Int}
 )
-  return conservation_cell_metric_scale(SphericalCS(), SphericalBasis(), centroid(grid, idx)) *
-         _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(
+    SphericalCS(), SphericalBasis(), centroid(grid, idx)
+  ) * _jacobian_volume_factor(grid, idx)
 end
 
 function _cellvolume_dispatch(
@@ -902,8 +908,9 @@ function _cellvolume_dispatch(
   grid::AbstractMappedOrDiscreteGrid,
   idx::Tuple{Vararg{Real,2}},
 )
-  return conservation_cell_metric_scale(SphericalCS(), SphericalBasis(), _continuous_coord(grid, idx)) *
-         _jacobian_volume_factor(grid, idx)
+  return conservation_cell_metric_scale(
+    SphericalCS(), SphericalBasis(), _continuous_coord(grid, idx)
+  ) * _jacobian_volume_factor(grid, idx)
 end
 
 function _cellvolume_dispatch(
@@ -932,7 +939,9 @@ function _cellvolume_dispatch(
   )
 end
 
-function cellvolumes(grid::Union{MappedGrid{N},DiscreteGrid{N}}; include_halo::Bool=false) where {N}
+function cellvolumes(
+  grid::Union{MappedGrid{N},DiscreteGrid{N}}; include_halo::Bool=false
+) where {N}
   volumes = KernelAbstractions.zeros(
     grid.backend, eltype(grid), size(grid.iterators.cell.full); unified=false
   )
@@ -960,7 +969,7 @@ function _compute_unified_cell_volumes!(volumes, grid, ::Val{N}) where {N}
     Val(N);
     ndrange=length(grid.iterators.cell.full),
   )
-  KernelAbstractions.synchronize(backend)
+
   return volumes
 end
 

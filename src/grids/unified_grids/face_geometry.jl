@@ -274,43 +274,57 @@ end
   return T(2π) * abs(_face_rotational_radius(cs, q))
 end
 
-@inline conservation_cell_metric_scale(cs::CoordinateSystemTrait, bt::BasisTrait, q::SVector{N,T}) where {N,T} =
-  one(T)
-@inline conservation_cell_metric_scale(::CylindricalCS, ::CartesianBasis, q::SVector{1,T}) where {T} =
-  T(2π) * abs(q[1])
-@inline conservation_cell_metric_scale(::CylindricalCS, ::CartesianBasis, q::SVector{2,T}) where {T} =
-  T(2π) * abs(q[1])
+@inline conservation_cell_metric_scale(
+  cs::CoordinateSystemTrait, bt::BasisTrait, q::SVector{N,T}
+) where {N,T} = one(T)
+@inline conservation_cell_metric_scale(
+  ::CylindricalCS, ::CartesianBasis, q::SVector{1,T}
+) where {T} = T(2π) * abs(q[1])
+@inline conservation_cell_metric_scale(
+  ::CylindricalCS, ::CartesianBasis, q::SVector{2,T}
+) where {T} = T(2π) * abs(q[1])
 @inline conservation_cell_metric_scale(
   ::AxisymmetricCS{:x}, ::CartesianBasis, q::SVector{2,T}
 ) where {T} = T(2π) * abs(q[2])
 @inline conservation_cell_metric_scale(
   ::AxisymmetricCS{:y}, ::CartesianBasis, q::SVector{2,T}
 ) where {T} = T(2π) * abs(q[1])
-@inline conservation_cell_metric_scale(::SphericalCS, ::SphericalBasis, q::SVector{1,T}) where {T} =
-  T(4π) * abs(q[1])^2
-@inline conservation_cell_metric_scale(::SphericalCS, ::SphericalBasis, q::SVector{2,T}) where {T} =
-  T(2π) * abs(q[1])^2 * sin(q[2])
-@inline conservation_cell_metric_scale(::SphericalCS, ::SphericalBasis, q::SVector{3,T}) where {T} =
-  abs(q[1])^2 * sin(q[2])
+@inline conservation_cell_metric_scale(
+  ::SphericalCS, ::SphericalBasis, q::SVector{1,T}
+) where {T} = T(4π) * abs(q[1])^2
+@inline conservation_cell_metric_scale(
+  ::SphericalCS, ::SphericalBasis, q::SVector{2,T}
+) where {T} = T(2π) * abs(q[1])^2 * sin(q[2])
+@inline conservation_cell_metric_scale(
+  ::SphericalCS, ::SphericalBasis, q::SVector{3,T}
+) where {T} = abs(q[1])^2 * sin(q[2])
 
-@inline function conservation_face_metric_component_scale(cs, bt, q::SVector{N,T}) where {N,T}
+@inline function conservation_face_metric_component_scale(
+  cs, bt, q::SVector{N,T}
+) where {N,T}
   scale = conservation_cell_metric_scale(cs, bt, q)
   return SVector{N,T}(ntuple(_ -> scale, Val(N)))
 end
 
-@inline function conservation_face_metric_component_scale(::SphericalCS, ::SphericalBasis, q::SVector{1,T}) where {T}
+@inline function conservation_face_metric_component_scale(
+  ::SphericalCS, ::SphericalBasis, q::SVector{1,T}
+) where {T}
   r = abs(q[1])
   return SVector{1,T}(T(4π) * r^2)
 end
 
-@inline function conservation_face_metric_component_scale(::SphericalCS, ::SphericalBasis, q::SVector{2,T}) where {T}
+@inline function conservation_face_metric_component_scale(
+  ::SphericalCS, ::SphericalBasis, q::SVector{2,T}
+) where {T}
   r = abs(q[1])
   θ = q[2]
   sθ = sin(θ)
   return SVector{2,T}(T(2π) * r^2 * sθ, T(2π) * r * sθ)
 end
 
-@inline function conservation_face_metric_component_scale(::SphericalCS, ::SphericalBasis, q::SVector{3,T}) where {T}
+@inline function conservation_face_metric_component_scale(
+  ::SphericalCS, ::SphericalBasis, q::SVector{3,T}
+) where {T}
   r = abs(q[1])
   θ = q[2]
   sθ = sin(θ)
@@ -392,7 +406,9 @@ end
   T = promote_type(eltype(q), eltype(Ghat))
   metric_row = SVector{N,T}(ntuple(j -> Ghat[axis, j], N))
   qvec = SVector{N,T}(q)
-  component_scale = conservation_face_metric_component_scale(coordinate_system(grid), basis_trait(grid), qvec)
+  component_scale = conservation_face_metric_component_scale(
+    coordinate_system(grid), basis_trait(grid), qvec
+  )
   metric_vector = (side === :hi ? one(T) : -one(T)) * (component_scale .* metric_row)
   area = norm(metric_vector)
   normal = area > zero(T) ? metric_vector / area : zero(metric_vector)

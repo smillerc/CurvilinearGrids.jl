@@ -1,12 +1,47 @@
 function _mapped_discrete_face_geometry_cases()
   return (
-    (; name="1D CurvilinearCS", dim=Val(1), coordinate_system=CurvilinearCS(), basis=CartesianBasis()),
-    (; name="1D CartesianCS", dim=Val(1), coordinate_system=CartesianCS(), basis=CartesianBasis()),
-    (; name="1D CylindricalCS", dim=Val(1), coordinate_system=CylindricalCS(), basis=CartesianBasis()),
-    (; name="1D SphericalCS", dim=Val(1), coordinate_system=SphericalCS(), basis=SphericalBasis()),
-    (; name="2D CurvilinearCS", dim=Val(2), coordinate_system=CurvilinearCS(), basis=CartesianBasis()),
-    (; name="2D CartesianCS", dim=Val(2), coordinate_system=CartesianCS(), basis=CartesianBasis()),
-    (; name="2D CylindricalCS", dim=Val(2), coordinate_system=CylindricalCS(), basis=CartesianBasis()),
+    (;
+      name="1D CurvilinearCS",
+      dim=Val(1),
+      coordinate_system=CurvilinearCS(),
+      basis=CartesianBasis(),
+    ),
+    (;
+      name="1D CartesianCS",
+      dim=Val(1),
+      coordinate_system=CartesianCS(),
+      basis=CartesianBasis(),
+    ),
+    (;
+      name="1D CylindricalCS",
+      dim=Val(1),
+      coordinate_system=CylindricalCS(),
+      basis=CartesianBasis(),
+    ),
+    (;
+      name="1D SphericalCS",
+      dim=Val(1),
+      coordinate_system=SphericalCS(),
+      basis=SphericalBasis(),
+    ),
+    (;
+      name="2D CurvilinearCS",
+      dim=Val(2),
+      coordinate_system=CurvilinearCS(),
+      basis=CartesianBasis(),
+    ),
+    (;
+      name="2D CartesianCS",
+      dim=Val(2),
+      coordinate_system=CartesianCS(),
+      basis=CartesianBasis(),
+    ),
+    (;
+      name="2D CylindricalCS",
+      dim=Val(2),
+      coordinate_system=CylindricalCS(),
+      basis=CartesianBasis(),
+    ),
     (;
       name="2D AxisymmetricCS{:x}",
       dim=Val(2),
@@ -19,10 +54,30 @@ function _mapped_discrete_face_geometry_cases()
       coordinate_system=AxisymmetricCS{:y}(),
       basis=CartesianBasis(),
     ),
-    (; name="2D SphericalCS", dim=Val(2), coordinate_system=SphericalCS(), basis=SphericalBasis()),
-    (; name="3D CurvilinearCS", dim=Val(3), coordinate_system=CurvilinearCS(), basis=CartesianBasis()),
-    (; name="3D CartesianCS", dim=Val(3), coordinate_system=CartesianCS(), basis=CartesianBasis()),
-    (; name="3D SphericalCS", dim=Val(3), coordinate_system=SphericalCS(), basis=SphericalBasis()),
+    (;
+      name="2D SphericalCS",
+      dim=Val(2),
+      coordinate_system=SphericalCS(),
+      basis=SphericalBasis(),
+    ),
+    (;
+      name="3D CurvilinearCS",
+      dim=Val(3),
+      coordinate_system=CurvilinearCS(),
+      basis=CartesianBasis(),
+    ),
+    (;
+      name="3D CartesianCS",
+      dim=Val(3),
+      coordinate_system=CartesianCS(),
+      basis=CartesianBasis(),
+    ),
+    (;
+      name="3D SphericalCS",
+      dim=Val(3),
+      coordinate_system=SphericalCS(),
+      basis=SphericalBasis(),
+    ),
   )
 end
 
@@ -99,7 +154,13 @@ function _mapped_discrete_grid_pair(
 end
 
 function _mapped_discrete_grid_pair_3d(
-  q1map, q2map, q3map, params, celldims, coordinate_system::CoordinateSystemTrait, basis::BasisTrait
+  q1map,
+  q2map,
+  q3map,
+  params,
+  celldims,
+  coordinate_system::CoordinateSystemTrait,
+  basis::BasisTrait,
 )
   nhalo = 2
   mapped = MappedGrid(
@@ -155,7 +216,9 @@ function _mapped_discrete_grid_pair(
   q2map(t, i, j, k, p) =
     p.theta0 + (j - 1) * p.dtheta + p.atheta * sinpi(2 * (i - 1) / p.ni)
   q3map(t, i, j, k, p) =
-    p.phi0 + (k - 1) * p.dphi + p.aphi * sinpi(2 * (i - 1) / p.ni) * sinpi(2 * (j - 1) / p.nj)
+    p.phi0 +
+    (k - 1) * p.dphi +
+    p.aphi * sinpi(2 * (i - 1) / p.ni) * sinpi(2 * (j - 1) / p.nj)
 
   return _mapped_discrete_grid_pair_3d(
     q1map, q2map, q3map, params, celldims, coordinate_system, basis
@@ -220,10 +283,14 @@ function _mapped_discrete_face_geometry_errors(case, celldims)
     for loc in _mapped_discrete_face_locations(case.dim)
       mapped_geom = face_flux_geometry(mapped, I.I, loc)
       discrete_geom = face_flux_geometry(discrete, I.I, loc)
-      max_metric = max(max_metric, norm(discrete_geom.metric_vector - mapped_geom.metric_vector))
+      max_metric = max(
+        max_metric, norm(discrete_geom.metric_vector - mapped_geom.metric_vector)
+      )
       max_area = max(max_area, abs(discrete_geom.area - mapped_geom.area))
       max_normal = max(max_normal, norm(discrete_geom.normal - mapped_geom.normal))
-      max_coordinate = max(max_coordinate, norm(discrete_geom.coordinate - mapped_geom.coordinate))
+      max_coordinate = max(
+        max_coordinate, norm(discrete_geom.coordinate - mapped_geom.coordinate)
+      )
     end
   end
 

@@ -43,9 +43,9 @@ coordinate_system(::Type{<:OrthogonalGrid{N,T,CS}}) where {N,T,CS} = CS()
 basis_trait(::Type{<:MappedGrid{N,T,CS,BT}}) where {N,T,CS,BT} = BT()
 basis_trait(::Type{<:DiscreteGrid{N,T,CS,BT}}) where {N,T,CS,BT} = BT()
 function basis_trait(::Type{<:AbstractOrthogonalGrid})
-#
-# Basis transfer
-#
+  #
+  # Basis transfer
+  #
 
 end
 

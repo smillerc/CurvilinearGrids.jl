@@ -19,7 +19,9 @@ end
 function _orthogonal_grid_from_faces(
   ::CartesianCS, faces::NTuple{2,Vector{T}}, halo::Int, backend
 ) where {T}
-  return CartesianOrthogonalGrid2D(faces[1], faces[2], halo, backend; halo_coords_included=true)
+  return CartesianOrthogonalGrid2D(
+    faces[1], faces[2], halo, backend; halo_coords_included=true
+  )
 end
 
 function _orthogonal_grid_from_faces(
@@ -41,7 +43,9 @@ end
 function _orthogonal_grid_from_faces(
   ::SphericalCS, faces::NTuple{2,Vector{T}}, halo::Int, backend
 ) where {T}
-  return SphericalOrthogonalGrid2D(faces[1], faces[2], halo, backend; halo_coords_included=true)
+  return SphericalOrthogonalGrid2D(
+    faces[1], faces[2], halo, backend; halo_coords_included=true
+  )
 end
 
 function _orthogonal_grid_from_faces(
@@ -55,7 +59,9 @@ end
 function _orthogonal_grid_from_faces(
   ::SphericalCS, faces::NTuple{3,Vector{T}}, halo::Int, backend
 ) where {T}
-  return SphericalGrid3D(faces[1], faces[2], faces[3], halo, backend; halo_coords_included=true)
+  return SphericalGrid3D(
+    faces[1], faces[2], faces[3], halo, backend; halo_coords_included=true
+  )
 end
 
 function _orthogonal_grid_from_faces(coordinate_system, faces, halo, backend)

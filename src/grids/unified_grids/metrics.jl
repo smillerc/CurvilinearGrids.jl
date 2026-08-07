@@ -49,9 +49,8 @@ Construct a metric payload from a Jacobian matrix.
 end
 
 @inline Base.getindex(metric::Metric, i::Int, j::Int) = metric.jacobian_matrix[i, j]
-@inline Base.getindex(metric::ConservedMetric, i::Int, j::Int) = metric.jacobian_matrix[
-  i, j
-]
+@inline Base.getindex(metric::ConservedMetric, i::Int, j::Int) =
+  metric.jacobian_matrix[i, j]
 @inline function Base.inv(metric::Metric{N,T,M}) where {N,T,M<:StaticMatrix{N,N,T}}
   jinv = inv(metric.jacobian_matrix)
   Metric(jinv, det(jinv))
@@ -97,7 +96,6 @@ end
   end
   return SMatrix{3,3}(Tuple(x))
 end
-
 
 # Continuous metric cache construction.
 
@@ -159,7 +157,14 @@ end
 end
 
 @inline function _edge_reconstruct(
-  ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ, ϕᵢ₊₁, ∂ϕ_∂ξᵢ₊₁, ∂²ϕ_∂ξ²ᵢ₊₁, ::CurvatureCorrectedReconstruction, Δξ::Real=1
+  ϕᵢ,
+  ∂ϕ_∂ξᵢ,
+  ∂²ϕ_∂ξ²ᵢ,
+  ϕᵢ₊₁,
+  ∂ϕ_∂ξᵢ₊₁,
+  ∂²ϕ_∂ξ²ᵢ₊₁,
+  ::CurvatureCorrectedReconstruction,
+  Δξ::Real=1,
 )
   T = _edge_coefficient_type(ϕᵢ, Δξ)
   half = one(T) / T(2)
@@ -335,17 +340,25 @@ function MetricCache(
   return MetricCache(forward_metrics, inverse_metrics, edge_metrics)
 end
 
-edge_functions_3d(ϕ, backend) = edge_functions_3d(ϕ, backend, CurvatureCorrectedReconstruction())
+function edge_functions_3d(ϕ, backend)
+  edge_functions_3d(ϕ, backend, CurvatureCorrectedReconstruction())
+end
 
 function edge_functions_3d(ϕ, backend, ::EndpointAverageReconstruction)
   function ϕᵢ₊½(t, i, j, k, p)
-    _edge_reconstruct(ϕ(t, i, j, k, p), ϕ(t, i + 1, j, k, p), EndpointAverageReconstruction())
+    _edge_reconstruct(
+      ϕ(t, i, j, k, p), ϕ(t, i + 1, j, k, p), EndpointAverageReconstruction()
+    )
   end
   function ϕⱼ₊½(t, i, j, k, p)
-    _edge_reconstruct(ϕ(t, i, j, k, p), ϕ(t, i, j + 1, k, p), EndpointAverageReconstruction())
+    _edge_reconstruct(
+      ϕ(t, i, j, k, p), ϕ(t, i, j + 1, k, p), EndpointAverageReconstruction()
+    )
   end
   function ϕₖ₊½(t, i, j, k, p)
-    _edge_reconstruct(ϕ(t, i, j, k, p), ϕ(t, i, j, k + 1, p), EndpointAverageReconstruction())
+    _edge_reconstruct(
+      ϕ(t, i, j, k, p), ϕ(t, i, j, k + 1, p), EndpointAverageReconstruction()
+    )
   end
   return (; ϕᵢ₊½, ϕⱼ₊½, ϕₖ₊½)
 end
@@ -408,7 +421,9 @@ function edge_functions_3d(ϕ, backend, ::CurvatureCorrectedReconstruction)
   return (; ϕᵢ₊½, ϕⱼ₊½, ϕₖ₊½)
 end
 
-edge_functions_2d(ϕ, backend) = edge_functions_2d(ϕ, backend, CurvatureCorrectedReconstruction())
+function edge_functions_2d(ϕ, backend)
+  edge_functions_2d(ϕ, backend, CurvatureCorrectedReconstruction())
+end
 
 function edge_functions_2d(ϕ, backend, ::EndpointAverageReconstruction)
   function ϕᵢ₊½(t, i, j, p)
@@ -462,10 +477,13 @@ function edge_functions_2d(ϕ, backend, ::CurvatureCorrectedReconstruction)
   return (; ϕᵢ₊½, ϕⱼ₊½)
 end
 
-edge_functions_1d(ϕ, backend) = edge_functions_1d(ϕ, backend, CurvatureCorrectedReconstruction())
+function edge_functions_1d(ϕ, backend)
+  edge_functions_1d(ϕ, backend, CurvatureCorrectedReconstruction())
+end
 
 function edge_functions_1d(ϕ, backend, ::EndpointAverageReconstruction)
-  ϕᵢ₊½(t, i, p) = _edge_reconstruct(ϕ(t, i, p), ϕ(t, i + 1, p), EndpointAverageReconstruction())
+  ϕᵢ₊½(t, i, p) =
+    _edge_reconstruct(ϕ(t, i, p), ϕ(t, i + 1, p), EndpointAverageReconstruction())
   return (; ϕᵢ₊½)
 end
 
@@ -586,14 +604,11 @@ function get_edge_functions_1d(
   return edge_funcs
 end
 
-
 function get_ad_thomas_lombard_inverse_metric_terms(x, y, z, backend)
   function jacobian_matrix(t, i, j, k, p)
     DifferentiationInterface.jacobian(
       u -> SVector(
-        x(t, u[1], u[2], u[3], p),
-        y(t, u[1], u[2], u[3], p),
-        z(t, u[1], u[2], u[3], p),
+        x(t, u[1], u[2], u[3], p), y(t, u[1], u[2], u[3], p), z(t, u[1], u[2], u[3], p)
       ),
       backend,
       SVector(i, j, k),
@@ -651,7 +666,6 @@ function get_ad_thomas_lombard_inverse_metric_terms(x, y, z, backend)
 
   return inverse_metrics, edge_metrics
 end
-
 
 function get_inverse_metric_terms(
   x,
@@ -757,15 +771,15 @@ function get_inverse_metric_terms(
   x_η_y_ξ = ∂ϕ_∂ξ_3d(x_η_y, backend, edge_scheme)
 
   # Do NOT put eps() tolerance checks on these! It will create GCL-related errors
-  ξ̂x(t, i, j, k, p) = y_η_z_ζ(t, i, j, k, p) − y_ζ_z_η(t, i, j, k, p)
-  η̂x(t, i, j, k, p) = y_ζ_z_ξ(t, i, j, k, p) − y_ξ_z_ζ(t, i, j, k, p)
-  ζ̂x(t, i, j, k, p) = y_ξ_z_η(t, i, j, k, p) − y_η_z_ξ(t, i, j, k, p)
-  ξ̂y(t, i, j, k, p) = z_η_x_ζ(t, i, j, k, p) − z_ζ_x_η(t, i, j, k, p)
-  η̂y(t, i, j, k, p) = z_ζ_x_ξ(t, i, j, k, p) − z_ξ_x_ζ(t, i, j, k, p)
-  ζ̂y(t, i, j, k, p) = z_ξ_x_η(t, i, j, k, p) − z_η_x_ξ(t, i, j, k, p)
-  ξ̂z(t, i, j, k, p) = x_η_y_ζ(t, i, j, k, p) − x_ζ_y_η(t, i, j, k, p)
-  η̂z(t, i, j, k, p) = x_ζ_y_ξ(t, i, j, k, p) − x_ξ_y_ζ(t, i, j, k, p)
-  ζ̂z(t, i, j, k, p) = x_ξ_y_η(t, i, j, k, p) − x_η_y_ξ(t, i, j, k, p)
+  ξ̂x(t, i, j, k, p) = y_η_z_ζ(t, i, j, k, p)−y_ζ_z_η(t, i, j, k, p)
+  η̂x(t, i, j, k, p) = y_ζ_z_ξ(t, i, j, k, p)−y_ξ_z_ζ(t, i, j, k, p)
+  ζ̂x(t, i, j, k, p) = y_ξ_z_η(t, i, j, k, p)−y_η_z_ξ(t, i, j, k, p)
+  ξ̂y(t, i, j, k, p) = z_η_x_ζ(t, i, j, k, p)−z_ζ_x_η(t, i, j, k, p)
+  η̂y(t, i, j, k, p) = z_ζ_x_ξ(t, i, j, k, p)−z_ξ_x_ζ(t, i, j, k, p)
+  ζ̂y(t, i, j, k, p) = z_ξ_x_η(t, i, j, k, p)−z_η_x_ξ(t, i, j, k, p)
+  ξ̂z(t, i, j, k, p) = x_η_y_ζ(t, i, j, k, p)−x_ζ_y_η(t, i, j, k, p)
+  η̂z(t, i, j, k, p) = x_ζ_y_ξ(t, i, j, k, p)−x_ξ_y_ζ(t, i, j, k, p)
+  ζ̂z(t, i, j, k, p) = x_ξ_y_η(t, i, j, k, p)−x_η_y_ξ(t, i, j, k, p)
 
   ξ̂x_val_and_ξderivs = ξ_derivs(ξ̂x, backend, edge_scheme)
   η̂x_val_and_ξderivs = ξ_derivs(η̂x, backend, edge_scheme)
@@ -1098,7 +1112,6 @@ function ζ_derivs(ϕ, backend, ::CurvatureCorrectedReconstruction)
   return ϕall
 end
 
-
 # Edge reconstruction helpers used by metric caches.
 
 #-------------------------------------------------------------
@@ -1125,7 +1138,9 @@ function ϕ_iedge(
   ϕ_iedge(ϕ_eval, t, i, p, edge_interpolation_scheme, Δξ)
 end
 
-function ϕ_iedge(ϕ_values, t, i::Real, p::NamedTuple, ::EndpointAverageReconstruction, Δξ::Real)
+function ϕ_iedge(
+  ϕ_values, t, i::Real, p::NamedTuple, ::EndpointAverageReconstruction, Δξ::Real
+)
   return _edge_reconstruct(
     ϕ_values(t, i, p), ϕ_values(t, i + 1, p), EndpointAverageReconstruction()
   )
@@ -1188,7 +1203,13 @@ function ϕ_iedge(
 end
 
 function ϕ_iedge(
-  ϕ_val_and_derivs, t, i::Real, j::Real, p::NamedTuple, ::GradientCorrectedReconstruction, Δξ::Real
+  ϕ_val_and_derivs,
+  t,
+  i::Real,
+  j::Real,
+  p::NamedTuple,
+  ::GradientCorrectedReconstruction,
+  Δξ::Real,
 )
   ϕᵢ, ϕξᵢ = ϕ_val_and_derivs(t, i, j, p)
   ϕᵢ₊₁, ϕξᵢ₊₁ = ϕ_val_and_derivs(t, i + 1, j, p)
@@ -1196,7 +1217,13 @@ function ϕ_iedge(
 end
 
 function ϕ_iedge(
-  ϕ_val_and_derivs, t, i::Real, j::Real, p::NamedTuple, ::CurvatureCorrectedReconstruction, Δξ::Real
+  ϕ_val_and_derivs,
+  t,
+  i::Real,
+  j::Real,
+  p::NamedTuple,
+  ::CurvatureCorrectedReconstruction,
+  Δξ::Real,
 )
   ϕᵢ, ϕξᵢ, ϕξξᵢ = ϕ_val_and_derivs(t, i, j, p)
   ϕᵢ₊₁, ϕξᵢ₊₁, ϕξξᵢ₊₁ = ϕ_val_and_derivs(t, i + 1, j, p)
@@ -1241,7 +1268,13 @@ function ϕ_jedge(
 end
 
 function ϕ_jedge(
-  ϕ_val_and_derivs, t, i::Real, j::Real, p::NamedTuple, ::GradientCorrectedReconstruction, Δξ::Real
+  ϕ_val_and_derivs,
+  t,
+  i::Real,
+  j::Real,
+  p::NamedTuple,
+  ::GradientCorrectedReconstruction,
+  Δξ::Real,
 )
   ϕⱼ, ϕηⱼ = ϕ_val_and_derivs(t, i, j, p)
   ϕⱼ₊₁, ϕηⱼ₊₁ = ϕ_val_and_derivs(t, i, j + 1, p)
@@ -1249,7 +1282,13 @@ function ϕ_jedge(
 end
 
 function ϕ_jedge(
-  ϕ_val_and_derivs, t, i::Real, j::Real, p::NamedTuple, ::CurvatureCorrectedReconstruction, Δξ::Real
+  ϕ_val_and_derivs,
+  t,
+  i::Real,
+  j::Real,
+  p::NamedTuple,
+  ::CurvatureCorrectedReconstruction,
+  Δξ::Real,
 )
   ϕⱼ, ϕηⱼ, ϕηηⱼ = ϕ_val_and_derivs(t, i, j, p)
   ϕⱼ₊₁, ϕηⱼ₊₁, ϕηηⱼ₊₁ = ϕ_val_and_derivs(t, i, j + 1, p)
@@ -1291,7 +1330,14 @@ function ϕ_iedge(
 end
 
 function ϕ_iedge(
-  ϕ_values, t, i::Real, j::Real, k::Real, p::NamedTuple, ::EndpointAverageReconstruction, Δξ::Real
+  ϕ_values,
+  t,
+  i::Real,
+  j::Real,
+  k::Real,
+  p::NamedTuple,
+  ::EndpointAverageReconstruction,
+  Δξ::Real,
 )
   return _edge_reconstruct(
     ϕ_values(t, i, j, k, p), ϕ_values(t, i + 1, j, k, p), EndpointAverageReconstruction()
@@ -1360,7 +1406,14 @@ function ϕ_jedge(
 end
 
 function ϕ_jedge(
-  ϕ_values, t, i::Real, j::Real, k::Real, p::NamedTuple, ::EndpointAverageReconstruction, Δξ::Real
+  ϕ_values,
+  t,
+  i::Real,
+  j::Real,
+  k::Real,
+  p::NamedTuple,
+  ::EndpointAverageReconstruction,
+  Δξ::Real,
 )
   return _edge_reconstruct(
     ϕ_values(t, i, j, k, p), ϕ_values(t, i, j + 1, k, p), EndpointAverageReconstruction()
@@ -1429,7 +1482,14 @@ function ϕ_kedge(
 end
 
 function ϕ_kedge(
-  ϕ_values, t, i::Real, j::Real, k::Real, p::NamedTuple, ::EndpointAverageReconstruction, Δξ::Real
+  ϕ_values,
+  t,
+  i::Real,
+  j::Real,
+  k::Real,
+  p::NamedTuple,
+  ::EndpointAverageReconstruction,
+  Δξ::Real,
 )
   return _edge_reconstruct(
     ϕ_values(t, i, j, k, p), ϕ_values(t, i, j, k + 1, p), EndpointAverageReconstruction()
@@ -1468,7 +1528,6 @@ function ϕ_kedge(
   )
 end
 
-
 # Cell-center derivative helpers.
 
 #-------------------------------------------------------------
@@ -1498,9 +1557,8 @@ function ∂ϕ_∂ξ_3d(ϕ, backend, ::GradientCorrectedReconstruction)
 end
 
 function ∂ϕ_∂ξ_3d(ϕ, backend, ::CurvatureCorrectedReconstruction)
-  ξ_derivs(t, i, j, k, p) = value_derivative_and_second_derivative(
-    ξ -> ϕ(t, ξ, j, k, p), backend, i
-  )
+  ξ_derivs(t, i, j, k, p) =
+    value_derivative_and_second_derivative(ξ -> ϕ(t, ξ, j, k, p), backend, i)
 
   function ϕᵢ₊½(t, i, j, k, p)
     ϕᵢ, ∂ϕ_∂ξᵢ, ∂²ϕ_∂ξ²ᵢ = ξ_derivs(t, i, j, k, p)
@@ -1538,9 +1596,8 @@ function ∂ϕ_∂η_3d(ϕ, backend, ::GradientCorrectedReconstruction)
 end
 
 function ∂ϕ_∂η_3d(ϕ, backend, ::CurvatureCorrectedReconstruction)
-  η_derivs(t, i, j, k, p) = value_derivative_and_second_derivative(
-    η -> ϕ(t, i, η, k, p), backend, j
-  )
+  η_derivs(t, i, j, k, p) =
+    value_derivative_and_second_derivative(η -> ϕ(t, i, η, k, p), backend, j)
 
   function ϕⱼ₊½(t, i, j, k, p)
     ϕⱼ, ∂ϕ_∂ηⱼ, ∂²ϕ_∂η²ⱼ = η_derivs(t, i, j, k, p)
@@ -1578,9 +1635,8 @@ function ∂ϕ_∂ζ_3d(ϕ, backend, ::GradientCorrectedReconstruction)
 end
 
 function ∂ϕ_∂ζ_3d(ϕ, backend, ::CurvatureCorrectedReconstruction)
-  ζ_derivs(t, i, j, k, p) = value_derivative_and_second_derivative(
-    ζ -> ϕ(t, i, j, ζ, p), backend, k
-  )
+  ζ_derivs(t, i, j, k, p) =
+    value_derivative_and_second_derivative(ζ -> ϕ(t, i, j, ζ, p), backend, k)
 
   function ϕₖ₊½(t, i, j, k, p)
     ϕₖ, ∂ϕ_∂ζₖ, ∂²ϕ_∂ζ²ₖ = ζ_derivs(t, i, j, k, p)
@@ -1593,7 +1649,6 @@ function ∂ϕ_∂ζ_3d(ϕ, backend, ::CurvatureCorrectedReconstruction)
   ∂ϕ_∂ζ(t, i, j, k, p) = ϕₖ₊½(t, i, j, k, p) - ϕₖ₊½(t, i, j, k - 1, p)
   return ∂ϕ_∂ζ
 end
-
 
 # Metric cache construction for mapping callbacks.
 
@@ -1611,10 +1666,9 @@ end
   return scheme
 end
 
-function _normalize_conserved_metric_scheme(
-  dim::Val{N}, ::ADThomasLombardMetric
-) where {N}
-  @warn "ADThomasLombardMetric simplifies to the direct metric form in 1-D/2-D." dimension = N
+function _normalize_conserved_metric_scheme(dim::Val{N}, ::ADThomasLombardMetric) where {N}
+  @warn "ADThomasLombardMetric simplifies to the direct metric form in 1-D/2-D." dimension =
+    N
   return _default_direct_metric_scheme()
 end
 
@@ -1625,9 +1679,7 @@ end
   edge_interpolation_scheme::EdgeInterpolationSchemeTrait,
 )
   scheme = _normalize_conserved_metric_scheme(dim, edge_interpolation_scheme)
-  MetricCache(
-    mapping_functions.x1, diff_backend; edge_interpolation_scheme=scheme
-  )
+  MetricCache(mapping_functions.x1, diff_backend; edge_interpolation_scheme=scheme)
 end
 @inline function _metric_cache_for_mapping(
   dim::Val{2},
@@ -1658,8 +1710,6 @@ end
     edge_interpolation_scheme=scheme,
   )
 end
-
-
 
 # Metric storage kernels and launchers.
 
@@ -1704,22 +1754,34 @@ end
   if edge_axis == 1
     G = _as_smatrix(Val(3), edge.Jinvᵢ₊½(t, ξηζ..., params))
     Ghat = @SMatrix [
-      edge.ξ̂xᵢ₊½(t, ξηζ..., params) edge.ξ̂yᵢ₊½(t, ξηζ..., params) edge.ξ̂zᵢ₊½(t, ξηζ..., params)
-      edge.η̂xᵢ₊½(t, ξηζ..., params) edge.η̂yᵢ₊½(t, ξηζ..., params) edge.η̂zᵢ₊½(t, ξηζ..., params)
+      edge.ξ̂xᵢ₊½(t, ξηζ..., params) edge.ξ̂yᵢ₊½(t, ξηζ..., params) edge.ξ̂zᵢ₊½(
+        t, ξηζ..., params
+      )
+      edge.η̂xᵢ₊½(t, ξηζ..., params) edge.η̂yᵢ₊½(t, ξηζ..., params) edge.η̂zᵢ₊½(
+        t, ξηζ..., params
+      )
       edge.ζ̂xᵢ₊½(t, ξηζ..., params) edge.ζ̂yᵢ₊½(t, ξηζ..., params) edge.ζ̂zᵢ₊½(t, ξηζ..., params)
     ]
   elseif edge_axis == 2
     G = _as_smatrix(Val(3), edge.Jinvⱼ₊½(t, ξηζ..., params))
     Ghat = @SMatrix [
-      edge.ξ̂xⱼ₊½(t, ξηζ..., params) edge.ξ̂yⱼ₊½(t, ξηζ..., params) edge.ξ̂zⱼ₊½(t, ξηζ..., params)
-      edge.η̂xⱼ₊½(t, ξηζ..., params) edge.η̂yⱼ₊½(t, ξηζ..., params) edge.η̂zⱼ₊½(t, ξηζ..., params)
+      edge.ξ̂xⱼ₊½(t, ξηζ..., params) edge.ξ̂yⱼ₊½(t, ξηζ..., params) edge.ξ̂zⱼ₊½(
+        t, ξηζ..., params
+      )
+      edge.η̂xⱼ₊½(t, ξηζ..., params) edge.η̂yⱼ₊½(t, ξηζ..., params) edge.η̂zⱼ₊½(
+        t, ξηζ..., params
+      )
       edge.ζ̂xⱼ₊½(t, ξηζ..., params) edge.ζ̂yⱼ₊½(t, ξηζ..., params) edge.ζ̂zⱼ₊½(t, ξηζ..., params)
     ]
   elseif edge_axis == 3
     G = _as_smatrix(Val(3), edge.Jinvₖ₊½(t, ξηζ..., params))
     Ghat = @SMatrix [
-      edge.ξ̂xₖ₊½(t, ξηζ..., params) edge.ξ̂yₖ₊½(t, ξηζ..., params) edge.ξ̂zₖ₊½(t, ξηζ..., params)
-      edge.η̂xₖ₊½(t, ξηζ..., params) edge.η̂yₖ₊½(t, ξηζ..., params) edge.η̂zₖ₊½(t, ξηζ..., params)
+      edge.ξ̂xₖ₊½(t, ξηζ..., params) edge.ξ̂yₖ₊½(t, ξηζ..., params) edge.ξ̂zₖ₊½(
+        t, ξηζ..., params
+      )
+      edge.η̂xₖ₊½(t, ξηζ..., params) edge.η̂yₖ₊½(t, ξηζ..., params) edge.η̂zₖ₊½(
+        t, ξηζ..., params
+      )
       edge.ζ̂xₖ₊½(t, ξηζ..., params) edge.ζ̂yₖ₊½(t, ξηζ..., params) edge.ζ̂zₖ₊½(t, ξηζ..., params)
     ]
   else
@@ -2278,16 +2340,10 @@ end
   jc = clamp(j, 1, nj)
   kc = clamp(k, 1, nk)
   Iglobal = global_domain[CartesianIndex(ic, jc, kc)]
-  return (
-    Iglobal.I[1] + i - ic,
-    Iglobal.I[2] + j - jc,
-    Iglobal.I[3] + k - kc,
-  )
+  return (Iglobal.I[1] + i - ic, Iglobal.I[2] + j - jc, Iglobal.I[3] + k - kc)
 end
 
-@inline function _shift_array_axis(
-  i::Int, j::Int, k::Int, axis::Int, offset::Int
-)
+@inline function _shift_array_axis(i::Int, j::Int, k::Int, axis::Int, offset::Int)
   if axis == 1
     return i + offset, j, k
   elseif axis == 2
@@ -2351,8 +2407,7 @@ end
   z = edge.z(t, ξ, η, ζ, params)
   return SVector{3}(
     ntuple(
-      n -> _ad_thomas_lombard_potential_from_values(F, x, y, z, potential_ids[n]),
-      Val(3),
+      n -> _ad_thomas_lombard_potential_from_values(F, x, y, z, potential_ids[n]), Val(3)
     ),
   )
 end
@@ -2383,9 +2438,7 @@ end
 @inline _ad_thomas_lombard_pair_axis_a_tag() = nothing
 @inline _ad_thomas_lombard_pair_axis_b_tag() = nothing
 
-@inline function _ad_thomas_lombard_seed_second_axis(
-  ::Val{1}, tag_function, ξ, η, ζ
-)
+@inline function _ad_thomas_lombard_seed_second_axis(::Val{1}, tag_function, ξ, η, ζ)
   coord_value = ξ
   tag1 = ForwardDiff.Tag(tag_function, typeof(coord_value))
   tag1_type = typeof(tag1)
@@ -2396,9 +2449,7 @@ end
   return coord2, η, ζ, tag1_type, tag2_type
 end
 
-@inline function _ad_thomas_lombard_seed_second_axis(
-  ::Val{2}, tag_function, ξ, η, ζ
-)
+@inline function _ad_thomas_lombard_seed_second_axis(::Val{2}, tag_function, ξ, η, ζ)
   coord_value = η
   tag1 = ForwardDiff.Tag(tag_function, typeof(coord_value))
   tag1_type = typeof(tag1)
@@ -2409,9 +2460,7 @@ end
   return ξ, coord2, ζ, tag1_type, tag2_type
 end
 
-@inline function _ad_thomas_lombard_seed_second_axis(
-  ::Val{3}, tag_function, ξ, η, ζ
-)
+@inline function _ad_thomas_lombard_seed_second_axis(::Val{3}, tag_function, ξ, η, ζ)
   coord_value = ζ
   tag1 = ForwardDiff.Tag(tag_function, typeof(coord_value))
   tag1_type = typeof(tag1)
@@ -2512,21 +2561,15 @@ function _ad_thomas_lombard_potential_axis_derivs(
   backend = edge.diff_backend
   if axis == 1
     return value_derivative_and_second_derivative(
-      s -> _ad_thomas_lombard_potential(edge, potential_id, t, s, η, ζ, params),
-      backend,
-      ξ,
+      s -> _ad_thomas_lombard_potential(edge, potential_id, t, s, η, ζ, params), backend, ξ
     )
   elseif axis == 2
     return value_derivative_and_second_derivative(
-      s -> _ad_thomas_lombard_potential(edge, potential_id, t, ξ, s, ζ, params),
-      backend,
-      η,
+      s -> _ad_thomas_lombard_potential(edge, potential_id, t, ξ, s, ζ, params), backend, η
     )
   elseif axis == 3
     return value_derivative_and_second_derivative(
-      s -> _ad_thomas_lombard_potential(edge, potential_id, t, ξ, η, s, params),
-      backend,
-      ζ,
+      s -> _ad_thomas_lombard_potential(edge, potential_id, t, ξ, η, s, params), backend, ζ
     )
   else
     throw(ArgumentError("Invalid AD Thomas-Lombard potential derivative axis: $axis"))
@@ -2546,18 +2589,15 @@ function _ad_thomas_lombard_potential_axis_derivs_vector(
 ) where {Axis}
   if Axis == 1
     return _forwarddiff_value_derivative_and_second_derivative(
-      s -> _ad_thomas_lombard_potential_vector(edge, potential_ids, t, s, η, ζ, params),
-      ξ,
+      s -> _ad_thomas_lombard_potential_vector(edge, potential_ids, t, s, η, ζ, params), ξ
     )
   elseif Axis == 2
     return _forwarddiff_value_derivative_and_second_derivative(
-      s -> _ad_thomas_lombard_potential_vector(edge, potential_ids, t, ξ, s, ζ, params),
-      η,
+      s -> _ad_thomas_lombard_potential_vector(edge, potential_ids, t, ξ, s, ζ, params), η
     )
   elseif Axis == 3
     return _forwarddiff_value_derivative_and_second_derivative(
-      s -> _ad_thomas_lombard_potential_vector(edge, potential_ids, t, ξ, η, s, params),
-      ζ,
+      s -> _ad_thomas_lombard_potential_vector(edge, potential_ids, t, ξ, η, s, params), ζ
     )
   else
     throw(ArgumentError("Invalid AD Thomas-Lombard potential derivative axis: $Axis"))
@@ -2643,18 +2683,20 @@ function _ad_thomas_lombard_potential_pair_derivs_vector(
     Val(AxisA), _ad_thomas_lombard_pair_axis_a_tag, ξb, ηb, ζb
   )
 
-  Pdual = _ad_thomas_lombard_potential_vector(
-    edge, potential_ids, t, ξab, ηab, ζab, params
+  Pdual = _ad_thomas_lombard_potential_vector(edge, potential_ids, t, ξab, ηab, ζab, params)
+  P_bdual, Pa_bdual, Paa_bdual = _forwarddiff_extract_value_derivative_and_second_derivative(
+    Ta1, Ta2, Pdual
   )
-  P_bdual, Pa_bdual, Paa_bdual =
-    _forwarddiff_extract_value_derivative_and_second_derivative(Ta1, Ta2, Pdual)
 
-  P, Pb, Pbb =
-    _forwarddiff_extract_value_derivative_and_second_derivative(Tb1, Tb2, P_bdual)
-  Pa, Pab, Pabb =
-    _forwarddiff_extract_value_derivative_and_second_derivative(Tb1, Tb2, Pa_bdual)
-  Paa, Paab, Paabb =
-    _forwarddiff_extract_value_derivative_and_second_derivative(Tb1, Tb2, Paa_bdual)
+  P, Pb, Pbb = _forwarddiff_extract_value_derivative_and_second_derivative(
+    Tb1, Tb2, P_bdual
+  )
+  Pa, Pab, Pabb = _forwarddiff_extract_value_derivative_and_second_derivative(
+    Tb1, Tb2, Pa_bdual
+  )
+  Paa, Paab, Paabb = _forwarddiff_extract_value_derivative_and_second_derivative(
+    Tb1, Tb2, Paa_bdual
+  )
   return P, Pa, Paa, Pb, Pab, Paab, Pbb, Pabb, Paabb
 end
 
@@ -2815,14 +2857,7 @@ end
   k::Int,
 )
   return _edge_reconstruct_from_pair_table(
-    table,
-    value_id,
-    normal_deriv_id,
-    normal_second_deriv_id,
-    Val(normal_axis),
-    i,
-    j,
-    k,
+    table, value_id, normal_deriv_id, normal_second_deriv_id, Val(normal_axis), i, j, k
   )
 end
 
@@ -2849,12 +2884,7 @@ end
 end
 
 @inline function _edge_potential_values_from_pair_table(
-  table,
-  normal_axis::Int,
-  normal_is_axis_a::Bool,
-  i::Int,
-  j::Int,
-  k::Int,
+  table, normal_axis::Int, normal_is_axis_a::Bool, i::Int, j::Int, k::Int
 )
   return _edge_potential_values_from_pair_table(
     table, Val(normal_axis), Val(normal_is_axis_a), i, j, k
@@ -2862,12 +2892,7 @@ end
 end
 
 @inline function _edge_potential_values_from_pair_table(
-  table,
-  normal_axis::Val,
-  ::Val{NormalIsAxisA},
-  i::Int,
-  j::Int,
-  k::Int,
+  table, normal_axis::Val, ::Val{NormalIsAxisA}, i::Int, j::Int, k::Int
 ) where {NormalIsAxisA}
   if NormalIsAxisA
     Q = _edge_reconstruct_from_pair_table(table, 1, 2, 3, normal_axis, i, j, k)
@@ -2882,33 +2907,15 @@ end
 end
 
 @inline function _array_derivative_from_pair_table(
-  table,
-  normal_axis::Int,
-  deriv_axis::Int,
-  normal_is_axis_a::Bool,
-  i::Int,
-  j::Int,
-  k::Int,
+  table, normal_axis::Int, deriv_axis::Int, normal_is_axis_a::Bool, i::Int, j::Int, k::Int
 )
   return _array_derivative_from_pair_table(
-    table,
-    Val(normal_axis),
-    Val(deriv_axis),
-    Val(normal_is_axis_a),
-    i,
-    j,
-    k,
+    table, Val(normal_axis), Val(deriv_axis), Val(normal_is_axis_a), i, j, k
   )
 end
 
 @inline function _array_derivative_from_pair_table(
-  table,
-  normal_axis::Val,
-  deriv_axis::Val,
-  normal_is_axis_a::Val,
-  i::Int,
-  j::Int,
-  k::Int,
+  table, normal_axis::Val, deriv_axis::Val, normal_is_axis_a::Val, i::Int, j::Int, k::Int
 )
   ip, jp, kp = _shift_array_axis(i, j, k, deriv_axis, 1)
   im, jm, km = _shift_array_axis(i, j, k, deriv_axis, -1)
@@ -2923,8 +2930,12 @@ end
     table, normal_axis, normal_is_axis_a, im, jm, km
   )
 
-  edge_high = _edge_reconstruct(Q, Qd, Qdd, Qp, Qdp, Qddp, CurvatureCorrectedReconstruction())
-  edge_low = _edge_reconstruct(Qm, Qdm, Qddm, Q, Qd, Qdd, CurvatureCorrectedReconstruction())
+  edge_high = _edge_reconstruct(
+    Q, Qd, Qdd, Qp, Qdp, Qddp, CurvatureCorrectedReconstruction()
+  )
+  edge_low = _edge_reconstruct(
+    Qm, Qdm, Qddm, Q, Qd, Qdd, CurvatureCorrectedReconstruction()
+  )
   return edge_high - edge_low
 end
 
@@ -2964,9 +2975,10 @@ function _accumulate_ad_thomas_lombard_term_3d!(
   Threads.@threads for I in local_domain
     @inbounds begin
       i, j, k = I.I
-      out[I] += sign * _array_derivative_from_ad_thomas_lombard_edge_potential(
-        Q, Qb, Qbb, deriv_axis, i + 1, j + 1, k + 1
-      )
+      out[I] +=
+        sign * _array_derivative_from_ad_thomas_lombard_edge_potential(
+          Q, Qb, Qbb, deriv_axis, i + 1, j + 1, k + 1
+        )
     end
   end
 
@@ -2974,14 +2986,7 @@ function _accumulate_ad_thomas_lombard_term_3d!(
 end
 
 function _accumulate_ad_thomas_lombard_pair_orientations_3d!(
-  out_a,
-  sign_a,
-  out_b,
-  sign_b,
-  table,
-  axis_a::Val,
-  axis_b::Val,
-  local_domain,
+  out_a, sign_a, out_b, sign_b, table, axis_a::Val, axis_b::Val, local_domain
 )
   Threads.@threads for I in local_domain
     @inbounds begin
@@ -2989,12 +2994,8 @@ function _accumulate_ad_thomas_lombard_pair_orientations_3d!(
       ip = i + 1
       jp = j + 1
       kp = k + 1
-      dQa = _array_derivative_from_pair_table(
-        table, axis_a, axis_b, Val(true), ip, jp, kp
-      )
-      dQb = _array_derivative_from_pair_table(
-        table, axis_b, axis_a, Val(false), ip, jp, kp
-      )
+      dQa = _array_derivative_from_pair_table(table, axis_a, axis_b, Val(true), ip, jp, kp)
+      dQb = _array_derivative_from_pair_table(table, axis_b, axis_a, Val(false), ip, jp, kp)
       out_a[I] += sign_a * dQa
       out_b[I] += sign_b * dQb
     end
@@ -3070,14 +3071,7 @@ function _accumulate_ad_thomas_lombard_pair_3d!(
     T,
   )
   _accumulate_ad_thomas_lombard_pair_orientations_3d!(
-    out_a,
-    sign_a,
-    out_b,
-    sign_b,
-    table,
-    axis_a,
-    axis_b,
-    local_domain,
+    out_a, sign_a, out_b, sign_b, table, axis_a, axis_b, local_domain
   )
 
   return nothing

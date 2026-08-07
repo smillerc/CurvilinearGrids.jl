@@ -105,7 +105,6 @@ end
 
 #
 
-
 # Constructor validation helpers.
 
 @inline function _check_unified_basis_trait(basis::BasisTrait)

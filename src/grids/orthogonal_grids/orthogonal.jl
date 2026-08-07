@@ -53,9 +53,7 @@ include("spherical_2d.jl")
 include("spherical_3d.jl")
 include("pad_with_halo.jl")
 
-function _prepare_1d_coordinates(
-  _x, nhalo, halo_coords_included; padder=pad_with_halo
-)
+function _prepare_1d_coordinates(_x, nhalo, halo_coords_included; padder=pad_with_halo)
   if !halo_coords_included
     x = padder(_x, nhalo)
   else
@@ -70,7 +68,9 @@ function _prepare_1d_coordinates(
 end
 
 function _prepare_nd_coordinates(
-  _coords::NTuple{N}, nhalo, halo_coords_included;
+  _coords::NTuple{N},
+  nhalo,
+  halo_coords_included;
   padders=ntuple(_ -> pad_with_halo, Val(N)),
 ) where {N}
   if !halo_coords_included

@@ -81,9 +81,7 @@ end
   return R .* cosθ .* onez, R .* sinθ .* onez, oner .* oneθ .* Z
 end
 
-@inline function _cartesian_coordinates(
-  ::CylindricalCS, q::NTuple{3,<:AbstractArray}
-)
+@inline function _cartesian_coordinates(::CylindricalCS, q::NTuple{3,<:AbstractArray})
   r, θ, z = q
   x = @. r * cos(θ)
   y = @. r * sin(θ)

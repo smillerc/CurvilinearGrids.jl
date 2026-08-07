@@ -182,8 +182,7 @@ end
   qaxi = face_coordinate(axisym2, I2, :ihi)
   Gaxi = face_metrics(axisym2)[1].conserved[I2...].jacobian_matrix
   geom_axi = face_flux_geometry(axisym2, I2, :ihi)
-  @test geom_axi.metric_vector ≈
-    (2π * abs(qaxi[1])) * (@SVector [Gaxi[1, 1], Gaxi[1, 2]]) atol=1.0e-12
+  @test geom_axi.metric_vector ≈ (2π * abs(qaxi[1])) * (@SVector [Gaxi[1, 1], Gaxi[1, 2]]) atol=1.0e-12
 
   params3 = (; ni=6, nj=5, nk=4, r0=1.4, θ0=0.45, ϕ0=0.3, Δr=0.08, Δθ=0.07, Δϕ=0.06)
   params_s2 = (; ni=6, nj=5, r0=1.4, θ0=0.45, Δr=0.08, Δθ=0.07)

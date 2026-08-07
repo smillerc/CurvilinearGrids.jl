@@ -176,10 +176,9 @@ function interface_index_plan(
   right_to_left = Pair{CartesianIndex{N},CartesianIndex{N}}[]
 
   for layer in 1:depth
-    left_interior, right_interior, left_ghost, right_ghost =
-      _paired_interface_layer_indices(
-        left_domain, left_face, right_domain, right_face, perm, flip, layer, Val(N)
-      )
+    left_interior, right_interior, left_ghost, right_ghost = _paired_interface_layer_indices(
+      left_domain, left_face, right_domain, right_face, perm, flip, layer, Val(N)
+    )
     for i in eachindex(left_interior)
       if _index_in_domain(left_interior[i], left_valid_domain) &&
         _index_in_domain(right_ghost[i], right_valid_domain)
@@ -251,7 +250,9 @@ end
   return true
 end
 
-@inline function _index_in_domain(idx::CartesianIndex{N}, domain::CartesianIndices{N}) where {N}
+@inline function _index_in_domain(
+  idx::CartesianIndex{N}, domain::CartesianIndices{N}
+) where {N}
   return all(i -> first(domain.indices[i]) <= idx[i] <= last(domain.indices[i]), 1:N)
 end
 
@@ -264,22 +265,18 @@ function _validate_interface_index_mapping(
   flips::Tuple,
   ::Val{N},
 ) where {N}
-  length(permutation) == N - 1 ||
-    throw(
-      ArgumentError(
-        "Invalid `permutation` length $(length(permutation)); expected $(N - 1)."
-      ),
-    )
+  length(permutation) == N - 1 || throw(
+    ArgumentError(
+      "Invalid `permutation` length $(length(permutation)); expected $(N - 1)."
+    ),
+  )
   length(flips) == N - 1 ||
-    throw(
-      ArgumentError("Invalid `flips` length $(length(flips)); expected $(N - 1).")
-    )
-  sort(collect(permutation)) == collect(1:(N - 1)) ||
-    throw(
-      ArgumentError(
-        "Invalid tangential `permutation`. Expected a permutation of `1:$(N - 1)`."
-      ),
-    )
+    throw(ArgumentError("Invalid `flips` length $(length(flips)); expected $(N - 1)."))
+  sort(collect(permutation)) == collect(1:(N - 1)) || throw(
+    ArgumentError(
+      "Invalid tangential `permutation`. Expected a permutation of `1:$(N - 1)`."
+    ),
+  )
   all(x -> x isa Bool, flips) || throw(ArgumentError("`flips` entries must be booleans."))
 
   left_tangential = _face_tangential_ranges(left_domain, left_face, Val(N))
@@ -366,7 +363,7 @@ function _validate_exchange_depth(mb::MultiBlockMesh, depth::Integer)
     if depth > block.nhalo
       throw(
         ArgumentError(
-          "`depth=$depth` exceeds halo width $(block.nhalo) for block $block_id.",
+          "`depth=$depth` exceeds halo width $(block.nhalo) for block $block_id."
         ),
       )
     end
@@ -386,8 +383,9 @@ function _exchange_interface_layer!(
 ) where {N,T}
   left_values = fields[iface.left.block_id]
   right_values = fields[iface.right.block_id]
-  left_interior, right_interior, left_ghost, right_ghost =
-    _paired_interface_layer_indices(mb, iface, layer, Val(N))
+  left_interior, right_interior, left_ghost, right_ghost = _paired_interface_layer_indices(
+    mb, iface, layer, Val(N)
+  )
   left_to_right_transform, right_to_left_transform = if field_kind === :scalar
     nothing, nothing
   else

@@ -462,14 +462,13 @@ face normals, and face areas.
 @inline _surface_component_names(::Val{2}) = ["x1", "x2"]
 @inline _surface_component_names(::Val{3}) = ["x1", "x2", "x3"]
 
-@inline _surface_scalar_cell_field(data::AbstractVector, ::SurfaceGrid{2}) = reshape(
-  data, :, 1
-)
+@inline _surface_scalar_cell_field(data::AbstractVector, ::SurfaceGrid{2}) =
+  reshape(data, :, 1)
 @inline _surface_scalar_cell_field(data::AbstractArray, ::SurfaceGrid{3}) = data
 
-@inline _surface_vector_cell_field(data::NTuple{N,<:AbstractVector}, ::SurfaceGrid{2}) where {N} = ntuple(
-  i -> reshape(data[i], :, 1), N
-)
+@inline _surface_vector_cell_field(
+  data::NTuple{N,<:AbstractVector}, ::SurfaceGrid{2}
+) where {N} = ntuple(i -> reshape(data[i], :, 1), N)
 @inline _surface_vector_cell_field(
   data::NTuple{N,<:AbstractArray}, ::SurfaceGrid{3}
 ) where {N} = data

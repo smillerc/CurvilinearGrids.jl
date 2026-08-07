@@ -8,9 +8,8 @@ export save_vtk
 
 @inline _matrix_component_names(::Val{1}) = ["x11"]
 @inline _matrix_component_names(::Val{2}) = ["x11", "x12", "x21", "x22"]
-@inline _matrix_component_names(::Val{3}) = [
-  "x11", "x12", "x13", "x21", "x22", "x23", "x31", "x32", "x33"
-]
+@inline _matrix_component_names(::Val{3}) =
+  ["x11", "x12", "x13", "x21", "x22", "x23", "x31", "x32", "x33"]
 @inline _gcl_component_names(::Val{1}) = ["I1"]
 @inline _gcl_component_names(::Val{2}) = ["I1", "I2"]
 @inline _gcl_component_names(::Val{3}) = ["I1", "I2", "I3"]
