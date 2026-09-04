@@ -470,7 +470,7 @@ end
     reference_values = Array(getproperty(reference_cell, kind)[cell_ranges...])
     @test all(
       isapprox(a.jacobian_matrix, b.jacobian_matrix; rtol=1e-12, atol=1e-12) &&
-        isapprox(a.J, b.J; rtol=1e-12, atol=1e-12) for
+      isapprox(a.J, b.J; rtol=1e-12, atol=1e-12) for
       (a, b) in zip(local_values, reference_values)
     )
   end
