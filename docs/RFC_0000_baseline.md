@@ -4,6 +4,19 @@
 - Package: `CurvilinearGrids.jl`
 - Version Baseline: `0.11.2`
 
+## Writing style
+
+Use ASD-STE100 Simplified Technical English by default for all prose in this
+package. This rule applies to responses, documentation, specifications,
+docstrings, code comments, examples, release notes, and diagnostic messages.
+
+- Use short sentences and active voice.
+- Use one consistent term for each concept. Give clear, direct instructions.
+- Preserve technical accuracy, equations, API names, and required domain terms.
+- Follow another writing style when the user requests it.
+- Do not claim full ASD-STE100 compliance unless you have checked the applicable
+  rules and dictionary.
+
 ## 1. Purpose
 
 `CurvilinearGrids.jl` provides structured grid types and metric machinery for PDE discretizations on curvilinear meshes, with emphasis on conservative metric evaluation and halo-aware indexing.
