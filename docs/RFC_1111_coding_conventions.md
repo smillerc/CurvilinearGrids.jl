@@ -63,7 +63,7 @@ Module docstrings SHOULD provide a concise high-level description.
 
 ## 4. Formatting
 
-- Source formatting MUST use JuliaFormatter with repository settings from `.JuliaFormatter.toml`.
+- Source formatting MUST use JuliaFormatter with repository settings from `JuliaFormat.toml`.
 
 ## 5. Module Imports
 
