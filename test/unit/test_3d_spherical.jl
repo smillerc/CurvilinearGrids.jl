@@ -94,13 +94,14 @@ using Polynomials
     for I in cell.domain
       i, j, k = Tuple(I)
 
-      Δμ = cos(θ[j]) - cos(θ[j + 1])
+      Δμ = eltype(θ)(cos(BigFloat(θ[j])) - cos(BigFloat(θ[j + 1])))
+      Δθ = θ[j + 1] - θ[j]
       Δϕ = ϕ[k + 1] - ϕ[k]
       Δr2 = r[i + 1]^2 - r[i]^2
 
       Ai_true = r[i + 1]^2 * Δμ * Δϕ
       Aj_true = 0.5 * Δr2 * sin(θ[j + 1]) * Δϕ
-      Ak_true = 0.5 * Δr2 * Δμ
+      Ak_true = 0.5 * Δr2 * Δθ
 
       face_areas_are_correct = (
         isapprox(Ai[I], Ai_true; rtol=1e-12) &&
