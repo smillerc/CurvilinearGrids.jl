@@ -1,10 +1,14 @@
 # Changelog
 
-## Unreleased
+## v0.13.5 - 2026-10-15
 
 Changes since `v0.13.0`:
 
 ### Fixed
+- Corrected spherical 3D orthogonal-grid azimuthal face areas to use the
+  polar-angle interval instead of the cosine difference.
+- Improved spherical 3D orthogonal-grid radial face-area accuracy near the
+  poles by using a stable polar-angle factor.
 - Added HDF5 coordinate serialization and reconstruction for 1D, 2D, and 3D
   unified orthogonal grids, including Cartesian, cylindrical, axisymmetric, and
   spherical coordinate systems.
