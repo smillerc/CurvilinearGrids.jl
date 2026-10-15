@@ -233,7 +233,7 @@ end
   i, j, k = I.I # these are CELL indices
 
   # these are NODE indexed
-  Δμ = cos(θ[j]) - cos(θ[j + 1])
+  Δμ = theta_factor_stable(θ[j], θ[j + 1])
   Δϕ = ϕ[k + 1] - ϕ[k]
 
   # this uses CELL indexing, e.g. for cell i,j,k, the i+1/2 face area is...
@@ -263,11 +263,11 @@ end
   i, j, k = I.I
 
   # these are NODE indexed
-  Δμ = cos(θ[j]) - cos(θ[j + 1])
+  Δθ = θ[j + 1] - θ[j]
   Δr² = r[i + 1]^2 - r[i]^2
 
   # this uses CELL indexing, e.g. for cell i,j,k, the k+1/2 face area is...
-  Aₖ₊½[i, j, k] = T(1 / 2) * Δr² * Δμ
+  Aₖ₊½[i, j, k] = T(1 / 2) * Δr² * Δθ
 end
 
 @kernel function _compute_volumes!(V::AbstractArray{T,N}, r, θ, ϕ, cell_domain) where {T,N}

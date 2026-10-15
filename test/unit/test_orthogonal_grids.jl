@@ -32,6 +32,38 @@
     @test isapprox(grid.face_areas[1][domain][1], 36π)
   end
 
+  @testset "Spherical 3D face areas" begin
+    for T in (Float32, Float64), nhalo in (0, 1)
+      r = T[1, 2, 4]
+      θ = T[0, π / 3, π / 2]
+      ϕ = T[0, 0.4, 1.1]
+      grid = SphericalGrid3D(r, θ, ϕ, nhalo, backend)
+      KernelAbstractions.synchronize(backend)
+
+      for I in grid.iterators.cell.domain
+        i, j, k = Tuple(I) .- nhalo
+        # A constant-ϕ face is a planar annular sector.
+        expected = (r[i + 1]^2 - r[i]^2) * (θ[j + 1] - θ[j]) / 2
+        @test isapprox(grid.face_areas[3][I], expected; rtol=10eps(T))
+      end
+    end
+  end
+
+  @testset "Spherical 3D radial face near the pole" begin
+    for T in (Float32, Float64)
+      r = T[1, 2]
+      θ = T[0, 1e-9]
+      ϕ = T[0, 0.4]
+      grid = SphericalGrid3D(r, θ, ϕ, 0, backend)
+      KernelAbstractions.synchronize(backend)
+
+      # Evaluate the spherical cap area at high precision to avoid cancellation.
+      expected = T(BigFloat(r[2])^2 * (1 - cos(BigFloat(θ[2]))) * BigFloat(ϕ[2]))
+      @test grid.face_areas[1][1, 1, 1] > 0
+      @test isapprox(grid.face_areas[1][1, 1, 1], expected; rtol=10eps(T))
+    end
+  end
+
   @testset "Halo coordinate geometry" begin
     nhalo = 2
 
