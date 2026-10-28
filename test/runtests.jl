@@ -62,6 +62,7 @@ const QUICK_TESTS = "--quick" in ARGS
 
   @info "MultiBlock"
   include("unit/test_multiblock.jl")
+  include("unit/test_multiblock_face_normals.jl")
 
   if !isnothing(Base.find_package("Makie"))
     @info "Makie Extension"

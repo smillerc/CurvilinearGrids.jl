@@ -341,7 +341,7 @@ end
   grid::AbstractMappedOrDiscreteGrid, idx::CartesianIndex{N}, face::BlockFace{N}, ::Val{N}
 ) where {N}
   T = eltype(grid)
-  ξ = _face_computational_coordinate(idx, face, T, Val(N))
+  ξ = _face_computational_coordinate(grid, idx, face, T, Val(N))
   q = _as_coord_svector(coord(grid, ξ), T, N)
   Jq = forward_cell_metrics(grid, ξ).jacobian_matrix
   A = _coord_to_cartesian_jacobian(coordinate_system(grid), q)
@@ -385,14 +385,21 @@ end
 end
 
 @inline function _face_computational_coordinate(
-  idx::CartesianIndex{N}, face::BlockFace{N}, ::Type{T}, ::Val{N}
+  grid::AbstractMappedOrDiscreteGrid,
+  idx::CartesianIndex{N},
+  face::BlockFace{N},
+  ::Type{T},
+  ::Val{N},
 ) where {N,T}
+  Iglobal = grid.iterators.global_domain.cell.full[idx]
+  # Mapping coordinates exclude halos; cell centers lie half a cell above nodes.
   return ntuple(
     d -> begin
+      center = T(Iglobal.I[d] - grid.nhalo) + T(0.5)
       if d == face.axis
-        return face.side === :max ? T(idx.I[d]) + T(0.5) : T(idx.I[d]) - T(0.5)
+        return face.side === :max ? center + T(0.5) : center - T(0.5)
       end
-      return T(idx.I[d])
+      return center
     end, N
   )
 end
