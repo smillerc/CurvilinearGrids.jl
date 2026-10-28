@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.13.6 - 2026-10-28
+
+- Support KernelAbstractions 0.10.3 with native CPU grid and metric construction.
+
 ## v0.13.5 - 2026-10-15
 
 Changes since `v0.13.0`:

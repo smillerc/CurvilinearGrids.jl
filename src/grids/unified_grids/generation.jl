@@ -308,9 +308,30 @@ end
   z[I] = x3_map(t, ξ, η, ζ, params)
 end
 
+# CPU mapping callbacks can retain host data and symbolic parameters.
+function _compute_unified_coordinates_cpu!(
+  coordinates, mappings, local_domain, global_domain, nhalo, t, params, offsets::NTuple{N},
+) where {N}
+  Threads.@threads for idx in eachindex(local_domain)
+    I = local_domain[idx]
+    Iglobal = global_domain[I]
+    q = ntuple(d -> Iglobal.I[d] - nhalo + offsets[d], Val(N))
+    for d in 1:N
+      coordinates[d][I] = getfield(mappings, d)(t, q..., params)
+    end
+  end
+  return nothing
+end
+
 function _compute_unified_node_coordinates!(
   node_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{N}, backend
 ) where {N}
+  if backend isa KernelAbstractions.CPU
+    return _compute_unified_coordinates_cpu!(
+      node_coordinates, mapping_functions, iterators.node.full, iterators.global_domain.node.full,
+      nhalo, t, params, ntuple(_ -> 0, Val(N))
+    )
+  end
   _compute_unified_node_coordinates!(
     backend, node_coordinates, mapping_functions, iterators, nhalo, t, params, Val(N)
   )
@@ -410,6 +431,13 @@ function _compute_unified_centroid_coordinates!(
   ::Val{N},
   backend,
 ) where {N}
+  if backend isa KernelAbstractions.CPU
+    half = one(eltype(centroid_coordinates[1])) / 2
+    return _compute_unified_coordinates_cpu!(
+      centroid_coordinates, mapping_functions, iterators.cell.full, iterators.global_domain.cell.full,
+      nhalo, t, params, ntuple(_ -> half, Val(N))
+    )
+  end
   _compute_unified_centroid_coordinates!(
     backend, centroid_coordinates, mapping_functions, iterators, nhalo, t, params, Val(N)
   )
@@ -502,6 +530,17 @@ end
 function _compute_unified_face_coordinates!(
   face_coordinates, mapping_functions, iterators, nhalo::Int, t, params, ::Val{N}, backend
 ) where {N}
+  if backend isa KernelAbstractions.CPU
+    half = one(eltype(face_coordinates[1][1])) / 2
+    for axis in 1:N
+      offsets = ntuple(d -> half + (d == axis ? half : zero(half)), Val(N))
+      _compute_unified_coordinates_cpu!(
+        face_coordinates[axis], mapping_functions, iterators.cell.full, iterators.global_domain.cell.full,
+        nhalo, t, params, offsets
+      )
+    end
+    return nothing
+  end
   _compute_unified_face_coordinates!(
     backend, face_coordinates, mapping_functions, iterators, nhalo, t, params, Val(N)
   )

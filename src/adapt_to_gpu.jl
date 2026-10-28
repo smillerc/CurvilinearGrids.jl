@@ -170,12 +170,12 @@ function Adapt.adapt_structure(to, grid::OrthogonalGrid)
   )
 end
 
-function _adapt_orthogonal_grid(::KernelAbstractions.GPU, to, grid::OrthogonalGrid)
+function _adapt_orthogonal_grid(::KernelAbstractions.Backend, to, grid::OrthogonalGrid)
   _ = to
   return grid
 end
 
-function _adapt_orthogonal_grid(::KernelAbstractions.Backend, to, grid::OrthogonalGrid)
+function _adapt_orthogonal_grid(::KernelAbstractions.CPU, to, grid::OrthogonalGrid)
   node_coordinates = Adapt.adapt_structure(to, grid.node_coordinates)
   centroid_coordinates = Adapt.adapt_structure(to, grid.centroid_coordinates)
   cell_volumes = Adapt.adapt_structure(to, grid.cell_volumes)
@@ -203,12 +203,12 @@ function Adapt.adapt_structure(to, caches::GridTypes.UnifiedMetricCaches)
   return GridTypes.UnifiedMetricCaches(cell, face)
 end
 
-@inline function _adapted_unified_backend(backend::KernelAbstractions.GPU, node_coordinates)
+@inline function _adapted_unified_backend(backend::KernelAbstractions.Backend, node_coordinates)
   _ = node_coordinates
   return backend
 end
 
-@inline _adapted_unified_backend(::KernelAbstractions.Backend, node_coordinates) =
+@inline _adapted_unified_backend(::KernelAbstractions.CPU, node_coordinates) =
   KernelAbstractions.get_backend(node_coordinates[1])
 
 function Adapt.adapt_structure(to, grid::MappedGrid{N,T,CS,BT}) where {N,T,CS,BT}

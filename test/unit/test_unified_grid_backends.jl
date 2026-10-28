@@ -36,7 +36,7 @@ end
 
 const _UNIFIED_TEST_BACKENDS = _unified_test_backends()
 
-struct _UnifiedMockGPUBackend <: KernelAbstractions.GPU end
+struct _UnifiedMockGPUBackend <: KernelAbstractions.Backend end
 
 function _host_face_metrics(face_storage::Tuple)
   ntuple(

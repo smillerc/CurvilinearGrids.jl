@@ -82,7 +82,7 @@ end
 ## GPU Kernels
 
 function central_first_derivative_inner_domain_kernel!(
-  ::SecondOrder, ∂W, W, axis, domain, backend::GPU
+  ::SecondOrder, ∂W, W, axis, domain, backend::Backend
 )
 
   #
@@ -102,7 +102,7 @@ function central_first_derivative_inner_domain_kernel!(
 end
 
 function central_first_derivative_inner_domain_kernel!(
-  ::FourthOrder, ∂W, W, axis, domain, backend::GPU
+  ::FourthOrder, ∂W, W, axis, domain, backend::Backend
 )
 
   #
@@ -124,7 +124,7 @@ function central_first_derivative_inner_domain_kernel!(
 end
 
 function central_first_derivative_inner_domain_kernel!(
-  ::SixthOrder, ∂W, W, axis, domain, backend::GPU
+  ::SixthOrder, ∂W, W, axis, domain, backend::Backend
 )
 
   #
@@ -148,7 +148,7 @@ function central_first_derivative_inner_domain_kernel!(
 end
 
 function central_first_derivative_inner_domain_kernel!(
-  ::EighthOrder, ∂W, W, axis, domain, backend::GPU
+  ::EighthOrder, ∂W, W, axis, domain, backend::Backend
 )
 
   #
@@ -225,7 +225,7 @@ end
 
 ## GPU Kernels
 function mixed_first_derivative_lo_edge_kernel!(
-  ::SixthOrder, ∂W, W, ∂axis, domain, backend::GPU
+  ::SixthOrder, ∂W, W, ∂axis, domain, backend::Backend
 )
   @kernel inbounds = true function _first_deriv_lo_kernel!(ϕ, ∂ϕ, axis, ∂domain)
     idx = @index(Global, Linear)
@@ -254,7 +254,7 @@ function mixed_first_derivative_lo_edge_kernel!(
 end
 
 function mixed_first_derivative_hi_edge_kernel!(
-  ::SixthOrder, ∂W, W, ∂axis, domain, backend::GPU
+  ::SixthOrder, ∂W, W, ∂axis, domain, backend::Backend
 )
   @kernel inbounds = true function _first_deriv_hi_kernel!(ϕ, ∂ϕ, axis, ∂domain)
     idx = @index(Global, Linear)
@@ -295,7 +295,7 @@ function central_second_derivative_inner_domain_kernel!(∂²W, ∂W, W, axis, d
 end
 
 function central_second_derivative_inner_domain_kernel!(
-  ∂²W, ∂W, W, axis, domain, backend::GPU
+  ∂²W, ∂W, W, axis, domain, backend::Backend
 )
 
   #

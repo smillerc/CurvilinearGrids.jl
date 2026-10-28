@@ -2077,6 +2077,27 @@ function _fill_cell_metric_storage!(
 end
 
 function _fill_cell_metric_storage!(
+  ::KernelAbstractions.CPU, cell_metric_storage, metric_functions_cache, iterators,
+  nhalo::Int, t, params, ::Val{N}, ::Type{T},
+) where {N,T}
+  local_domain = iterators.cell.full
+  global_domain = iterators.global_domain.cell.full
+  jacobian = metric_functions_cache.forward.jacobian
+  inverse_jacobian = metric_functions_cache.inverse.Jinv
+  Threads.@threads for idx in eachindex(local_domain)
+    I = local_domain[idx]
+    Iglobal = global_domain[I]
+    coordinates = ntuple(d -> Iglobal.I[d] - nhalo + T(0.5), Val(N))
+    F = _as_smatrix(Val(N), jacobian(t, coordinates..., params))
+    G = _as_smatrix(Val(N), inverse_jacobian(t, coordinates..., params))
+    J = det(F)
+    cell_metric_storage.forward[I] = Metric(SMatrix{N,N,T,N*N}(Tuple(F)), T(J))
+    cell_metric_storage.inverse[I] = Metric(SMatrix{N,N,T,N*N}(Tuple(G)), T(J))
+  end
+  return nothing
+end
+
+function _fill_cell_metric_storage!(
   backend::KernelAbstractions.Backend,
   cell_metric_storage,
   metric_functions_cache,
@@ -2193,17 +2214,21 @@ function _fill_face_metric_storage!(
     return nothing
   end
 
-  return _fill_face_metric_storage_kernel!(
-    backend,
-    face_metric_storage,
-    metric_functions_cache,
-    iterators,
-    nhalo,
-    t,
-    params,
-    Val(N),
-    T,
-  )
+  for axis in 1:N
+    storage = face_metric_storage[axis]
+    Threads.@threads for idx in eachindex(local_domain)
+      I = local_domain[idx]
+      Iglobal = global_domain[I]
+      coordinates = ntuple(d -> Iglobal.I[d] - nhalo + T(0.5), Val(N))
+      G, Ghat, Jinv = _inverse_and_normalized_edge_metrics(Val(N), edge, axis, t, coordinates, params)
+      F = inv(G)
+      J = det(F)
+      storage.forward[I] = Metric(SMatrix{N,N,T,N*N}(Tuple(F)), T(J))
+      storage.inverse[I] = Metric(SMatrix{N,N,T,N*N}(Tuple(G)), T(J))
+      storage.conserved[I] = ConservedMetric(SMatrix{N,N,T,N*N}(Tuple(Ghat)))
+    end
+  end
+  return nothing
 end
 
 function _fill_face_metric_storage!(

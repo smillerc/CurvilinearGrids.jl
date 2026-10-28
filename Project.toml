@@ -1,6 +1,6 @@
 name = "CurvilinearGrids"
 uuid = "58b19789-dd19-4aa2-839c-c763a7b10301"
-version = "0.13.5"
+version = "0.13.6"
 authors = ["Sam Miller <smil@lle.rochester.edu> and contributors"]
 
 [deps]
@@ -48,7 +48,7 @@ FiniteDifferences = "0.12"
 ForwardDiff = "0.10, 1"
 HDF5 = "0.17"
 Interpolations = "0.15, 0.16"
-KernelAbstractions = "0.9"
+KernelAbstractions = "0.10.3"
 Makie = "0.20, 0.21, 0.22, 0.23, 0.24"
 MappedArrays = "0.4"
 OffsetArrays = "1"
