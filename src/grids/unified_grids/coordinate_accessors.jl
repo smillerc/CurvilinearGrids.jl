@@ -168,6 +168,11 @@ end
   return x, y, z
 end
 
+
+#
+# Discrete coordinate accessors
+#
+
 """
     coord(grid, idx)
 
@@ -182,11 +187,6 @@ coordinate arrays.
 
 See also [`coords`](@ref), [`centroid`](@ref), and [`jacobian_matrix`](@ref).
 """
-
-#
-# Discrete coordinate accessors
-#
-
 function coord(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int})
   @SVector [grid.node_coordinates[1][i]]
 end
