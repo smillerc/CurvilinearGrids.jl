@@ -10,7 +10,11 @@ end
 
 """Get interpolation functions of the mesh coordinates"""
 function mesh_coord_interpolators(mesh::CurvilinearGrid2D)
-  x, y = CurvilinearGrids.coords(mesh)
+  return mesh_coord_interpolators(CurvilinearGrids.coords(mesh))
+end
+
+function mesh_coord_interpolators((x, y)::Tuple{AbstractMatrix,AbstractMatrix})
+  size(x) == size(y) || throw(DimensionMismatch("Coordinate arrays must have matching sizes."))
   x_itp = interpolate(x, BSpline(Linear()))
   y_itp = interpolate(y, BSpline(Linear()))
 
@@ -116,15 +120,24 @@ Scale / re-interpolate the resolution of the given `mesh` by a factor of (α,β)
 α is along the first dimension, β along the 2nd dimension
 """
 function scale_resolution(mesh::CurvilinearGrid2D, (α, β)::NTuple{2,Real})
-  itps = mesh_coord_interpolators(mesh)
+  new_x, new_y = scale_resolution(CurvilinearGrids.coords(mesh), (α, β))
+  return CurvilinearGrid2D(new_x, new_y, mesh.discretization_scheme_name)
+end
 
+"""
+    scale_resolution((x, y), (α, β))
+
+Linearly resample two 2D node coordinate arrays in computational space.
+Return the new coordinate arrays without constructing a grid or computing metrics.
+"""
+function scale_resolution(
+  coordinates::Tuple{AbstractMatrix,AbstractMatrix}, (α, β)::NTuple{2,Real}
+)
+  itps = mesh_coord_interpolators(coordinates)
   ni, nj = size(itps.x.coefs)
-  new_x = itps.x(range(1; stop=ni, step=inv(α)), range(1; stop=nj, step=inv(β)))
-  new_y = itps.y(range(1; stop=ni, step=inv(α)), range(1; stop=nj, step=inv(β)))
-
-  new_mesh = CurvilinearGrid2D(new_x, new_y, mesh.discretization_scheme_name)
-
-  return new_mesh
+  i = range(1; stop=ni, step=inv(α))
+  j = range(1; stop=nj, step=inv(β))
+  return itps.x(i, j), itps.y(i, j)
 end
 
 """
