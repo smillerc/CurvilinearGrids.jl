@@ -76,6 +76,10 @@ Useful constructor-specific keywords:
   plus `local_grid` for materializing partition-local analytic grids.
 - `DiscreteGrid`: `halo_coords_included=true` when input coordinate arrays already include halo nodes; `interpolation=:linear` is the current interpolation mode.
 
+`DiscreteGrid` supports device-backed coordinate and metric storage through `Adapt.adapt(CuArray, grid)` or the `backend` constructor keyword. Interpolation, linear extrapolation and metric evaluation remain on the CPU; construction, explicit updates and metric refreshes transfer their results to the selected backend. This preserves the CPU geometry calculation, including derivative conventions at interpolation knots. The interpolation coefficients and callbacks remain host-side and must not be passed to device kernels. Flow kernels consume the device coordinate/metric arrays.
+
+Adaptation creates independent metric-cache flags and runtime-state references. CPU/device copies share the original host interpolation coefficients as read-only data; refresh/update after any deliberate coefficient change. `Adapt.adapt(Array, device_grid)` restores CPU storage and its CPU backend. Eager, lazy and off cache modes retain their existing behavior; `compute_metrics=false, cache_mode=:off` still has no metric storage. A refresh or update can incur host transfers; static flow evolution reuses the prepared device arrays.
+
 ### Core geometry and metric calls
 
 - `coord(grid, idx)` / `coords(grid)`

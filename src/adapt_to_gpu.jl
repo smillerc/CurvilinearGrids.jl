@@ -251,14 +251,17 @@ function Adapt.adapt_structure(to, grid::MappedGrid{N,T,CS,BT}) where {N,T,CS,BT
   )
 end
 
+_discrete_storage_backend(to, coordinates) = KernelAbstractions.get_backend(coordinates[1])
+
 function Adapt.adapt_structure(to, grid::DiscreteGrid{N,T,CS,BT,IP}) where {N,T,CS,BT,IP}
   node_coordinates = Adapt.adapt_structure(to, grid.node_coordinates)
   centroid_coordinates = Adapt.adapt_structure(to, grid.centroid_coordinates)
   face_coordinates = Adapt.adapt_structure(to, grid.face_coordinates)
   metric_caches =
     isnothing(grid.metric_caches) ? nothing : Adapt.adapt_structure(to, grid.metric_caches)
-  backend = _adapted_unified_backend(grid.backend, node_coordinates)
+  backend = _discrete_storage_backend(to, node_coordinates)
   GridTypes._validate_discrete_backend(backend)
+  state = Ref(grid.state[])
 
   return DiscreteGrid{
     N,
@@ -274,7 +277,7 @@ function Adapt.adapt_structure(to, grid::DiscreteGrid{N,T,CS,BT,IP}) where {N,T,
     typeof(backend),
     typeof(grid.diff_backend),
     typeof(grid.iterators),
-    typeof(grid.state),
+    typeof(state),
     typeof(metric_caches),
   }(
     node_coordinates,
@@ -288,7 +291,69 @@ function Adapt.adapt_structure(to, grid::DiscreteGrid{N,T,CS,BT,IP}) where {N,T,
     grid.iterators,
     grid.interpolation,
     grid.interpolants,
-    grid.state,
+    state,
     metric_caches,
   )
+end
+
+# Discrete mappings own CPU interpolation objects. Device grids retain these
+# read-only callbacks, while their coordinate and metric arrays live on device.
+struct _DiscreteGridBackendAdaptor{B}
+  backend::B
+end
+
+_discrete_storage_backend(to::_DiscreteGridBackendAdaptor, coordinates) = to.backend
+
+function Adapt.adapt_storage(to::_DiscreteGridBackendAdaptor, source::AbstractArray)
+  target = KernelAbstractions.allocate(to.backend, eltype(source), size(source))
+  copyto!(target, source)
+  return target
+end
+
+function GridTypes._adapt_discrete_grid(backend, grid::DiscreteGrid)
+  result = Adapt.adapt(_DiscreteGridBackendAdaptor(backend), grid)
+  KernelAbstractions.synchronize(backend)
+  return result
+end
+
+function _copy_discrete_storage!(target::AbstractArray, source::AbstractArray)
+  copyto!(target, source)
+  return nothing
+end
+
+function _copy_discrete_storage!(target::Union{Tuple,NamedTuple}, source::Union{Tuple,NamedTuple})
+  for (a, b) in zip(target, source)
+    _copy_discrete_storage!(a, b)
+  end
+  return nothing
+end
+
+function GridTypes._refresh_discrete_on_host!(grid::DiscreteGrid, ::Val{:cell})
+  host = Adapt.adapt(Array, grid)
+  GridTypes._recompute_discrete_cell_metrics!(host)
+  _copy_discrete_storage!(grid.metric_caches.cell.data, host.metric_caches.cell.data)
+  KernelAbstractions.synchronize(grid.backend)
+  return nothing
+end
+
+function GridTypes._refresh_discrete_on_host!(grid::DiscreteGrid, ::Val{:face})
+  host = Adapt.adapt(Array, grid)
+  GridTypes._recompute_discrete_face_metrics!(host)
+  _copy_discrete_storage!(grid.metric_caches.face.data, host.metric_caches.face.data)
+  KernelAbstractions.synchronize(grid.backend)
+  return nothing
+end
+
+function GridTypes._update_discrete_on_host!(grid::DiscreteGrid, t, params)
+  host = Adapt.adapt(Array, grid)
+  update!(host, t, params)
+  _copy_discrete_storage!(grid.node_coordinates, host.node_coordinates)
+  _copy_discrete_storage!(grid.centroid_coordinates, host.centroid_coordinates)
+  _copy_discrete_storage!(grid.face_coordinates, host.face_coordinates)
+  KernelAbstractions.synchronize(grid.backend)
+
+  grid.state[] = host.state[]
+  invalidate_cell_metrics!(grid)
+  invalidate_face_metrics!(grid)
+  return nothing
 end

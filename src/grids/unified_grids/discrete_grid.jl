@@ -10,6 +10,9 @@ interpolation in computational space.
 
 `DiscreteGrid` stores interpolation-backed mapping functions along with
 node/centroid/face coordinates and independent cell/face metric caches.
+For non-CPU backends, interpolation and metric evaluation run on the host;
+coordinates and metric arrays are transferred to the selected device. This
+preserves the CPU interpolation, extrapolation and knot-derivative rules.
 
 # Fields
   - `node_coordinates`: Node coordinate arrays as `NTuple{N,AbstractArray}`.
@@ -179,12 +182,18 @@ function _validate_discrete_interpolation(interpolation::Symbol)
   return interpolation
 end
 
+# Interpolation remains host-side; backend storage is handled by Adapt.
+_validate_discrete_backend(backend::KernelAbstractions.Backend) = backend
 function _validate_discrete_backend(backend)
-  if !(backend isa KernelAbstractions.CPU)
-    throw(ArgumentError("DiscreteGrid with a non-CPU backend is not supported yet."))
-  end
-  return backend
+  throw(ArgumentError("DiscreteGrid requires a KernelAbstractions backend, got $(typeof(backend))."))
 end
+
+# Implemented by the package's Adapt integration after GridTypes loads.
+function _adapt_discrete_grid end
+function _refresh_discrete_on_host! end
+function _update_discrete_on_host! end
+
+_discrete_host_nodes(A) = KernelAbstractions.get_backend(A) isa CPU ? A : Array(A)
 
 function _discrete_state(grid::DiscreteGrid)
   state = grid.state[]
@@ -196,6 +205,9 @@ function _recompute_discrete_cell_metrics!(
   grid::DiscreteGrid{N,T}; include_halo_region::Bool=false
 ) where {N,T}
   _require_metric_storage(grid, "refresh_cell_metrics!")
+  if !(grid.backend isa CPU)
+    return _refresh_discrete_on_host!(grid, Val(:cell))
+  end
   t, params, has_state = _discrete_state(grid)
   if !has_state
     return nothing
@@ -219,6 +231,9 @@ function _recompute_discrete_face_metrics!(
   grid::DiscreteGrid{N,T}; include_halo_region::Bool=false
 ) where {N,T}
   _require_metric_storage(grid, "refresh_face_metrics!")
+  if !(grid.backend isa CPU)
+    return _refresh_discrete_on_host!(grid, Val(:face))
+  end
   t, params, has_state = _discrete_state(grid)
   if !has_state
     return nothing
@@ -265,6 +280,36 @@ function _refresh_face_metrics!(grid::DiscreteGrid; include_halo_region::Bool=fa
   return data
 end
 
+# Geometry is evaluated by host loops. Allocate host arrays directly as well,
+# so large zero fills do not require a CPU OpenCL kernel before device transfer.
+function _build_discrete_host_components(
+  ::Val{N}, mapping_functions, celldims, nhalo, scheme, diff_backend, ::Type{T};
+  build_metric_storage=true,
+) where {N,T}
+  iterators = get_iterators(celldims, nhalo, nothing)
+  cellshape = size(iterators.cell.full)
+  nodeshape = size(iterators.node.full)
+  node_coordinates = ntuple(_ -> zeros(T, nodeshape), N)
+  centroid_coordinates = ntuple(_ -> zeros(T, cellshape), N)
+  face_coordinates = ntuple(_ -> ntuple(_ -> zeros(T, cellshape), N), N)
+  metric_functions_cache = _metric_cache_for_mapping(Val(N), mapping_functions, diff_backend, scheme)
+
+  cell_metric_storage, face_metric_storage = if build_metric_storage
+    M = _metric_eltype(Val(N), T)
+    C = _conserved_metric_eltype(Val(N), T)
+    cell = (; forward=zeros(M, cellshape), inverse=zeros(M, cellshape))
+    faces = ntuple(_ -> (;
+      forward=zeros(M, cellshape), inverse=zeros(M, cellshape), conserved=zeros(C, cellshape),
+    ), N)
+    cell, faces
+  else
+    nothing, nothing
+  end
+
+  return (; node_coordinates, centroid_coordinates, face_coordinates,
+    metric_functions_cache, cell_metric_storage, face_metric_storage, nhalo, iterators)
+end
+
 function _new_discrete_grid(
   ::Val{N},
   mapping_functions,
@@ -287,16 +332,24 @@ function _new_discrete_grid(
   _validate_discrete_interpolation(interpolation)
   _validate_discrete_backend(backend)
 
+  if !(backend isa CPU)
+    host = _new_discrete_grid(
+      Val(N), mapping_functions, interpolants, celldims, nhalo;
+      backend=CPU(), diff_backend, t, params, T, compute_metrics,
+      coordinate_system, basis, interpolation, cache_mode, conserved_metric_scheme,
+    )
+    return _adapt_discrete_grid(backend, host)
+  end
+
   @assert nhalo >= 0
 
   disable_metrics = (!compute_metrics && cache_mode === :off)
-  components = _build_unified_components(
+  components = _build_discrete_host_components(
     Val(N),
     mapping_functions,
     celldims,
     nhalo,
     conserved_metric_scheme,
-    backend,
     diff_backend,
     T;
     build_metric_storage=(!disable_metrics),
@@ -447,7 +500,7 @@ function DiscreteGrid(
   @assert nhalo >= 0
 
   x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo) : x
-  x_nodes = number_type.(x_nodes)
+  x_nodes = number_type.(_discrete_host_nodes(x_nodes))
 
   x_itp = _linear_interpolant(x_nodes)
   x_map = InterpolantMapping{1,typeof(x_itp)}(x_itp)
@@ -499,8 +552,8 @@ function DiscreteGrid(
   x_nodes = halo_coords_included ? _strip_halo_nodes(x, nhalo) : x
   y_nodes = halo_coords_included ? _strip_halo_nodes(y, nhalo) : y
 
-  x_nodes = number_type.(x_nodes)
-  y_nodes = number_type.(y_nodes)
+  x_nodes = number_type.(_discrete_host_nodes(x_nodes))
+  y_nodes = number_type.(_discrete_host_nodes(y_nodes))
 
   x_itp = _linear_interpolant(x_nodes)
   y_itp = _linear_interpolant(y_nodes)
@@ -557,9 +610,9 @@ function DiscreteGrid(
   y_nodes = halo_coords_included ? _strip_halo_nodes(y, nhalo) : y
   z_nodes = halo_coords_included ? _strip_halo_nodes(z, nhalo) : z
 
-  x_nodes = number_type.(x_nodes)
-  y_nodes = number_type.(y_nodes)
-  z_nodes = number_type.(z_nodes)
+  x_nodes = number_type.(_discrete_host_nodes(x_nodes))
+  y_nodes = number_type.(_discrete_host_nodes(y_nodes))
+  z_nodes = number_type.(_discrete_host_nodes(z_nodes))
 
   x_itp = _linear_interpolant(x_nodes)
   y_itp = _linear_interpolant(y_nodes)
@@ -603,6 +656,9 @@ Update discrete grid coordinates and invalidate metric caches for a new state.
 `nothing`.
 """
 function update!(grid::DiscreteGrid{N}, t::Real, params::NamedTuple) where {N}
+  if !(grid.backend isa CPU)
+    return _update_discrete_on_host!(grid, t, params)
+  end
   _compute_unified_node_coordinates!(
     grid.node_coordinates,
     grid.mapping_functions,
