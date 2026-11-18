@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.13.7 - 2026-11-18
+
+- Fix multiblock face-normal validation.
+
 ## v0.13.6 - 2026-10-28
 
 - Support KernelAbstractions 0.10.3 with native CPU grid and metric construction.
