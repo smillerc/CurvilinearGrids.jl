@@ -32,16 +32,7 @@ Pkg.add("CurvilinearGrids")
 using CurvilinearGrids
 ```
 
-## Releases
 
-Push a stable `vMAJOR.MINOR.PATCH` tag that matches the version in `Project.toml`.
-Patch tags with a positive patch number skip the test job. Tags with a zero
-patch number request General registration after tests pass.
-
-Install the JuliaRegistrator app and set the `REGISTRATOR_TOKEN` Actions secret
-to a GitHub token from an authorized repository collaborator. When the secret is
-absent, an authorized collaborator can comment `@JuliaRegistrator register` on
-the tagged commit after its release checks pass.
 
 ## Quick Start (MappedGrid)
 
@@ -301,46 +292,3 @@ J^{-1} = \det [\textbf{J}^{-1}]
 $$
 
 These matrices can be accessed by calling `J = jacobian_matrix(mesh, I::CartesianIndex)`. The inverse can be found via `inv(J)`. Note that the inverse metrics found this way _will not_ be conservative and may introduce errors into your discretization. This is why the inverse metrics are stored in `mesh.metrics`.
-
-
-## Using metrics in a PDE discretization
-
-Curvilinear transformations are often used to simulate PDEs like the heat equation or the Euler equations for fluid flow. A *vastly* simplified example is shown below, where the divergence of the flux ($\nabla \cdot q$) is found for a 1D rectilinear grid. A good description of metrics and PDE discretization is in Chapter 3 of [*Huang, W. & Russell, R. D. Adaptive Moving Mesh Methods*](https://link.springer.com/book/10.1007/978-1-4419-7916-2).
-
-
-```julia
-using CurvilinearGrids: rectilinear_grid
-using CartesianDomains: shift
-
-x0, x1 = (-1.0, 1.0)
-ncells = 100
-scheme = :meg6_symmetric
-
-# rectilinear_grid() is a CurvilinearGrid1D constructor for uniform geometry
-mesh = rectilinear_grid(x0, x1, scheme)
-ξx = mesh.cell_center_metrics.ξ.x₁
-
-const iaxis = 1
-
-u = rand(size(mesh.iterators.cell.full)...) # solution
-qᵢ₊½ = zeros(size(mesh.iterators.cell.full)) # flux of u
-∇_dot_q = zeros(size(mesh.iterators.cell.full)) # flux divergence
-α = ones(size(mesh.iterators.cell.full)) # diffusivity
-
-# Find the fluxes across the edges
-for i in mesh.iterators.cell.domain # only loop through the inner domain (ignore halo region)
-  ᵢ₊₁ = shift(i, iaxis, +1) # shift is useful for indexing in arbitrary dimensions
-
-  αᵢ₊½ = (α[i] + α[ᵢ₊₁]) / 2 # face averaged conductivity
-  qᵢ₊½[i] = -αᵢ₊½ * (u[ᵢ₊₁] - u[i]) # flux of u across the interface at ᵢ₊½
-end
-
-# Now find the flux divergence
-for i in mesh.iterators.cell.domain
-  ᵢ₋₁ = shift(i, iaxis, -1)
-
-  # note the use of the mesh metric, 
-  # which for this case is just the cell spacing
-  ∇_dot_q[i] = ξx[i]^2 * (qᵢ₊½[i] - qᵢ₊½[ᵢ₋₁])
-end
-```
