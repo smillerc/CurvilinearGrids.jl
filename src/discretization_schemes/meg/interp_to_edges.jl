@@ -13,67 +13,67 @@ the full domain is CartesianIndices((10, 10)), and the inner domain (with 2 halo
 CartesianIndices((3:8, 3:8)), the size passed to this function must be CartesianIndices((2:9, 2:9))
 """
 function interpolate_to_edge!(
-  scheme::MonotoneExplicitGradientScheme,
-  ϕᵢ₊½::AbstractArray{T,N},
-  ϕ::AbstractArray{T,N},
-  axis::Int,
-  domain,
-  backend,
-) where {T,N}
+        scheme::MonotoneExplicitGradientScheme,
+        ϕᵢ₊½::AbstractArray{T, N},
+        ϕ::AbstractArray{T, N},
+        axis::Int,
+        domain,
+        backend,
+    ) where {T, N}
 
-  #
-  if CartesianIndices(ϕᵢ₊½) != CartesianIndices(ϕ)
-    error("The given ϕᵢ₊½ and ϕ arrays must have the same size and indexing scheme")
-  end
+    #
+    if CartesianIndices(ϕᵢ₊½) != CartesianIndices(ϕ)
+        error("The given ϕᵢ₊½ and ϕ arrays must have the same size and indexing scheme")
+    end
 
-  ∂ϕ = scheme.cache.∂ϕ
-  ∂²ϕ = scheme.cache.∂²ϕ
-  compute_first_derivatives!(scheme, ∂ϕ, ϕ, axis, domain, backend, true)
-  compute_second_derivatives!(scheme, ∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, domain, backend, true)
+    ∂ϕ = scheme.cache.∂ϕ
+    ∂²ϕ = scheme.cache.∂²ϕ
+    compute_first_derivatives!(scheme, ∂ϕ, ϕ, axis, domain, backend, true)
+    compute_second_derivatives!(scheme, ∂²ϕ, scheme.cache.∂ϕ, ϕ, axis, domain, backend, true)
 
-  if size(domain) == size(ϕ)
-    inner_domain = expand(domain, axis, -1)
-    lo_domain = lower_boundary_indices(domain, axis, +1) # select first index along given boundary axis
-    hi_domain = upper_boundary_indices(domain, axis, -1)  # select last index along given boundary axis
-  else
-    inner_domain = domain
-    lo_domain = lower_boundary_indices(domain, axis, 0)
-    hi_domain = upper_boundary_indices(domain, axis, 0)
-  end
+    if size(domain) == size(ϕ)
+        inner_domain = expand(domain, axis, -1)
+        lo_domain = lower_boundary_indices(domain, axis, +1) # select first index along given boundary axis
+        hi_domain = upper_boundary_indices(domain, axis, -1)  # select last index along given boundary axis
+    else
+        inner_domain = domain
+        lo_domain = lower_boundary_indices(domain, axis, 0)
+        hi_domain = upper_boundary_indices(domain, axis, 0)
+    end
 
-  inner_kernel!(backend)(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, inner_domain, axis; ndrange=size(inner_domain))
-  lo_edge_kernel!(backend)(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, lo_domain, axis; ndrange=size(lo_domain))
-  hi_edge_kernel!(backend)(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, hi_domain, axis; ndrange=size(hi_domain))
+    inner_kernel!(backend)(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, inner_domain, axis; ndrange = size(inner_domain))
+    lo_edge_kernel!(backend)(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, lo_domain, axis; ndrange = size(lo_domain))
+    hi_edge_kernel!(backend)(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, hi_domain, axis; ndrange = size(hi_domain))
 
-  return nothing
+    return nothing
 end
 
 @kernel inbounds = true function inner_kernel!(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, domain, axis)
-  idx = @index(Global, Linear)
-  i = domain[idx]
+    idx = @index(Global, Linear)
+    i = domain[idx]
 
-  ᵢ₊₁ = shift(i, axis, +1)
+    ᵢ₊₁ = shift(i, axis, +1)
 
-  # average the L/R reconstructed values
-  ϕᵢ₊½[i] = (
-    ϕᴸᵢ₊½(ϕ[i], ∂ϕ[i], ∂²ϕ[i]) +     # left state
-    ϕᴿᵢ₊½(ϕ[ᵢ₊₁], ∂ϕ[ᵢ₊₁], ∂²ϕ[ᵢ₊₁]) # right state
-  ) / 2
+    # average the L/R reconstructed values
+    ϕᵢ₊½[i] = (
+        ϕᴸᵢ₊½(ϕ[i], ∂ϕ[i], ∂²ϕ[i]) +     # left state
+            ϕᴿᵢ₊½(ϕ[ᵢ₊₁], ∂ϕ[ᵢ₊₁], ∂²ϕ[ᵢ₊₁]) # right state
+    ) / 2
 end
 
 @kernel inbounds = true function lo_edge_kernel!(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, lo_domain, axis)
-  idx = @index(Global, Linear)
-  i = lo_domain[idx]
+    idx = @index(Global, Linear)
+    i = lo_domain[idx]
 
-  # the lo-side derivative ∂ϕ/∂ξ can only use ϕᴿᵢ₋½ instead of ϕᵢ₋½
-  ᵢ₋₁ = shift(i, axis, -1)
-  ϕᵢ₊½[ᵢ₋₁] = ϕᴿᵢ₋½(ϕ[i], ∂ϕ[i], ∂²ϕ[i])
+    # the lo-side derivative ∂ϕ/∂ξ can only use ϕᴿᵢ₋½ instead of ϕᵢ₋½
+    ᵢ₋₁ = shift(i, axis, -1)
+    ϕᵢ₊½[ᵢ₋₁] = ϕᴿᵢ₋½(ϕ[i], ∂ϕ[i], ∂²ϕ[i])
 end
 
 @kernel inbounds = true function hi_edge_kernel!(ϕᵢ₊½, ϕ, ∂ϕ, ∂²ϕ, hi_domain, axis)
-  idx = @index(Global, Linear)
-  i = hi_domain[idx]
+    idx = @index(Global, Linear)
+    i = hi_domain[idx]
 
-  # the hi-side derivative ∂ϕ/∂ξ can only use ϕᴸᵢ₊½ instead of ϕᵢ₊½
-  ϕᵢ₊½[i] = ϕᴸᵢ₊½(ϕ[i], ∂ϕ[i], ∂²ϕ[i])
+    # the hi-side derivative ∂ϕ/∂ξ can only use ϕᴸᵢ₊½ instead of ϕᵢ₊½
+    ϕᵢ₊½[i] = ϕᴸᵢ₊½(ϕ[i], ∂ϕ[i], ∂²ϕ[i])
 end

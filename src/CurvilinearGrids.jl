@@ -20,7 +20,7 @@ include("grids/orthogonal_from_faces.jl")
 include("multiblock/multiblock.jl")
 using .MultiBlockMeshes: BlockFace, BlockInterface
 using .MultiBlockMeshes:
-  validate_multiblock!, build_interface_caches!, invalidate_interface_caches!
+    validate_multiblock!, build_interface_caches!, invalidate_interface_caches!
 using .MultiBlockMeshes: interface_index_plan, exchange_interface!, exchange_all_interfaces!
 using .MultiBlockMeshes: MultiBlockMesh
 
@@ -35,12 +35,12 @@ export CylindricalGrid1D, SphericalGrid1D
 export AxisymmetricGrid2D
 export SphericalGrid3D, SphericalBasisCurvilinearGrid3D
 export CartesianOrthogonalGrid1D,
-  CartesianOrthogonalGrid2D,
-  CartesianOrthogonalGrid3D,
-  CylindricalOrthogonalGrid1D,
-  SphericalOrthogonalGrid1D,
-  SphericalOrthogonalGrid2D,
-  AxisymmetricOrthogonalGrid2D
+    CartesianOrthogonalGrid2D,
+    CartesianOrthogonalGrid3D,
+    CylindricalOrthogonalGrid1D,
+    SphericalOrthogonalGrid1D,
+    SphericalOrthogonalGrid2D,
+    AxisymmetricOrthogonalGrid2D
 
 export AbstractUnifiedGrid
 export MappedGrid, DiscreteGrid, OrthogonalGrid
@@ -54,14 +54,14 @@ export BasisTrait
 export CartesianBasis, SphericalBasis
 export EdgeInterpolationSchemeTrait
 export EndpointAverageReconstruction,
-  GradientCorrectedReconstruction, CurvatureCorrectedReconstruction
+    GradientCorrectedReconstruction, CurvatureCorrectedReconstruction
 export ADThomasLombardMetric
 export coordinate_system, basis_trait, basis_transfer_matrix
 export conserved_metric_scheme
 export cartesian_position, reparameterize_mapping
 
 export rectilinear_grid,
-  rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid
+    rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid
 export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
 
 export update!
@@ -73,6 +73,7 @@ export metrics, jacobian, jacobian_matrix
 export conservative_metrics
 export metrics_with_jacobian
 export cell_metrics, face_metrics, cell_indices
+export physical_conserved_face_metrics
 export radius, centroid_radius, centroid_radii
 export cellvolume, cellvolumes
 export face_area, outward_face_normal

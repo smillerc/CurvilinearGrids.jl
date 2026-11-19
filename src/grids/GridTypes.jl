@@ -31,11 +31,11 @@ export AxisymmetricGrid2D
 
 export SphericalGrid3D, SphericalBasisCurvilinearGrid3D
 export CartesianOrthogonalGrid1D,
-  CartesianOrthogonalGrid2D,
-  CartesianOrthogonalGrid3D,
-  CylindricalOrthogonalGrid1D,
-  SphericalOrthogonalGrid1D,
-  SphericalOrthogonalGrid2D
+    CartesianOrthogonalGrid2D,
+    CartesianOrthogonalGrid3D,
+    CylindricalOrthogonalGrid1D,
+    SphericalOrthogonalGrid1D,
+    SphericalOrthogonalGrid2D
 export AxisymmetricOrthogonalGrid2D
 
 export AbstractUnifiedGrid
@@ -50,18 +50,19 @@ export BasisTrait
 export CartesianBasis, SphericalBasis
 export EdgeInterpolationSchemeTrait
 export EndpointAverageReconstruction,
-  GradientCorrectedReconstruction, CurvatureCorrectedReconstruction
+    GradientCorrectedReconstruction, CurvatureCorrectedReconstruction
 export ADThomasLombardMetric
 
 export coordinate_system, basis_trait, basis_transfer_matrix
 export conserved_metric_scheme
 export cartesian_position, reparameterize_mapping
 export cell_metrics, face_metrics
+export physical_conserved_face_metrics
 export invalidate_cell_metrics!, invalidate_face_metrics!
 export refresh_cell_metrics!, refresh_face_metrics!
 
 export rectilinear_grid,
-  rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid
+    rtheta_grid, rthetaphi_grid, rectilinear_cylindrical_grid, rectilinear_spherical_grid
 export axisymmetric_rectilinear_grid, axisymmetric_rtheta_grid
 
 export update!
@@ -91,35 +92,36 @@ const nhalo_lookup = Dict(:MEG6 => 5, :MEG6_SYMMETRIC => 5)
 # are used to "clean" the jacobian matrices, so we don't get
 # numbers like 1e-18, when in reality they should be 0.0
 # @inline checkeps(M) = M # non-Float version
-@inline function checkeps(M::AbstractArray{T}, ϵ=eps(T)) where {T<:AbstractFloat}
-  # return M #@. M * (abs(M) >= eps(T))
-  return @. M * (abs(M) >= ϵ)
+@inline function checkeps(M::AbstractArray{T}, ϵ = eps(T)) where {T <: AbstractFloat}
+    # return M #@. M * (abs(M) >= eps(T))
+    return @. M * (abs(M) >= ϵ)
 end
 @inline checkeps(M) = M
 
 # helper func to ensure that coordinate functions
 # take the proper number of arguments, e.g., x(i) for 1d, x(i,j) for 2d
 @inline function check_nargs(f, nargs, fname)
-  for m in methods(f)
-    if (m.nargs - 1) != nargs
-      error(
-        "The function $(fname)() isn't defined correctly, it needs to be use $nargs (not $(m.nargs - 1)) arguments, e.g. `x(i,j) = ...` for 2D",
-      )
+    for m in methods(f)
+        if (m.nargs - 1) != nargs
+            error(
+                "The function $(fname)() isn't defined correctly, it needs to be use $nargs (not $(m.nargs - 1)) arguments, e.g. `x(i,j) = ...` for 2D",
+            )
+        end
     end
-  end
+    return
 end
 
 # helper func to ensure that coordinate functions are working properly
 function test_coord_func(f, ndims, fname)
-  args = ones(Int, ndims)
-  try
-    f(args...)
-  catch err
-    @error(
-      "Unable to evaluate the coordinate function $fname, due to the following errors:"
-    )
-    throw(err)
-  end
+    args = ones(Int, ndims)
+    return try
+        f(args...)
+    catch err
+        @error(
+            "Unable to evaluate the coordinate function $fname, due to the following errors:"
+        )
+        throw(err)
+    end
 end
 
 include("metric_soa.jl")
@@ -138,26 +140,26 @@ include("unified_grids/unified_grids.jl")
 include("gcl.jl")
 
 function update_metrics!(
-  mesh::AbstractCurvilinearGrid, t::Real=0; include_halo_region=false
-)
-  if include_halo_region
-    metric_domain = mesh.iterators.cell.full
-  else
-    metric_domain = mesh.iterators.cell.domain
-  end
+        mesh::AbstractCurvilinearGrid, t::Real = 0; include_halo_region = false
+    )
+    if include_halo_region
+        metric_domain = mesh.iterators.cell.full
+    else
+        metric_domain = mesh.iterators.cell.domain
+    end
 
-  # Update the metrics within the non-halo region, e.g., the domain
-  backend = KernelAbstractions.get_backend(mesh.cell_center_metrics.J)
-  MetricDiscretizationSchemes.update_metrics!(
-    mesh.discretization_scheme,
-    mesh.centroid_coordinates,
-    mesh.cell_center_metrics,
-    mesh.edge_metrics,
-    metric_domain,
-    backend,
-  )
+    # Update the metrics within the non-halo region, e.g., the domain
+    backend = KernelAbstractions.get_backend(mesh.cell_center_metrics.J)
+    MetricDiscretizationSchemes.update_metrics!(
+        mesh.discretization_scheme,
+        mesh.centroid_coordinates,
+        mesh.cell_center_metrics,
+        mesh.edge_metrics,
+        metric_domain,
+        backend,
+    )
 
-  return nothing
+    return nothing
 end
 
 Base.eltype(mesh::AbstractCurvilinearGrid1D) = eltype(mesh.node_coordinates.x)
@@ -166,7 +168,7 @@ Base.eltype(mesh::AbstractCurvilinearGrid3D) = eltype(mesh.node_coordinates.x)
 Base.eltype(mesh::OrthogonalGrid) = eltype(mesh.node_coordinates[1])
 
 function Base.eltype(mesh::SphericalBasisCurvilinearGrid3D)
-  eltype(mesh.cartesian_node_coordinates.x)
+    return eltype(mesh.cartesian_node_coordinates.x)
 end
 
 """
@@ -190,49 +192,49 @@ Return a view of the mesh coordinates (does not include halo regions). Returns a
 where N is the dimension of the mesh.
 """
 function coords(mesh::AbstractCurvilinearGrid1D)
-  return @views mesh.node_coordinates.x[mesh.iterators.node.domain]
+    return @views mesh.node_coordinates.x[mesh.iterators.node.domain]
 end
 
 @inline function coords(mesh::AbstractCurvilinearGrid2D)
-  return @views (
-    mesh.node_coordinates.x[mesh.iterators.node.domain],
-    mesh.node_coordinates.y[mesh.iterators.node.domain],
-  )
+    return @views (
+        mesh.node_coordinates.x[mesh.iterators.node.domain],
+        mesh.node_coordinates.y[mesh.iterators.node.domain],
+    )
 end
 
 @inline function coords(mesh::AbstractCurvilinearGrid3D)
-  return @views (
-    mesh.node_coordinates.x[mesh.iterators.node.domain],
-    mesh.node_coordinates.y[mesh.iterators.node.domain],
-    mesh.node_coordinates.z[mesh.iterators.node.domain],
-  )
+    return @views (
+        mesh.node_coordinates.x[mesh.iterators.node.domain],
+        mesh.node_coordinates.y[mesh.iterators.node.domain],
+        mesh.node_coordinates.z[mesh.iterators.node.domain],
+    )
 end
 
 @inline function coords(mesh::SphericalBasisCurvilinearGrid3D)
-  return @views (
-    mesh.cartesian_node_coordinates.x[mesh.iterators.node.domain],
-    mesh.cartesian_node_coordinates.y[mesh.iterators.node.domain],
-    mesh.cartesian_node_coordinates.z[mesh.iterators.node.domain],
-  )
+    return @views (
+        mesh.cartesian_node_coordinates.x[mesh.iterators.node.domain],
+        mesh.cartesian_node_coordinates.y[mesh.iterators.node.domain],
+        mesh.cartesian_node_coordinates.z[mesh.iterators.node.domain],
+    )
 end
 
 @inline function coords(mesh::OrthogonalGrid{1})
-  return @views mesh.node_coordinates[1][mesh.iterators.node.domain.indices[1]]
+    return @views mesh.node_coordinates[1][mesh.iterators.node.domain.indices[1]]
 end
 
 @inline function coords(mesh::OrthogonalGrid{2})
-  return @views (
-    mesh.node_coordinates[1][mesh.iterators.node.domain.indices[1]],
-    mesh.node_coordinates[2][mesh.iterators.node.domain.indices[2]],
-  )
+    return @views (
+        mesh.node_coordinates[1][mesh.iterators.node.domain.indices[1]],
+        mesh.node_coordinates[2][mesh.iterators.node.domain.indices[2]],
+    )
 end
 
 @inline function coords(mesh::OrthogonalGrid{3})
-  return @views (
-    mesh.node_coordinates[1][mesh.iterators.node.domain.indices[1]],
-    mesh.node_coordinates[2][mesh.iterators.node.domain.indices[2]],
-    mesh.node_coordinates[3][mesh.iterators.node.domain.indices[3]],
-  )
+    return @views (
+        mesh.node_coordinates[1][mesh.iterators.node.domain.indices[1]],
+        mesh.node_coordinates[2][mesh.iterators.node.domain.indices[2]],
+        mesh.node_coordinates[3][mesh.iterators.node.domain.indices[3]],
+    )
 end
 
 """
@@ -242,49 +244,49 @@ Return a view of the cell-centroids of the mesh (does not include halo regions).
 where N is the dimension of the mesh.
 """
 @inline function centroids(mesh::AbstractCurvilinearGrid1D)
-  return @views mesh.centroid_coordinates.x[mesh.iterators.cell.domain]
+    return @views mesh.centroid_coordinates.x[mesh.iterators.cell.domain]
 end
 
 @inline function centroids(mesh::AbstractCurvilinearGrid2D)
-  return @views (
-    mesh.centroid_coordinates.x[mesh.iterators.cell.domain],
-    mesh.centroid_coordinates.y[mesh.iterators.cell.domain],
-  )
+    return @views (
+        mesh.centroid_coordinates.x[mesh.iterators.cell.domain],
+        mesh.centroid_coordinates.y[mesh.iterators.cell.domain],
+    )
 end
 
 @inline function centroids(mesh::AbstractCurvilinearGrid3D)
-  return @views (
-    mesh.centroid_coordinates.x[mesh.iterators.cell.domain],
-    mesh.centroid_coordinates.y[mesh.iterators.cell.domain],
-    mesh.centroid_coordinates.z[mesh.iterators.cell.domain],
-  )
+    return @views (
+        mesh.centroid_coordinates.x[mesh.iterators.cell.domain],
+        mesh.centroid_coordinates.y[mesh.iterators.cell.domain],
+        mesh.centroid_coordinates.z[mesh.iterators.cell.domain],
+    )
 end
 
 @inline function centroids(mesh::SphericalBasisCurvilinearGrid3D)
-  return @views (
-    mesh.centroid_coordinates.r[mesh.iterators.cell.domain],
-    mesh.centroid_coordinates.θ[mesh.iterators.cell.domain],
-    mesh.centroid_coordinates.ϕ[mesh.iterators.cell.domain],
-  )
+    return @views (
+        mesh.centroid_coordinates.r[mesh.iterators.cell.domain],
+        mesh.centroid_coordinates.θ[mesh.iterators.cell.domain],
+        mesh.centroid_coordinates.ϕ[mesh.iterators.cell.domain],
+    )
 end
 
 @inline function centroids(mesh::OrthogonalGrid{1})
-  return @views mesh.centroid_coordinates[1][mesh.iterators.cell.domain.indices[1]]
+    return @views mesh.centroid_coordinates[1][mesh.iterators.cell.domain.indices[1]]
 end
 
 @inline function centroids(mesh::OrthogonalGrid{2})
-  return @views (
-    mesh.centroid_coordinates[1][mesh.iterators.cell.domain.indices[1]],
-    mesh.centroid_coordinates[2][mesh.iterators.cell.domain.indices[2]],
-  )
+    return @views (
+        mesh.centroid_coordinates[1][mesh.iterators.cell.domain.indices[1]],
+        mesh.centroid_coordinates[2][mesh.iterators.cell.domain.indices[2]],
+    )
 end
 
 @inline function centroids(mesh::OrthogonalGrid{3})
-  return @views (
-    mesh.centroid_coordinates[1][mesh.iterators.cell.domain.indices[1]],
-    mesh.centroid_coordinates[2][mesh.iterators.cell.domain.indices[2]],
-    mesh.centroid_coordinates[3][mesh.iterators.cell.domain.indices[3]],
-  )
+    return @views (
+        mesh.centroid_coordinates[1][mesh.iterators.cell.domain.indices[1]],
+        mesh.centroid_coordinates[2][mesh.iterators.cell.domain.indices[2]],
+        mesh.centroid_coordinates[3][mesh.iterators.cell.domain.indices[3]],
+    )
 end
 
 """
@@ -306,40 +308,40 @@ applies a shift to the index for you.
 """
     coord(mesh, (i,)::NTuple{1,Int})
 """
-function coord(mesh, (i,)::NTuple{1,Int})
-  @SVector [mesh.node_coordinates.x[i]]
+function coord(mesh, (i,)::NTuple{1, Int})
+    return @SVector [mesh.node_coordinates.x[i]]
 end
 
 """
     coord(mesh, (i, j)::NTuple{2,Int})
 """
-@inline function coord(mesh, (i, j)::NTuple{2,Int})
-  @SVector [mesh.node_coordinates.x[i, j], mesh.node_coordinates.y[i, j]]
+@inline function coord(mesh, (i, j)::NTuple{2, Int})
+    return @SVector [mesh.node_coordinates.x[i, j], mesh.node_coordinates.y[i, j]]
 end
 
 """
     coord(mesh, (i, j, k)::NTuple{3,Int})
 """
-@inline function coord(mesh, (i, j, k)::NTuple{3,Int})
-  @SVector [
-    mesh.node_coordinates.x[i, j, k],
-    mesh.node_coordinates.y[i, j, k],
-    mesh.node_coordinates.z[i, j, k],
-  ]
+@inline function coord(mesh, (i, j, k)::NTuple{3, Int})
+    return @SVector [
+        mesh.node_coordinates.x[i, j, k],
+        mesh.node_coordinates.y[i, j, k],
+        mesh.node_coordinates.z[i, j, k],
+    ]
 end
 
-@inline function coord(mesh::OrthogonalGrid{1}, (i,)::NTuple{1,Int})
-  @SVector [mesh.node_coordinates[1][i]]
+@inline function coord(mesh::OrthogonalGrid{1}, (i,)::NTuple{1, Int})
+    return @SVector [mesh.node_coordinates[1][i]]
 end
 
-@inline function coord(mesh::OrthogonalGrid{2}, (i, j)::NTuple{2,Int})
-  @SVector [mesh.node_coordinates[1][i], mesh.node_coordinates[2][j]]
+@inline function coord(mesh::OrthogonalGrid{2}, (i, j)::NTuple{2, Int})
+    return @SVector [mesh.node_coordinates[1][i], mesh.node_coordinates[2][j]]
 end
 
-@inline function coord(mesh::OrthogonalGrid{3}, (i, j, k)::NTuple{3,Int})
-  @SVector [
-    mesh.node_coordinates[1][i], mesh.node_coordinates[2][j], mesh.node_coordinates[3][k]
-  ]
+@inline function coord(mesh::OrthogonalGrid{3}, (i, j, k)::NTuple{3, Int})
+    return @SVector [
+        mesh.node_coordinates[1][i], mesh.node_coordinates[2][j], mesh.node_coordinates[3][k],
+    ]
 end
 
 """
@@ -348,8 +350,8 @@ end
 Get the radial node coordinate of a axisymmetric mesh
 """
 radius(mesh, CI::CartesianIndex) = radius(mesh, CI.I)
-@inline function radius(mesh::AbstractCurvilinearGrid1D, (i,)::NTuple{1,Int})
-  return mesh.node_coordinates.x[i]
+@inline function radius(mesh::AbstractCurvilinearGrid1D, (i,)::NTuple{1, Int})
+    return mesh.node_coordinates.x[i]
 end
 
 """
@@ -357,12 +359,12 @@ end
 
 Get the radial node coordinate of a axisymmetric mesh
 """
-@inline function radius(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2,Int})
-  if mesh.rotational_axis === :x
-    return mesh.node_coordinates.y[i, j]
-  else
-    return mesh.node_coordinates.x[i, j]
-  end
+@inline function radius(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2, Int})
+    if mesh.rotational_axis === :x
+        return mesh.node_coordinates.y[i, j]
+    else
+        return mesh.node_coordinates.x[i, j]
+    end
 end
 
 """
@@ -377,8 +379,8 @@ centroid_radius(mesh, CI::CartesianIndex) = centroid_radius(mesh, CI.I)
 
 Get the radial centroid coordinate of a 1D axisymmetric mesh
 """
-@inline function centroid_radius(mesh::AbstractCurvilinearGrid1D, (i,)::NTuple{1,Int})
-  return mesh.centroid_coordinates.x[i]
+@inline function centroid_radius(mesh::AbstractCurvilinearGrid1D, (i,)::NTuple{1, Int})
+    return mesh.centroid_coordinates.x[i]
 end
 
 """
@@ -386,23 +388,23 @@ end
 
 Get the radial centroid coordinate of a 2D axisymmetric mesh
 """
-@inline function centroid_radius(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2,Int})
-  if mesh.rotational_axis === :x
-    return mesh.centroid_coordinates.y[i, j]
-  else
-    return mesh.centroid_coordinates.x[i, j]
-  end
+@inline function centroid_radius(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2, Int})
+    if mesh.rotational_axis === :x
+        return mesh.centroid_coordinates.y[i, j]
+    else
+        return mesh.centroid_coordinates.x[i, j]
+    end
 end
 
 @views centroid_radii(mesh::SphericalGrid1D) = mesh.centroid_coordinates.x
 @views centroid_radii(mesh::CylindricalGrid1D) = mesh.centroid_coordinates.x
 
 @views function centroid_radii(mesh::AxisymmetricGrid2D)
-  if mesh.rotational_axis === :x
-    return mesh.centroid_coordinates.y
-  else
-    return mesh.centroid_coordinates.x
-  end
+    if mesh.rotational_axis === :x
+        return mesh.centroid_coordinates.y
+    else
+        return mesh.centroid_coordinates.x
+    end
 end
 
 """
@@ -417,12 +419,12 @@ cellvolume(mesh, CI::CartesianIndex) = cellvolume(mesh, CI.I)
 
 Get the volume of the cell at a given index.
 """
-function cellvolume(mesh, ijk::NTuple{N,Int}) where {N}
-  return mesh.cell_center_metrics.J[ijk...]
+function cellvolume(mesh, ijk::NTuple{N, Int}) where {N}
+    return mesh.cell_center_metrics.J[ijk...]
 end
 
-function cellvolume(mesh::OrthogonalGrid{N}, ijk::NTuple{N,Int}) where {N}
-  return mesh.cell_volumes[ijk...]
+function cellvolume(mesh::OrthogonalGrid{N}, ijk::NTuple{N, Int}) where {N}
+    return mesh.cell_volumes[ijk...]
 end
 
 """
@@ -430,10 +432,10 @@ end
 
 Get the volume of the cell at a given index. This is the true cylindrical volume.
 """
-function cellvolume(mesh::CylindricalGrid1D, (i,)::NTuple{1,Int})
-  r1 = radius(mesh, (i,))
-  r2 = radius(mesh, (i + 1,))
-  return pi * (r2^2 - r1^2)
+function cellvolume(mesh::CylindricalGrid1D, (i,)::NTuple{1, Int})
+    r1 = radius(mesh, (i,))
+    r2 = radius(mesh, (i + 1,))
+    return pi * (r2^2 - r1^2)
 end
 
 """
@@ -441,10 +443,10 @@ end
 
 Get the volume of the cell at a given index. This is the true spherical volume.
 """
-function cellvolume(mesh::SphericalGrid1D, (i,)::NTuple{1,Int})
-  r1 = radius(mesh, (i,))
-  r2 = radius(mesh, (i + 1,))
-  return (4 / 3)pi * (r2^3 - r1^3)
+function cellvolume(mesh::SphericalGrid1D, (i,)::NTuple{1, Int})
+    r1 = radius(mesh, (i,))
+    r2 = radius(mesh, (i + 1,))
+    return (4 / 3)pi * (r2^3 - r1^3)
 end
 
 """
@@ -452,10 +454,10 @@ end
 
 Get the volume of the cell at a given index. This is the true axisymmetric rotated volume.
 """
-function cellvolume(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2,Int})
-  r = centroid_radius(mesh, (i, j))
-  J = mesh.cell_center_metrics.J[i, j]
-  return r * J * 2π
+function cellvolume(mesh::AxisymmetricGrid2D, (i, j)::NTuple{2, Int})
+    r = centroid_radius(mesh, (i, j))
+    J = mesh.cell_center_metrics.J[i, j]
+    return r * J * 2π
 end
 
 """
@@ -465,13 +467,13 @@ Get an `Array` of all the cell volumes of the given mesh. This does not include 
 regions, since these can be ill-defined geometrically.
 """
 function cellvolumes(mesh)
-  volumes = zeros(size(mesh.iterators.cell.domain))
+    volumes = zeros(size(mesh.iterators.cell.domain))
 
-  for (idx0, idx1) in zip(CartesianIndices(volumes), mesh.iterators.cell.domain)
-    volumes[idx0] = cellvolume(mesh, idx1)
-  end
+    for (idx0, idx1) in zip(CartesianIndices(volumes), mesh.iterators.cell.domain)
+        volumes[idx0] = cellvolume(mesh, idx1)
+    end
 
-  return volumes
+    return volumes
 end
 
 """
@@ -490,70 +492,70 @@ applies a shift to the index for you.
 """
     centroid(mesh, (i,))
 """
-@inline function centroid(mesh, (i,)::NTuple{1,Int})
-  @SVector [mesh.centroid_coordinates.x[i]]
+@inline function centroid(mesh, (i,)::NTuple{1, Int})
+    return @SVector [mesh.centroid_coordinates.x[i]]
 end
 
 """
     centroid(mesh, (i,j))
 """
-@inline function centroid(mesh, (i, j)::NTuple{2,Int})
-  @SVector [mesh.centroid_coordinates.x[i, j], mesh.centroid_coordinates.y[i, j]]
+@inline function centroid(mesh, (i, j)::NTuple{2, Int})
+    return @SVector [mesh.centroid_coordinates.x[i, j], mesh.centroid_coordinates.y[i, j]]
 end
 
 """
     centroid(mesh, (i,j,k))
 """
-@inline function centroid(mesh, (i, j, k)::NTuple{3,Int})
-  @SVector [
-    mesh.centroid_coordinates.x[i, j, k],
-    mesh.centroid_coordinates.y[i, j, k],
-    mesh.centroid_coordinates.z[i, j, k],
-  ]
+@inline function centroid(mesh, (i, j, k)::NTuple{3, Int})
+    return @SVector [
+        mesh.centroid_coordinates.x[i, j, k],
+        mesh.centroid_coordinates.y[i, j, k],
+        mesh.centroid_coordinates.z[i, j, k],
+    ]
 end
 
-@inline function centroid(mesh::OrthogonalGrid{1}, (i,)::NTuple{1,Int})
-  @SVector [mesh.centroid_coordinates[1][i]]
+@inline function centroid(mesh::OrthogonalGrid{1}, (i,)::NTuple{1, Int})
+    return @SVector [mesh.centroid_coordinates[1][i]]
 end
 
-@inline function centroid(mesh::OrthogonalGrid{2}, (i, j)::NTuple{2,Int})
-  @SVector [mesh.centroid_coordinates[1][i], mesh.centroid_coordinates[2][j]]
+@inline function centroid(mesh::OrthogonalGrid{2}, (i, j)::NTuple{2, Int})
+    return @SVector [mesh.centroid_coordinates[1][i], mesh.centroid_coordinates[2][j]]
 end
 
-@inline function centroid(mesh::OrthogonalGrid{3}, (i, j, k)::NTuple{3,Int})
-  @SVector [
-    mesh.centroid_coordinates[1][i],
-    mesh.centroid_coordinates[2][j],
-    mesh.centroid_coordinates[3][k],
-  ]
+@inline function centroid(mesh::OrthogonalGrid{3}, (i, j, k)::NTuple{3, Int})
+    return @SVector [
+        mesh.centroid_coordinates[1][i],
+        mesh.centroid_coordinates[2][j],
+        mesh.centroid_coordinates[3][k],
+    ]
 end
 
-@inline function centroid(mesh::SphericalBasisCurvilinearGrid3D, (i, j, k)::NTuple{3,Int})
-  @SVector [
-    mesh.centroid_coordinates.r[i, j, k],
-    mesh.centroid_coordinates.θ[i, j, k],
-    mesh.centroid_coordinates.ϕ[i, j, k],
-  ]
-end
-
-@inline function cartesian_centroid(
-  mesh::OrthogonalGrid{3,T,SphericalCS}, (i, j, k)::NTuple{3,Int}
-) where {T}
-  r = mesh.centroid_coordinates[1][i]
-  θ = mesh.centroid_coordinates[2][j]
-  ϕ = mesh.centroid_coordinates[3][k]
-
-  @SVector [r * sin(θ) * cos(ϕ), r * sin(θ) * sin(ϕ), r * cos(θ)]
+@inline function centroid(mesh::SphericalBasisCurvilinearGrid3D, (i, j, k)::NTuple{3, Int})
+    return @SVector [
+        mesh.centroid_coordinates.r[i, j, k],
+        mesh.centroid_coordinates.θ[i, j, k],
+        mesh.centroid_coordinates.ϕ[i, j, k],
+    ]
 end
 
 @inline function cartesian_centroid(
-  mesh::SphericalBasisCurvilinearGrid3D, (i, j, k)::NTuple{3,Int}
-)
-  r = mesh.centroid_coordinates.r[i, j, k]
-  θ = mesh.centroid_coordinates.θ[i, j, k]
-  ϕ = mesh.centroid_coordinates.ϕ[i, j, k]
+        mesh::OrthogonalGrid{3, T, SphericalCS}, (i, j, k)::NTuple{3, Int}
+    ) where {T}
+    r = mesh.centroid_coordinates[1][i]
+    θ = mesh.centroid_coordinates[2][j]
+    ϕ = mesh.centroid_coordinates[3][k]
 
-  @SVector [r * sin(θ) * cos(ϕ), r * sin(θ) * sin(ϕ), r * cos(θ)]
+    return @SVector [r * sin(θ) * cos(ϕ), r * sin(θ) * sin(ϕ), r * cos(θ)]
+end
+
+@inline function cartesian_centroid(
+        mesh::SphericalBasisCurvilinearGrid3D, (i, j, k)::NTuple{3, Int}
+    )
+    r = mesh.centroid_coordinates.r[i, j, k]
+    θ = mesh.centroid_coordinates.θ[i, j, k]
+    ϕ = mesh.centroid_coordinates.ϕ[i, j, k]
+
+    return @SVector [r * sin(θ) * cos(ϕ), r * sin(θ) * sin(ϕ), r * cos(θ)]
 end
 
 """
@@ -572,11 +574,11 @@ jacobian_matrix(mesh, CI::CartesianIndex) = jacobian_matrix(mesh, CI.I)
 Return the forward cell metric payload at `idx` as a `Metric`.
 """
 @inline forward_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) =
-  forward_cell_metrics(mesh, idx.I)
+    forward_cell_metrics(mesh, idx.I)
 @inline function forward_cell_metrics(
-  mesh::AbstractCurvilinearGrid, idx::Tuple{Vararg{Int}}
-)
-  Metric(jacobian_matrix(mesh, idx))
+        mesh::AbstractCurvilinearGrid, idx::Tuple{Vararg{Int}}
+    )
+    return Metric(jacobian_matrix(mesh, idx))
 end
 
 """
@@ -585,44 +587,44 @@ end
 Return the inverse cell metric payload at `idx` as a `Metric`.
 """
 @inline inverse_cell_metrics(mesh::AbstractCurvilinearGrid, idx::CartesianIndex) =
-  inverse_cell_metrics(mesh, idx.I)
+    inverse_cell_metrics(mesh, idx.I)
 @inline function inverse_cell_metrics(
-  mesh::AbstractCurvilinearGrid, idx::Tuple{Vararg{Int}}
-)
-  inv(forward_cell_metrics(mesh, idx))
+        mesh::AbstractCurvilinearGrid, idx::Tuple{Vararg{Int}}
+    )
+    return inv(forward_cell_metrics(mesh, idx))
 end
 
 function get_gradient_discretization_scheme(discretization_scheme_name)
-  scheme_name = Symbol(uppercase("$discretization_scheme_name"))
-  use_symmetric_conservative_metric_scheme = false
-  # if scheme_name === :MEG4 || scheme_name === :MEG4_SYMMETRIC
-  #   order = 4
-  #   GradientDiscretizationScheme = MonotoneExplicitGradientScheme
-  #   if scheme_name === :MEG6_SYMMETRIC
-  #     use_symmetric_conservative_metric_scheme = true
-  #   end
-  if scheme_name === :MEG6 || scheme_name === :MEG6_SYMMETRIC
-    order = 6
-    GradientDiscretizationScheme = MonotoneExplicitGradientScheme
-    if scheme_name === :MEG6_SYMMETRIC
-      use_symmetric_conservative_metric_scheme = true
+    scheme_name = Symbol(uppercase("$discretization_scheme_name"))
+    use_symmetric_conservative_metric_scheme = false
+    # if scheme_name === :MEG4 || scheme_name === :MEG4_SYMMETRIC
+    #   order = 4
+    #   GradientDiscretizationScheme = MonotoneExplicitGradientScheme
+    #   if scheme_name === :MEG6_SYMMETRIC
+    #     use_symmetric_conservative_metric_scheme = true
+    #   end
+    if scheme_name === :MEG6 || scheme_name === :MEG6_SYMMETRIC
+        order = 6
+        GradientDiscretizationScheme = MonotoneExplicitGradientScheme
+        if scheme_name === :MEG6_SYMMETRIC
+            use_symmetric_conservative_metric_scheme = true
+        end
+    elseif scheme_name === :MEG4
+        order = 4
+        GradientDiscretizationScheme = MonotoneExplicitGradientScheme
+    elseif scheme_name === :MEG2
+        order = 2
+        GradientDiscretizationScheme = MonotoneExplicitGradientScheme
+    else
+        error("Only $((:MEG6)) is supported for now")
+        # error("Only $((:MEG4, :MEG6)) is supported for now")
     end
-  elseif scheme_name === :MEG4
-    order = 4
-    GradientDiscretizationScheme = MonotoneExplicitGradientScheme
-  elseif scheme_name === :MEG2
-    order = 2
-    GradientDiscretizationScheme = MonotoneExplicitGradientScheme
-  else
-    error("Only $((:MEG6)) is supported for now")
-    # error("Only $((:MEG4, :MEG6)) is supported for now")
-  end
 
-  nhalo = DiscretizationSchemes.nhalo_lookup[scheme_name]
+    nhalo = DiscretizationSchemes.nhalo_lookup[scheme_name]
 
-  return GradientDiscretizationScheme,
-  order, use_symmetric_conservative_metric_scheme, nhalo,
-  scheme_name
+    return GradientDiscretizationScheme,
+        order, use_symmetric_conservative_metric_scheme, nhalo,
+        scheme_name
 end
 
 # """

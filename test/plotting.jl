@@ -1,39 +1,38 @@
-
 using Plots, CurvilinearGrids
 
 function polar_mesh(ni, nj, nk)
-  r0, r1 = (0, 2)
-  # θ0, θ1 = (0, 2pi)
-  θ0, θ1 = (0, 2)# times π
-  z0, z1 = (0, 3)
+    r0, r1 = (0, 2)
+    # θ0, θ1 = (0, 2pi)
+    θ0, θ1 = (0, 2) # times π
+    z0, z1 = (0, 3)
 
-  r(i) = r0 + (r1 - r0) * ((i - 1) / (ni - 1))
-  θ(j) = θ0 + (θ1 - θ0) * ((j - 1) / (nj - 1))
-  # θ(j) = 0
-  _z(k) = z0 + (z1 - z0) * ((k - 1) / (nk - 1))
+    r(i) = r0 + (r1 - r0) * ((i - 1) / (ni - 1))
+    θ(j) = θ0 + (θ1 - θ0) * ((j - 1) / (nj - 1))
+    # θ(j) = 0
+    _z(k) = z0 + (z1 - z0) * ((k - 1) / (nk - 1))
 
-  x(i, j, k) = r(i) * cospi(θ(j))
-  y(i, j, k) = r(i) * sinpi(θ(j))
-  # x(i, j, k) = r(i) * cos(θ(j))
-  # y(i, j, k) = r(i) * sin(θ(j))
-  z(i, j, k) = _z(k)
+    x(i, j, k) = r(i) * cospi(θ(j))
+    y(i, j, k) = r(i) * sinpi(θ(j))
+    # x(i, j, k) = r(i) * cos(θ(j))
+    # y(i, j, k) = r(i) * sin(θ(j))
+    z(i, j, k) = _z(k)
 
-  return (x, y, z)
+    return (x, y, z)
 end
 
 function polar_mesh2d(ni, nj)
-  r0, r1 = (0, 2)
-  # θ0, θ1 = (0, 1e-10)
-  z0, z1 = (0, 3)
+    r0, r1 = (0, 2)
+    # θ0, θ1 = (0, 1e-10)
+    z0, z1 = (0, 3)
 
-  R(i) = r0 + (r1 - r0) * ((i - 1) / (ni - 1))
-  Z(j) = z0 + (z1 - z0) * ((k - 1) / (nk - 1))
+    R(i) = r0 + (r1 - r0) * ((i - 1) / (ni - 1))
+    Z(j) = z0 + (z1 - z0) * ((k - 1) / (nk - 1))
 
-  x(i, j) = R(i) * cos(θ(j))
-  # y(i, j, k) = r(i) * sin(θ(j))
-  y(i, j) = _z(k)
+    x(i, j) = R(i) * cos(θ(j))
+    # y(i, j, k) = r(i) * sin(θ(j))
+    y(i, j) = _z(k)
 
-  return (x, y)
+    return (x, y)
 end
 
 ni, nj, nk = (5, 2, 11)
@@ -54,7 +53,7 @@ zc = @view xyz_c[3, :, :, :]
 
 jacobian_matrix(mesh, (2, 1, 20))
 
-p = plot(; xlabel="R", ylabel="Z", aspect_ratio=:equal)
+p = plot(; xlabel = "R", ylabel = "Z", aspect_ratio = :equal)
 
 # J = zeros(cellsize_withhalo(mesh))
 # for idx in CartesianIndices(J)
@@ -69,7 +68,7 @@ p = plot(; xlabel="R", ylabel="Z", aspect_ratio=:equal)
 # heatmap(J[:, 1, :]'; colormap=:Spectral)
 
 for k in axes(xn, 3)
-  plot!(xn[:, 1, k], zn[:, 1, k]; color=:black, marker=:dot, label=nothing)
+    plot!(xn[:, 1, k], zn[:, 1, k]; color = :black, marker = :dot, label = nothing)
 end
 
 # for k in axes(xc, 3)
@@ -77,7 +76,7 @@ end
 # end
 
 for i in axes(xn, 1)
-  plot!(xn[i, 1, :], zn[i, 1, :]; color=:black, marker=:dot, label=nothing)
+    plot!(xn[i, 1, :], zn[i, 1, :]; color = :black, marker = :dot, label = nothing)
 end
 p
 # begin
@@ -96,21 +95,21 @@ p
 # p
 
 begin
-  ξx = 2.0
-  ξy = 0.0
-  ξz = 0.0
-  ηx = 0.0
-  ηy = 1.4335402848056648e15
-  ηz = 0.0
-  ζx = 0.0
-  ζy = 0.0
-  ζz = 3.333333333333333
-  ξt = 0.0
-  ηt = 0.0
-  ζt = 0.0
-  J = 1.0463605494025897e-16
+    ξx = 2.0
+    ξy = 0.0
+    ξz = 0.0
+    ηx = 0.0
+    ηy = 1.4335402848056648e15
+    ηz = 0.0
+    ζx = 0.0
+    ζy = 0.0
+    ζz = 3.333333333333333
+    ξt = 0.0
+    ηt = 0.0
+    ζt = 0.0
+    J = 1.0463605494025897e-16
 
-  ((J * ξx)^2 + (J * ξz)^2) / J
+    ((J * ξx)^2 + (J * ξz)^2) / J
 end
 
 ξₓ¹

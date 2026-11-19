@@ -1,190 +1,190 @@
 @testset "Orthogonal reduced grids" begin
-  backend = CPU()
+    backend = CPU()
 
-  @testset "Cartesian 1D" begin
-    x = [0.0, 1.0, 3.0]
-    grid = CartesianOrthogonalGrid1D(x, 0, backend)
+    @testset "Cartesian 1D" begin
+        x = [0.0, 1.0, 3.0]
+        grid = CartesianOrthogonalGrid1D(x, 0, backend)
 
-    domain = grid.iterators.cell.domain
-    @test grid.centroid_coordinates[1][domain][1] == 0.5
-    @test grid.centroid_coordinates[1][domain][2] == 2.0
-    @test grid.cell_volumes[domain] == [1.0, 2.0]
-    @test grid.face_areas[1][domain] == [1.0, 1.0]
-  end
-
-  @testset "Cylindrical 1D" begin
-    r = [1.0, 2.0, 4.0]
-    grid = CylindricalOrthogonalGrid1D(r, 0, backend)
-
-    domain = grid.iterators.cell.domain
-    @test isapprox(grid.centroid_coordinates[1][domain][1], 14 / 9; atol=1e-12)
-    @test isapprox(grid.cell_volumes[domain], [3π, 12π])
-    @test isapprox(grid.face_areas[1][domain], [4π, 8π])
-  end
-
-  @testset "Spherical 1D" begin
-    r = [1.0, 3.0]
-    grid = SphericalOrthogonalGrid1D(r, 0, backend)
-
-    domain = grid.iterators.cell.domain
-    @test isapprox(grid.centroid_coordinates[1][domain][1], 30 / 13; atol=1e-12)
-    @test isapprox(grid.cell_volumes[domain][1], (4 / 3) * π * (27 - 1))
-    @test isapprox(grid.face_areas[1][domain][1], 36π)
-  end
-
-  @testset "Spherical 3D face areas" begin
-    for T in (Float32, Float64), nhalo in (0, 1)
-      r = T[1, 2, 4]
-      θ = T[0, π / 3, π / 2]
-      ϕ = T[0, 0.4, 1.1]
-      grid = SphericalGrid3D(r, θ, ϕ, nhalo, backend)
-      KernelAbstractions.synchronize(backend)
-
-      for I in grid.iterators.cell.domain
-        i, j, k = Tuple(I) .- nhalo
-        # A constant-ϕ face is a planar annular sector.
-        expected = (r[i + 1]^2 - r[i]^2) * (θ[j + 1] - θ[j]) / 2
-        @test isapprox(grid.face_areas[3][I], expected; rtol=10eps(T))
-      end
+        domain = grid.iterators.cell.domain
+        @test grid.centroid_coordinates[1][domain][1] == 0.5
+        @test grid.centroid_coordinates[1][domain][2] == 2.0
+        @test grid.cell_volumes[domain] == [1.0, 2.0]
+        @test grid.face_areas[1][domain] == [1.0, 1.0]
     end
-  end
 
-  @testset "Spherical 3D radial face near the pole" begin
-    for T in (Float32, Float64)
-      r = T[1, 2]
-      θ = T[0, 1e-9]
-      ϕ = T[0, 0.4]
-      grid = SphericalGrid3D(r, θ, ϕ, 0, backend)
-      KernelAbstractions.synchronize(backend)
+    @testset "Cylindrical 1D" begin
+        r = [1.0, 2.0, 4.0]
+        grid = CylindricalOrthogonalGrid1D(r, 0, backend)
 
-      # Evaluate the spherical cap area at high precision to avoid cancellation.
-      expected = T(BigFloat(r[2])^2 * (1 - cos(BigFloat(θ[2]))) * BigFloat(ϕ[2]))
-      @test grid.face_areas[1][1, 1, 1] > 0
-      @test isapprox(grid.face_areas[1][1, 1, 1], expected; rtol=10eps(T))
+        domain = grid.iterators.cell.domain
+        @test isapprox(grid.centroid_coordinates[1][domain][1], 14 / 9; atol = 1.0e-12)
+        @test isapprox(grid.cell_volumes[domain], [3π, 12π])
+        @test isapprox(grid.face_areas[1][domain], [4π, 8π])
     end
-  end
 
-  @testset "Halo coordinate geometry" begin
-    nhalo = 2
+    @testset "Spherical 1D" begin
+        r = [1.0, 3.0]
+        grid = SphericalOrthogonalGrid1D(r, 0, backend)
 
-    cartesian = CartesianOrthogonalGrid1D([0.0, 1.0, 3.0], nhalo, backend)
-    xnodes = Array(cartesian.node_coordinates[1])
-    xcenters = Array(cartesian.centroid_coordinates[1])
-    @test xnodes == [-2.0, -1.0, 0.0, 1.0, 3.0, 5.0, 7.0]
-    @test all(isfinite, xcenters)
-    @test xcenters == (xnodes[1:(end - 1)] .+ xnodes[2:end]) ./ 2
+        domain = grid.iterators.cell.domain
+        @test isapprox(grid.centroid_coordinates[1][domain][1], 30 / 13; atol = 1.0e-12)
+        @test isapprox(grid.cell_volumes[domain][1], (4 / 3) * π * (27 - 1))
+        @test isapprox(grid.face_areas[1][domain][1], 36π)
+    end
 
-    radial_nodes = [0.0, 0.1, 0.23, 0.5]
-    spherical = SphericalOrthogonalGrid1D(radial_nodes, nhalo, backend)
-    rnodes = Array(spherical.node_coordinates[1])
-    rcenters = Array(spherical.centroid_coordinates[1])
-    @test rnodes[1:2] == [-0.23, -0.1]
-    @test rcenters[1] == -rcenters[4]
-    @test rcenters[2] == -rcenters[3]
-    @test all(>(0), diff(rcenters))
+    @testset "Spherical 3D face areas" begin
+        for T in (Float32, Float64), nhalo in (0, 1)
+            r = T[1, 2, 4]
+            θ = T[0, π / 3, π / 2]
+            ϕ = T[0, 0.4, 1.1]
+            grid = SphericalGrid3D(r, θ, ϕ, nhalo, backend)
+            KernelAbstractions.synchronize(backend)
 
-    spherical_2d = SphericalOrthogonalGrid2D(
-      radial_nodes, [0.0, π / 4, π / 2, 3π / 4, π], nhalo, backend
-    )
-    @test Array(spherical_2d.node_coordinates[1])[1:2] == [-0.23, -0.1]
-    rcenters_2d = Array(spherical_2d.centroid_coordinates[1])
-    @test rcenters_2d[1] == -rcenters_2d[4]
-    @test rcenters_2d[2] == -rcenters_2d[3]
+            for I in grid.iterators.cell.domain
+                i, j, k = Tuple(I) .- nhalo
+                # A constant-ϕ face is a planar annular sector.
+                expected = (r[i + 1]^2 - r[i]^2) * (θ[j + 1] - θ[j]) / 2
+                @test isapprox(grid.face_areas[3][I], expected; rtol = 10eps(T))
+            end
+        end
+    end
 
-    spherical_3d = SphericalGrid3D(
-      radial_nodes, [0.0, π / 4, π / 2, 3π / 4, π], [0.0, 0.5, 1.0, 1.5], nhalo, backend
-    )
-    @test Array(spherical_3d.node_coordinates[1])[1:2] == [-0.23, -0.1]
-    rcenters_3d = Array(spherical_3d.centroid_coordinates[1])
-    @test rcenters_3d[1] == -rcenters_3d[4]
-    @test rcenters_3d[2] == -rcenters_3d[3]
+    @testset "Spherical 3D radial face near the pole" begin
+        for T in (Float32, Float64)
+            r = T[1, 2]
+            θ = T[0, 1.0e-9]
+            ϕ = T[0, 0.4]
+            grid = SphericalGrid3D(r, θ, ϕ, 0, backend)
+            KernelAbstractions.synchronize(backend)
 
-    away_from_origin = SphericalOrthogonalGrid1D([1.0, 1.2, 1.7], nhalo, backend)
-    @test Array(away_from_origin.node_coordinates[1])[1:2] ≈ [0.6, 0.8]
+            # Evaluate the spherical cap area at high precision to avoid cancellation.
+            expected = T(BigFloat(r[2])^2 * (1 - cos(BigFloat(θ[2]))) * BigFloat(ϕ[2]))
+            @test grid.face_areas[1][1, 1, 1] > 0
+            @test isapprox(grid.face_areas[1][1, 1, 1], expected; rtol = 10eps(T))
+        end
+    end
 
-    supplied_nodes = [-0.7, -0.2, 0.0, 0.3, 0.9, 1.8, 2.8]
-    supplied = CartesianOrthogonalGrid1D(
-      supplied_nodes, nhalo, backend; halo_coords_included=true
-    )
-    @test Array(supplied.node_coordinates[1]) == supplied_nodes
-    supplied_centers = Array(supplied.centroid_coordinates[1])
-    @test supplied_centers == (supplied_nodes[1:(end - 1)] .+ supplied_nodes[2:end]) ./ 2
+    @testset "Halo coordinate geometry" begin
+        nhalo = 2
 
-    @test_throws ArgumentError SphericalOrthogonalGrid1D([0.0, 0.1], nhalo, backend)
-  end
+        cartesian = CartesianOrthogonalGrid1D([0.0, 1.0, 3.0], nhalo, backend)
+        xnodes = Array(cartesian.node_coordinates[1])
+        xcenters = Array(cartesian.centroid_coordinates[1])
+        @test xnodes == [-2.0, -1.0, 0.0, 1.0, 3.0, 5.0, 7.0]
+        @test all(isfinite, xcenters)
+        @test xcenters == (xnodes[1:(end - 1)] .+ xnodes[2:end]) ./ 2
 
-  @testset "Unwrapped spherical polar centroids" begin
-    grid = SphericalOrthogonalGrid2D([1.0, 2.0, 3.0], [0.0, 0.4, 1.5, π], 1, backend)
-    θcenters = Array(grid.centroid_coordinates[2])
-    @test θcenters[1] < 0
-    @test θcenters[end] > π
-    @test all(>(0), diff(θcenters))
+        radial_nodes = [0.0, 0.1, 0.23, 0.5]
+        spherical = SphericalOrthogonalGrid1D(radial_nodes, nhalo, backend)
+        rnodes = Array(spherical.node_coordinates[1])
+        rcenters = Array(spherical.centroid_coordinates[1])
+        @test rnodes[1:2] == [-0.23, -0.1]
+        @test rcenters[1] == -rcenters[4]
+        @test rcenters[2] == -rcenters[3]
+        @test all(>(0), diff(rcenters))
 
-    grid_3d = SphericalGrid3D(
-      [1.0, 2.0, 3.0], [0.0, 0.4, 1.5, π], [0.0, 0.5, 1.0], 1, backend
-    )
-    θcenters_3d = Array(grid_3d.centroid_coordinates[2])
-    @test θcenters_3d[1] < 0
-    @test θcenters_3d[end] > π
-    @test all(>(0), diff(θcenters_3d))
-  end
+        spherical_2d = SphericalOrthogonalGrid2D(
+            radial_nodes, [0.0, π / 4, π / 2, 3π / 4, π], nhalo, backend
+        )
+        @test Array(spherical_2d.node_coordinates[1])[1:2] == [-0.23, -0.1]
+        rcenters_2d = Array(spherical_2d.centroid_coordinates[1])
+        @test rcenters_2d[1] == -rcenters_2d[4]
+        @test rcenters_2d[2] == -rcenters_2d[3]
 
-  @testset "Axisymmetric RZ 2D" begin
-    r = [1.0, 2.0]
-    z = [0.0, 1.0, 2.0]
-    grid = AxisymmetricOrthogonalGrid2D(r, z, 0, backend)
+        spherical_3d = SphericalGrid3D(
+            radial_nodes, [0.0, π / 4, π / 2, 3π / 4, π], [0.0, 0.5, 1.0, 1.5], nhalo, backend
+        )
+        @test Array(spherical_3d.node_coordinates[1])[1:2] == [-0.23, -0.1]
+        rcenters_3d = Array(spherical_3d.centroid_coordinates[1])
+        @test rcenters_3d[1] == -rcenters_3d[4]
+        @test rcenters_3d[2] == -rcenters_3d[3]
 
-    domain = grid.iterators.cell.domain
-    @test isapprox(grid.centroid_coordinates[1][domain.indices[1][1]], 14 / 9; atol=1e-12)
-    @test grid.centroid_coordinates[2][domain.indices[2]] == [0.5, 1.5]
-    @test isapprox(grid.cell_volumes[domain], [3π 3π])
-    @test isapprox(grid.face_areas[1][domain], [4π 4π])
-    @test isapprox(grid.face_areas[2][domain], [3π 3π])
-  end
+        away_from_origin = SphericalOrthogonalGrid1D([1.0, 1.2, 1.7], nhalo, backend)
+        @test Array(away_from_origin.node_coordinates[1])[1:2] ≈ [0.6, 0.8]
 
-  @testset "Spherical (r, θ) 2D" begin
-    r = [1.0, 2.0]
-    θ = [0.0, π / 3, 2π / 3]
-    grid = SphericalOrthogonalGrid2D(r, θ, 0, backend)
+        supplied_nodes = [-0.7, -0.2, 0.0, 0.3, 0.9, 1.8, 2.8]
+        supplied = CartesianOrthogonalGrid1D(
+            supplied_nodes, nhalo, backend; halo_coords_included = true
+        )
+        @test Array(supplied.node_coordinates[1]) == supplied_nodes
+        supplied_centers = Array(supplied.centroid_coordinates[1])
+        @test supplied_centers == (supplied_nodes[1:(end - 1)] .+ supplied_nodes[2:end]) ./ 2
 
-    domain = grid.iterators.cell.domain
-    @test isapprox(grid.centroid_coordinates[1][domain.indices[1][1]], 45 / 28; atol=1e-12)
-    @test grid.centroid_coordinates[2][domain.indices[2]] ≈ [acos(3 / 4), π / 2]
-    @test isapprox(grid.cell_volumes[domain], [7π / 3 14π / 3])
-    @test isapprox(grid.face_areas[1][domain], [4π 8π])
-    @test isapprox(grid.face_areas[2][domain], [3π * sqrt(3) / 2 3π * sqrt(3) / 2])
-  end
+        @test_throws ArgumentError SphericalOrthogonalGrid1D([0.0, 0.1], nhalo, backend)
+    end
 
-  @testset "Cartesian Coordinate Conversion" begin
-    g_cart = CartesianOrthogonalGrid1D([0.0, 1.0, 2.0], 0, backend)
-    @test cartesian_coordinates(g_cart) == coords(g_cart)
+    @testset "Unwrapped spherical polar centroids" begin
+        grid = SphericalOrthogonalGrid2D([1.0, 2.0, 3.0], [0.0, 0.4, 1.5, π], 1, backend)
+        θcenters = Array(grid.centroid_coordinates[2])
+        @test θcenters[1] < 0
+        @test θcenters[end] > π
+        @test all(>(0), diff(θcenters))
 
-    g_axi = AxisymmetricOrthogonalGrid2D([1.0, 2.0], [0.0, 1.0], 0, backend)
-    r_axi, z_axi = coords(g_axi)
-    x_axi, y_axi = cartesian_coordinates(g_axi)
-    @test x_axi == r_axi
-    @test y_axi == z_axi
+        grid_3d = SphericalGrid3D(
+            [1.0, 2.0, 3.0], [0.0, 0.4, 1.5, π], [0.0, 0.5, 1.0], 1, backend
+        )
+        θcenters_3d = Array(grid_3d.centroid_coordinates[2])
+        @test θcenters_3d[1] < 0
+        @test θcenters_3d[end] > π
+        @test all(>(0), diff(θcenters_3d))
+    end
 
-    r = [1.0, 2.0]
-    θ = [π / 2, π / 2]
-    ϕ = [0.0, π / 2]
-    g_sph = SphericalGrid3D(r, θ, ϕ, 0, backend)
-    x, y, z = cartesian_coordinates(g_sph)
+    @testset "Axisymmetric RZ 2D" begin
+        r = [1.0, 2.0]
+        z = [0.0, 1.0, 2.0]
+        grid = AxisymmetricOrthogonalGrid2D(r, z, 0, backend)
 
-    @test size(x) == (2, 2, 2)
-    @test size(y) == (2, 2, 2)
-    @test size(z) == (2, 2, 2)
-    @test isapprox(x[1, 1, 1], 1.0; atol=1e-12)
-    @test isapprox(y[1, 1, 2], 1.0; atol=1e-12)
-    @test isapprox(x[2, 1, 2], 0.0; atol=1e-12)
-    @test isapprox(y[2, 1, 1], 0.0; atol=1e-12)
-    @test isapprox(z[1, 1, 1], 0.0; atol=1e-12)
+        domain = grid.iterators.cell.domain
+        @test isapprox(grid.centroid_coordinates[1][domain.indices[1][1]], 14 / 9; atol = 1.0e-12)
+        @test grid.centroid_coordinates[2][domain.indices[2]] == [0.5, 1.5]
+        @test isapprox(grid.cell_volumes[domain], [3π 3π])
+        @test isapprox(grid.face_areas[1][domain], [4π 4π])
+        @test isapprox(grid.face_areas[2][domain], [3π 3π])
+    end
 
-    g_sph2 = SphericalOrthogonalGrid2D([1.0, 2.0], [0.0, π / 2], 0, backend)
-    x2, z2 = cartesian_coordinates(g_sph2)
-    @test size(x2) == (2, 2)
-    @test size(z2) == (2, 2)
-    @test isapprox(x2[2, 2], 2.0; atol=1e-12)
-    @test isapprox(z2[2, 1], 2.0; atol=1e-12)
-  end
+    @testset "Spherical (r, θ) 2D" begin
+        r = [1.0, 2.0]
+        θ = [0.0, π / 3, 2π / 3]
+        grid = SphericalOrthogonalGrid2D(r, θ, 0, backend)
+
+        domain = grid.iterators.cell.domain
+        @test isapprox(grid.centroid_coordinates[1][domain.indices[1][1]], 45 / 28; atol = 1.0e-12)
+        @test grid.centroid_coordinates[2][domain.indices[2]] ≈ [acos(3 / 4), π / 2]
+        @test isapprox(grid.cell_volumes[domain], [7π / 3 14π / 3])
+        @test isapprox(grid.face_areas[1][domain], [4π 8π])
+        @test isapprox(grid.face_areas[2][domain], [3π * sqrt(3) / 2 3π * sqrt(3) / 2])
+    end
+
+    @testset "Cartesian Coordinate Conversion" begin
+        g_cart = CartesianOrthogonalGrid1D([0.0, 1.0, 2.0], 0, backend)
+        @test cartesian_coordinates(g_cart) == coords(g_cart)
+
+        g_axi = AxisymmetricOrthogonalGrid2D([1.0, 2.0], [0.0, 1.0], 0, backend)
+        r_axi, z_axi = coords(g_axi)
+        x_axi, y_axi = cartesian_coordinates(g_axi)
+        @test x_axi == r_axi
+        @test y_axi == z_axi
+
+        r = [1.0, 2.0]
+        θ = [π / 2, π / 2]
+        ϕ = [0.0, π / 2]
+        g_sph = SphericalGrid3D(r, θ, ϕ, 0, backend)
+        x, y, z = cartesian_coordinates(g_sph)
+
+        @test size(x) == (2, 2, 2)
+        @test size(y) == (2, 2, 2)
+        @test size(z) == (2, 2, 2)
+        @test isapprox(x[1, 1, 1], 1.0; atol = 1.0e-12)
+        @test isapprox(y[1, 1, 2], 1.0; atol = 1.0e-12)
+        @test isapprox(x[2, 1, 2], 0.0; atol = 1.0e-12)
+        @test isapprox(y[2, 1, 1], 0.0; atol = 1.0e-12)
+        @test isapprox(z[1, 1, 1], 0.0; atol = 1.0e-12)
+
+        g_sph2 = SphericalOrthogonalGrid2D([1.0, 2.0], [0.0, π / 2], 0, backend)
+        x2, z2 = cartesian_coordinates(g_sph2)
+        @test size(x2) == (2, 2)
+        @test size(z2) == (2, 2)
+        @test isapprox(x2[2, 2], 2.0; atol = 1.0e-12)
+        @test isapprox(z2[2, 1], 2.0; atol = 1.0e-12)
+    end
 end

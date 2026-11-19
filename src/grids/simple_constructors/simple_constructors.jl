@@ -1,4 +1,3 @@
-
 using KernelAbstractions
 
 include("rtheta.jl")

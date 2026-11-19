@@ -1,4 +1,3 @@
-
 abstract type AbstractOrthogonalGrid <: AbstractCurvilinearGrid end
 
 """
@@ -7,23 +6,23 @@ abstract type AbstractOrthogonalGrid <: AbstractCurvilinearGrid end
 Unified concrete storage for orthogonal finite-volume grids across all supported
 coordinate systems and dimensions.
 """
-struct OrthogonalGrid{N,T,CS<:CoordinateSystemTrait,NC,CC,CV,I,DL,FA} <:
-       AbstractOrthogonalGrid
-  node_coordinates::NC
-  centroid_coordinates::CC
-  cell_volumes::CV
-  iterators::I
-  domain_limits::DL
-  face_areas::FA
-  nhalo::Int
+struct OrthogonalGrid{N, T, CS <: CoordinateSystemTrait, NC, CC, CV, I, DL, FA} <:
+    AbstractOrthogonalGrid
+    node_coordinates::NC
+    centroid_coordinates::CC
+    cell_volumes::CV
+    iterators::I
+    domain_limits::DL
+    face_areas::FA
+    nhalo::Int
 end
 
-function Base.show(io::IO, grid_type::Type{<:OrthogonalGrid{N,T}}) where {N,T}
-  if get(io, :backtrace, false)::Bool
-    print(io, "OrthogonalGrid{", N, ", ", T, ", …}")
-    return nothing
-  end
-  return invoke(Base.show, Tuple{IO,Type}, io, grid_type)
+function Base.show(io::IO, grid_type::Type{<:OrthogonalGrid{N, T}}) where {N, T}
+    if get(io, :backtrace, false)::Bool
+        print(io, "OrthogonalGrid{", N, ", ", T, ", …}")
+        return nothing
+    end
+    return invoke(Base.show, Tuple{IO, Type}, io, grid_type)
 end
 
 # Dispatch migration guide (legacy -> unified orthogonal dispatch):
@@ -53,54 +52,54 @@ include("spherical_2d.jl")
 include("spherical_3d.jl")
 include("pad_with_halo.jl")
 
-function _prepare_1d_coordinates(_x, nhalo, halo_coords_included; padder=pad_with_halo)
-  if !halo_coords_included
-    x = padder(_x, nhalo)
-  else
-    x = _x
-  end
+function _prepare_1d_coordinates(_x, nhalo, halo_coords_included; padder = pad_with_halo)
+    if !halo_coords_included
+        x = padder(_x, nhalo)
+    else
+        x = _x
+    end
 
-  limits, iters = get_iterators(size(x), true, nhalo)
-  celldims = size(iters.cell.full)
-  nodedims = size(iters.node.full)
+    limits, iters = get_iterators(size(x), true, nhalo)
+    celldims = size(iters.cell.full)
+    nodedims = size(iters.node.full)
 
-  return x, limits, iters, nodedims, celldims
+    return x, limits, iters, nodedims, celldims
 end
 
 function _prepare_nd_coordinates(
-  _coords::NTuple{N},
-  nhalo,
-  halo_coords_included;
-  padders=ntuple(_ -> pad_with_halo, Val(N)),
-) where {N}
-  if !halo_coords_included
-    coords = ntuple(d -> padders[d](_coords[d], nhalo), Val(N))
-  else
-    coords = _coords
-  end
+        _coords::NTuple{N},
+        nhalo,
+        halo_coords_included;
+        padders = ntuple(_ -> pad_with_halo, Val(N)),
+    ) where {N}
+    if !halo_coords_included
+        coords = ntuple(d -> padders[d](_coords[d], nhalo), Val(N))
+    else
+        coords = _coords
+    end
 
-  nodedims = map(length, coords) |> Tuple
-  limits, iters = get_iterators(nodedims, true, nhalo)
-  celldims = size(iters.cell.full)
+    nodedims = map(length, coords) |> Tuple
+    limits, iters = get_iterators(nodedims, true, nhalo)
+    celldims = size(iters.cell.full)
 
-  return coords, limits, iters, nodedims, celldims
+    return coords, limits, iters, nodedims, celldims
 end
 
 function _populate_1d_nodes!(storage, coords, iters)
-  if length(coords) == length(storage)
-    copy!(storage, coords)
-  else
-    @views storage[iters.node.domain.indices[1]] .= coords
-  end
-  return nothing
+    if length(coords) == length(storage)
+        copy!(storage, coords)
+    else
+        @views storage[iters.node.domain.indices[1]] .= coords
+    end
+    return nothing
 end
 
 @inline function _spherical_polar_centroid(θ₀::T, θ₁::T) where {T}
-  μ = clamp((cos(θ₀) + cos(θ₁)) / 2, -one(T), one(T))
-  canonical = acos(μ)
-  midpoint = (θ₀ + θ₁) / 2
-  period = T(2π)
-  positive = canonical + period * round((midpoint - canonical) / period)
-  negative = -canonical + period * round((midpoint + canonical) / period)
-  return abs(positive - midpoint) ≤ abs(negative - midpoint) ? positive : negative
+    μ = clamp((cos(θ₀) + cos(θ₁)) / 2, -one(T), one(T))
+    canonical = acos(μ)
+    midpoint = (θ₀ + θ₁) / 2
+    period = T(2π)
+    positive = canonical + period * round((midpoint - canonical) / period)
+    negative = -canonical + period * round((midpoint + canonical) / period)
+    return abs(positive - midpoint) ≤ abs(negative - midpoint) ? positive : negative
 end

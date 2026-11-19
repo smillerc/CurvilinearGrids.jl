@@ -8,12 +8,12 @@
 Compute the physical gradient ∇A at cell center `I` for scalar field `A`, returning an `SVector` of derivatives in the radial, polar, and azimuthal directions.
 """
 function cell_center_gradient(
-  mesh::OrthogonalGrid{3,S,SphericalCS}, A::AbstractArray{T,3}, I::CartesianIndex{3}
-) where {S,T}
-  ∂A∂r = cell_center_derivative(mesh, A, I, 1)
-  ∂A∂θ = cell_center_derivative(mesh, A, I, 2)
-  ∂A∂ϕ = cell_center_derivative(mesh, A, I, 3)
-  return @SVector [∂A∂r, ∂A∂θ, ∂A∂ϕ]
+        mesh::OrthogonalGrid{3, S, SphericalCS}, A::AbstractArray{T, 3}, I::CartesianIndex{3}
+    ) where {S, T}
+    ∂A∂r = cell_center_derivative(mesh, A, I, 1)
+    ∂A∂θ = cell_center_derivative(mesh, A, I, 2)
+    ∂A∂ϕ = cell_center_derivative(mesh, A, I, 3)
+    return @SVector [∂A∂r, ∂A∂θ, ∂A∂ϕ]
 end
 
 # --------------------------------------------------------------------
@@ -26,10 +26,10 @@ end
 Compute the physical gradient at the edge between cell `I` and its neighbor in each coordinate direction by averaging the corresponding edge derivatives.
 """
 function edge_gradient(
-  mesh::OrthogonalGrid{3,S,SphericalCS}, A::AbstractArray{T,3}, I::CartesianIndex{3}
-) where {S,T}
-  ∂A∂r = edge_derivative(mesh, A, I, 1)
-  ∂A∂θ = edge_derivative(mesh, A, I, 2)
-  ∂A∂ϕ = edge_derivative(mesh, A, I, 3)
-  return @SVector [∂A∂r, ∂A∂θ, ∂A∂ϕ]
+        mesh::OrthogonalGrid{3, S, SphericalCS}, A::AbstractArray{T, 3}, I::CartesianIndex{3}
+    ) where {S, T}
+    ∂A∂r = edge_derivative(mesh, A, I, 1)
+    ∂A∂θ = edge_derivative(mesh, A, I, 2)
+    ∂A∂ϕ = edge_derivative(mesh, A, I, 3)
+    return @SVector [∂A∂r, ∂A∂θ, ∂A∂ϕ]
 end

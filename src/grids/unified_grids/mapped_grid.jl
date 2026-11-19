@@ -1,9 +1,9 @@
 # MappedGrid type and constructors.
 
-struct _ReparameterizedMappingComponent{D,F,O,S} <: Function
-  f::F
-  origin::O
-  scale::S
+struct _ReparameterizedMappingComponent{D, F, O, S} <: Function
+    f::F
+    origin::O
+    scale::S
 end
 
 @inline _reparameterized_coordinate(q, origin, scale) = origin + (q - oneunit(q)) * scale
@@ -13,20 +13,20 @@ end
 @inline _mapping_component_keys(::Val{3}) = (:x1, :x2, :x3)
 
 @inline function (m::_ReparameterizedMappingComponent{1})(t, ξ, params)
-  return m.f(t, _reparameterized_coordinate(ξ, m.origin[1], m.scale[1]), params)
+    return m.f(t, _reparameterized_coordinate(ξ, m.origin[1], m.scale[1]), params)
 end
 
 @inline function (m::_ReparameterizedMappingComponent{2})(t, ξ, η, params)
-  ξf = _reparameterized_coordinate(ξ, m.origin[1], m.scale[1])
-  ηf = _reparameterized_coordinate(η, m.origin[2], m.scale[2])
-  return m.f(t, ξf, ηf, params)
+    ξf = _reparameterized_coordinate(ξ, m.origin[1], m.scale[1])
+    ηf = _reparameterized_coordinate(η, m.origin[2], m.scale[2])
+    return m.f(t, ξf, ηf, params)
 end
 
 @inline function (m::_ReparameterizedMappingComponent{3})(t, ξ, η, ζ, params)
-  ξf = _reparameterized_coordinate(ξ, m.origin[1], m.scale[1])
-  ηf = _reparameterized_coordinate(η, m.origin[2], m.scale[2])
-  ζf = _reparameterized_coordinate(ζ, m.origin[3], m.scale[3])
-  return m.f(t, ξf, ηf, ζf, params)
+    ξf = _reparameterized_coordinate(ξ, m.origin[1], m.scale[1])
+    ηf = _reparameterized_coordinate(η, m.origin[2], m.scale[2])
+    ζf = _reparameterized_coordinate(ζ, m.origin[3], m.scale[3])
+    return m.f(t, ξf, ηf, ζf, params)
 end
 
 """
@@ -43,34 +43,34 @@ evaluation. `origin` and `scale` are stored by value; no mapping parameters or
 mutable grid state are captured.
 """
 function reparameterize_mapping(
-  mapping_functions::NamedTuple, origin::NTuple{D,<:Real}, scale::NTuple{D,<:Real}
-) where {D}
-  D in 1:3 || throw(
-    ArgumentError("Mapping reparameterization supports dimensions 1, 2, and 3; got D=$D.")
-  )
-  expected_keys = _mapping_component_keys(Val(D))
-  keys(mapping_functions) == expected_keys || throw(
-    ArgumentError(
-      "Expected mapping-function keys $expected_keys for D=$D; got $(keys(mapping_functions)).",
-    ),
-  )
-  components = ntuple(Val(D)) do d
-    f = getfield(mapping_functions, d)
-    _ReparameterizedMappingComponent{D,typeof(f),typeof(origin),typeof(scale)}(
-      f, origin, scale
+        mapping_functions::NamedTuple, origin::NTuple{D, <:Real}, scale::NTuple{D, <:Real}
+    ) where {D}
+    D in 1:3 || throw(
+        ArgumentError("Mapping reparameterization supports dimensions 1, 2, and 3; got D=$D.")
     )
-  end
-  return NamedTuple{expected_keys}(components)
+    expected_keys = _mapping_component_keys(Val(D))
+    keys(mapping_functions) == expected_keys || throw(
+        ArgumentError(
+            "Expected mapping-function keys $expected_keys for D=$D; got $(keys(mapping_functions)).",
+        ),
+    )
+    components = ntuple(Val(D)) do d
+        f = getfield(mapping_functions, d)
+        _ReparameterizedMappingComponent{D, typeof(f), typeof(origin), typeof(scale)}(
+            f, origin, scale
+        )
+    end
+    return NamedTuple{expected_keys}(components)
 end
 
 function reparameterize_mapping(
-  mapping_functions::NamedTuple, origin::Tuple{Vararg{Real}}, scale::Tuple{Vararg{Real}}
-)
-  throw(
-    DimensionMismatch(
-      "Mapping origin and scale dimensions must match; got $(length(origin)) and $(length(scale)).",
-    ),
-  )
+        mapping_functions::NamedTuple, origin::Tuple{Vararg{Real}}, scale::Tuple{Vararg{Real}}
+    )
+    throw(
+        DimensionMismatch(
+            "Mapping origin and scale dimensions must match; got $(length(origin)) and $(length(scale)).",
+        ),
+    )
 end
 
 """
@@ -97,238 +97,241 @@ and independent metric caches for cell and face data.
   - `conserved_metric_scheme`: Scheme used to construct conserved face metrics.
 """
 struct MappedGrid{
-  N,
-  T,
-  CS<:CoordinateSystemTrait,
-  BT<:BasisTrait,
-  NC,
-  CC,
-  FC,
-  MF,
-  MFC,
-  B,
-  DB,
-  I,
-  S,
-  MC,
-  CMS<:EdgeInterpolationSchemeTrait,
-} <: AbstractMappedOrDiscreteGrid
-  node_coordinates::NC
-  centroid_coordinates::CC
-  face_coordinates::FC
-  mapping_functions::MF
-  metric_functions_cache::MFC
-  backend::B
-  diff_backend::DB
-  nhalo::Int
-  iterators::I
-  state::S
-  metric_caches::MC
-  conserved_metric_scheme::CMS
+        N,
+        T,
+        CS <: CoordinateSystemTrait,
+        BT <: BasisTrait,
+        NC,
+        CC,
+        FC,
+        MF,
+        MFC,
+        B,
+        DB,
+        I,
+        S,
+        MC,
+        CMS <: EdgeInterpolationSchemeTrait,
+    } <: AbstractMappedOrDiscreteGrid
+    node_coordinates::NC
+    centroid_coordinates::CC
+    face_coordinates::FC
+    mapping_functions::MF
+    metric_functions_cache::MFC
+    backend::B
+    diff_backend::DB
+    nhalo::Int
+    iterators::I
+    state::S
+    metric_caches::MC
+    conserved_metric_scheme::CMS
 end
 
-function Base.show(io::IO, grid_type::Type{<:MappedGrid{N,T}}) where {N,T}
-  if get(io, :backtrace, false)::Bool
-    print(io, "MappedGrid{", N, ", ", T, ", …}")
-    return nothing
-  end
-  return invoke(Base.show, Tuple{IO,Type}, io, grid_type)
+function Base.show(io::IO, grid_type::Type{<:MappedGrid{N, T}}) where {N, T}
+    if get(io, :backtrace, false)::Bool
+        print(io, "MappedGrid{", N, ", ", T, ", …}")
+        return nothing
+    end
+    return invoke(Base.show, Tuple{IO, Type}, io, grid_type)
 end
 
 function _mapped_state(grid::MappedGrid)
-  state = grid.state[]
-  has_state = state isa NamedTuple && haskey(state, :t) && haskey(state, :params)
-  has_state ? (state.t, state.params, true) : (nothing, nothing, false)
+    state = grid.state[]
+    has_state = state isa NamedTuple && haskey(state, :t) && haskey(state, :params)
+    return has_state ? (state.t, state.params, true) : (nothing, nothing, false)
 end
 
 function _recompute_mapped_cell_metrics!(
-  grid::MappedGrid{N,T}; include_halo_region::Bool=false
-) where {N,T}
-  _require_metric_storage(grid, "refresh_cell_metrics!")
-  t, params, has_state = _mapped_state(grid)
-  if !has_state
-    return nothing
-  end
-  cell_storage, _ = _ensure_metric_storage!(grid, Val(N), T)
-  _fill_cell_metric_storage!(
-    cell_storage,
-    grid.metric_functions_cache,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-    T,
-    grid.backend,
-  )
+        grid::MappedGrid{N, T}; include_halo_region::Bool = false
+    ) where {N, T}
+    _require_metric_storage(grid, "refresh_cell_metrics!")
+    t, params, has_state = _mapped_state(grid)
+    if !has_state
+        return nothing
+    end
+    cell_storage, _ = _ensure_metric_storage!(grid, Val(N), T)
+    _fill_cell_metric_storage!(
+        cell_storage,
+        grid.metric_functions_cache,
+        grid.iterators,
+        grid.nhalo,
+        t,
+        params,
+        Val(N),
+        T,
+        grid.backend,
+    )
 
-  return nothing
+    return nothing
 end
 
 function _recompute_mapped_face_metrics!(
-  grid::MappedGrid{N,T}; include_halo_region::Bool=false
-) where {N,T}
-  _require_metric_storage(grid, "refresh_face_metrics!")
-  t, params, has_state = _mapped_state(grid)
-  if !has_state
+        grid::MappedGrid{N, T}; include_halo_region::Bool = false
+    ) where {N, T}
+    _require_metric_storage(grid, "refresh_face_metrics!")
+    t, params, has_state = _mapped_state(grid)
+    if !has_state
+        return nothing
+    end
+    _, face_storage = _ensure_metric_storage!(grid, Val(N), T)
+    _fill_face_metric_storage!(
+        face_storage,
+        grid.metric_functions_cache,
+        grid.iterators,
+        grid.nhalo,
+        t,
+        params,
+        Val(N),
+        T,
+        grid.backend,
+    )
+    _fill_spherical_conserved_faces!(face_storage, grid, t, params, Val(N), T)
+    _fill_axisymmetric_conserved_faces!(face_storage, grid, t, params, Val(N), T)
+
     return nothing
-  end
-  _, face_storage = _ensure_metric_storage!(grid, Val(N), T)
-  _fill_face_metric_storage!(
-    face_storage,
-    grid.metric_functions_cache,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-    T,
-    grid.backend,
-  )
-
-  return nothing
 end
 
-function _refresh_cell_metrics!(grid::MappedGrid; include_halo_region::Bool=false)
-  _require_metric_storage(grid, "refresh_cell_metrics!")
-  _recompute_mapped_cell_metrics!(grid; include_halo_region=include_halo_region)
-  data = grid.metric_caches.cell.data
+function _refresh_cell_metrics!(grid::MappedGrid; include_halo_region::Bool = false)
+    _require_metric_storage(grid, "refresh_cell_metrics!")
+    _recompute_mapped_cell_metrics!(grid; include_halo_region = include_halo_region)
+    data = grid.metric_caches.cell.data
 
-  if grid.metric_caches.cell.mode === :off
+    if grid.metric_caches.cell.mode === :off
+        return data
+    end
+
+    grid.metric_caches.cell.valid = true
     return data
-  end
-
-  grid.metric_caches.cell.valid = true
-  return data
 end
 
-function _refresh_face_metrics!(grid::MappedGrid; include_halo_region::Bool=false)
-  _require_metric_storage(grid, "refresh_face_metrics!")
-  _recompute_mapped_face_metrics!(grid; include_halo_region=include_halo_region)
-  data = grid.metric_caches.face.data
+function _refresh_face_metrics!(grid::MappedGrid; include_halo_region::Bool = false)
+    _require_metric_storage(grid, "refresh_face_metrics!")
+    _recompute_mapped_face_metrics!(grid; include_halo_region = include_halo_region)
+    data = grid.metric_caches.face.data
 
-  if grid.metric_caches.face.mode === :off
+    if grid.metric_caches.face.mode === :off
+        return data
+    end
+
+    grid.metric_caches.face.valid = true
     return data
-  end
-
-  grid.metric_caches.face.valid = true
-  return data
 end
 
 function _new_mapped_grid(
-  ::Val{N},
-  mapping_functions,
-  params::NamedTuple,
-  celldims::NTuple{N,Int},
-  nhalo::Int;
-  backend,
-  diff_backend,
-  t,
-  T::Type,
-  compute_metrics::Bool,
-  global_cell_indices,
-  coordinate_system::CoordinateSystemTrait,
-  basis::BasisTrait,
-  cache_mode::Symbol,
-  conserved_metric_scheme::EdgeInterpolationSchemeTrait,
-  metric_functions_cache=nothing,
-) where {N}
-  _check_unified_basis_trait(basis)
+        ::Val{N},
+        mapping_functions,
+        params::NamedTuple,
+        celldims::NTuple{N, Int},
+        nhalo::Int;
+        backend,
+        diff_backend,
+        t,
+        T::Type,
+        compute_metrics::Bool,
+        global_cell_indices,
+        coordinate_system::CoordinateSystemTrait,
+        basis::BasisTrait,
+        cache_mode::Symbol,
+        conserved_metric_scheme::EdgeInterpolationSchemeTrait,
+        metric_functions_cache = nothing,
+    ) where {N}
+    _check_unified_basis_trait(basis)
 
-  disable_metrics = (!compute_metrics && cache_mode === :off)
-  components = _build_unified_components(
-    Val(N),
-    mapping_functions,
-    celldims,
-    nhalo,
-    conserved_metric_scheme,
-    backend,
-    diff_backend,
-    T;
-    global_cell_indices=global_cell_indices,
-    build_metric_storage=(!disable_metrics),
-    metric_functions_cache=metric_functions_cache,
-  )
-
-  requested_mode =
-    compute_metrics ? cache_mode : (cache_mode === :eager ? :lazy : cache_mode)
-  caches = if disable_metrics
-    nothing
-  else
-    _new_metric_caches(
-      requested_mode, components.cell_metric_storage, components.face_metric_storage
+    disable_metrics = (!compute_metrics && cache_mode === :off)
+    components = _build_unified_components(
+        Val(N),
+        mapping_functions,
+        celldims,
+        nhalo,
+        conserved_metric_scheme,
+        backend,
+        diff_backend,
+        T;
+        global_cell_indices = global_cell_indices,
+        build_metric_storage = (!disable_metrics),
+        weighted_faces = _uses_weighted_face_metrics(coordinate_system, basis, Val(N)),
+        metric_functions_cache = metric_functions_cache,
     )
-  end
-  state = Ref((; t, params))
 
-  grid = MappedGrid{
-    N,
-    T,
-    typeof(coordinate_system),
-    typeof(basis),
-    typeof(components.node_coordinates),
-    typeof(components.centroid_coordinates),
-    typeof(components.face_coordinates),
-    typeof(mapping_functions),
-    typeof(components.metric_functions_cache),
-    typeof(backend),
-    typeof(diff_backend),
-    typeof(components.iterators),
-    typeof(state),
-    typeof(caches),
-    typeof(conserved_metric_scheme),
-  }(
-    components.node_coordinates,
-    components.centroid_coordinates,
-    components.face_coordinates,
-    mapping_functions,
-    components.metric_functions_cache,
-    backend,
-    diff_backend,
-    components.nhalo,
-    components.iterators,
-    state,
-    caches,
-    conserved_metric_scheme,
-  )
+    requested_mode =
+        compute_metrics ? cache_mode : (cache_mode === :eager ? :lazy : cache_mode)
+    caches = if disable_metrics
+        nothing
+    else
+        _new_metric_caches(
+            requested_mode, components.cell_metric_storage, components.face_metric_storage
+        )
+    end
+    state = Ref((; t, params))
 
-  _compute_unified_node_coordinates!(
-    grid.node_coordinates,
-    grid.mapping_functions,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-    grid.backend,
-  )
-  _compute_unified_centroid_coordinates!(
-    grid.centroid_coordinates,
-    grid.mapping_functions,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-    grid.backend,
-  )
-  _compute_unified_face_coordinates!(
-    grid.face_coordinates,
-    grid.mapping_functions,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-    grid.backend,
-  )
+    grid = MappedGrid{
+        N,
+        T,
+        typeof(coordinate_system),
+        typeof(basis),
+        typeof(components.node_coordinates),
+        typeof(components.centroid_coordinates),
+        typeof(components.face_coordinates),
+        typeof(mapping_functions),
+        typeof(components.metric_functions_cache),
+        typeof(backend),
+        typeof(diff_backend),
+        typeof(components.iterators),
+        typeof(state),
+        typeof(caches),
+        typeof(conserved_metric_scheme),
+    }(
+        components.node_coordinates,
+        components.centroid_coordinates,
+        components.face_coordinates,
+        mapping_functions,
+        components.metric_functions_cache,
+        backend,
+        diff_backend,
+        components.nhalo,
+        components.iterators,
+        state,
+        caches,
+        conserved_metric_scheme,
+    )
 
-  if !disable_metrics && requested_mode === :eager
-    _refresh_cell_metrics!(grid)
-    _refresh_face_metrics!(grid)
-  end
+    _compute_unified_node_coordinates!(
+        grid.node_coordinates,
+        grid.mapping_functions,
+        grid.iterators,
+        grid.nhalo,
+        t,
+        params,
+        Val(N),
+        grid.backend,
+    )
+    _compute_unified_centroid_coordinates!(
+        grid.centroid_coordinates,
+        grid.mapping_functions,
+        grid.iterators,
+        grid.nhalo,
+        t,
+        params,
+        Val(N),
+        grid.backend,
+    )
+    _compute_unified_face_coordinates!(
+        grid.face_coordinates,
+        grid.mapping_functions,
+        grid.iterators,
+        grid.nhalo,
+        t,
+        params,
+        Val(N),
+        grid.backend,
+    )
 
-  return grid
+    if !disable_metrics && requested_mode === :eager
+        _refresh_cell_metrics!(grid)
+        _refresh_face_metrics!(grid)
+    end
+
+    return grid
 end
 
 """
@@ -342,40 +345,40 @@ coordinate and metric storage are allocated only for the local cells and halos.
 ranges. Metrics are computed after localization by default.
 """
 function local_grid(
-  grid::MappedGrid{N,T},
-  global_cell_domain::CartesianIndices{N};
-  backend=grid.backend,
-  compute_metrics::Bool=true,
-  cache_mode::Symbol=:eager,
-) where {N,T}
-  state = grid.state[]
-  has_state = state isa NamedTuple && haskey(state, :t) && haskey(state, :params)
-  has_state || throw(ArgumentError("MappedGrid has no valid mapping state to localize."))
+        grid::MappedGrid{N, T},
+        global_cell_domain::CartesianIndices{N};
+        backend = grid.backend,
+        compute_metrics::Bool = true,
+        cache_mode::Symbol = :eager,
+    ) where {N, T}
+    state = grid.state[]
+    has_state = state isa NamedTuple && haskey(state, :t) && haskey(state, :params)
+    has_state || throw(ArgumentError("MappedGrid has no valid mapping state to localize."))
 
-  return _new_mapped_grid(
-    Val(N),
-    grid.mapping_functions,
-    state.params,
-    size(global_cell_domain),
-    grid.nhalo;
-    backend=backend,
-    diff_backend=grid.diff_backend,
-    t=state.t,
-    T=T,
-    compute_metrics=compute_metrics,
-    global_cell_indices=global_cell_domain,
-    coordinate_system=coordinate_system(grid),
-    basis=basis_trait(grid),
-    cache_mode=cache_mode,
-    conserved_metric_scheme=CurvatureCorrectedReconstruction(),
-    metric_functions_cache=grid.metric_functions_cache,
-  )
+    return _new_mapped_grid(
+        Val(N),
+        grid.mapping_functions,
+        state.params,
+        size(global_cell_domain),
+        grid.nhalo;
+        backend = backend,
+        diff_backend = grid.diff_backend,
+        t = state.t,
+        T = T,
+        compute_metrics = compute_metrics,
+        global_cell_indices = global_cell_domain,
+        coordinate_system = coordinate_system(grid),
+        basis = basis_trait(grid),
+        cache_mode = cache_mode,
+        conserved_metric_scheme = CurvatureCorrectedReconstruction(),
+        metric_functions_cache = grid.metric_functions_cache,
+    )
 end
 
 function local_grid(
-  grid::MappedGrid{N}, global_cell_ranges::NTuple{N,<:AbstractUnitRange}; kwargs...
-) where {N}
-  return local_grid(grid, CartesianIndices(global_cell_ranges); kwargs...)
+        grid::MappedGrid{N}, global_cell_ranges::NTuple{N, <:AbstractUnitRange}; kwargs...
+    ) where {N}
+    return local_grid(grid, CartesianIndices(global_cell_ranges); kwargs...)
 end
 
 """
@@ -419,120 +422,120 @@ A `MappedGrid{N,T,...}` instance with initialized coordinates and metric cache
 storage.
 """
 function MappedGrid(
-  x1::Function,
-  params::NamedTuple,
-  celldims::NTuple{1,Int},
-  nhalo::Integer;
-  backend=CPU(),
-  diff_backend=AutoForwardDiff(),
-  t=zero(Float64),
-  T::Type=Float64,
-  compute_metrics=true,
-  global_cell_indices=nothing,
-  coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
-  basis::BasisTrait=CartesianBasis(),
-  cache_mode::Symbol=:eager,
-  conserved_metric_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
-)
-  @assert nhalo >= 0
+        x1::Function,
+        params::NamedTuple,
+        celldims::NTuple{1, Int},
+        nhalo::Integer;
+        backend = CPU(),
+        diff_backend = AutoForwardDiff(),
+        t = zero(Float64),
+        T::Type = Float64,
+        compute_metrics = true,
+        global_cell_indices = nothing,
+        coordinate_system::CoordinateSystemTrait = CurvilinearCS(),
+        basis::BasisTrait = CartesianBasis(),
+        cache_mode::Symbol = :eager,
+        conserved_metric_scheme::EdgeInterpolationSchemeTrait = CurvatureCorrectedReconstruction(),
+    )
+    @assert nhalo >= 0
 
-  mapping_functions = (; x1=x1)
-  return _new_mapped_grid(
-    Val(1),
-    mapping_functions,
-    params,
-    celldims,
-    nhalo;
-    backend=backend,
-    diff_backend=diff_backend,
-    t=t,
-    T=T,
-    compute_metrics=compute_metrics,
-    global_cell_indices=global_cell_indices,
-    coordinate_system=coordinate_system,
-    basis=basis,
-    cache_mode=cache_mode,
-    conserved_metric_scheme=conserved_metric_scheme,
-  )
+    mapping_functions = (; x1 = x1)
+    return _new_mapped_grid(
+        Val(1),
+        mapping_functions,
+        params,
+        celldims,
+        nhalo;
+        backend = backend,
+        diff_backend = diff_backend,
+        t = t,
+        T = T,
+        compute_metrics = compute_metrics,
+        global_cell_indices = global_cell_indices,
+        coordinate_system = coordinate_system,
+        basis = basis,
+        cache_mode = cache_mode,
+        conserved_metric_scheme = conserved_metric_scheme,
+    )
 end
 
 function MappedGrid(
-  x1::Function,
-  x2::Function,
-  params::NamedTuple,
-  celldims::NTuple{2,Int},
-  nhalo::Integer;
-  backend=CPU(),
-  diff_backend=AutoForwardDiff(),
-  t=zero(Float64),
-  T::Type=Float64,
-  compute_metrics=true,
-  global_cell_indices=nothing,
-  coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
-  basis::BasisTrait=CartesianBasis(),
-  cache_mode::Symbol=:eager,
-  conserved_metric_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
-)
-  @assert nhalo >= 0
+        x1::Function,
+        x2::Function,
+        params::NamedTuple,
+        celldims::NTuple{2, Int},
+        nhalo::Integer;
+        backend = CPU(),
+        diff_backend = AutoForwardDiff(),
+        t = zero(Float64),
+        T::Type = Float64,
+        compute_metrics = true,
+        global_cell_indices = nothing,
+        coordinate_system::CoordinateSystemTrait = CurvilinearCS(),
+        basis::BasisTrait = CartesianBasis(),
+        cache_mode::Symbol = :eager,
+        conserved_metric_scheme::EdgeInterpolationSchemeTrait = CurvatureCorrectedReconstruction(),
+    )
+    @assert nhalo >= 0
 
-  mapping_functions = (; x1=x1, x2=x2)
-  return _new_mapped_grid(
-    Val(2),
-    mapping_functions,
-    params,
-    celldims,
-    nhalo;
-    backend=backend,
-    diff_backend=diff_backend,
-    t=t,
-    T=T,
-    compute_metrics=compute_metrics,
-    global_cell_indices=global_cell_indices,
-    coordinate_system=coordinate_system,
-    basis=basis,
-    cache_mode=cache_mode,
-    conserved_metric_scheme=conserved_metric_scheme,
-  )
+    mapping_functions = (; x1 = x1, x2 = x2)
+    return _new_mapped_grid(
+        Val(2),
+        mapping_functions,
+        params,
+        celldims,
+        nhalo;
+        backend = backend,
+        diff_backend = diff_backend,
+        t = t,
+        T = T,
+        compute_metrics = compute_metrics,
+        global_cell_indices = global_cell_indices,
+        coordinate_system = coordinate_system,
+        basis = basis,
+        cache_mode = cache_mode,
+        conserved_metric_scheme = conserved_metric_scheme,
+    )
 end
 
 function MappedGrid(
-  x1::Function,
-  x2::Function,
-  x3::Function,
-  params::NamedTuple,
-  celldims::NTuple{3,Int},
-  nhalo::Integer;
-  backend=CPU(),
-  diff_backend=AutoForwardDiff(),
-  t=zero(Float64),
-  T::Type=Float64,
-  compute_metrics=true,
-  global_cell_indices=nothing,
-  coordinate_system::CoordinateSystemTrait=CurvilinearCS(),
-  basis::BasisTrait=CartesianBasis(),
-  cache_mode::Symbol=:eager,
-  conserved_metric_scheme::EdgeInterpolationSchemeTrait=CurvatureCorrectedReconstruction(),
-)
-  @assert nhalo >= 0
+        x1::Function,
+        x2::Function,
+        x3::Function,
+        params::NamedTuple,
+        celldims::NTuple{3, Int},
+        nhalo::Integer;
+        backend = CPU(),
+        diff_backend = AutoForwardDiff(),
+        t = zero(Float64),
+        T::Type = Float64,
+        compute_metrics = true,
+        global_cell_indices = nothing,
+        coordinate_system::CoordinateSystemTrait = CurvilinearCS(),
+        basis::BasisTrait = CartesianBasis(),
+        cache_mode::Symbol = :eager,
+        conserved_metric_scheme::EdgeInterpolationSchemeTrait = CurvatureCorrectedReconstruction(),
+    )
+    @assert nhalo >= 0
 
-  mapping_functions = (; x1=x1, x2=x2, x3=x3)
-  return _new_mapped_grid(
-    Val(3),
-    mapping_functions,
-    params,
-    celldims,
-    nhalo;
-    backend=backend,
-    diff_backend=diff_backend,
-    t=t,
-    T=T,
-    compute_metrics=compute_metrics,
-    global_cell_indices=global_cell_indices,
-    coordinate_system=coordinate_system,
-    basis=basis,
-    cache_mode=cache_mode,
-    conserved_metric_scheme=conserved_metric_scheme,
-  )
+    mapping_functions = (; x1 = x1, x2 = x2, x3 = x3)
+    return _new_mapped_grid(
+        Val(3),
+        mapping_functions,
+        params,
+        celldims,
+        nhalo;
+        backend = backend,
+        diff_backend = diff_backend,
+        t = t,
+        T = T,
+        compute_metrics = compute_metrics,
+        global_cell_indices = global_cell_indices,
+        coordinate_system = coordinate_system,
+        basis = basis,
+        cache_mode = cache_mode,
+        conserved_metric_scheme = conserved_metric_scheme,
+    )
 end
 
 """
@@ -549,45 +552,45 @@ Update mapped grid coordinates and invalidate metric caches for a new state.
 `nothing`.
 """
 function update!(grid::MappedGrid{N}, t::Real, params::NamedTuple) where {N}
-  _compute_unified_node_coordinates!(
-    grid.node_coordinates,
-    grid.mapping_functions,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-    grid.backend,
-  )
-  _compute_unified_centroid_coordinates!(
-    grid.centroid_coordinates,
-    grid.mapping_functions,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-    grid.backend,
-  )
-  _compute_unified_face_coordinates!(
-    grid.face_coordinates,
-    grid.mapping_functions,
-    grid.iterators,
-    grid.nhalo,
-    t,
-    params,
-    Val(N),
-    grid.backend,
-  )
+    _compute_unified_node_coordinates!(
+        grid.node_coordinates,
+        grid.mapping_functions,
+        grid.iterators,
+        grid.nhalo,
+        t,
+        params,
+        Val(N),
+        grid.backend,
+    )
+    _compute_unified_centroid_coordinates!(
+        grid.centroid_coordinates,
+        grid.mapping_functions,
+        grid.iterators,
+        grid.nhalo,
+        t,
+        params,
+        Val(N),
+        grid.backend,
+    )
+    _compute_unified_face_coordinates!(
+        grid.face_coordinates,
+        grid.mapping_functions,
+        grid.iterators,
+        grid.nhalo,
+        t,
+        params,
+        Val(N),
+        grid.backend,
+    )
 
-  grid.state[] = (; t, params)
-  invalidate_cell_metrics!(grid)
-  invalidate_face_metrics!(grid)
-  return nothing
+    grid.state[] = (; t, params)
+    invalidate_cell_metrics!(grid)
+    invalidate_face_metrics!(grid)
+    return nothing
 end
 
-function update!(grid::MappedGrid, t::Real=zero(Float64))
-  state = grid.state[]
-  params = state isa NamedTuple && haskey(state, :params) ? state.params : (;)
-  return update!(grid, t, params)
+function update!(grid::MappedGrid, t::Real = zero(Float64))
+    state = grid.state[]
+    params = state isa NamedTuple && haskey(state, :params) ? state.params : (;)
+    return update!(grid, t, params)
 end

@@ -6,23 +6,23 @@
 # Coordinate arrays and plotting coordinates
 #
 
-function coords(grid::Union{MappedGrid{1},DiscreteGrid{1}})
-  @views grid.node_coordinates[1][grid.iterators.node.domain]
+function coords(grid::Union{MappedGrid{1}, DiscreteGrid{1}})
+    return @views grid.node_coordinates[1][grid.iterators.node.domain]
 end
 
-function coords(grid::Union{MappedGrid{2},DiscreteGrid{2}})
-  @views (
-    grid.node_coordinates[1][grid.iterators.node.domain],
-    grid.node_coordinates[2][grid.iterators.node.domain],
-  )
+function coords(grid::Union{MappedGrid{2}, DiscreteGrid{2}})
+    return @views (
+        grid.node_coordinates[1][grid.iterators.node.domain],
+        grid.node_coordinates[2][grid.iterators.node.domain],
+    )
 end
 
-function coords(grid::Union{MappedGrid{3},DiscreteGrid{3}})
-  @views (
-    grid.node_coordinates[1][grid.iterators.node.domain],
-    grid.node_coordinates[2][grid.iterators.node.domain],
-    grid.node_coordinates[3][grid.iterators.node.domain],
-  )
+function coords(grid::Union{MappedGrid{3}, DiscreteGrid{3}})
+    return @views (
+        grid.node_coordinates[1][grid.iterators.node.domain],
+        grid.node_coordinates[2][grid.iterators.node.domain],
+        grid.node_coordinates[3][grid.iterators.node.domain],
+    )
 end
 
 """
@@ -37,13 +37,13 @@ the input unchanged. Spherical and three-dimensional cylindrical coordinates
 are embedded in Cartesian space.
 """
 @inline function cartesian_coordinates(
-  grid::Union{MappedGrid,DiscreteGrid,AbstractOrthogonalGrid}
-)
-  return cartesian_coordinates(coordinate_system(grid), coords(grid))
+        grid::Union{MappedGrid, DiscreteGrid, AbstractOrthogonalGrid}
+    )
+    return cartesian_coordinates(coordinate_system(grid), coords(grid))
 end
 
 @inline cartesian_coordinates(coordinate_system::CoordinateSystemTrait, q) =
-  _cartesian_coordinates(coordinate_system, q)
+    _cartesian_coordinates(coordinate_system, q)
 
 """
     cartesian_centroids(grid)
@@ -56,9 +56,9 @@ Cartesian meridional coordinates `(x, z)`. For mapped/discrete grids, cached
 centroid arrays are returned in Cartesian form when needed.
 """
 @inline function cartesian_centroids(
-  grid::Union{MappedGrid{2},DiscreteGrid{2},OrthogonalGrid{2}}
-)
-  return _cartesian_centroids(coordinate_system(grid), centroids(grid))
+        grid::Union{MappedGrid{2}, DiscreteGrid{2}, OrthogonalGrid{2}}
+    )
+    return _cartesian_centroids(coordinate_system(grid), centroids(grid))
 end
 
 @inline _cartesian_coordinates(::CoordinateSystemTrait, q) = q
@@ -68,104 +68,104 @@ end
 @inline _cartesian_coordinates(::CylindricalCS, q) = q
 
 @inline function _cartesian_coordinates(
-  ::CylindricalCS, q::NTuple{3,<:AbstractVector{T}}
-) where {T}
-  r, θ, z = q
-  R = reshape(r, :, 1, 1)
-  cosθ = reshape(cos.(θ), 1, :, 1)
-  sinθ = reshape(sin.(θ), 1, :, 1)
-  Z = reshape(z, 1, 1, :)
-  onez = reshape(one.(z), 1, 1, :)
-  oner = reshape(one.(r), :, 1, 1)
-  oneθ = reshape(one.(θ), 1, :, 1)
-  return R .* cosθ .* onez, R .* sinθ .* onez, oner .* oneθ .* Z
+        ::CylindricalCS, q::NTuple{3, <:AbstractVector{T}}
+    ) where {T}
+    r, θ, z = q
+    R = reshape(r, :, 1, 1)
+    cosθ = reshape(cos.(θ), 1, :, 1)
+    sinθ = reshape(sin.(θ), 1, :, 1)
+    Z = reshape(z, 1, 1, :)
+    onez = reshape(one.(z), 1, 1, :)
+    oner = reshape(one.(r), :, 1, 1)
+    oneθ = reshape(one.(θ), 1, :, 1)
+    return R .* cosθ .* onez, R .* sinθ .* onez, oner .* oneθ .* Z
 end
 
-@inline function _cartesian_coordinates(::CylindricalCS, q::NTuple{3,<:AbstractArray})
-  r, θ, z = q
-  x = @. r * cos(θ)
-  y = @. r * sin(θ)
-  return x, y, z
+@inline function _cartesian_coordinates(::CylindricalCS, q::NTuple{3, <:AbstractArray})
+    r, θ, z = q
+    x = @. r * cos(θ)
+    y = @. r * sin(θ)
+    return x, y, z
 end
 
 @inline function _tensor_product_coordinates(
-  x::AbstractVector{Tx}, y::AbstractVector{Ty}
-) where {Tx,Ty}
-  xx = [x[i] for i in eachindex(x), _ in eachindex(y)]
-  yy = [y[j] for _ in eachindex(x), j in eachindex(y)]
-  return xx, yy
+        x::AbstractVector{Tx}, y::AbstractVector{Ty}
+    ) where {Tx, Ty}
+    xx = [x[i] for i in eachindex(x), _ in eachindex(y)]
+    yy = [y[j] for _ in eachindex(x), j in eachindex(y)]
+    return xx, yy
 end
 
 @inline _tensor_product_coordinates(x::AbstractArray, y::AbstractArray) = (x, y)
 
-@inline _cartesian_centroids(::CartesianCS, q::NTuple{2,Any}) =
-  _tensor_product_coordinates(q...)
-@inline _cartesian_centroids(::CurvilinearCS, q::NTuple{2,Any}) =
-  _tensor_product_coordinates(q...)
-@inline _cartesian_centroids(::AxisymmetricCS, q::NTuple{2,Any}) =
-  _tensor_product_coordinates(q...)
-@inline _cartesian_centroids(::CylindricalCS, q::NTuple{2,Any}) =
-  _tensor_product_coordinates(q...)
-@inline _cartesian_centroids(::CoordinateSystemTrait, q::NTuple{2,Any}) = q
+@inline _cartesian_centroids(::CartesianCS, q::NTuple{2, Any}) =
+    _tensor_product_coordinates(q...)
+@inline _cartesian_centroids(::CurvilinearCS, q::NTuple{2, Any}) =
+    _tensor_product_coordinates(q...)
+@inline _cartesian_centroids(::AxisymmetricCS, q::NTuple{2, Any}) =
+    _tensor_product_coordinates(q...)
+@inline _cartesian_centroids(::CylindricalCS, q::NTuple{2, Any}) =
+    _tensor_product_coordinates(q...)
+@inline _cartesian_centroids(::CoordinateSystemTrait, q::NTuple{2, Any}) = q
 
 @inline function _cartesian_coordinates(
-  ::SphericalCS, q::NTuple{2,<:AbstractVector{T}}
-) where {T}
-  r, θ = q
-  R = reshape(r, :, 1)
-  sinθ = reshape(sin.(θ), 1, :)
-  cosθ = reshape(cos.(θ), 1, :)
-  x = R .* sinθ
-  z = R .* cosθ
-  return x, z
+        ::SphericalCS, q::NTuple{2, <:AbstractVector{T}}
+    ) where {T}
+    r, θ = q
+    R = reshape(r, :, 1)
+    sinθ = reshape(sin.(θ), 1, :)
+    cosθ = reshape(cos.(θ), 1, :)
+    x = R .* sinθ
+    z = R .* cosθ
+    return x, z
 end
 
-@inline function _cartesian_coordinates(::SphericalCS, q::NTuple{2,<:AbstractArray})
-  r, θ = q
-  x = @. r * sin(θ)
-  z = @. r * cos(θ)
-  return x, z
+@inline function _cartesian_coordinates(::SphericalCS, q::NTuple{2, <:AbstractArray})
+    r, θ = q
+    x = @. r * sin(θ)
+    z = @. r * cos(θ)
+    return x, z
 end
 
 @inline function _cartesian_centroids(
-  ::SphericalCS, q::NTuple{2,<:AbstractVector{T}}
-) where {T}
-  r, θ = q
-  R = reshape(r, :, 1)
-  sinθ = reshape(sin.(θ), 1, :)
-  cosθ = reshape(cos.(θ), 1, :)
-  return R .* sinθ, R .* cosθ
+        ::SphericalCS, q::NTuple{2, <:AbstractVector{T}}
+    ) where {T}
+    r, θ = q
+    R = reshape(r, :, 1)
+    sinθ = reshape(sin.(θ), 1, :)
+    cosθ = reshape(cos.(θ), 1, :)
+    return R .* sinθ, R .* cosθ
 end
 
-@inline function _cartesian_centroids(::SphericalCS, q::NTuple{2,<:AbstractArray})
-  r, θ = q
-  return @. r * sin(θ), @. r * cos(θ)
+@inline function _cartesian_centroids(::SphericalCS, q::NTuple{2, <:AbstractArray})
+    r, θ = q
+    return @. r * sin(θ), @. r * cos(θ)
 end
 
 @inline function _cartesian_coordinates(
-  ::SphericalCS, q::NTuple{3,<:AbstractVector{T}}
-) where {T}
-  r, θ, ϕ = q
-  R = reshape(r, :, 1, 1)
-  sinθ = reshape(sin.(θ), 1, :, 1)
-  cosθ = reshape(cos.(θ), 1, :, 1)
-  sinϕ = reshape(sin.(ϕ), 1, 1, :)
-  cosϕ = reshape(cos.(ϕ), 1, 1, :)
-  oneϕ = reshape(one.(ϕ), 1, 1, :)
+        ::SphericalCS, q::NTuple{3, <:AbstractVector{T}}
+    ) where {T}
+    r, θ, ϕ = q
+    R = reshape(r, :, 1, 1)
+    sinθ = reshape(sin.(θ), 1, :, 1)
+    cosθ = reshape(cos.(θ), 1, :, 1)
+    sinϕ = reshape(sin.(ϕ), 1, 1, :)
+    cosϕ = reshape(cos.(ϕ), 1, 1, :)
+    oneϕ = reshape(one.(ϕ), 1, 1, :)
 
-  x = R .* sinθ .* cosϕ
-  y = R .* sinθ .* sinϕ
-  z = R .* cosθ .* oneϕ
+    x = R .* sinθ .* cosϕ
+    y = R .* sinθ .* sinϕ
+    z = R .* cosθ .* oneϕ
 
-  return x, y, z
+    return x, y, z
 end
 
-@inline function _cartesian_coordinates(::SphericalCS, q::NTuple{3,<:AbstractArray})
-  r, θ, ϕ = q
-  x = @. r * sin(θ) * cos(ϕ)
-  y = @. r * sin(θ) * sin(ϕ)
-  z = @. r * cos(θ)
-  return x, y, z
+@inline function _cartesian_coordinates(::SphericalCS, q::NTuple{3, <:AbstractArray})
+    r, θ, ϕ = q
+    x = @. r * sin(θ) * cos(ϕ)
+    y = @. r * sin(θ) * sin(ϕ)
+    z = @. r * cos(θ)
+    return x, y, z
 end
 
 
@@ -187,18 +187,18 @@ coordinate arrays.
 
 See also [`coords`](@ref), [`centroid`](@ref), and [`jacobian_matrix`](@ref).
 """
-function coord(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int})
-  @SVector [grid.node_coordinates[1][i]]
+function coord(grid::Union{MappedGrid{1}, DiscreteGrid{1}}, (i,)::NTuple{1, Int})
+    return @SVector [grid.node_coordinates[1][i]]
 end
-function coord(grid::Union{MappedGrid{2},DiscreteGrid{2}}, (i, j)::NTuple{2,Int})
-  @SVector [grid.node_coordinates[1][i, j], grid.node_coordinates[2][i, j]]
+function coord(grid::Union{MappedGrid{2}, DiscreteGrid{2}}, (i, j)::NTuple{2, Int})
+    return @SVector [grid.node_coordinates[1][i, j], grid.node_coordinates[2][i, j]]
 end
-function coord(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{3,Int})
-  @SVector [
-    grid.node_coordinates[1][i, j, k],
-    grid.node_coordinates[2][i, j, k],
-    grid.node_coordinates[3][i, j, k],
-  ]
+function coord(grid::Union{MappedGrid{3}, DiscreteGrid{3}}, (i, j, k)::NTuple{3, Int})
+    return @SVector [
+        grid.node_coordinates[1][i, j, k],
+        grid.node_coordinates[2][i, j, k],
+        grid.node_coordinates[3][i, j, k],
+    ]
 end
 
 """
@@ -216,23 +216,23 @@ For `MappedGrid` and `DiscreteGrid`, the values come from the centroid cache.
 For `OrthogonalGrid`, the corresponding methods are defined in
 `GridTypes.jl` and follow the same native-coordinate convention.
 """
-function centroids(grid::Union{MappedGrid{1},DiscreteGrid{1}})
-  @views grid.centroid_coordinates[1][grid.iterators.cell.domain]
+function centroids(grid::Union{MappedGrid{1}, DiscreteGrid{1}})
+    return @views grid.centroid_coordinates[1][grid.iterators.cell.domain]
 end
 
-function centroids(grid::Union{MappedGrid{2},DiscreteGrid{2}})
-  @views (
-    grid.centroid_coordinates[1][grid.iterators.cell.domain],
-    grid.centroid_coordinates[2][grid.iterators.cell.domain],
-  )
+function centroids(grid::Union{MappedGrid{2}, DiscreteGrid{2}})
+    return @views (
+        grid.centroid_coordinates[1][grid.iterators.cell.domain],
+        grid.centroid_coordinates[2][grid.iterators.cell.domain],
+    )
 end
 
-function centroids(grid::Union{MappedGrid{3},DiscreteGrid{3}})
-  @views (
-    grid.centroid_coordinates[1][grid.iterators.cell.domain],
-    grid.centroid_coordinates[2][grid.iterators.cell.domain],
-    grid.centroid_coordinates[3][grid.iterators.cell.domain],
-  )
+function centroids(grid::Union{MappedGrid{3}, DiscreteGrid{3}})
+    return @views (
+        grid.centroid_coordinates[1][grid.iterators.cell.domain],
+        grid.centroid_coordinates[2][grid.iterators.cell.domain],
+        grid.centroid_coordinates[3][grid.iterators.cell.domain],
+    )
 end
 
 """
@@ -245,7 +245,7 @@ The layout is `face_coordinates(grid)[axis][component][I]`. The index `I`
 matches `face_metrics(grid)[axis].conserved[I]`; low-side faces are read from
 the neighboring high-side face index.
 """
-@inline face_coordinates(grid::Union{MappedGrid,DiscreteGrid}) = grid.face_coordinates
+@inline face_coordinates(grid::Union{MappedGrid, DiscreteGrid}) = grid.face_coordinates
 
 """
     centroid(grid, idx)
@@ -259,82 +259,82 @@ centroid coordinate arrays.
 See also [`centroids`](@ref), [`face_coordinate`](@ref), and
 [`basis_transfer_matrix`](@ref).
 """
-function centroid(grid::Union{MappedGrid{1},DiscreteGrid{1}}, (i,)::NTuple{1,Int})
-  @SVector [grid.centroid_coordinates[1][i]]
+function centroid(grid::Union{MappedGrid{1}, DiscreteGrid{1}}, (i,)::NTuple{1, Int})
+    return @SVector [grid.centroid_coordinates[1][i]]
 end
-function centroid(grid::Union{MappedGrid{2},DiscreteGrid{2}}, (i, j)::NTuple{2,Int})
-  @SVector [grid.centroid_coordinates[1][i, j], grid.centroid_coordinates[2][i, j]]
+function centroid(grid::Union{MappedGrid{2}, DiscreteGrid{2}}, (i, j)::NTuple{2, Int})
+    return @SVector [grid.centroid_coordinates[1][i, j], grid.centroid_coordinates[2][i, j]]
 end
-function centroid(grid::Union{MappedGrid{3},DiscreteGrid{3}}, (i, j, k)::NTuple{3,Int})
-  @SVector [
-    grid.centroid_coordinates[1][i, j, k],
-    grid.centroid_coordinates[2][i, j, k],
-    grid.centroid_coordinates[3][i, j, k],
-  ]
+function centroid(grid::Union{MappedGrid{3}, DiscreteGrid{3}}, (i, j, k)::NTuple{3, Int})
+    return @SVector [
+        grid.centroid_coordinates[1][i, j, k],
+        grid.centroid_coordinates[2][i, j, k],
+        grid.centroid_coordinates[3][i, j, k],
+    ]
 end
 #
 # Continuous coordinate evaluation
 #
 
-@inline _promote_real_tuple(idx::Tuple{Vararg{Real,N}}) where {N} = promote(idx...)
+@inline _promote_real_tuple(idx::Tuple{Vararg{Real, N}}) where {N} = promote(idx...)
 
 @inline function _state_for_eval(grid::AbstractMappedOrDiscreteGrid)
-  state = grid.state[]
-  if !(state isa NamedTuple && haskey(state, :t) && haskey(state, :params))
-    throw(ArgumentError("Grid state is missing `(t, params)` and cannot be evaluated."))
-  end
-  return state.t, state.params
+    state = grid.state[]
+    if !(state isa NamedTuple && haskey(state, :t) && haskey(state, :params))
+        throw(ArgumentError("Grid state is missing `(t, params)` and cannot be evaluated."))
+    end
+    return state.t, state.params
 end
 
 @inline function _continuous_coord(
-  grid::Union{MappedGrid{1},DiscreteGrid{1}}, idx::Tuple{Vararg{Real,1}}
-)
-  ξ = _promote_real_tuple(idx)
-  t, params = _state_for_eval(grid)
-  return @SVector [grid.mapping_functions.x1(t, ξ..., params)]
+        grid::Union{MappedGrid{1}, DiscreteGrid{1}}, idx::Tuple{Vararg{Real, 1}}
+    )
+    ξ = _promote_real_tuple(idx)
+    t, params = _state_for_eval(grid)
+    return @SVector [grid.mapping_functions.x1(t, ξ..., params)]
 end
 
 @inline function _continuous_coord(
-  grid::Union{MappedGrid{2},DiscreteGrid{2}}, idx::Tuple{Vararg{Real,2}}
-)
-  ξη = _promote_real_tuple(idx)
-  t, params = _state_for_eval(grid)
-  return @SVector [
-    grid.mapping_functions.x1(t, ξη..., params), grid.mapping_functions.x2(t, ξη..., params)
-  ]
+        grid::Union{MappedGrid{2}, DiscreteGrid{2}}, idx::Tuple{Vararg{Real, 2}}
+    )
+    ξη = _promote_real_tuple(idx)
+    t, params = _state_for_eval(grid)
+    return @SVector [
+        grid.mapping_functions.x1(t, ξη..., params), grid.mapping_functions.x2(t, ξη..., params),
+    ]
 end
 
 @inline function _continuous_coord(
-  grid::Union{MappedGrid{3},DiscreteGrid{3}}, idx::Tuple{Vararg{Real,3}}
-)
-  ξηζ = _promote_real_tuple(idx)
-  t, params = _state_for_eval(grid)
-  return @SVector [
-    grid.mapping_functions.x1(t, ξηζ..., params),
-    grid.mapping_functions.x2(t, ξηζ..., params),
-    grid.mapping_functions.x3(t, ξηζ..., params),
-  ]
+        grid::Union{MappedGrid{3}, DiscreteGrid{3}}, idx::Tuple{Vararg{Real, 3}}
+    )
+    ξηζ = _promote_real_tuple(idx)
+    t, params = _state_for_eval(grid)
+    return @SVector [
+        grid.mapping_functions.x1(t, ξηζ..., params),
+        grid.mapping_functions.x2(t, ξηζ..., params),
+        grid.mapping_functions.x3(t, ξηζ..., params),
+    ]
 end
 
 @inline function _continuous_forward_jacobian(
-  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::Tuple{Vararg{Real,N}}
-) where {N,T}
-  _require_metric_functions(grid, "forward_cell_metrics")
-  ξηζ = _promote_real_tuple(idx)
-  t, params = _state_for_eval(grid)
-  F = _as_smatrix(Val(N), grid.metric_functions_cache.forward.jacobian(t, ξηζ..., params))
-  return SMatrix{N,N,T,N * N}(Tuple(F))
+        grid::Union{MappedGrid{N, T}, DiscreteGrid{N, T}}, idx::Tuple{Vararg{Real, N}}
+    ) where {N, T}
+    _require_metric_functions(grid, "forward_cell_metrics")
+    ξηζ = _promote_real_tuple(idx)
+    t, params = _state_for_eval(grid)
+    F = _as_smatrix(Val(N), grid.metric_functions_cache.forward.jacobian(t, ξηζ..., params))
+    return SMatrix{N, N, T, N * N}(Tuple(F))
 end
 
 @inline function _continuous_inverse_jacobian(
-  grid::Union{MappedGrid{N,T},DiscreteGrid{N,T}}, idx::Tuple{Vararg{Real,N}}
-) where {N,T}
-  Jinv = inv(_continuous_forward_jacobian(grid, idx))
-  return SMatrix{N,N,T,N * N}(Tuple(Jinv))
+        grid::Union{MappedGrid{N, T}, DiscreteGrid{N, T}}, idx::Tuple{Vararg{Real, N}}
+    ) where {N, T}
+    Jinv = inv(_continuous_forward_jacobian(grid, idx))
+    return SMatrix{N, N, T, N * N}(Tuple(Jinv))
 end
 
 function coord(
-  grid::Union{MappedGrid{N},DiscreteGrid{N}}, idx::Tuple{Vararg{Real,N}}
-) where {N}
-  _continuous_coord(grid, idx)
+        grid::Union{MappedGrid{N}, DiscreteGrid{N}}, idx::Tuple{Vararg{Real, N}}
+    ) where {N}
+    return _continuous_coord(grid, idx)
 end

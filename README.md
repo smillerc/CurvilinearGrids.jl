@@ -32,6 +32,17 @@ Pkg.add("CurvilinearGrids")
 using CurvilinearGrids
 ```
 
+## Releases
+
+Push a stable `vMAJOR.MINOR.PATCH` tag that matches the version in `Project.toml`.
+Patch tags with a positive patch number skip the test job. Tags with a zero
+patch number request General registration after tests pass.
+
+Install the JuliaRegistrator app and set the `REGISTRATOR_TOKEN` Actions secret
+to a GitHub token from an authorized repository collaborator. When the secret is
+absent, an authorized collaborator can comment `@JuliaRegistrator register` on
+the tagged commit after its release checks pass.
+
 ## Quick Start (MappedGrid)
 
 ```julia

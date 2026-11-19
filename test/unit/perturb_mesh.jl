@@ -1,60 +1,59 @@
-
 function gaussian(x, x0, fwhm, p)
-  σ = fwhm / (2sqrt(2log(2)))
-  σ² = σ * σ
-  xc = (x - x0)^2
-  return exp(-(((xc / (2σ²)))^p))
+    σ = fwhm / (2sqrt(2log(2)))
+    σ² = σ * σ
+    xc = (x - x0)^2
+    return exp(-(((xc / (2σ²)))^p))
 end
 
 function perturb_coords!(mesh, x_interface, λ, k)
-  xcoords = Array(mesh.node_coordinates[1])
-  ycoords = Array(mesh.node_coordinates[2])
+    xcoords = Array(mesh.node_coordinates[1])
+    ycoords = Array(mesh.node_coordinates[2])
 
-  for idx in mesh.iterators.node.domain
-    i, j = idx.I
+    for idx in mesh.iterators.node.domain
+        i, j = idx.I
 
-    x = xcoords[i, j]
-    y = ycoords[i, j]
-    amp = 0.25
+        x = xcoords[i, j]
+        y = ycoords[i, j]
+        amp = 0.25
 
-    x_pert = (
-      amp * # amplitude
-      cos(k * y) * # mode
-      gaussian(
-        x,
-        x_interface,
-        0.5λ, # fwhm
-        1.0, # gaussian exponent p
-      ) # decay away from interface
-    )
+        x_pert = (
+            amp * # amplitude
+                cos(k * y) * # mode
+                gaussian(
+                x,
+                x_interface,
+                0.5λ, # fwhm
+                1.0, # gaussian exponent p
+            ) # decay away from interface
+        )
 
-    xcoords[i, j] += x_pert
-  end
+        xcoords[i, j] += x_pert
+    end
 
-  return DiscreteGrid(xcoords, ycoords, 5; halo_coords_included=true)
+    return DiscreteGrid(xcoords, ycoords, 5; halo_coords_included = true)
 end
 
 @testset "2D Mesh Perturbation" begin
-  λ = 4.5 # wavelength
-  k = 2pi / λ # wavenumber
-  x_interface = 5.0
+    λ = 4.5 # wavelength
+    k = 2pi / λ # wavenumber
+    x_interface = 5.0
 
-  x0, x1 = (0.0, 10.0)
-  y0, y1 = (0.0, 0.5λ)
+    x0, x1 = (0.0, 10.0)
+    y0, y1 = (0.0, 0.5λ)
 
-  xnodes = collect(range(x0, x1, 502))
-  ynodes = collect(range(y0, y1, 102))
-  x = [xnodes[i] for i in eachindex(xnodes), j in eachindex(ynodes)]
-  y = [ynodes[j] for i in eachindex(xnodes), j in eachindex(ynodes)]
-  mesh = DiscreteGrid(x, y, 5)
+    xnodes = collect(range(x0, x1, 502))
+    ynodes = collect(range(y0, y1, 102))
+    x = [xnodes[i] for i in eachindex(xnodes), j in eachindex(ynodes)]
+    y = [ynodes[j] for i in eachindex(xnodes), j in eachindex(ynodes)]
+    mesh = DiscreteGrid(x, y, 5)
 
-  mesh = perturb_coords!(mesh, x_interface, λ, k)
+    mesh = perturb_coords!(mesh, x_interface, λ, k)
 
-  # save_vtk(mesh)
+    # save_vtk(mesh)
 
-  domain = mesh.iterators.cell.domain
-  I₁, I₂ = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), domain)
-  gcl_identities = (all(abs.(I₁[domain]) .< eps()), all(abs.(I₂[domain]) .< eps()))
-  max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]))
-  @test_broken all(gcl_identities)
+    domain = mesh.iterators.cell.domain
+    I₁, I₂ = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), domain)
+    gcl_identities = (all(abs.(I₁[domain]) .< eps()), all(abs.(I₂[domain]) .< eps()))
+    max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]))
+    @test_broken all(gcl_identities)
 end

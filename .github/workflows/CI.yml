@@ -11,7 +11,28 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 jobs:
+  release_kind:
+    name: Classify release tag
+    if: github.event_name != 'push' || !github.event.deleted
+    runs-on: ubuntu-latest
+    outputs:
+      kind: ${{ steps.tag.outputs.kind }}
+    steps:
+      - id: tag
+        shell: bash
+        run: |
+          kind=other
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            if [[ "${BASH_REMATCH[3]}" == 0 ]]; then
+              kind=gated
+            else
+              kind=patch
+            fi
+          fi
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"
   test:
+    needs: release_kind
+    if: needs.release_kind.outputs.kind != 'patch'
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -30,5 +51,51 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
+      - name: Check Runic formatting
+        run: |
+          julia --startup-file=no --project=@runic-ci -e 'using Pkg; Pkg.add(PackageSpec(; name="Runic", version=v"1.13.0"))'
+          git ls-files -z -- '*.jl' | xargs -0 --no-run-if-empty julia --startup-file=no --project=@runic-ci -m Runic --check --diff
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+  register:
+    name: Request General registration
+    needs: [release_kind, test]
+    if: >-
+      ${{ !cancelled() && github.event_name == 'push' && github.ref_type == 'tag' &&
+          needs.release_kind.result == 'success' &&
+          ((needs.release_kind.outputs.kind == 'patch' && needs.test.result == 'skipped') ||
+           (needs.release_kind.outputs.kind == 'gated' && needs.test.result == 'success')) }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate tagged version
+        id: release
+        run: |
+          python3 - <<'PY'
+          import os
+          import tomllib
+
+          with open("Project.toml", "rb") as project:
+              version = tomllib.load(project)["version"]
+          tag = os.environ["GITHUB_REF_NAME"]
+          if tag != f"v{version}":
+              raise SystemExit(f"Tag {tag} must match Project.toml version {version}")
+          PY
+          commit=$(git rev-parse --verify 'HEAD^{commit}')
+          printf 'commit=%s\n' "$commit" >> "$GITHUB_OUTPUT"
+      - name: Submit to Registrator
+        env:
+          GH_TOKEN: ${{ secrets.REGISTRATOR_TOKEN }}
+          RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
+        run: |
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::notice::Registration was not requested. Set REGISTRATOR_TOKEN for an authorized collaborator or add an @JuliaRegistrator register comment to commit $RELEASE_COMMIT."
+            exit 0
+          fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/commits/$RELEASE_COMMIT/comments" \
+            -f 'body=@JuliaRegistrator register' --silent

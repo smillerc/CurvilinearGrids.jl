@@ -38,33 +38,33 @@ spow(x, p) = sign(x) * abs(x)^p
  - `offset`: offset of the wings: >0 biases to the right, <0 biases to the left
 """
 function piecewise_smooth(i, N::Int, p, fine_spacing_coef, width, origin, offset, ε)
-  # map i ∈ [1, N] → x ∈ [-1, 1]
-  x = -1 + 2 * (i - 1 + offset) / (N - 1)
+    # map i ∈ [1, N] → x ∈ [-1, 1]
+    x = -1 + 2 * (i - 1 + offset) / (N - 1)
 
-  # normalization
-  s = width / (1 + fine_spacing_coef)
-  y_c(x) = s * (spow(x, p) + fine_spacing_coef * x)
-  dy_c(x) = s * (p * abs(x)^(p - 1) + fine_spacing_coef)
+    # normalization
+    s = width / (1 + fine_spacing_coef)
+    y_c(x) = s * (spow(x, p) + fine_spacing_coef * x)
+    dy_c(x) = s * (p * abs(x)^(p - 1) + fine_spacing_coef)
 
-  # values and slopes at boundaries
-  y_r, slope_r = y_c(1.0), dy_c(1.0)
-  y_l, slope_l = y_c(-1.0), dy_c(-1.0)
+    # values and slopes at boundaries
+    y_r, slope_r = y_c(1.0), dy_c(1.0)
+    y_l, slope_l = y_c(-1.0), dy_c(-1.0)
 
-  # smooth transition functions
-  S_right = 0.5 * (1 + tanh((x - 1) / ε))
-  S_left = 0.5 * (1 + tanh((-x - 1) / ε))
+    # smooth transition functions
+    S_right = 0.5 * (1 + tanh((x - 1) / ε))
+    S_left = 0.5 * (1 + tanh((-x - 1) / ε))
 
-  y_right = y_r + slope_r * (x - 1)
-  y_left = y_l + slope_l * (x + 1)
+    y_right = y_r + slope_r * (x - 1)
+    y_left = y_l + slope_l * (x + 1)
 
-  # smooth blending of inner and outer regions
-  y =
-    (1 - S_right - S_left) * y_c(x) +
-    S_right * y_right + #
-    S_left * y_left + #
-    origin
+    # smooth blending of inner and outer regions
+    y =
+        (1 - S_right - S_left) * y_c(x) +
+        S_right * y_right + #
+        S_left * y_left + #
+        origin
 
-  return y
+    return y
 end
 
 # x(i) = piecewise_mapping(
@@ -90,33 +90,33 @@ end
 #   yticks=nothing,
 # )
 
-function sector_mapping(θmin, θmax, ϕmin, ϕmax, ncells::NTuple{3,Int})
-  ni, nj, nk = ncells
+function sector_mapping(θmin, θmax, ϕmin, ϕmax, ncells::NTuple{3, Int})
+    ni, nj, nk = ncells
 
-  # Uniform spacings
-  Δθ = (θmax - θmin) / nj
-  Δϕ = (ϕmax - ϕmin) / nk
+    # Uniform spacings
+    Δθ = (θmax - θmin) / nj
+    Δϕ = (ϕmax - ϕmin) / nk
 
-  # Coordinate functions
-  r(i) = piecewise_smooth(
-    i,
-    ni, # N
-    11, # p
-    0.75, # fine_spacing_coef
-    70.0, # width
-    400.0, # origin
-    2.0, # offset
-    0.05, # ε transition smoothing
-  )
+    # Coordinate functions
+    r(i) = piecewise_smooth(
+        i,
+        ni, # N
+        11, # p
+        0.75, # fine_spacing_coef
+        70.0, # width
+        400.0, # origin
+        2.0, # offset
+        0.05, # ε transition smoothing
+    )
 
-  θ(j) = (θmin + (j - 1) * Δθ) / pi
-  ϕ(k) = (ϕmin + (k - 1) * Δϕ) / pi
+    θ(j) = (θmin + (j - 1) * Δθ) / pi
+    ϕ(k) = (ϕmin + (k - 1) * Δϕ) / pi
 
-  x(t, i, j, k, p) = r(i) * sinpi(θ(j)) * cospi(ϕ(k))
-  y(t, i, j, k, p) = r(i) * sinpi(θ(j)) * sinpi(ϕ(k))
-  z(t, i, j, k, p) = r(i) * cospi(θ(j))
+    x(t, i, j, k, p) = r(i) * sinpi(θ(j)) * cospi(ϕ(k))
+    y(t, i, j, k, p) = r(i) * sinpi(θ(j)) * sinpi(ϕ(k))
+    z(t, i, j, k, p) = r(i) * cospi(θ(j))
 
-  return (x, y, z)
+    return (x, y, z)
 end
 
 celldims = (100, 50, 50)
@@ -125,7 +125,7 @@ celldims = (100, 50, 50)
 
 x, y, z = sector_mapping(θmin, θmax, ϕmin, ϕmax, celldims);
 # backend = AutoForwardDiff()
-mesh = MappedGrid(x, y, z, (;), celldims, 5; backend=CPU())
+mesh = MappedGrid(x, y, z, (;), celldims, 5; backend = CPU())
 
 # gcl_identities, max_vals = gcl(mesh.edge_metrics, mesh.iterators.cell.domain, eps());
 save_vtk(mesh, "sector_ad_mesh")
@@ -133,9 +133,9 @@ save_vtk(mesh, "sector_ad_mesh")
 domain = mesh.iterators.cell.domain
 I₁, I₂, I₃ = CurvilinearGrids.GridTypes.gcl(face_metrics(mesh), domain)
 gcl_identities = (
-  all(abs.(I₁[domain]) .< 5e-13),
-  all(abs.(I₂[domain]) .< 5e-13),
-  all(abs.(I₃[domain]) .< 5e-13),
+    all(abs.(I₁[domain]) .< 5.0e-13),
+    all(abs.(I₂[domain]) .< 5.0e-13),
+    all(abs.(I₃[domain]) .< 5.0e-13),
 )
 max_vals = (maximum(abs, I₁[domain]), maximum(abs, I₂[domain]), maximum(abs, I₃[domain]))
 

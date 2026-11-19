@@ -63,7 +63,7 @@ Module docstrings SHOULD provide a concise high-level description.
 
 ## 4. Formatting
 
-- Source formatting MUST use JuliaFormatter with repository settings from `JuliaFormat.toml`.
+- Source formatting MUST use Runic 1.13.0, the version used by CI.
 
 ## 5. Module Imports
 

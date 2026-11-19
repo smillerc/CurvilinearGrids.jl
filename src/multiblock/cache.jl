@@ -10,8 +10,8 @@ Drop all cached interface maps.
 `nothing`.
 """
 function invalidate_interface_caches!(mb::MultiBlockMesh)
-  fill!(mb.cache.interfaces, nothing)
-  return nothing
+    fill!(mb.cache.interfaces, nothing)
+    return nothing
 end
 
 """
@@ -25,117 +25,117 @@ Build (or rebuild) per-interface transfer caches.
 # Returns
 `mb.cache.interfaces`.
 """
-function build_interface_caches!(mb::MultiBlockMesh{N,T}) where {N,T}
-  for (iface_id, iface) in pairs(mb.interfaces)
-    mb.cache.interfaces[iface_id] = _build_interface_cache(mb, iface, Val(N), T)
-  end
-  return mb.cache.interfaces
+function build_interface_caches!(mb::MultiBlockMesh{N, T}) where {N, T}
+    for (iface_id, iface) in pairs(mb.interfaces)
+        mb.cache.interfaces[iface_id] = _build_interface_cache(mb, iface, Val(N), T)
+    end
+    return mb.cache.interfaces
 end
 
 @inline function _ensure_interface_cache!(
-  mb::MultiBlockMesh{N,T}, iface_id::Int
-) where {N,T}
-  iface = mb.interfaces[iface_id]
-  cache = mb.cache.interfaces[iface_id]
-  if cache === nothing
-    cache = _build_interface_cache(mb, iface, Val(N), T)
-    mb.cache.interfaces[iface_id] = cache
+        mb::MultiBlockMesh{N, T}, iface_id::Int
+    ) where {N, T}
+    iface = mb.interfaces[iface_id]
+    cache = mb.cache.interfaces[iface_id]
+    if cache === nothing
+        cache = _build_interface_cache(mb, iface, Val(N), T)
+        mb.cache.interfaces[iface_id] = cache
+        return cache
+    end
+    left_block = mb.blocks[iface.left.block_id]
+    right_block = mb.blocks[iface.right.block_id]
+    if cache.left_state_token != _grid_state_token(left_block) ||
+            cache.right_state_token != _grid_state_token(right_block)
+        cache = _build_interface_cache(mb, iface, Val(N), T)
+        mb.cache.interfaces[iface_id] = cache
+    end
     return cache
-  end
-  left_block = mb.blocks[iface.left.block_id]
-  right_block = mb.blocks[iface.right.block_id]
-  if cache.left_state_token != _grid_state_token(left_block) ||
-    cache.right_state_token != _grid_state_token(right_block)
-    cache = _build_interface_cache(mb, iface, Val(N), T)
-    mb.cache.interfaces[iface_id] = cache
-  end
-  return cache
 end
 
 function _build_interface_cache(
-  mb::MultiBlockMesh{N}, iface::BlockInterface{N}, ::Val{N}, ::Type{T}
-) where {N,T}
-  left_block = mb.blocks[iface.left.block_id]
-  right_block = mb.blocks[iface.right.block_id]
+        mb::MultiBlockMesh{N}, iface::BlockInterface{N}, ::Val{N}, ::Type{T}
+    ) where {N, T}
+    left_block = mb.blocks[iface.left.block_id]
+    right_block = mb.blocks[iface.right.block_id]
 
-  left_interior, right_interior = _paired_interface_boundary_indices(mb, iface, Val(N))
-  left_ghost_axis = _face_axis_index(
-    Tuple(left_block.iterators.cell.domain.indices), iface.left, 1
-  )
-  right_ghost_axis = _face_axis_index(
-    Tuple(right_block.iterators.cell.domain.indices), iface.right, 1
-  )
-  left_ghost = [
-    _replace_axis(idx, iface.left.axis, left_ghost_axis, Val(N)) for idx in left_interior
-  ]
-  right_ghost = [
-    _replace_axis(idx, iface.right.axis, right_ghost_axis, Val(N)) for idx in right_interior
-  ]
-
-  if length(left_interior) != length(right_interior) ||
-    length(left_interior) != length(left_ghost) ||
-    length(right_interior) != length(right_ghost)
-    throw(
-      ArgumentError("Interface cache build failed due to inconsistent face index lengths.")
+    left_interior, right_interior = _paired_interface_boundary_indices(mb, iface, Val(N))
+    left_ghost_axis = _face_axis_index(
+        Tuple(left_block.iterators.cell.domain.indices), iface.left, 1
     )
-  end
-
-  A_lr = Vector{SMatrix{N,N,T}}(undef, length(left_interior))
-  A_rl = Vector{SMatrix{N,N,T}}(undef, length(left_interior))
-  left_centroids = _interface_centroid_coordinates(left_block)
-  right_centroids = _interface_centroid_coordinates(right_block)
-  for i in eachindex(left_interior)
-    ql = _as_coord_svector(
-      _interface_centroid(left_block, left_centroids, left_interior[i]), T, N
+    right_ghost_axis = _face_axis_index(
+        Tuple(right_block.iterators.cell.domain.indices), iface.right, 1
     )
-    qr = _as_coord_svector(
-      _interface_centroid(right_block, right_centroids, right_interior[i]), T, N
-    )
-    A_lr[i] = _basis_transfer_matrix(left_block, ql, right_block, qr, Val(N), T)
-    A_rl[i] = _basis_transfer_matrix(right_block, qr, left_block, ql, Val(N), T)
-  end
+    left_ghost = [
+        _replace_axis(idx, iface.left.axis, left_ghost_axis, Val(N)) for idx in left_interior
+    ]
+    right_ghost = [
+        _replace_axis(idx, iface.right.axis, right_ghost_axis, Val(N)) for idx in right_interior
+    ]
 
-  return InterfaceCache{N,T}(
-    left_interior,
-    right_interior,
-    left_ghost,
-    right_ghost,
-    A_lr,
-    A_rl,
-    _grid_state_token(left_block),
-    _grid_state_token(right_block),
-  )
+    if length(left_interior) != length(right_interior) ||
+            length(left_interior) != length(left_ghost) ||
+            length(right_interior) != length(right_ghost)
+        throw(
+            ArgumentError("Interface cache build failed due to inconsistent face index lengths.")
+        )
+    end
+
+    A_lr = Vector{SMatrix{N, N, T}}(undef, length(left_interior))
+    A_rl = Vector{SMatrix{N, N, T}}(undef, length(left_interior))
+    left_centroids = _interface_centroid_coordinates(left_block)
+    right_centroids = _interface_centroid_coordinates(right_block)
+    for i in eachindex(left_interior)
+        ql = _as_coord_svector(
+            _interface_centroid(left_block, left_centroids, left_interior[i]), T, N
+        )
+        qr = _as_coord_svector(
+            _interface_centroid(right_block, right_centroids, right_interior[i]), T, N
+        )
+        A_lr[i] = _basis_transfer_matrix(left_block, ql, right_block, qr, Val(N), T)
+        A_rl[i] = _basis_transfer_matrix(right_block, qr, left_block, ql, Val(N), T)
+    end
+
+    return InterfaceCache{N, T}(
+        left_interior,
+        right_interior,
+        left_ghost,
+        right_ghost,
+        A_lr,
+        A_rl,
+        _grid_state_token(left_block),
+        _grid_state_token(right_block),
+    )
 end
 
 @inline _interface_centroid_coordinates(grid) = nothing
 @inline function _interface_centroid_coordinates(grid::OrthogonalGrid)
-  return map(Array, grid.centroid_coordinates)
+    return map(Array, grid.centroid_coordinates)
 end
 
 @inline function _interface_centroid(grid, ::Nothing, idx)
-  return centroid(grid, idx)
+    return centroid(grid, idx)
 end
 
 @inline function _interface_centroid(
-  grid::OrthogonalGrid{N}, centroid_coordinates, idx::CartesianIndex{N}
-) where {N}
-  return ntuple(d -> centroid_coordinates[d][idx.I[d]], N)
+        grid::OrthogonalGrid{N}, centroid_coordinates, idx::CartesianIndex{N}
+    ) where {N}
+    return ntuple(d -> centroid_coordinates[d][idx.I[d]], N)
 end
 
 @inline function _replace_axis(
-  idx::CartesianIndex{N}, axis::Int, axis_value::Int, ::Val{N}
-) where {N}
-  vals = idx.I
-  return CartesianIndex(ntuple(i -> (i == axis ? axis_value : vals[i]), N))
+        idx::CartesianIndex{N}, axis::Int, axis_value::Int, ::Val{N}
+    ) where {N}
+    vals = idx.I
+    return CartesianIndex(ntuple(i -> (i == axis ? axis_value : vals[i]), N))
 end
 
 @inline function _basis_transfer_matrix(
-  donor::Union{AbstractMappedOrDiscreteGrid,AbstractOrthogonalGrid},
-  q_donor::SVector{N,T},
-  receiver::Union{AbstractMappedOrDiscreteGrid,AbstractOrthogonalGrid},
-  q_receiver::SVector{N,T},
-  ::Val{N},
-  ::Type{T},
-) where {N,T}
-  return basis_transfer_matrix(donor, q_donor, receiver, q_receiver)
+        donor::Union{AbstractMappedOrDiscreteGrid, AbstractOrthogonalGrid},
+        q_donor::SVector{N, T},
+        receiver::Union{AbstractMappedOrDiscreteGrid, AbstractOrthogonalGrid},
+        q_receiver::SVector{N, T},
+        ::Val{N},
+        ::Type{T},
+    ) where {N, T}
+    return basis_transfer_matrix(donor, q_donor, receiver, q_receiver)
 end
