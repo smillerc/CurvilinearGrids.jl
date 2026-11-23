@@ -287,9 +287,6 @@ end
 @inline function _coord_to_cartesian_jacobian(::CartesianCS, q::SVector{N, T}) where {N, T}
     return one(SMatrix{N, N, T})
 end
-@inline function _coord_to_cartesian_jacobian(::CurvilinearCS, q::SVector{N, T}) where {N, T}
-    return one(SMatrix{N, N, T})
-end
 @inline function _coord_to_cartesian_jacobian(
         ::CoordinateSystemTrait, q::SVector{N, T}
     ) where {N, T}

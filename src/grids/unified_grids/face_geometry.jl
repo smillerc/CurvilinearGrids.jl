@@ -178,12 +178,6 @@ end
 end
 
 @inline function _face_coord_to_cartesian_jacobian(
-        ::CurvilinearCS, q::SVector{N, T}
-    ) where {N, T}
-    return one(SMatrix{N, N, T})
-end
-
-@inline function _face_coord_to_cartesian_jacobian(
         ::AxisymmetricCS, q::SVector{2, T}
     ) where {T}
     return one(SMatrix{2, 2, T})
@@ -252,7 +246,6 @@ end
 #
 
 @inline _face_area_scale(::CoordinateSystemTrait, q::SVector{N, T}) where {N, T} = one(T)
-@inline _face_area_scale(::CurvilinearCS, q::SVector{N, T}) where {N, T} = one(T)
 @inline _face_area_scale(::CartesianCS, q::SVector{N, T}) where {N, T} = one(T)
 @inline _face_area_scale(::SphericalCS, q::SVector{N, T}) where {N, T} = one(T)
 @inline _face_area_scale(::CylindricalCS, q::SVector{1, T}) where {T} = T(2π) * abs(q[1])

@@ -1,5 +1,29 @@
 # MappedGrid type and constructors.
 
+"""
+    OrthogonalMapping(f1[, f2[, f3]])
+
+Define a mapping with one independent callback per native coordinate axis.
+Callback `fd(t, ξd, params)` receives only the computational coordinate for
+axis `d`. Pass the mapping to `MappedGrid` with the corresponding cell counts.
+"""
+struct OrthogonalMapping{N, F <: Tuple}
+    functions::F
+
+    function OrthogonalMapping(functions::Vararg{Any, N}) where {N}
+        N in 1:3 || throw(ArgumentError("OrthogonalMapping requires one to three callbacks."))
+        return new{N, typeof(functions)}(functions)
+    end
+end
+
+struct _AxisMappingComponent{D, F} <: Function
+    f::F
+end
+
+@inline function (m::_AxisMappingComponent{D})(t, args...) where {D}
+    return m.f(t, args[D], last(args))
+end
+
 struct _ReparameterizedMappingComponent{D, F, O, S} <: Function
     f::F
     origin::O
@@ -56,11 +80,20 @@ function reparameterize_mapping(
     )
     components = ntuple(Val(D)) do d
         f = getfield(mapping_functions, d)
-        _ReparameterizedMappingComponent{D, typeof(f), typeof(origin), typeof(scale)}(
-            f, origin, scale
-        )
+        _reparameterized_component(f, origin, scale, Val(D))
     end
     return NamedTuple{expected_keys}(components)
+end
+
+@inline function _reparameterized_component(f, origin, scale, ::Val{D}) where {D}
+    return _ReparameterizedMappingComponent{D, typeof(f), typeof(origin), typeof(scale)}(
+        f, origin, scale
+    )
+end
+
+@inline function _reparameterized_component(m::_AxisMappingComponent{D}, origin, scale, ::Val) where {D}
+    f = _reparameterized_component(m.f, (origin[D],), (scale[D],), Val(1))
+    return _AxisMappingComponent{D, typeof(f)}(f)
 end
 
 function reparameterize_mapping(
@@ -383,12 +416,14 @@ end
 
 """
     MappedGrid(x1[, x2[, x3]], params, celldims, nhalo; kwargs...)
+    MappedGrid(mapping::OrthogonalMapping, params, celldims, nhalo; kwargs...)
 
 Construct a mapped unified grid from continuous coordinate mapping functions.
 
 Mapping callbacks are evaluated as `x1(t, xi, params)` in 1D,
 `x1(t, xi, eta, params)`/`x2(t, xi, eta, params)` in 2D, and with
 `zeta` added in 3D.
+With `OrthogonalMapping`, each callback receives only its own computational axis.
 
 # Arguments
   - `x1`: Mapping function for the first physical coordinate.
@@ -409,7 +444,7 @@ Mapping callbacks are evaluated as `x1(t, xi, params)` in 1D,
     entirely.
   - `global_cell_indices`: Optional block-global `CartesianIndices` domain for
     the non-halo cells. Its size must equal `celldims`. Default: `nothing`.
-  - `coordinate_system`: Coordinate-system trait. Default: `CurvilinearCS()`.
+  - `coordinate_system`: Coordinate-system trait. Default: `CartesianCS()`.
   - `basis`: Basis trait. Default: `CartesianBasis()`.
   - `cache_mode`: Metric cache mode (`:eager`, `:lazy`, `:off`). Default: `:eager`.
   - `conserved_metric_scheme`: Conserved face reconstruction selector
@@ -432,7 +467,7 @@ function MappedGrid(
         T::Type = Float64,
         compute_metrics = true,
         global_cell_indices = nothing,
-        coordinate_system::CoordinateSystemTrait = CurvilinearCS(),
+        coordinate_system::CoordinateSystemTrait = CartesianCS(),
         basis::BasisTrait = CartesianBasis(),
         cache_mode::Symbol = :eager,
         conserved_metric_scheme::EdgeInterpolationSchemeTrait = CurvatureCorrectedReconstruction(),
@@ -471,7 +506,7 @@ function MappedGrid(
         T::Type = Float64,
         compute_metrics = true,
         global_cell_indices = nothing,
-        coordinate_system::CoordinateSystemTrait = CurvilinearCS(),
+        coordinate_system::CoordinateSystemTrait = CartesianCS(),
         basis::BasisTrait = CartesianBasis(),
         cache_mode::Symbol = :eager,
         conserved_metric_scheme::EdgeInterpolationSchemeTrait = CurvatureCorrectedReconstruction(),
@@ -511,7 +546,7 @@ function MappedGrid(
         T::Type = Float64,
         compute_metrics = true,
         global_cell_indices = nothing,
-        coordinate_system::CoordinateSystemTrait = CurvilinearCS(),
+        coordinate_system::CoordinateSystemTrait = CartesianCS(),
         basis::BasisTrait = CartesianBasis(),
         cache_mode::Symbol = :eager,
         conserved_metric_scheme::EdgeInterpolationSchemeTrait = CurvatureCorrectedReconstruction(),
@@ -536,6 +571,20 @@ function MappedGrid(
         cache_mode = cache_mode,
         conserved_metric_scheme = conserved_metric_scheme,
     )
+end
+
+function MappedGrid(
+        mapping::OrthogonalMapping{N},
+        params::NamedTuple,
+        celldims::NTuple{N, Int},
+        nhalo::Integer;
+        kwargs...,
+    ) where {N}
+    components = ntuple(Val(N)) do d
+        f = mapping.functions[d]
+        _AxisMappingComponent{d, typeof(f)}(f)
+    end
+    return MappedGrid(components..., params, celldims, Int(nhalo); kwargs...)
 end
 
 """

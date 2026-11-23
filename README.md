@@ -54,20 +54,84 @@ J = jacobian_matrix(grid, I)
 V = cellvolume(grid, I)
 ```
 
+## Orthogonal grids from mappings
+
+Use separable mappings to make an orthogonal grid: each physical coordinate
+depends on only one computational coordinate. `MappedGrid` uses node indices
+as computational coordinates. The first physical node is at index 1, and a
+dimension with `n` cells ends at index `n + 1`. The mappings must also be
+defined at halo-node indices.
+
+The examples below use two halo cells and positive radii. Their angular ranges
+stay away from the spherical poles, including the halo region. The coordinate
+system describes the physical coordinates; the basis describes vector
+components. Select a basis that your solver supports.
+
+```julia
+using CurvilinearGrids
+
+n = 16
+nhalo = 2
+p = (; n)
+
+# Each callback receives one computational coordinate.
+xmap(t, ξ, p) = (ξ - 1) / p.n
+rmap(t, ξ, p) = 1 + (ξ - 1) / p.n
+azimuth(t, ξ, p) = (π / 2) * (ξ - 1) / p.n
+θmap(t, ξ, p) = π / 4 + (π / 2) * (ξ - 1) / p.n
+
+cartesian_1d = MappedGrid(OrthogonalMapping(xmap), p, (n,), nhalo)
+cartesian_2d = MappedGrid(OrthogonalMapping(xmap, xmap), p, (n, n), nhalo)
+cartesian_3d = MappedGrid(OrthogonalMapping(xmap, xmap, xmap), p, (n, n, n), nhalo)
+
+# Cylindrical coordinates are (r), (r, axial), or (r, angle, axial).
+cyl = (; coordinate_system=CylindricalCS())
+cylindrical_1d = MappedGrid(OrthogonalMapping(rmap), p, (n,), nhalo; cyl...)
+cylindrical_2d = MappedGrid(OrthogonalMapping(rmap, xmap), p, (n, n), nhalo; cyl...)
+cylindrical_3d = MappedGrid(OrthogonalMapping(rmap, azimuth, xmap), p, (n, n, n), nhalo; cyl...)
+
+# The named axis is the axis of rotation. The other coordinate is the radius.
+axisymmetric_x = MappedGrid(OrthogonalMapping(xmap, rmap), p, (n, n), nhalo;
+    coordinate_system=AxisymmetricCS{:x}())
+axisymmetric_y = MappedGrid(OrthogonalMapping(rmap, xmap), p, (n, n), nhalo;
+    coordinate_system=AxisymmetricCS{:y}())
+
+# Spherical coordinates are (r), (r, θ), or (r, θ, ϕ). Angles are in radians.
+sph = (; coordinate_system=SphericalCS(), basis=SphericalBasis())
+spherical_1d = MappedGrid(OrthogonalMapping(rmap), p, (n,), nhalo; sph...)
+spherical_2d = MappedGrid(OrthogonalMapping(rmap, θmap), p, (n, n), nhalo; sph...)
+spherical_3d = MappedGrid(OrthogonalMapping(rmap, θmap, azimuth), p, (n, n, n), nhalo; sph...)
+
+orthogonal_geometry(cartesian_2d)  # OrthogonalGeometry()
+orthogonal_geometry(spherical_2d)  # OrthogonalGeometry()
+
+xnodes = range(0.0, 1.0; length=n + 1)
+ynodes = range(0.0, 2.0; length=n + 1)
+sampled = DiscreteGrid(xnodes, ynodes, nhalo)
+orthogonal_geometry(sampled)    # OrthogonalGeometry()
+```
+
+These grids use the mapped/discrete metric API. A solver can use
+`orthogonal_geometry(grid)` for dispatch and still select physical scales and
+vector components through `coordinate_system(grid)` and `basis_trait(grid)`.
+The 3D cylindrical coordinate chart supports Cartesian conversion. Its mapped
+face-flux geometry lacks the 3D cylindrical physical scaling.
+
 ## Unified Grid API
 
 ### Constructors
 
 ```julia
 MappedGrid(x1[, x2[, x3]], params::NamedTuple, celldims, nhalo; kwargs...)
+MappedGrid(OrthogonalMapping(f1[, f2[, f3]]), params, celldims, nhalo; kwargs...)
 DiscreteGrid(x[, y[, z]], nhalo; kwargs...)
-OrthogonalGrid(...; coordinate_system=..., kwargs...)
+CartesianOrthogonalGrid2D(xnodes, ynodes, nhalo, backend; kwargs...)
 ```
 
 Useful keyword arguments for `MappedGrid` and `DiscreteGrid`:
 - `cache_mode`: `:eager`, `:lazy`, or `:off`.
 - `compute_metrics`: `true` to populate metrics according to `cache_mode`; `false` to defer work, or to disable metric storage when paired with `cache_mode=:off`.
-- `coordinate_system`: `CurvilinearCS()`, `CartesianCS()`, `CylindricalCS()`, `SphericalCS()`, `AxisymmetricCS{:x|:y}()`.
+- `coordinate_system`: Defaults to `CartesianCS()`. Other choices are `CylindricalCS()`, `SphericalCS()`, `AxisymmetricCS{:x}()`, and `AxisymmetricCS{:y}()`.
 - `basis`: `CartesianBasis()` or `SphericalBasis()`.
 - `conserved_metric_scheme`: face reconstruction selector, such as
   `EndpointAverageReconstruction()`, `GradientCorrectedReconstruction()`, or

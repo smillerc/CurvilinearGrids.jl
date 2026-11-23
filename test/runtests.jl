@@ -55,6 +55,7 @@ const QUICK_TESTS = "--quick" in ARGS
 
     @info "Unified Grid Types"
     include("unit/test_unified_grid_types.jl")
+    include("unit/test_orthogonal_geometry.jl")
     include("unit/test_basis_transfer_api.jl")
     include("unit/test_unified_grid_backends.jl")
     include("unit/test_mapped_discrete_face_geometry.jl")

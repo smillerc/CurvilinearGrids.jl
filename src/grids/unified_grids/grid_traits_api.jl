@@ -15,7 +15,7 @@ Return the coordinate-system trait associated with a unified grid.
   - `grid`: Unified grid instance.
 
 # Returns
-Coordinate-system trait instance (for example `CurvilinearCS()` or `SphericalCS()`).
+Coordinate-system trait instance (for example `CartesianCS()` or `SphericalCS()`).
 """
 coordinate_system(grid::AbstractUnifiedGrid) = coordinate_system(typeof(grid))
 coordinate_system(grid::AbstractOrthogonalGrid) = coordinate_system(typeof(grid))
@@ -40,6 +40,39 @@ coordinate_system(::Type{<:MappedGrid{N, T, CS}}) where {N, T, CS} = CS()
 coordinate_system(::Type{<:DiscreteGrid{N, T, CS}}) where {N, T, CS} = CS()
 coordinate_system(::Type{<:OrthogonalGrid{N, T, CS}}) where {N, T, CS} = CS()
 
+"""
+    orthogonal_geometry(grid)
+    orthogonal_geometry(typeof(grid))
+
+Return `OrthogonalGeometry()` for a grid with certified independent native
+coordinates in an orthogonal coordinate system, or `GeneralGeometry()` otherwise.
+Certification describes the coordinate mapping. Solvers must check their own
+requirements for orientation, basis, and metric conventions.
+"""
+orthogonal_geometry(grid) = orthogonal_geometry(typeof(grid))
+orthogonal_geometry(::Type) = GeneralGeometry()
+
+orthogonal_geometry(::Type{<:OrthogonalGrid{N, T, CS}}) where {N, T, CS} =
+    _orthogonal_chart(CS(), Val(N))
+
+_orthogonal_mapping(::Type{<:Tuple}) = false
+_orthogonal_mapping(::Type{<:Tuple{_AxisMappingComponent{1}, _AxisMappingComponent{2}}}) = true
+_orthogonal_mapping(::Type{<:Tuple{_AxisMappingComponent{1}, _AxisMappingComponent{2}, _AxisMappingComponent{3}}}) = true
+
+function orthogonal_geometry(
+        ::Type{<:MappedGrid{N, T, CS, BT, NC, CC, FC, NamedTuple{K, F}}}
+    ) where {N, T, CS, BT, NC, CC, FC, K, F}
+    N == 1 && return _orthogonal_chart(CS(), Val(N))
+    return _orthogonal_mapping(F) ? _orthogonal_chart(CS(), Val(N)) : GeneralGeometry()
+end
+
+function orthogonal_geometry(
+        ::Type{<:DiscreteGrid{N, T, CS, BT, IP, NC, CC, FC, MF}}
+    ) where {N, T, CS, BT, IP, NC, CC, FC, MF}
+    axis_input = fieldtype(MF, 1) <: InterpolantMapping{N, <:Any, OrthogonalGeometry}
+    return axis_input ? _orthogonal_chart(CS(), Val(N)) : GeneralGeometry()
+end
+
 basis_trait(::Type{<:MappedGrid{N, T, CS, BT}}) where {N, T, CS, BT} = BT()
 basis_trait(::Type{<:DiscreteGrid{N, T, CS, BT}}) where {N, T, CS, BT} = BT()
 function basis_trait(::Type{<:AbstractOrthogonalGrid})
@@ -61,8 +94,8 @@ conserved_metric_scheme(grid::MappedGrid) = grid.conserved_metric_scheme
     cartesian_position(coordinate_system, q)
 
 Convert one native physical-coordinate point `q` to its Cartesian embedding.
-Tuple inputs return an `SVector`. Cartesian and general curvilinear coordinates
-are already Cartesian. One- and two-dimensional cylindrical coordinates and
+Tuple inputs return an `SVector`. Cartesian inputs retain their coordinate
+values. One- and two-dimensional cylindrical coordinates and
 two-dimensional axisymmetric coordinates represent reduced meridional spaces
 and are also returned unchanged. Spherical coordinates use `(r)`, `(r, θ)`,
 or `(r, θ, ϕ)`; three-dimensional cylindrical coordinates use
@@ -79,7 +112,6 @@ function cartesian_position end
 end
 
 @inline cartesian_position(::CartesianCS, q::SVector{N, T}) where {N, T} = q
-@inline cartesian_position(::CurvilinearCS, q::SVector{N, T}) where {N, T} = q
 @inline cartesian_position(::CylindricalCS, q::SVector{1, T}) where {T} = q
 @inline cartesian_position(::CylindricalCS, q::SVector{2, T}) where {T} = q
 @inline cartesian_position(::AxisymmetricCS, q::SVector{2, T}) where {T} = q
@@ -269,13 +301,6 @@ end
 
 @inline function _orthogonal_basis_to_cartesian_matrix(
         ::CartesianCS, q::SVector{N, T}, ::Val{N}, ::Type{T}
-    ) where {N, T}
-    _ = q
-    return _identity_basis_transfer(Val(N), T)
-end
-
-@inline function _orthogonal_basis_to_cartesian_matrix(
-        ::CurvilinearCS, q::SVector{N, T}, ::Val{N}, ::Type{T}
     ) where {N, T}
     _ = q
     return _identity_basis_transfer(Val(N), T)

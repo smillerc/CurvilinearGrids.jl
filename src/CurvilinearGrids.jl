@@ -43,12 +43,13 @@ export CartesianOrthogonalGrid1D,
     AxisymmetricOrthogonalGrid2D
 
 export AbstractUnifiedGrid
-export MappedGrid, DiscreteGrid, OrthogonalGrid
+export MappedGrid, DiscreteGrid, OrthogonalGrid, OrthogonalMapping
+export orthogonal_geometry, OrthogonalGeometry, GeneralGeometry
 export local_grid
 export Metric, ConservedMetric
 
 export CoordinateSystemTrait
-export CartesianCS, CylindricalCS, SphericalCS, AxisymmetricCS, CurvilinearCS
+export CartesianCS, CylindricalCS, SphericalCS, AxisymmetricCS
 
 export BasisTrait
 export CartesianBasis, SphericalBasis

@@ -25,8 +25,6 @@ end
         return "CylindricalCS"
     elseif cs isa SphericalCS
         return "SphericalCS"
-    elseif cs isa CurvilinearCS
-        return "CurvilinearCS"
     elseif cs isa AxisymmetricCS{:x}
         return "AxisymmetricCS{:x}"
     elseif cs isa AxisymmetricCS{:y}
@@ -47,14 +45,12 @@ end
 end
 
 @inline function _coordinate_system_from_tag(tag::AbstractString)
-    if tag == "CartesianCS"
+    if tag == "CartesianCS" || tag == "CurvilinearCS"
         return CartesianCS()
     elseif tag == "CylindricalCS"
         return CylindricalCS()
     elseif tag == "SphericalCS"
         return SphericalCS()
-    elseif tag == "CurvilinearCS"
-        return CurvilinearCS()
     elseif tag == "AxisymmetricCS{:x}"
         return AxisymmetricCS{:x}()
     elseif tag == "AxisymmetricCS{:y}"

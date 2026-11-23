@@ -7,6 +7,7 @@ and solver integration.
 
 ```julia
 MappedGrid
+OrthogonalMapping
 DiscreteGrid
 OrthogonalGrid
 
@@ -16,11 +17,14 @@ ConservedMetric
 FaceFluxGeometry
 ```
 
-## Coordinate Systems and Bases
+## Grid Geometry, Coordinate Systems, and Bases
 
 ```julia
+orthogonal_geometry
+OrthogonalGeometry
+GeneralGeometry
+
 CoordinateSystemTrait
-CurvilinearCS
 CartesianCS
 CylindricalCS
 SphericalCS

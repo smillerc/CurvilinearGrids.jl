@@ -13,6 +13,7 @@ solver-facing metric access.
 MappedGrid(xmap, params, celldims, nhalo; kwargs...)
 MappedGrid(xmap, ymap, params, celldims, nhalo; kwargs...)
 MappedGrid(xmap, ymap, zmap, params, celldims, nhalo; kwargs...)
+MappedGrid(OrthogonalMapping(f1[, f2[, f3]]), params, celldims, nhalo; kwargs...)
 ```
 
 Use it when mapping functions are part of the model and can be evaluated at
@@ -40,7 +41,8 @@ DiscreteGrid(xnodes, ynodes, znodes, nhalo; kwargs...)
 ```
 
 Use it for imported meshes, CAD-generated meshes, or any coordinate set without
-a trusted analytic map.
+a trusted analytic map. Supply one node vector per axis for tensor-product
+coordinates, or one full node array per coordinate for general geometry.
 
 ### `OrthogonalGrid`
 
@@ -53,12 +55,22 @@ volumes and areas. Orthogonal grids do not expose mapping metric tensors through
 ```julia
 coordinate_system(grid)
 basis_trait(grid)
+orthogonal_geometry(grid)
 ```
+
+`MappedGrid` and `DiscreteGrid` default to `CartesianCS()`. This describes
+the positions returned by the mapping, including for curved grids.
+
+`orthogonal_geometry(grid)` returns `OrthogonalGeometry()` for supported
+coordinate systems when the axes are independent by construction. This includes
+1D mapped and discrete grids, maps built with `OrthogonalMapping`, discrete
+grids built from axis vectors, and legacy `OrthogonalGrid` objects. The fallback
+is `GeneralGeometry()`. Use this trait to dispatch on the geometry structure.
+Algorithm-specific basis and metric requirements still apply.
 
 Supported coordinate-system traits include:
 
 ```julia
-CurvilinearCS()
 CartesianCS()
 CylindricalCS()
 SphericalCS()

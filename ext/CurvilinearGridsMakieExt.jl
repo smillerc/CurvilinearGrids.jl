@@ -478,7 +478,6 @@ end
 @inline _to_cartesian(q::NTuple{1, Any}, ::CurvilinearGrids.CoordinateSystemTrait) = q
 
 @inline _to_cartesian(q::NTuple{2, Any}, ::CurvilinearGrids.CartesianCS) = q
-@inline _to_cartesian(q::NTuple{2, Any}, ::CurvilinearGrids.CurvilinearCS) = q
 @inline _to_cartesian(q::NTuple{2, Any}, ::CurvilinearGrids.AxisymmetricCS{:x}) = q
 @inline _to_cartesian(q::NTuple{2, Any}, ::CurvilinearGrids.AxisymmetricCS{:y}) = q
 @inline _to_cartesian(q::NTuple{2, Any}, ::CurvilinearGrids.CylindricalCS) = q
@@ -490,7 +489,6 @@ function _to_cartesian((r, theta)::NTuple{2, Any}, ::CurvilinearGrids.SphericalC
 end
 
 @inline _to_cartesian(q::NTuple{3, Any}, ::CurvilinearGrids.CartesianCS) = q
-@inline _to_cartesian(q::NTuple{3, Any}, ::CurvilinearGrids.CurvilinearCS) = q
 
 function _to_cartesian((r, theta, z)::NTuple{3, Any}, ::CurvilinearGrids.CylindricalCS)
     x = @. r * cos(theta)
@@ -531,7 +529,7 @@ end
 end
 
 @inline _coordinate_system_trait(::CurvilinearGrids.AbstractCurvilinearGrid) =
-    CurvilinearGrids.CurvilinearCS()
+    CurvilinearGrids.CartesianCS()
 
 function _resolve_block_colors(n::Int, colors)
     if colors === nothing

@@ -2,7 +2,7 @@
 
 julia_version = "1.13.2"
 manifest_format = "2.1"
-project_hash = "d19aba6e7e9184e88957bdd4316cdf21a1736c8a"
+project_hash = "f256c5b5461cb08954a5c8578f9a39d25eb5fd16"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -279,7 +279,7 @@ version = "0.3.3"
 deps = ["Adapt", "CartesianDomains", "ChunkSplitters", "DifferentiationInterface", "FillArrays", "FiniteDifferences", "ForwardDiff", "HDF5", "Interpolations", "KernelAbstractions", "LinearAlgebra", "MappedArrays", "OffsetArrays", "Polyester", "Polynomials", "Roots", "Serialization", "Setfield", "SparseArrays", "SpecialFunctions", "StaticArrays", "StructArrays", "UnPack", "Unitful", "WriteVTK"]
 path = ".."
 uuid = "58b19789-dd19-4aa2-839c-c763a7b10301"
-version = "0.13.6"
+version = "0.14.0"
 
     [deps.CurvilinearGrids.extensions]
     CurvilinearGridsMakieExt = "Makie"

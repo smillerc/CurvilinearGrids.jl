@@ -99,7 +99,6 @@ struct CartesianCS <: CoordinateSystemTrait end
 struct CylindricalCS <: CoordinateSystemTrait end
 struct SphericalCS <: CoordinateSystemTrait end
 struct AxisymmetricCS{Axis} <: CoordinateSystemTrait end
-struct CurvilinearCS <: CoordinateSystemTrait end
 
 coordinate_system(::Type{<:AnyGrid}) -> CoordinateSystemTrait
 ```

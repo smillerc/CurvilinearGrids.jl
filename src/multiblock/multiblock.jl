@@ -7,7 +7,7 @@ using LinearAlgebra
 using StaticArrays
 
 import ..GridTypes: AbstractMappedOrDiscreteGrid, AbstractOrthogonalGrid, OrthogonalGrid
-import ..GridTypes: CoordinateSystemTrait, CartesianCS, CurvilinearCS, SphericalCS
+import ..GridTypes: CoordinateSystemTrait, CartesianCS, SphericalCS
 import ..GridTypes: BasisTrait, CartesianBasis, SphericalBasis
 import ..GridTypes: coordinate_system, basis_trait, basis_transfer_matrix
 import ..GridTypes: cartesian_position

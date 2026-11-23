@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.14.0 - 2026-11-23
+
+- Add `OrthogonalMapping`, axis-vector `DiscreteGrid` constructors, and
+  `orthogonal_geometry(grid)` for solver dispatch.
+- Default mapped and discrete grids to `CartesianCS()`. Replace explicit
+  `CurvilinearCS()` and its dispatch signatures with `CartesianCS()`. Mapped
+  HDF5 files with the historical tag read as Cartesian. Discrete HDF5 files
+  store full node arrays, so a multidimensional grid reconstructed from them
+  uses `GeneralGeometry()`.
+
 ## v0.13.7 - 2026-11-18
 
 - Fix multiblock face-normal validation.

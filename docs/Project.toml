@@ -2,7 +2,10 @@
 CurvilinearGrids = "58b19789-dd19-4aa2-839c-c763a7b10301"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 
+[sources]
+CurvilinearGrids = {path = ".."}
+
 [compat]
-CurvilinearGrids = "0.13.3"
+CurvilinearGrids = "0.14"
 Documenter = "1"
 julia = "1.13"

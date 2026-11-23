@@ -75,7 +75,7 @@ function _compute_discrete_node_coordinates!(grid::DiscreteGrid{N}, t, params) w
     )
 end
 
-struct InterpolantMapping{N, I}
+struct InterpolantMapping{N, I, G}
     itp::I
 end
 
@@ -397,7 +397,8 @@ end
     DiscreteGrid(x[, y[, z]], nhalo; kwargs...)
 
 Construct a discrete unified grid from coordinate arrays using linear
-interpolation.
+interpolation. Supply one vector per axis for orthogonal geometry, or one
+full node array per coordinate for a general multidimensional grid.
 
 Input arrays are node coordinates in computational-index order. By default they
 should exclude halo nodes; set `halo_coords_included=true` when the arrays
@@ -420,7 +421,7 @@ already include `nhalo` halo nodes on each side.
     entirely.
   - `halo_coords_included`: Include supplied halo nodes in the interpolation domain.
     When `false`, extrapolate halo coordinates from the physical nodes. Default: `false`.
-  - `coordinate_system`: Coordinate-system trait. Default: `CurvilinearCS()`.
+  - `coordinate_system`: Coordinate-system trait. Default: `CartesianCS()`.
   - `basis`: Basis trait. Default: `CartesianBasis()`.
   - `interpolation`: Interpolation mode. Must be `:linear`.
   - `cache_mode`: Metric cache mode (`:eager`, `:lazy`, `:off`). Default: `:eager`.
@@ -433,153 +434,97 @@ already include `nhalo` halo nodes on each side.
 A `DiscreteGrid{N,T,...}` instance with initialized coordinates and metric
 cache storage.
 """
-function DiscreteGrid(
-        x::AbstractVector{TX},
-        nhalo::Integer;
-        backend = CPU(),
-        diff_backend = AutoForwardDiff(),
-        T::Type = TX,
-        Tcore::Union{Nothing, Type} = nothing,
-        compute_metrics::Bool = true,
-        halo_coords_included = false,
-        coordinate_system::CoordinateSystemTrait = CurvilinearCS(),
-        basis::BasisTrait = CartesianBasis(),
-        interpolation::Symbol = :linear,
-        cache_mode::Symbol = :eager,
-        conserved_metric_scheme::EdgeInterpolationSchemeTrait = CurvatureCorrectedReconstruction(),
-    ) where {TX}
-    _validate_discrete_interpolation(interpolation)
+DiscreteGrid(x::AbstractVector, nhalo::Integer; kwargs...) =
+    _discrete_grid((x,), OrthogonalGeometry(), nhalo; kwargs...)
 
-    number_type = isnothing(Tcore) ? T : Tcore
-
-    @assert nhalo >= 0
-
-    supplied_halo = halo_coords_included ? nhalo : 0
-    x_itp = _linear_interpolant(number_type.(x), supplied_halo)
-    x_map = InterpolantMapping{1, typeof(x_itp)}(x_itp)
-
-    return _new_discrete_grid(
-        Val(1),
-        (; x1 = x_map),
-        (; x1 = x_itp),
-        (length(x) - 1 - 2supplied_halo,),
-        nhalo;
-        backend = backend,
-        diff_backend = diff_backend,
-        t = zero(number_type),
-        params = (;),
-        T = number_type,
-        compute_metrics = compute_metrics,
-        coordinate_system = coordinate_system,
-        basis = basis,
-        interpolation = interpolation,
-        cache_mode = cache_mode,
-        conserved_metric_scheme = conserved_metric_scheme,
-    )
+function DiscreteGrid(x::AbstractVector{T}, y::AbstractVector{T}, nhalo::Integer; kwargs...) where {T}
+    return _discrete_grid_from_axes((x, y), nhalo; kwargs...)
 end
 
 function DiscreteGrid(
-        x::AbstractArray{TX, 2},
-        y::AbstractArray{TX, 2},
-        nhalo::Integer;
-        backend = CPU(),
-        diff_backend = AutoForwardDiff(),
-        T::Type = TX,
-        Tcore::Union{Nothing, Type} = nothing,
-        compute_metrics::Bool = true,
-        halo_coords_included = false,
-        coordinate_system::CoordinateSystemTrait = CurvilinearCS(),
-        basis::BasisTrait = CartesianBasis(),
-        interpolation::Symbol = :linear,
-        cache_mode::Symbol = :eager,
-        conserved_metric_scheme::EdgeInterpolationSchemeTrait = CurvatureCorrectedReconstruction(),
-    ) where {TX}
-    size(x) == size(y) ||
-        throw(ArgumentError("x and y arrays must have matching dimensions."))
-    _validate_discrete_interpolation(interpolation)
-
-    number_type = isnothing(Tcore) ? T : Tcore
-
-    @assert nhalo >= 0
-
-    supplied_halo = halo_coords_included ? nhalo : 0
-    x_itp = _linear_interpolant(number_type.(x), supplied_halo)
-    y_itp = _linear_interpolant(number_type.(y), supplied_halo)
-
-    x_map = InterpolantMapping{2, typeof(x_itp)}(x_itp)
-    y_map = InterpolantMapping{2, typeof(y_itp)}(y_itp)
-
-    return _new_discrete_grid(
-        Val(2),
-        (; x1 = x_map, x2 = y_map),
-        (; x1 = x_itp, x2 = y_itp),
-        size(x) .- (1 + 2supplied_halo),
-        nhalo;
-        backend = backend,
-        diff_backend = diff_backend,
-        t = zero(number_type),
-        params = (;),
-        T = number_type,
-        compute_metrics = compute_metrics,
-        coordinate_system = coordinate_system,
-        basis = basis,
-        interpolation = interpolation,
-        cache_mode = cache_mode,
-        conserved_metric_scheme = conserved_metric_scheme,
-    )
+        x::AbstractVector{T}, y::AbstractVector{T}, z::AbstractVector{T}, nhalo::Integer; kwargs...
+    ) where {T}
+    return _discrete_grid_from_axes((x, y, z), nhalo; kwargs...)
 end
 
 function DiscreteGrid(
-        x::AbstractArray{TX, 3},
-        y::AbstractArray{TX, 3},
-        z::AbstractArray{TX, 3},
-        nhalo::Integer;
-        backend = CPU(),
-        diff_backend = AutoForwardDiff(),
-        T::Type = TX,
-        Tcore::Union{Nothing, Type} = nothing,
-        compute_metrics::Bool = true,
-        halo_coords_included = false,
-        coordinate_system::CoordinateSystemTrait = CurvilinearCS(),
-        basis::BasisTrait = CartesianBasis(),
-        interpolation::Symbol = :linear,
-        cache_mode::Symbol = :eager,
-        conserved_metric_scheme::EdgeInterpolationSchemeTrait = CurvatureCorrectedReconstruction(),
-    ) where {TX}
-    (size(x) == size(y) && size(y) == size(z)) ||
+        x::AbstractMatrix{T}, y::AbstractMatrix{T}, nhalo::Integer; kwargs...
+    ) where {T}
+    size(x) == size(y) || throw(ArgumentError("x and y arrays must have matching dimensions."))
+    return _discrete_grid((x, y), GeneralGeometry(), nhalo; kwargs...)
+end
+
+function DiscreteGrid(
+        x::AbstractArray{T, 3}, y::AbstractArray{T, 3}, z::AbstractArray{T, 3}, nhalo::Integer;
+        kwargs...,
+    ) where {T}
+    size(x) == size(y) == size(z) ||
         throw(ArgumentError("x, y, and z arrays must have matching dimensions."))
+    return _discrete_grid((x, y, z), GeneralGeometry(), nhalo; kwargs...)
+end
+
+function _discrete_grid_from_axes(
+        axes::NTuple{N, AbstractVector}, nhalo::Integer;
+        halo_coords_included = false, backend = CPU(), kwargs...,
+    ) where {N}
+    _validate_discrete_backend(backend)
+    @assert nhalo >= 0
+    supplied_halo = halo_coords_included ? nhalo : 0
+    dimensions = map(length, axes)
+    all(n -> n >= 2 + 2supplied_halo, dimensions) ||
+        throw(ArgumentError("Each axis vector must contain at least two physical nodes."))
+
+    node_indices = CartesianIndices(dimensions)
+    coordinates = ntuple(Val(N)) do d
+        axis = axes[d]
+        offset = firstindex(axis) - 1
+        [axis[I[d] + offset] for I in node_indices]
+    end
+    return _discrete_grid(
+        coordinates, OrthogonalGeometry(), nhalo; halo_coords_included, backend, kwargs...
+    )
+end
+
+function _discrete_grid(
+        coordinates::NTuple{N, AbstractArray}, geometry::G, nhalo::Integer;
+        backend = CPU(),
+        diff_backend = AutoForwardDiff(),
+        T::Type = eltype(first(coordinates)),
+        Tcore::Union{Nothing, Type} = nothing,
+        compute_metrics = true,
+        halo_coords_included = false,
+        coordinate_system::CoordinateSystemTrait = CartesianCS(),
+        basis::BasisTrait = CartesianBasis(),
+        interpolation::Symbol = :linear,
+        cache_mode::Symbol = :eager,
+        conserved_metric_scheme::EdgeInterpolationSchemeTrait = CurvatureCorrectedReconstruction(),
+    ) where {N, G}
     _validate_discrete_interpolation(interpolation)
 
     number_type = isnothing(Tcore) ? T : Tcore
-
     @assert nhalo >= 0
-
     supplied_halo = halo_coords_included ? nhalo : 0
-    x_itp = _linear_interpolant(number_type.(x), supplied_halo)
-    y_itp = _linear_interpolant(number_type.(y), supplied_halo)
-    z_itp = _linear_interpolant(number_type.(z), supplied_halo)
-
-    x_map = InterpolantMapping{3, typeof(x_itp)}(x_itp)
-    y_map = InterpolantMapping{3, typeof(y_itp)}(y_itp)
-    z_map = InterpolantMapping{3, typeof(z_itp)}(z_itp)
+    interpolants = map(A -> _linear_interpolant(number_type.(A), supplied_halo), coordinates)
+    mappings = map(itp -> InterpolantMapping{N, typeof(itp), G}(itp), interpolants)
+    keys = _mapping_component_keys(Val(N))
 
     return _new_discrete_grid(
-        Val(3),
-        (; x1 = x_map, x2 = y_map, x3 = z_map),
-        (; x1 = x_itp, x2 = y_itp, x3 = z_itp),
-        size(x) .- (1 + 2supplied_halo),
-        nhalo;
-        backend = backend,
-        diff_backend = diff_backend,
+        Val(N),
+        NamedTuple{keys}(mappings),
+        NamedTuple{keys}(interpolants),
+        size(first(coordinates)) .- (1 + 2supplied_halo),
+        Int(nhalo);
+        backend,
+        diff_backend,
         t = zero(number_type),
         params = (;),
         T = number_type,
-        compute_metrics = compute_metrics,
-        coordinate_system = coordinate_system,
-        basis = basis,
-        interpolation = interpolation,
-        cache_mode = cache_mode,
-        conserved_metric_scheme = conserved_metric_scheme,
+        compute_metrics,
+        coordinate_system,
+        basis,
+        interpolation,
+        cache_mode,
+        conserved_metric_scheme,
     )
 end
 

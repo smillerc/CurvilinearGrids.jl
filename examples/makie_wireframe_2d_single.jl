@@ -19,7 +19,7 @@ mapped = MappedGrid(
     NHALO;
     compute_metrics = false,
     cache_mode = :off,
-    coordinate_system = CurvilinearCS(),
+    coordinate_system = CartesianCS(),
     basis = CartesianBasis(),
 )
 
@@ -30,7 +30,7 @@ discrete = DiscreteGrid(
     NHALO;
     compute_metrics = false,
     cache_mode = :off,
-    coordinate_system = CurvilinearCS(),
+    coordinate_system = CartesianCS(),
     basis = CartesianBasis(),
 )
 

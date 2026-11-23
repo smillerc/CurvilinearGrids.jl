@@ -55,7 +55,7 @@ struct CustomCartesianLikeCS <: CoordinateSystemTrait end
     )
 
     @test cartesian_position(CartesianCS(), (1, 2)) == SVector(1, 2)
-    @test cartesian_position(CurvilinearCS(), SVector(1.0f0, 2.0f0)) === SVector(1.0f0, 2.0f0)
+    @test cartesian_position(CartesianCS(), SVector(1.0f0, 2.0f0)) === SVector(1.0f0, 2.0f0)
     @test cartesian_position(CustomCartesianLikeCS(), SVector(1.0, 2.0)) == SVector(1.0, 2.0)
     @test cartesian_position(CylindricalCS(), (2.0, 3.0)) == SVector(2.0, 3.0)
     @test cartesian_position(AxisymmetricCS{:x}(), (2.0, 3.0)) == SVector(2.0, 3.0)
@@ -108,7 +108,7 @@ end
     @test !hasproperty(dgrid, :discretization_scheme)
     @test !hasproperty(dgrid, :discretization_scheme_name)
     @test dgrid.interpolation === :linear
-    @test coordinate_system(dgrid) isa CurvilinearCS
+    @test coordinate_system(dgrid) isa CartesianCS
     @test basis_trait(dgrid) isa CartesianBasis
     @test fieldtype(typeof(dgrid), :mapping_functions) !== Any
     @test fieldtype(typeof(dgrid), :metric_functions_cache) !== Any
@@ -287,7 +287,7 @@ end
     @test !hasproperty(mgrid, :legacy)
     @test !hasproperty(mgrid, :discretization_scheme)
     @test !hasproperty(mgrid, :discretization_scheme_name)
-    @test coordinate_system(mgrid) isa CurvilinearCS
+    @test coordinate_system(mgrid) isa CartesianCS
     @test basis_trait(mgrid) isa CartesianBasis
     @test fieldtype(typeof(mgrid), :mapping_functions) !== Any
     @test fieldtype(typeof(mgrid), :metric_functions_cache) !== Any

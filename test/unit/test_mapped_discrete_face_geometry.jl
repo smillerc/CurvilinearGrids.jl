@@ -1,12 +1,6 @@
 function _mapped_discrete_face_geometry_cases()
     return (
         (;
-            name = "1D CurvilinearCS",
-            dim = Val(1),
-            coordinate_system = CurvilinearCS(),
-            basis = CartesianBasis(),
-        ),
-        (;
             name = "1D CartesianCS",
             dim = Val(1),
             coordinate_system = CartesianCS(),
@@ -23,12 +17,6 @@ function _mapped_discrete_face_geometry_cases()
             dim = Val(1),
             coordinate_system = SphericalCS(),
             basis = SphericalBasis(),
-        ),
-        (;
-            name = "2D CurvilinearCS",
-            dim = Val(2),
-            coordinate_system = CurvilinearCS(),
-            basis = CartesianBasis(),
         ),
         (;
             name = "2D CartesianCS",
@@ -59,12 +47,6 @@ function _mapped_discrete_face_geometry_cases()
             dim = Val(2),
             coordinate_system = SphericalCS(),
             basis = SphericalBasis(),
-        ),
-        (;
-            name = "3D CurvilinearCS",
-            dim = Val(3),
-            coordinate_system = CurvilinearCS(),
-            basis = CartesianBasis(),
         ),
         (;
             name = "3D CartesianCS",

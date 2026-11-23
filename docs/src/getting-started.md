@@ -91,7 +91,6 @@ CylindricalCS()
 SphericalCS()
 AxisymmetricCS{:x}()
 AxisymmetricCS{:y}()
-CurvilinearCS()
 ```
 
 Mapped and discrete grids also carry a basis trait:

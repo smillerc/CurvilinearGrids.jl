@@ -219,3 +219,60 @@ end
     @test abs(central_derivative_naive(vals[1:6]...)) > 0 &&
         iszero(central_derivative(vals[1:6]...))
 end
+
+@testset "MEG6 curved geometry preserves a uniform Euler flux" begin
+    ξ = range(0.0, 1.0; length = 49)
+    x = [a + 0.035 * sinpi(2a) * sinpi(2b) for a in ξ, b in ξ]
+    y = [b + 0.025 * sinpi(2a) * sinpi(2b) for a in ξ, b in ξ]
+    grid = CurvilinearGrid2D(x, y, :MEG6; backend = CPU())
+    domain = grid.iterators.cell.domain
+    gx, gy = CurvilinearGrids.GridTypes.gcl(grid.edge_metrics, domain)
+
+    # The two residual arrays cover the whole domain, including both endpoints
+    # of each axis where geometry is available only on the inward side.
+    @test maximum(abs, gx[domain]) < 1.0e-12
+    @test maximum(abs, gy[domain]) < 1.0e-12
+
+    ρ, u, v, p, E = 1.0, 0.3, -0.2, 1.0, 2.565
+    flux_x = (ρ * u, ρ * u^2 + p, ρ * u * v, (E + p) * u)
+    flux_y = (ρ * v, ρ * u * v, ρ * v^2 + p, (E + p) * v)
+    residual = maximum(domain) do I
+        maximum(abs(flux_x[k] * gx[I] + flux_y[k] * gy[I]) for k in eachindex(flux_x))
+    end
+    @test residual < 1.0e-12
+end
+
+@testset "3D curved MEG6 metric identities and uniform flux" begin
+    ξ, η, ζ = map(n -> range(0.0, 1.0; length = n + 1), (18, 20, 22))
+    warp(a, b, c) = sinpi(2a) * sinpi(2b) * sinpi(2c)
+    x = [a + 0.03 * warp(a, b, c) for a in ξ, b in η, c in ζ]
+    y = [b - 0.025 * warp(a, b, c) for a in ξ, b in η, c in ζ]
+    z = [c + 0.02 * warp(a, b, c) for a in ξ, b in η, c in ζ]
+
+    ρ, u, v, w, p, E = 1.0, 0.3, -0.2, 0.15, 1.0, 2.57625
+    fx = (ρ * u, ρ * u^2 + p, ρ * u * v, ρ * u * w, (E + p) * u)
+    fy = (ρ * v, ρ * u * v, ρ * v^2 + p, ρ * v * w, (E + p) * v)
+    fz = (ρ * w, ρ * u * w, ρ * v * w, ρ * w^2 + p, (E + p) * w)
+
+    # On this mapping the symmetric scheme has a larger boundary residual
+    # than the standard scheme. Use separate bounds from the baseline kernels.
+    for (scheme, tolerance) in ((:MEG6, 1.0e-13), (:MEG6_SYMMETRIC, 1.0e-11))
+        @testset "$scheme" begin
+            grid = CurvilinearGrid3D(x, y, z, scheme; backend = CPU())
+            domain = grid.iterators.cell.domain
+            gx, gy, gz = CurvilinearGrids.GridTypes.gcl(grid.edge_metrics, domain)
+
+            # Include all six boundary planes and their intersections.
+            @test maximum(abs, gx[domain]) < tolerance
+            @test maximum(abs, gy[domain]) < tolerance
+            @test maximum(abs, gz[domain]) < tolerance
+            uniform_residual = maximum(domain) do I
+                maximum(
+                    abs(fx[k] * gx[I] + fy[k] * gy[I] + fz[k] * gz[I])
+                        for k in eachindex(fx)
+                )
+            end
+            @test uniform_residual < tolerance
+        end
+    end
+end

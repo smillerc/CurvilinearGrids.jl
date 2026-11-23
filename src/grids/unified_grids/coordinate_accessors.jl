@@ -63,7 +63,6 @@ end
 
 @inline _cartesian_coordinates(::CoordinateSystemTrait, q) = q
 @inline _cartesian_coordinates(::CartesianCS, q) = q
-@inline _cartesian_coordinates(::CurvilinearCS, q) = q
 @inline _cartesian_coordinates(::AxisymmetricCS, q) = q
 @inline _cartesian_coordinates(::CylindricalCS, q) = q
 
@@ -99,8 +98,6 @@ end
 @inline _tensor_product_coordinates(x::AbstractArray, y::AbstractArray) = (x, y)
 
 @inline _cartesian_centroids(::CartesianCS, q::NTuple{2, Any}) =
-    _tensor_product_coordinates(q...)
-@inline _cartesian_centroids(::CurvilinearCS, q::NTuple{2, Any}) =
     _tensor_product_coordinates(q...)
 @inline _cartesian_centroids(::AxisymmetricCS, q::NTuple{2, Any}) =
     _tensor_product_coordinates(q...)

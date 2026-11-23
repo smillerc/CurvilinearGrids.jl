@@ -1,5 +1,6 @@
 using Unitful
 using KernelAbstractions
+using HDF5: h5open, delete_object
 
 mapped2d_x(t, ξ, η, p) = ξ + p.αx * sin(η / p.Lη)
 mapped2d_y(t, ξ, η, p) = η + p.αy * cos(ξ / p.Lξ)
@@ -144,7 +145,7 @@ function initialize_mesh_Mapped2D()
         5;
         compute_metrics = false,
         cache_mode = :off,
-        coordinate_system = CurvilinearCS(),
+        coordinate_system = CartesianCS(),
         basis = CartesianBasis(),
     )
 end
@@ -359,4 +360,20 @@ end
     @test coord(mesh2D_0, ξη) ≈ coord(mesh2D, ξη)
     @test typeof(coordinate_system(mesh2D)) == typeof(coordinate_system(mesh2D_0))
     @test typeof(basis_trait(mesh2D)) == typeof(basis_trait(mesh2D_0))
+end
+
+@testset "Historical Cartesian tag in mapped HDF5 files" begin
+    grid = initialize_mesh_Mapped2D()
+    mktempdir() do dir
+        path = joinpath(dir, "legacy.h5")
+        write_coordinates(grid, path, u"cm")
+        h5open(path, "r+") do file
+            @test read(file, "coordinate_system_trait") == "CartesianCS"
+            delete_object(file, "coordinate_system_trait")
+            file["coordinate_system_trait"] = "CurvilinearCS"
+        end
+        loaded = read_coordinates(path; compute_metrics = false, cache_mode = :off)
+        @test coordinate_system(loaded) === CartesianCS()
+        @test coords(loaded) == coords(grid)
+    end
 end
